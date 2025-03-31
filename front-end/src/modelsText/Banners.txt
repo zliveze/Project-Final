@@ -1,0 +1,15 @@
+{
+  "_id": "ObjectId",
+  "title": "string",           // Tiêu đề banner
+  "campaignId": "string",      // ID của chiến dịch liên kết
+  "desktopImage": "string",    // URL ảnh cho desktop
+  "mobileImage": "string",     // URL ảnh cho mobile
+  "alt": "string",             // Mô tả alt cho ảnh
+  "href": "string",            // Link khi click vào banner (ví dụ: /shop?campaign=xxx)
+  "active": "boolean",         // Trạng thái hiển thị
+  "order": "number",           // Thứ tự hiển thị
+  "startDate": "date",          // Ngày bắt đầu hiển thị banner (tùy chọn)
+  "endDate": "date",            // Ngày kết thúc hiển thị banner (tùy chọn)
+  "createdAt": "date",
+  "updatedAt": "date"
+} 

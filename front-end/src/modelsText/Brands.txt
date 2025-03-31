@@ -1,0 +1,20 @@
+{
+  "_id": "ObjectId",
+  "name": "string", // Tên thương hiệu
+  "description": "string", // Mô tả thương hiệu
+  "logo": {
+    "url": "string",
+    "alt": "string"
+  },
+  "origin": "string", // Xuất xứ thương hiệu
+  "website": "string",
+  "featured": "boolean",
+  "status": "string", // ["active", "inactive"]
+  "socialMedia": {
+    "facebook": "string",
+    "instagram": "string",
+    "youtube": "string"
+  },
+  "createdAt": "date",
+  "updatedAt": "date"
+}

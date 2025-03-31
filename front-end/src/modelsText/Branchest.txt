@@ -1,0 +1,8 @@
+{
+  "_id": "ObjectId",
+  "name": "string", // Tên chi nhánh
+  "address": "string", // Địa chỉ chi nhánh
+  "contact": "string", // Liên hệ chi nhánh
+  "createdAt": "date",
+  "updatedAt": "date"
+}

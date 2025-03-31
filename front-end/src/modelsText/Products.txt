@@ -1,0 +1,109 @@
+{
+  "_id": "ObjectId",
+  "sku": "string",               // Mã SKU duy nhất cho sản phẩm
+  "name": "string",              // Tên sản phẩm
+  "slug": "string",              // URL-friendly name
+  "description": {
+    "short": "string",           // Mô tả ngắn
+    "full": "string"             // Mô tả đầy đủ
+  },
+  "seo": {
+    "metaTitle": "string",
+    "metaDescription": "string",
+    "keywords": ["string"]
+  },
+  "price": "number",             // Giá gốc
+  "currentPrice": "number",      // Giá hiện tại (có thể thay đổi theo Event/Campaign)
+  "status": "string",            // ["active", "out_of_stock", "discontinued"]
+  "brandId": "ObjectId",         // Thương hiệu mỹ phẩm
+  "categoryIds": ["ObjectId"],   // Có thể thuộc nhiều danh mục (ví dụ: chăm sóc da, trang điểm)
+  "tags": ["string"],            // Tags (ví dụ: chống nắng, dưỡng ẩm)
+  
+  "cosmetic_info": {
+    "skinType": ["string"],      // Loại da phù hợp (dầu, khô, hỗn hợp, nhạy cảm)
+    "concerns": ["string"],      // Vấn đề da (mụn, lão hóa, tàn nhang)
+    "ingredients": ["string"],   // Thành phần chính
+    "volume": {
+      "value": "number",         // Dung tích
+      "unit": "string"           // ml, g, oz
+    },
+    "usage": "string",           // Hướng dẫn sử dụng
+    "madeIn": "string",          // Xuất xứ
+    "expiry": {
+      "shelf": "number",         // Hạn sử dụng (tháng)
+      "afterOpening": "number"   // Hạn sau khi mở (tháng)
+    }
+  },
+  
+  "variants": [
+    {
+      "variantId": "ObjectId",
+      "sku": "string",           // SKU của biến thể
+      "options": {
+        "color": "string",       // Màu sắc (nếu có)
+        "shade": "string",       // Tone màu (cho son, phấn)
+        "size": "string"         // Kích thước (mini, full size)
+      },
+      "price": "number",         // Giá cho biến thể này (nếu khác với giá cơ bản)
+      "images": ["string"]       // URL ảnh cho biến thể
+    }
+  ],
+  
+  "images": [
+    {
+      "url": "string",
+      "alt": "string",
+      "isPrimary": "boolean"
+    }
+  ],
+  
+  "inventory": [
+    {
+      "branchId": "ObjectId",
+      "quantity": "number",      // Số lượng tồn kho tại chi nhánh
+      "lowStockThreshold": "number"  // Ngưỡng cảnh báo hết hàng
+    }
+  ],
+  
+  "reviews": {
+    "averageRating": "number",   // Điểm đánh giá trung bình
+    "reviewCount": "number"      // Số lượng đánh giá
+  },
+  
+  "flags": {
+    "isBestSeller": "boolean",
+    "isNew": "boolean",
+    "isOnSale": "boolean",
+    "hasGifts": "boolean"        // Đánh dấu sản phẩm có quà tặng kèm
+  },
+  
+  "gifts": [                     // Danh sách quà tặng kèm khi mua sản phẩm
+    {
+      "giftId": "ObjectId",      // ID của sản phẩm quà tặng
+      "name": "string",          // Tên quà tặng
+      "description": "string",   // Mô tả quà tặng
+      "image": {
+        "url": "string",
+        "alt": "string"
+      },
+      "quantity": "number",      // Số lượng quà tặng
+      "value": "number",         // Giá trị quà tặng
+      "type": "string",          // Loại quà tặng: ["product", "sample", "voucher", "other"]
+      "conditions": {
+        "minPurchaseAmount": "number",  // Số tiền mua tối thiểu để nhận quà
+        "minQuantity": "number",        // Số lượng sản phẩm mua tối thiểu
+        "startDate": "date",            // Ngày bắt đầu chương trình tặng quà
+        "endDate": "date",              // Ngày kết thúc chương trình tặng quà
+        "limitedQuantity": "number"     // Số lượng quà tặng giới hạn
+      },
+      "status": "string"         // Trạng thái: ["active", "inactive", "out_of_stock"]
+    }
+  ],
+  
+  "relatedProducts": ["ObjectId"],    // Sản phẩm liên quan
+  "relatedEvents": ["ObjectId"],      // Event liên quan
+  "relatedCampaigns": ["ObjectId"],   // Campaign liên quan
+  
+  "createdAt": "date",
+  "updatedAt": "date"
+}

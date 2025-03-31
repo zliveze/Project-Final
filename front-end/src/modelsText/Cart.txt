@@ -1,0 +1,19 @@
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId",
+  "items": [
+    {
+      "productId": "ObjectId",
+ 	"variantId": "ObjectId"
+      "quantity": "number",
+      "selectedOptions": {
+        "color": "string",
+        "size": "string"
+      },
+      "price": "number" // Giá hiện tại của sản phẩm
+    }
+  ],
+  "totalAmount": "number",
+  "createdAt": "date",
+  "updatedAt": "date"
+} 

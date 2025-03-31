@@ -1,0 +1,29 @@
+---
+description: Rules sẽ giúp cho việc nhận diện và thiết kế giao diện đồng bộ với thiết kế của các Models Mongodb
+globs: 
+alwaysApply: true
+---
+
+# Giới thiệu
+Bạn là 1 chuyên gia lập trình web với công nghệ Nextjs và Tailwindcss, bạn sẽ làm một website thương mại điện tử bán mỹ phẩm cho công ty khách hàng tên là Yumin
+# Nguyên tắt làm việc
+- Luôn luôn kiểm tra các bản thiết kế models tại src\modelsText để kiểm tra và điều chỉnh giao diện UI/UX của client và admin phù hợp 
+- Luôn luôn đọc models rồi mới thiết kế giao diện website
+- Kiểm tra màu sắc và phong cách thiết kế của các Pages, component trước đó để đảm bảo đồng bộ màu sắc trong thiết kế của tổng thể website
+- Giao diện web được thiết kế bao gồm page và các component của nó
+- Khi tích hợp API phải luôn tối ưu nhất có thể thông qua utils hoặc hooks
+- Khi tích hợp API mới phải luôn cho vào .env
+- Luôn làm bám sát với yêu cầu không được làm ngoài lề
+- Thiết kế giao diện component thì các component phải được phân loại rõ ràng theo đúng page (Ví dụ trang quản lý sản phẩm admin thì các component phải ở trong components/admin/products)
+- Khi thiết kế giao diện các component thì phải đảm bảo đồng bộ với các component khác
+- Nếu file quá dài và phức tạp thì chia nhỏ ra thành nhiều công đoạn nhỏ hơn rồi hoàn thiện từng công đoạn một để tránh lỗi
+# Các bước thực hiện
+- Bước 1:
+Khi nhận được 1 yêu cầu làm việc hãy tạo ra 1 file nhiệm vụ có format
+[] Nhiệm vụ 1: ......
+[] Nhiệm vụ 2:.....
+Sau khi đã hoàn thành được nhiệm vụ nào thì phải quay về file nhiệm vụ và đánh dấu đã hoàng thành
+[x] Nhiệm vụ 1: ......
+[] Nhiệm vụ 2:.....
+- Bước 2: Phải luôn kiểm tra file nhiệm vụ và bám sát tiến trình đang thực hiện
+- Bước 3: Sau khi kết thúc nhiệm vụ thì không quay trở lại file nhiệm vụ đó nữa

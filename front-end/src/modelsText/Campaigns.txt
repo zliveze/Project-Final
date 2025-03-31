@@ -1,0 +1,17 @@
+{
+  "_id": "ObjectId",
+  "title": "string",
+  "description": "string",
+  "type": "string", // ["Hero Banner", "Sale Event"]
+  "startDate": "date",
+  "endDate": "date",
+  "products": [
+    {
+      "productId": "ObjectId",
+ "variantId": "ObjectId", 
+      "adjustedPrice": "number" // Giá sản phẩm trong thời gian Campaign
+    }
+  ],
+  "createdAt": "date",
+  "updatedAt": "date"
+}

@@ -1,0 +1,17 @@
+{
+  "_id": "ObjectId",
+  "name": "string", // Tên danh mục
+  "description": "string", // Mô tả danh mục
+  "slug": "string",
+  "parentId": "ObjectId", // Danh mục cha (nếu có)
+  "level": "number", // Cấp độ của danh mục
+  "image": {
+    "url": "string",
+    "alt": "string"
+  },
+  "status": "string", // ["active", "inactive"]
+  "featured": "boolean",
+  "order": "number", // Thứ tự hiển thị
+  "createdAt": "date",
+  "updatedAt": "date"
+}

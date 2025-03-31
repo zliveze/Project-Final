@@ -1,0 +1,30 @@
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId",
+  "products": [
+    {
+      "productId": "ObjectId",
+	"variantId": "ObjectId",     // Thêm trường này để xác định biến thể 
+    "options": {                 // Thêm trường này để lưu tùy chọn đã chọn
+      "shade": "string",
+      "size": "string"
+    },
+      "quantity": "number",
+      "price": "number" // Giá tại thời điểm đặt hàng
+    }
+  ],
+  "totalPrice": "number", // Tổng giá trị trước giảm giá
+  "voucher": {
+    "voucherId": "ObjectId", // ID mã giảm giá áp dụng
+    "discountAmount": "number" // Số tiền được giảm
+  },
+  "finalPrice": "number", // Giá cuối cùng sau giảm giá
+  "status": "string", // ["pending", "shipped", "completed", "cancelled"]
+  "shippingInfo": {
+    "address": "string",
+    "contact": "string"
+  },
+  "branchId": "ObjectId",
+  "createdAt": "date",
+  "updatedAt": "date"
+}

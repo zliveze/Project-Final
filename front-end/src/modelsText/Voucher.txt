@@ -1,0 +1,18 @@
+{
+  "_id": "ObjectId",
+  "code": "string", // Mã giảm giá
+  "description": "string",
+  "discountType": "string", // ["percentage", "fixed"]
+  "discountValue": "number",
+  "minimumOrderValue": "number",
+  "startDate": "date",
+  "endDate": "date",
+  "usageLimit": "number", // Tổng số lần sử dụng
+  "usedCount": "number", // Số lần đã sử dụng
+  "usedByUsers": ["ObjectId"], // ID người dùng đã áp dụng voucher
+  "applicableProducts": ["ObjectId"],
+  "applicableCategories": ["ObjectId"],
+  "isActive": "boolean" default: true,
+  "createdAt": "date",
+  "updatedAt": "date"
+}

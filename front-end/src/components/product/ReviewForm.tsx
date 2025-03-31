@@ -1,0 +1,235 @@
+import React, { useState } from 'react';
+import { FiUpload, FiX } from 'react-icons/fi';
+import Image from 'next/image';
+import { toast } from 'react-toastify';
+
+interface ReviewFormProps {
+  productId: string;
+  onCancel: () => void;
+  onSubmitSuccess: () => void;
+}
+
+const ReviewForm: React.FC<ReviewFormProps> = ({
+  productId,
+  onCancel,
+  onSubmitSuccess,
+}) => {
+  const [rating, setRating] = useState(5);
+  const [content, setContent] = useState('');
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Xử lý khi chọn ảnh
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      
+      // Giới hạn số lượng ảnh tối đa là 5
+      if (images.length + filesArray.length > 5) {
+        toast.error('Bạn chỉ có thể tải lên tối đa 5 ảnh', {
+          position: "bottom-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+      
+      // Kiểm tra kích thước file (tối đa 5MB mỗi ảnh)
+      const validFiles = filesArray.filter(file => file.size <= 5 * 1024 * 1024);
+      if (validFiles.length !== filesArray.length) {
+        toast.error('Một số ảnh vượt quá kích thước tối đa 5MB', {
+          position: "bottom-right",
+          autoClose: 3000,
+        });
+      }
+      
+      // Tạo URL preview cho ảnh
+      const newImagePreviewUrls = validFiles.map(file => URL.createObjectURL(file));
+      
+      setImages([...images, ...validFiles]);
+      setImagePreviewUrls([...imagePreviewUrls, ...newImagePreviewUrls]);
+    }
+  };
+
+  // Xử lý khi xóa ảnh
+  const handleRemoveImage = (index: number) => {
+    const newImages = [...images];
+    const newImagePreviewUrls = [...imagePreviewUrls];
+    
+    // Giải phóng URL object để tránh rò rỉ bộ nhớ
+    URL.revokeObjectURL(newImagePreviewUrls[index]);
+    
+    newImages.splice(index, 1);
+    newImagePreviewUrls.splice(index, 1);
+    
+    setImages(newImages);
+    setImagePreviewUrls(newImagePreviewUrls);
+  };
+
+  // Xử lý khi gửi đánh giá
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (content.trim().length < 10) {
+      toast.error('Nội dung đánh giá phải có ít nhất 10 ký tự', {
+        position: "bottom-right",
+        autoClose: 3000,
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Mô phỏng gửi đánh giá thành công
+      // Trong thực tế, bạn sẽ gửi dữ liệu lên server ở đây
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success('Đánh giá của bạn đã được gửi thành công', {
+        position: "bottom-right",
+        autoClose: 3000,
+      });
+      
+      // Giải phóng tất cả URL objects
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+      
+      onSubmitSuccess();
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi gửi đánh giá', {
+        position: "bottom-right",
+        autoClose: 3000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-gray-200">
+      <h3 className="text-lg font-medium text-gray-800 mb-4">Viết đánh giá của bạn</h3>
+      
+      <form onSubmit={handleSubmit}>
+        {/* Đánh giá sao */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Đánh giá của bạn
+          </label>
+          <div className="flex items-center">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setRating(star)}
+                className="p-1 focus:outline-none"
+              >
+                <svg
+                  className={`w-8 h-8 ${
+                    star <= rating ? 'text-yellow-400' : 'text-gray-300'
+                  }`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </button>
+            ))}
+            <span className="ml-2 text-sm text-gray-600">
+              {rating === 1 && 'Rất không hài lòng'}
+              {rating === 2 && 'Không hài lòng'}
+              {rating === 3 && 'Bình thường'}
+              {rating === 4 && 'Hài lòng'}
+              {rating === 5 && 'Rất hài lòng'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Nội dung đánh giá */}
+        <div className="mb-6">
+          <label htmlFor="review-content" className="block text-sm font-medium text-gray-700 mb-2">
+            Nội dung đánh giá
+          </label>
+          <textarea
+            id="review-content"
+            rows={4}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#306E51] focus:border-[#306E51]"
+            required
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Tối thiểu 10 ký tự. Hiện tại: {content.length} ký tự
+          </p>
+        </div>
+        
+        {/* Tải lên ảnh */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Thêm hình ảnh (tùy chọn)
+          </label>
+          
+          <div className="flex flex-wrap gap-3">
+            {/* Hiển thị ảnh đã chọn */}
+            {imagePreviewUrls.map((url, index) => (
+              <div key={index} className="relative h-24 w-24 border rounded-md overflow-hidden">
+                <Image
+                  src={url}
+                  alt={`Ảnh đánh giá ${index + 1}`}
+                  fill
+                  className="object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md text-gray-600 hover:text-red-500"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+            ))}
+            
+            {/* Nút tải lên ảnh */}
+            {images.length < 5 && (
+              <label className="h-24 w-24 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                <FiUpload className="text-gray-400 mb-1" size={20} />
+                <span className="text-xs text-gray-500">Tải ảnh lên</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          
+          <p className="mt-1 text-xs text-gray-500">
+            Tối đa 5 ảnh, mỗi ảnh không quá 5MB
+          </p>
+        </div>
+        
+        {/* Nút gửi và hủy */}
+        <div className="flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            disabled={isSubmitting}
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-[#306E51] text-white rounded-md hover:bg-[#265a42] disabled:bg-gray-400"
+            disabled={isSubmitting || content.trim().length < 10}
+          >
+            {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default ReviewForm; 

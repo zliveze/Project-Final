@@ -1,0 +1,17 @@
+{
+  "_id": "ObjectId",
+  "title": "string",
+  "description": "string",
+  "tags": ["string"], // Có thể giữ hoặc bỏ, nếu chỉ dùng ID
+  "startDate": "date",
+  "endDate": "date",
+  "products": [
+    {
+      "productId": "ObjectId",
+ "variantId": "ObjectId", 
+      "adjustedPrice": "number" // Giá sản phẩm trong thời gian Event
+    }
+  ],
+  "createdAt": "date",
+  "updatedAt": "date"
+}

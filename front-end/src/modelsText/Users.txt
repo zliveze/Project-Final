@@ -1,0 +1,27 @@
+{
+  "_id": "ObjectId",
+  "name": "string", // Tên người dùng
+  "email": "string", // Email đăng ký
+  "phone": "string", // Số điện thoại
+  "password": "string", // Mật khẩu đã mã hóa (nếu đăng ký thủ công)
+  "googleId": "string", // ID Google (nếu đăng nhập bằng Google)
+  "addresses": [
+    {
+      "addressId": "ObjectId", // ID của địa chỉ (hoặc có thể lưu trực tiếp)
+      "addressLine": "string", // Ví dụ: "123 Đường ABC, Quận XYZ"
+      "city": "string", // Thành phố
+      "state": "string", // Tỉnh/Bang
+      "country": "string", // Quốc gia
+      "postalCode": "string", // Mã bưu điện
+      "isDefault": "boolean" // Địa chỉ mặc định
+    }
+  ],
+  "role": "string", // ["user", "admin","superadmin"] // Tổ chức của người dùng
+  "isActive": "boolean", // Đã đăng nhập hay chưa
+  "isVerified": "boolean", // Đã xác minh hay chưa
+  "isBanned": "boolean", // Đã bị cấm
+  "isDeleted": "boolean", // Đã xóa hay chưa
+  "wishlist": ["ObjectId","variantId": "ObjectId"], // Danh sách sản phẩm yêu thích
+  "createdAt": "date",
+  "updatedAt": "date"
+}

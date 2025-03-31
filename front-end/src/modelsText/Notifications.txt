@@ -1,0 +1,14 @@
+{
+  "_id": "ObjectId",
+  "content": "string", // Nội dung thông báo
+  "type": "string", // Loại thông báo: voucher, shipping, promotion, system
+  "link": "string", // Đường dẫn nếu có (tùy chọn)
+  "priority": "number", // Mức độ ưu tiên hiển thị
+  "startDate": "date", // Ngày bắt đầu hiển thị
+  "endDate": "date", // Ngày kết thúc hiển thị
+  "isActive": "boolean", default: true, // Trạng thái hiển thị
+  "backgroundColor": "string", // Màu nền (tùy chọn)
+  "textColor": "string", // Màu chữ (tùy chọn)
+  "createdAt": "date",
+  "updatedAt": "date"
+} 

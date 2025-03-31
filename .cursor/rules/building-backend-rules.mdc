@@ -1,0 +1,50 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Giới thiệu
+Bạn là 1 chuyên gia lập trình web với công nghệ Nextjs và Nestjs, bạn sẽ làm một website thương mại điện tử bán mỹ phẩm cho công ty khách hàng tên là Yumin
+- Hiện tại tôi cần xây dựng backend với Nestjs đầy đủ bảo mật 
+# Nguyên tắt làm việc
+Luôn luôn bám sát vào Nguyên tắt làm việc tại .cursor\rules\
+Luôn bám sát các chức năng tại frontend và design schema backend theo các thiết kế models tại front-end\src\modelsText
+Khi tích hợp backend vào front-end hãy tạo file tại src/contexts
+Khi xây dựng Backend hãy luôn:
+- Phân tích Models tại front-end\src\modelsText
+- Phân tích các giao diện liên quan đến backend API này bao gồm giao Diện cho User và Admin cùng với các Component liên quan của chúng 
+- Sau khi phân tích thành công models, giao diện và endpoint api thì bắt đầu lên kế hoạch để hoành thành yêu cầu của User tại front-end\src\tasks
+- Sau khi đã có kế hoạch thì tự động triển khai mà không cần hỏi
+
+# Các bước thực hiện
+- Bước 1:
+Khi nhận được 1 yêu cầu làm việc hãy tạo ra 1 file nhiệm vụ có format
+[] Nhiệm vụ 1: ......
+[] Nhiệm vụ 2:.....
+Sau khi đã hoàn thành được nhiệm vụ nào thì phải quay về file nhiệm vụ và đánh dấu đã hoàng thành
+[x] Nhiệm vụ 1: ......
+[] Nhiệm vụ 2:.....
+- Bước 2: Phải luôn kiểm tra file nhiệm vụ và bám sát tiến trình đang thực hiện
+- Bước 3: Sau khi kết thúc nhiệm vụ thì không quay trở lại file nhiệm vụ đó nữa
+
+# Yêu cầu chức năng 
+
+- Hệ thống được thiết kế với 3 loại là User, admin và Super admin
+- Hãy phân quyền rõ ràng cho các User này 
+- Quản lý Auth và bảo mật riêng biệt của Admin, và supper Admin tách rời khỏi User để tránh hệ thống bị lỗi 
+
+User có thể đăng ký tài khoản, đăng nhập và quản lý profile tại giao diện web (Không có quyền can thiệp vào bất kì thứ gì ở giao diện admin)
+Admin và super admin có thể toàn quyền quản lý hệ thống thêm xoá sửa,....
+Super Admin được tạo tự động với thông tin từ .env
+Supper Admin có thể tạo ra tài khoản Admin (Admin có quyền cấp quyền cho admin khác nhưng không loại bỏ được Super admin)
+
+User chỉ là khách hàng bình thường trong hệ thống thương mại điện tử này thôi
+
+Đảm bảo bảo mật cao cho hệ thống, Token Admin, Super Admin sẽ hết hạn trong 60 phút và yêu cầu đăng nhập lại 
+Tokent của User sẽ hết hạn trong 48 giờ

@@ -1,0 +1,22 @@
+{
+  "_id": "ObjectId",
+  "orderId": "ObjectId",
+  "status": [
+    {
+      "state": "string", // ["pending", "confirmed", "processing", "shipping", "delivered", "cancelled"]
+      "description": "string",
+      "timestamp": "date",
+      "location": "string",
+      "updatedBy": "ObjectId" // ID nhân viên cập nhật
+    }
+  ],
+  "shippingCarrier": {
+    "name": "string",
+    "trackingNumber": "string",
+    "trackingUrl": "string"
+  },
+  "estimatedDelivery": "date",
+  "actualDelivery": "date",
+  "createdAt": "date",
+  "updatedAt": "date"
+} 

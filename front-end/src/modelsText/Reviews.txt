@@ -1,0 +1,27 @@
+{
+  "_id": "ObjectId",
+  "productId": "ObjectId",
+"variantId": "ObjectId",
+  "userId": "ObjectId",
+  "orderId": "ObjectId",
+  "rating": "number", // Đánh giá 1-5 sao
+  "content": "string",
+  "images": [
+    {
+      "url": "string",
+      "alt": "string"
+    }
+  ],
+  "likes": "number",
+  "verified": "boolean", // Xác nhận đã mua hàng
+  "status": "string", // ["pending", "approved", "rejected"]
+  "reply": [
+    {
+      "userId": "ObjectId",
+      "content": "string",
+      "createdAt": "date"
+    }
+  ],
+  "createdAt": "date",
+  "updatedAt": "date"
+} 

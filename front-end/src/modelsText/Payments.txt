@@ -1,0 +1,24 @@
+{
+  "_id": "ObjectId",
+  "orderId": "ObjectId",
+  "userId": "ObjectId",
+  "amount": "number",
+  "method": "string", // ["credit_card", "momo", "zalopay", "bank_transfer", "cod"]
+  "status": "string", // ["pending", "completed", "failed", "refunded"]
+  "transactionId": "string",
+  "paymentDetails": {
+    "cardLast4": "string",
+    "bankName": "string",
+    "accountNumber": "string"
+  },
+  "refundHistory": [
+    {
+      "amount": "number",
+      "reason": "string",
+      "status": "string",
+      "processedAt": "date"
+    }
+  ],
+  "createdAt": "date",
+  "updatedAt": "date"
+} 
