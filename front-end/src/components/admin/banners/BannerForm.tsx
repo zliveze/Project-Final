@@ -127,7 +127,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
       return;
     }
 
-    // Create a preview URL
+    // Tạo URL cho preview
     const previewUrl = URL.createObjectURL(file);
     
     if (imageType === 'desktopImage') {
@@ -136,20 +136,59 @@ const BannerForm: React.FC<BannerFormProps> = ({
       setMobilePreview(previewUrl);
     }
 
-    // TODO: In a real app, you would upload the image to a server and get back a URL
-    // For now, just use the preview URL
-    setFormData(prev => ({
-      ...prev,
-      [imageType]: previewUrl
-    }));
+    // Nén ảnh và chuyển đổi sang base64
+    compressAndConvertToBase64(file, imageType, file.type, 0.7, 1200);
+  };
 
-    // Clear error
-    if (errors[imageType]) {
-      setErrors(prev => ({
-        ...prev,
-        [imageType]: ''
-      }));
-    }
+  // Hàm nén ảnh và chuyển đổi sang base64
+  const compressAndConvertToBase64 = (file: File, imageType: 'desktopImage' | 'mobileImage', fileType: string, quality: number, maxWidth: number) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    
+    reader.onload = (event) => {
+      const img = document.createElement('img');
+      img.src = event.target?.result as string;
+      
+      img.onload = () => {
+        // Tạo canvas để nén ảnh
+        const canvas = document.createElement('canvas');
+        
+        // Tính toán kích thước mới giữ nguyên tỷ lệ
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+          const ratio = maxWidth / width;
+          width = maxWidth;
+          height = height * ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Chuyển đổi canvas thành base64 với chất lượng được nén
+          const dataUrl = canvas.toDataURL(fileType, quality);
+          
+          // Cập nhật state với chuỗi base64 đã nén
+          setFormData(prev => ({
+            ...prev,
+            [imageType]: dataUrl
+          }));
+          
+          // Clear error
+          if (errors[imageType]) {
+            setErrors(prev => ({
+              ...prev,
+              [imageType]: ''
+            }));
+          }
+        }
+      };
+    };
   };
 
   // Xóa ảnh

@@ -91,6 +91,23 @@ const nextConfig: NextConfig = {
         source: '/api/admin/notifications',
         destination: 'http://localhost:3001/admin/notifications',
       },
+      // Thêm proxy cho Banner API
+      {
+        source: '/banners/active',
+        destination: 'http://localhost:3001/banners/active',
+      },
+      {
+        source: '/banners/:path*',
+        destination: 'http://localhost:3001/banners/:path*',
+      },
+      {
+        source: '/api/admin/banners/:path*',
+        destination: 'http://localhost:3001/admin/banners/:path*',
+      },
+      {
+        source: '/api/admin/banners',
+        destination: 'http://localhost:3001/admin/banners',
+      },
     ];
   },
 };

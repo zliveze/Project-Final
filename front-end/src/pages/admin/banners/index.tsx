@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FiPlus, FiAlertCircle } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -7,63 +7,9 @@ import BannerModal from '@/components/admin/banners/BannerModal';
 import BannerForm from '@/components/admin/banners/BannerForm';
 import BannerDetail from '@/components/admin/banners/BannerDetail';
 import BannerDeleteConfirm from '@/components/admin/banners/BannerDeleteConfirm';
-import { Banner } from '@/components/admin/banners/BannerForm';
-
-// Dữ liệu mẫu
-const sampleBanners: Banner[] = [
-  {
-    _id: 'banner1',
-    title: 'Valentine - Chạm tim deal ngọt ngào',
-    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg1.png?v=608',
-    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile2.png?v=608',
-    alt: 'Valentine Campaign',
-    campaignId: 'valentine-2024',
-    href: '/shop?campaign=valentine-2024',
-    active: true,
-    order: 1,
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15')
-  },
-  {
-    _id: 'banner2',
-    title: 'Tết rộn ràng - Sale cực khủng',
-    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg2.png?v=608',
-    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile1.png?v=608',
-    alt: 'Tết Campaign',
-    campaignId: 'tet-2024',
-    href: '/shop?campaign=tet-2024',
-    active: true,
-    order: 2,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-12')
-  },
-  {
-    _id: 'banner3',
-    title: 'Năm mới - Deal hời',
-    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg3.png?v=608',
-    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile3.png?v=608',
-    alt: 'New Year Campaign',
-    campaignId: 'new-year-2024',
-    href: '/shop?campaign=new-year-2024',
-    active: true,
-    order: 3,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-05')
-  },
-  {
-    _id: 'banner4',
-    title: 'Đẹp chuẩn - Giá tốt',
-    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg4.png?v=608',
-    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile4.png?v=608',
-    alt: 'Beauty Campaign',
-    campaignId: 'beauty-special',
-    href: '/shop?campaign=beauty-special',
-    active: false,
-    order: 4,
-    createdAt: new Date('2023-12-20'),
-    updatedAt: new Date('2023-12-25')
-  }
-];
+import { useBanner, Banner, BannerFormData } from '@/contexts/BannerContext';
+import { toast } from 'react-hot-toast';
+import { Banner as BannerFormType } from '@/components/admin/banners/BannerForm';
 
 enum ModalType {
   NONE = 'none',
@@ -75,22 +21,69 @@ enum ModalType {
 
 export default function AdminBanners() {
   const router = useRouter();
-  const [banners, setBanners] = useState<Banner[]>(sampleBanners);
+  const { 
+    banners, 
+    loading, 
+    error, 
+    stats,
+    pagination,
+    fetchBanners, 
+    fetchBannerById, 
+    createBanner, 
+    updateBanner, 
+    deleteBanner, 
+    toggleBannerStatus, 
+    changeBannerOrder,
+    fetchBannerStats
+  } = useBanner();
+  
   const [currentBanner, setCurrentBanner] = useState<Banner | null>(null);
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Lấy dữ liệu banner từ API
-  // useEffect(() => {
-  //   // TODO: Fetch banners from API
-  // }, []);
+  // Tải dữ liệu banner khi trang được truy cập lần đầu hoặc khi router thay đổi
+  useEffect(() => {
+    // Hàm tải dữ liệu banner
+    const loadBanners = async () => {
+      try {
+        console.log('Tải dữ liệu banner từ trang admin/banners');
+        await fetchBanners();
+        await fetchBannerStats();
+      } catch (error) {
+        console.error('Lỗi khi tải dữ liệu banner:', error);
+      }
+    };
+
+    // Chỉ tải dữ liệu khi router đã sẵn sàng
+    if (router.isReady) {
+      loadBanners();
+    }
+
+    // Hàm xử lý khi chuyển route
+    const handleRouteComplete = (url: string) => {
+      // Chỉ tải dữ liệu khi chuyển đến trang banner
+      if (url.includes('/admin/banners')) {
+        loadBanners();
+      }
+    };
+
+    // Đăng ký sự kiện router change
+    router.events.on('routeChangeComplete', handleRouteComplete);
+
+    // Hủy đăng ký sự kiện khi component unmount
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteComplete);
+    };
+  }, [router.isReady]);
 
   // Mở modal xem chi tiết banner
-  const handleViewBanner = (id: string) => {
-    const banner = banners.find(b => b._id === id);
-    if (banner) {
+  const handleViewBanner = async (id: string) => {
+    try {
+      const banner = await fetchBannerById(id);
       setCurrentBanner(banner);
       setModalType(ModalType.VIEW);
+    } catch (error) {
+      toast.error('Không thể lấy thông tin banner');
     }
   };
 
@@ -101,20 +94,24 @@ export default function AdminBanners() {
   };
 
   // Mở modal chỉnh sửa banner
-  const handleEditBanner = (id: string) => {
-    const banner = banners.find(b => b._id === id);
-    if (banner) {
+  const handleEditBanner = async (id: string) => {
+    try {
+      const banner = await fetchBannerById(id);
       setCurrentBanner(banner);
       setModalType(ModalType.EDIT);
+    } catch (error) {
+      toast.error('Không thể lấy thông tin banner');
     }
   };
 
   // Mở modal xóa banner
-  const handleDeleteBanner = (id: string) => {
-    const banner = banners.find(b => b._id === id);
-    if (banner) {
+  const handleDeleteBanner = async (id: string) => {
+    try {
+      const banner = await fetchBannerById(id);
       setCurrentBanner(banner);
       setModalType(ModalType.DELETE);
+    } catch (error) {
+      toast.error('Không thể lấy thông tin banner');
     }
   };
 
@@ -124,66 +121,53 @@ export default function AdminBanners() {
     setCurrentBanner(null);
   };
 
+  // Xử lý thay đổi trạng thái banner
+  const handleToggleStatus = async (id: string) => {
+    try {
+      await toggleBannerStatus(id);
+      toast.success('Đã thay đổi trạng thái banner');
+    } catch (error) {
+      toast.error('Không thể thay đổi trạng thái banner');
+    }
+  };
+
   // Xử lý thay đổi thứ tự banner
-  const handleChangeOrder = (id: string, direction: 'up' | 'down') => {
-    const newBanners = [...banners];
-    const index = newBanners.findIndex(b => b._id === id);
-    
-    if (index === -1) return;
-    
-    // Nếu di chuyển lên và không phải banner đầu tiên
-    if (direction === 'up' && index > 0) {
-      // Hoán đổi thứ tự hiển thị
-      const temp = newBanners[index].order;
-      newBanners[index].order = newBanners[index - 1].order;
-      newBanners[index - 1].order = temp;
-      
-      // Sắp xếp lại mảng theo thứ tự
-      newBanners.sort((a, b) => a.order - b.order);
+  const handleChangeOrder = async (id: string, direction: 'up' | 'down') => {
+    try {
+      await changeBannerOrder(id, direction);
+      toast.success('Đã thay đổi thứ tự banner');
+    } catch (error) {
+      toast.error('Không thể thay đổi thứ tự banner');
     }
-    
-    // Nếu di chuyển xuống và không phải banner cuối cùng
-    if (direction === 'down' && index < newBanners.length - 1) {
-      // Hoán đổi thứ tự hiển thị
-      const temp = newBanners[index].order;
-      newBanners[index].order = newBanners[index + 1].order;
-      newBanners[index + 1].order = temp;
-      
-      // Sắp xếp lại mảng theo thứ tự
-      newBanners.sort((a, b) => a.order - b.order);
-    }
-    
-    setBanners(newBanners);
-    
-    // TODO: Gọi API cập nhật thứ tự banner
+  };
+
+  // Chuyển đổi Banner từ context sang BannerForm
+  const convertToFormBanner = (banner: Banner): BannerFormType => {
+    return {
+      _id: banner._id,
+      title: banner.title,
+      campaignId: banner.campaignId || '',
+      desktopImage: banner.desktopImage,
+      mobileImage: banner.mobileImage,
+      alt: banner.alt || '',
+      href: banner.href || '',
+      active: banner.active,
+      order: banner.order,
+      createdAt: banner.createdAt,
+      updatedAt: banner.updatedAt
+    };
   };
 
   // Xử lý thêm mới banner
-  const handleSubmitAdd = async (data: Partial<Banner>) => {
+  const handleSubmitAdd = async (data: Partial<BannerFormType>) => {
     setIsSubmitting(true);
     
     try {
-      // TODO: Gọi API thêm mới banner
-      console.log('Thêm mới banner:', data);
-      
-      // Mô phỏng thêm mới thành công
-      const newBanner: Banner = {
-        _id: `banner${banners.length + 1}`,
-        title: data.title || '',
-        desktopImage: data.desktopImage || '',
-        mobileImage: data.mobileImage || '',
-        alt: data.alt || '',
-        campaignId: data.campaignId || '',
-        href: data.href || '',
-        active: data.active !== undefined ? data.active : true,
-        order: data.order || banners.length + 1,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      setBanners([...banners, newBanner]);
+      await createBanner(data as BannerFormData);
+      toast.success('Đã thêm banner mới');
       handleCloseModal();
     } catch (error) {
+      toast.error('Không thể thêm banner mới');
       console.error('Lỗi khi thêm mới banner:', error);
     } finally {
       setIsSubmitting(false);
@@ -191,30 +175,17 @@ export default function AdminBanners() {
   };
 
   // Xử lý cập nhật banner
-  const handleSubmitEdit = async (data: Partial<Banner>) => {
+  const handleSubmitEdit = async (data: Partial<BannerFormType>) => {
     if (!currentBanner) return;
     
     setIsSubmitting(true);
     
     try {
-      // TODO: Gọi API cập nhật banner
-      console.log('Cập nhật banner:', data);
-      
-      // Mô phỏng cập nhật thành công
-      const updatedBanners = banners.map(banner => {
-        if (banner._id === currentBanner._id) {
-          return {
-            ...banner,
-            ...data,
-            updatedAt: new Date()
-          };
-        }
-        return banner;
-      });
-      
-      setBanners(updatedBanners);
+      await updateBanner(currentBanner._id, data as BannerFormData);
+      toast.success('Đã cập nhật banner');
       handleCloseModal();
     } catch (error) {
+      toast.error('Không thể cập nhật banner');
       console.error('Lỗi khi cập nhật banner:', error);
     } finally {
       setIsSubmitting(false);
@@ -228,21 +199,11 @@ export default function AdminBanners() {
     setIsSubmitting(true);
     
     try {
-      // TODO: Gọi API xóa banner
-      console.log('Xóa banner:', currentBanner._id);
-      
-      // Mô phỏng xóa thành công
-      const updatedBanners = banners.filter(banner => banner._id !== currentBanner._id);
-      
-      // Cập nhật lại thứ tự hiển thị
-      const reorderedBanners = updatedBanners.map((banner, index) => ({
-        ...banner,
-        order: index + 1
-      }));
-      
-      setBanners(reorderedBanners);
+      await deleteBanner(currentBanner._id);
+      toast.success('Đã xóa banner');
       handleCloseModal();
     } catch (error) {
+      toast.error('Không thể xóa banner');
       console.error('Lỗi khi xóa banner:', error);
     } finally {
       setIsSubmitting(false);
@@ -259,7 +220,7 @@ export default function AdminBanners() {
             onClose={handleCloseModal}
             showFooter={false}
           >
-            <BannerDetail banner={currentBanner} />
+            <BannerDetail banner={currentBanner as any} />
           </BannerModal>
         ) : null;
         
@@ -289,7 +250,7 @@ export default function AdminBanners() {
             showFooter={false}
           >
             <BannerForm
-              initialData={currentBanner}
+              initialData={convertToFormBanner(currentBanner)}
               onSubmit={handleSubmitEdit}
               isSubmitting={isSubmitting}
             />
@@ -305,7 +266,7 @@ export default function AdminBanners() {
             onConfirm={handleConfirmDelete}
             isSubmitting={isSubmitting}
           >
-            <BannerDeleteConfirm banner={currentBanner} />
+            <BannerDeleteConfirm banner={currentBanner as any} />
           </BannerModal>
         ) : null;
         
@@ -332,15 +293,36 @@ export default function AdminBanners() {
         </button>
       </div>
 
-      <div className="mt-4">
-        <BannerTable
-          banners={banners}
-          onView={handleViewBanner}
-          onEdit={handleEditBanner}
-          onDelete={handleDeleteBanner}
-          onChangeOrder={handleChangeOrder}
-        />
-      </div>
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiAlertCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">{error}</h3>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-pink-400 border-t-transparent"></div>
+          <p className="mt-2 text-gray-500">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <BannerTable
+            banners={banners}
+            onView={handleViewBanner}
+            onEdit={handleEditBanner}
+            onDelete={handleDeleteBanner}
+            onToggleStatus={handleToggleStatus}
+            onChangeOrder={handleChangeOrder}
+          />
+        </div>
+      )}
 
       {renderModal()}
     </AdminLayout>

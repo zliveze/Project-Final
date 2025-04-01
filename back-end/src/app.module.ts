@@ -9,6 +9,7 @@ import { AdminModule } from './admin/admin.module';
 import { MailModule } from './common/mail/mail.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { BannersModule } from './banners/banners.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     MailModule,
     ReviewsModule,
     NotificationsModule,
+    BannersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

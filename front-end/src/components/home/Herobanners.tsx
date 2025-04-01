@@ -4,6 +4,8 @@ import { Autoplay, Pagination, Navigation, EffectFade, Parallax } from 'swiper/m
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { motion } from 'framer-motion'
+import { useBanner } from '../../contexts'
+import type { Banner } from '../../contexts/BannerContext'
 
 // Import Swiper styles
 import 'swiper/css'
@@ -12,46 +14,46 @@ import 'swiper/css/navigation'
 import 'swiper/css/effect-fade'
 import 'swiper/css/parallax'
 
-const banners = [
+// Dữ liệu banner dự phòng nếu API không có sẵn
+const fallbackBanners = [
   {
-    desktop: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg1.png?v=608',
-    mobile: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile2.png?v=608',
-    alt: 'Valentine Campaign',
-    campaignId: 'valentine-2024',
-    href: '/shop?campaign=valentine-2024',
+    _id: 'valentine-2024',
     title: 'Valentine - Chạm tim deal ngọt ngào',
-    subtitle: 'Ưu đãi đặc biệt cho những món quà tình yêu',
-    buttonText: 'Mua ngay'
+    campaignId: 'valentine-2024',
+    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg1.png?v=608',
+    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile2.png?v=608',
+    alt: 'Ưu đãi đặc biệt cho những món quà tình yêu',
+    href: '/shop?campaign=valentine-2024',
+    active: true,
+    order: 1,
+    createdAt: new Date(),
+    updatedAt: new Date()
   },
   {
-    desktop: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg2.png?v=608',
-    mobile: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile1.png?v=608',
-    alt: 'Tết Campaign',
-    campaignId: 'tet-2024',
-    href: '/shop?campaign=tet-2024',
+    _id: 'tet-2024',
     title: 'Tết rộn ràng - Sale cực khủng',
-    subtitle: 'Tỏa sáng đón năm mới với ưu đãi hấp dẫn',
-    buttonText: 'Khám phá ngay'
+    campaignId: 'tet-2024',
+    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg2.png?v=608',
+    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile1.png?v=608',
+    alt: 'Tỏa sáng đón năm mới với ưu đãi hấp dẫn',
+    href: '/shop?campaign=tet-2024',
+    active: true,
+    order: 2,
+    createdAt: new Date(),
+    updatedAt: new Date()
   },
   {
-    desktop: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg3.png?v=608',
-    mobile: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile3.png?v=608',
-    alt: 'New Year Campaign',
-    campaignId: 'new-year-2024',
-    href: '/shop?campaign=new-year-2024',
+    _id: 'new-year-2024',
     title: 'Năm mới - Deal hời',
-    subtitle: 'Làm mới diện mạo với bộ sưu tập đầu năm',
-    buttonText: 'Xem bộ sưu tập'
-  },
-  {
-    desktop: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg4.png?v=608',
-    mobile: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile4.png?v=608',
-    alt: 'Beauty Campaign',
-    campaignId: 'beauty-special',
-    href: '/shop?campaign=beauty-special',
-    title: 'Đẹp chuẩn - Giá tốt',
-    subtitle: 'Bí quyết làm đẹp cho mọi loại da',
-    buttonText: 'Mua ngay'
+    campaignId: 'new-year-2024',
+    desktopImage: 'https://theme.hstatic.net/200000868185/1001288884/14/showsliderimg3.png?v=608',
+    mobileImage: 'https://theme.hstatic.net/200000868185/1001288884/14/wsliderimgmobile3.png?v=608',
+    alt: 'Làm mới diện mạo với bộ sưu tập đầu năm',
+    href: '/shop?campaign=new-year-2024',
+    active: true,
+    order: 3,
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ]
 
@@ -78,6 +80,12 @@ export default function Herobanners() {
   const [isClient, setIsClient] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const swiperRef = useRef(null)
+  const { activeBanners, loading, error, fetchActiveBanners } = useBanner()
+
+  // Fetch banners khi component được mount
+  useEffect(() => {
+    fetchActiveBanners()
+  }, [fetchActiveBanners])
 
   // Chỉ render các hiệu ứng animation ở phía client
   useEffect(() => {
@@ -103,6 +111,53 @@ export default function Herobanners() {
       }
     }),
   }
+
+  // Tạo subtitle cho banner nếu không có
+  const getSubtitle = (banner: Banner) => {
+    // Nếu banner có alt text, sử dụng nó như là subtitle
+    if (banner.alt) return banner.alt;
+    
+    // Nếu không, tạo subtitle theo campaignId
+    if (banner.campaignId?.includes('valentine')) {
+      return 'Ưu đãi đặc biệt cho những món quà tình yêu';
+    } else if (banner.campaignId?.includes('tet') || banner.campaignId?.includes('lunar-new-year')) {
+      return 'Tỏa sáng đón năm mới với ưu đãi hấp dẫn';
+    } else if (banner.campaignId?.includes('new-year')) {
+      return 'Làm mới diện mạo với bộ sưu tập đầu năm';
+    }
+    
+    return 'Khám phá ngay bộ sưu tập mới nhất của chúng tôi';
+  }
+
+  // Tạo nội dung button cho banner
+  const getButtonText = (banner: Banner) => {
+    if (banner.campaignId?.includes('sale') || banner.campaignId?.includes('deal')) {
+      return 'Mua ngay';
+    } else if (banner.campaignId?.includes('collection')) {
+      return 'Xem bộ sưu tập';
+    }
+    
+    return 'Khám phá ngay';
+  }
+
+  // Hiển thị placeholder hoặc thông báo lỗi nếu cần
+  if (loading && activeBanners.length === 0) {
+    return (
+      <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
+        <div className="container mx-auto px-4 h-[320px] md:h-[500px] flex items-center justify-center">
+          <div className="animate-pulse w-full h-full rounded-lg bg-gray-200"></div>
+        </div>
+      </div>
+    )
+  }
+
+  // Ghi log lỗi nhưng không hiển thị thông báo lỗi 
+  if (error) {
+    console.error('Lỗi khi tải banner:', error)
+  }
+
+  // Sử dụng banners từ API nếu có, nếu không thì sử dụng banner dự phòng
+  const bannersList = activeBanners.length > 0 ? activeBanners : fallbackBanners;
 
   return (
     <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
@@ -332,96 +387,102 @@ export default function Herobanners() {
           }
         `}</style>
 
-        <Swiper
-          spaceBetween={0}
-          centeredSlides={true}
-          autoplay={{
-            delay: 5000,
-            disableOnInteraction: false,
-          }}
-          pagination={{
-            clickable: true,
-          }}
-          parallax={true}
-          navigation={true}
-          effect="fade"
-          fadeEffect={{ crossFade: true }}
-          onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
-          modules={[Autoplay, Pagination, Navigation, EffectFade, Parallax]}
-          className="hero-swiper"
-          ref={swiperRef}
-        >
-          {banners.map((banner, index) => (
-            <SwiperSlide key={banner.campaignId} className="relative">
-              {/* Desktop Image */}
-              <div className="hidden md:block w-full h-[500px] relative">
-                <Image
-                  src={banner.desktop}
-                  alt={banner.alt}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                  priority={index === 0}
-                  data-swiper-parallax="-300"
-                  quality={90}
-                />
-              </div>
-              
-              {/* Mobile Image */}
-              <div className="block md:hidden w-full h-[320px] relative">
-                <Image
-                  src={banner.mobile}
-                  alt={banner.alt}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                  priority={index === 0}
-                  data-swiper-parallax="-200"
-                  quality={85}
-                />
-              </div>
-              
-              {/* Content with animation */}
-              <div className="swiper-slide-content">
-                {activeIndex === index && (
-                  <>
-                    <motion.h2 
-                      custom={1}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                      className="text-2xl md:text-4xl font-bold mb-2 md:mb-4"
-                    >
-                      {banner.title}
-                    </motion.h2>
-                    
-                    <motion.p 
-                      custom={2}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                      className="text-sm md:text-lg mb-4 md:mb-6 max-w-md opacity-90"
-                    >
-                      {banner.subtitle}
-                    </motion.p>
-                    
-                    <motion.div
-                      custom={3}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                    >
-                      <button 
-                        onClick={() => handleBannerClick(banner.href, banner.campaignId)}
-                        className="banner-btn bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-full font-medium text-sm md:text-base"
+        {bannersList.length > 0 ? (
+          <Swiper
+            spaceBetween={0}
+            centeredSlides={true}
+            autoplay={{
+              delay: 5000,
+              disableOnInteraction: false,
+            }}
+            pagination={{
+              clickable: true,
+            }}
+            parallax={true}
+            navigation={true}
+            effect="fade"
+            fadeEffect={{ crossFade: true }}
+            onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
+            modules={[Autoplay, Pagination, Navigation, EffectFade, Parallax]}
+            className="hero-swiper"
+            ref={swiperRef}
+          >
+            {bannersList.map((banner, index) => (
+              <SwiperSlide key={banner._id} className="relative">
+                {/* Desktop Image */}
+                <div className="hidden md:block w-full h-[500px] relative">
+                  <Image
+                    src={banner.desktopImage}
+                    alt={banner.alt || banner.title}
+                    fill
+                    style={{ objectFit: 'cover' }}
+                    priority={index === 0}
+                    data-swiper-parallax="-300"
+                    quality={90}
+                  />
+                </div>
+                
+                {/* Mobile Image */}
+                <div className="block md:hidden w-full h-[320px] relative">
+                  <Image
+                    src={banner.mobileImage}
+                    alt={banner.alt || banner.title}
+                    fill
+                    style={{ objectFit: 'cover' }}
+                    priority={index === 0}
+                    data-swiper-parallax="-200"
+                    quality={85}
+                  />
+                </div>
+                
+                {/* Content với animation */}
+                <div className="swiper-slide-content">
+                  {activeIndex === index && (
+                    <>
+                      <motion.h2 
+                        custom={1}
+                        initial="hidden"
+                        animate="visible"
+                        variants={textVariants}
+                        className="text-2xl md:text-4xl font-bold mb-2 md:mb-4"
                       >
-                        {banner.buttonText}
-                      </button>
-                    </motion.div>
-                  </>
-                )}
-              </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+                        {banner.title}
+                      </motion.h2>
+                      
+                      <motion.p 
+                        custom={2}
+                        initial="hidden"
+                        animate="visible"
+                        variants={textVariants}
+                        className="text-sm md:text-lg mb-4 md:mb-6 max-w-md opacity-90"
+                      >
+                        {getSubtitle(banner)}
+                      </motion.p>
+                      
+                      <motion.div
+                        custom={3}
+                        initial="hidden"
+                        animate="visible"
+                        variants={textVariants}
+                      >
+                        <button 
+                          onClick={() => handleBannerClick(banner.href || '/shop', banner.campaignId || '')}
+                          className="banner-btn bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-full font-medium text-sm md:text-base"
+                        >
+                          {getButtonText(banner)}
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        ) : (
+          <div className="w-full h-[320px] md:h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
+            <p className="text-gray-500">Không có banner nào để hiển thị</p>
+          </div>
+        )}
       </div>
     </div>
   )
