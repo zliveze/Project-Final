@@ -10,6 +10,7 @@ import { MailModule } from './common/mail/mail.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BannersModule } from './banners/banners.module';
+import { CloudinaryModule } from './cloudinary';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { BannersModule } from './banners/banners.module';
     ReviewsModule,
     NotificationsModule,
     BannersModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

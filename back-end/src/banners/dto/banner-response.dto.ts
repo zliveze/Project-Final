@@ -13,8 +13,14 @@ export class BannerResponseDto {
   @ApiProperty({ description: 'URL ảnh cho desktop' })
   desktopImage: string;
 
+  @ApiPropertyOptional({ description: 'Public ID ảnh desktop trên Cloudinary' })
+  desktopImagePublicId?: string;
+
   @ApiProperty({ description: 'URL ảnh cho mobile' })
   mobileImage: string;
+
+  @ApiPropertyOptional({ description: 'Public ID ảnh mobile trên Cloudinary' })
+  mobileImagePublicId?: string;
 
   @ApiPropertyOptional({ description: 'Mô tả alt cho ảnh' })
   alt?: string;
@@ -22,10 +28,10 @@ export class BannerResponseDto {
   @ApiPropertyOptional({ description: 'Link khi click vào banner' })
   href?: string;
 
-  @ApiProperty({ description: 'Trạng thái hiển thị' })
+  @ApiProperty({ description: 'Trạng thái hiển thị', default: true })
   active: boolean;
 
-  @ApiProperty({ description: 'Thứ tự hiển thị' })
+  @ApiProperty({ description: 'Thứ tự hiển thị', default: 0 })
   order: number;
 
   @ApiPropertyOptional({ description: 'Ngày bắt đầu hiển thị banner' })
@@ -34,9 +40,9 @@ export class BannerResponseDto {
   @ApiPropertyOptional({ description: 'Ngày kết thúc hiển thị banner' })
   endDate?: Date;
 
-  @ApiProperty({ description: 'Ngày tạo' })
+  @ApiProperty({ description: 'Ngày tạo banner' })
   createdAt: Date;
 
-  @ApiProperty({ description: 'Ngày cập nhật cuối cùng' })
+  @ApiProperty({ description: 'Ngày cập nhật banner' })
   updatedAt: Date;
 } 

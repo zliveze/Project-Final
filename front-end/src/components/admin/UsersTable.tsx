@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Badge } from "../ui/badge";
-import { formatDate } from '../../utils/formatDate';
 import { MoreHorizontal, CheckCircle, XCircle, Info } from 'lucide-react';
 import { 
   Dialog, 

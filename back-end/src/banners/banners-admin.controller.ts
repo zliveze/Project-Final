@@ -6,10 +6,12 @@ import {
   UpdateBannerDto, 
   QueryBannerDto,
   BannerResponseDto,
-  PaginatedBannersResponseDto
+  PaginatedBannersResponseDto,
+  UploadBannerImageDto
 } from './dto';
 import { AdminRoles } from '../common/decorators/admin-roles.decorator';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @ApiTags('Admin Banners')
 @Controller('admin/banners')
@@ -19,14 +21,85 @@ import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 export class BannersAdminController {
   private readonly logger = new Logger(BannersAdminController.name);
   
-  constructor(private readonly bannersService: BannersService) {}
+  constructor(
+    private readonly bannersService: BannersService,
+    private readonly cloudinaryService: CloudinaryService
+  ) {}
+
+  @Post('upload/image')
+  @ApiOperation({ summary: 'Upload ảnh cho banner' })
+  @ApiResponse({ status: 201, description: 'Upload ảnh thành công', type: Object })
+  async uploadImage(@Body() uploadImageDto: UploadBannerImageDto) {
+    try {
+      this.logger.log(`Đang xử lý upload ảnh banner loại ${uploadImageDto.type}, campaignId: ${uploadImageDto.campaignId || 'không có'}`);
+      
+      const { imageData, type, campaignId } = uploadImageDto;
+      
+      const tags = ['banner', type];
+      if (campaignId) {
+        tags.push(`campaign-${campaignId}`);
+      }
+      
+      this.logger.debug(`Chuẩn bị gọi CloudinaryService.uploadImage với tags: ${tags.join(', ')}`);
+      
+      try {
+        const result = await this.cloudinaryService.uploadImage(imageData, {
+          folder: 'banner',
+          tags,
+          transformation: {
+            quality: 'auto',
+            fetch_format: 'auto',
+          }
+        });
+        
+        this.logger.log(`Upload ảnh thành công: ${result.publicId}`);
+        
+        return {
+          url: result.secureUrl,
+          publicId: result.publicId,
+          width: result.width,
+          height: result.height,
+          format: result.format
+        };
+      } catch (cloudinaryError) {
+        this.logger.error(`Lỗi từ Cloudinary: ${cloudinaryError.message}`, cloudinaryError.stack);
+        throw new HttpException(
+          cloudinaryError.message || 'Lỗi khi upload ảnh lên Cloudinary',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Lỗi khi upload ảnh: ${error.message}`, error.stack);
+      throw new HttpException(
+        error.message || 'Có lỗi xảy ra khi upload ảnh',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Tạo banner mới' })
-  @ApiResponse({ status: 201, description: 'Tạo banner thành công', type: BannerResponseDto })
+  @ApiResponse({ status: 201, description: 'Banner đã được tạo thành công', type: Object })
   async create(@Body() createBannerDto: CreateBannerDto) {
     try {
-      return this.bannersService.create(createBannerDto);
+      this.logger.log(`Đang tạo banner mới: "${createBannerDto.title}"`);
+      
+      // Kiểm tra xem có dùng URL đã có sẵn hay cần upload ảnh mới
+      if (createBannerDto.desktopImage) {
+        this.logger.log(`Sử dụng ảnh desktop có sẵn: ${createBannerDto.desktopImage.substring(0, 50)}...`);
+      } else if (createBannerDto.desktopImageData) {
+        this.logger.log(`Sẽ upload ảnh desktop mới từ dữ liệu base64`);
+      }
+      
+      if (createBannerDto.mobileImage) {
+        this.logger.log(`Sử dụng ảnh mobile có sẵn: ${createBannerDto.mobileImage.substring(0, 50)}...`);
+      } else if (createBannerDto.mobileImageData) {
+        this.logger.log(`Sẽ upload ảnh mobile mới từ dữ liệu base64`);
+      }
+      
+      const banner = await this.bannersService.create(createBannerDto);
+      this.logger.log(`Banner đã được tạo thành công với ID: ${banner._id}`);
+      return banner;
     } catch (error) {
       this.logger.error(`Lỗi khi tạo banner: ${error.message}`, error.stack);
       throw new HttpException(

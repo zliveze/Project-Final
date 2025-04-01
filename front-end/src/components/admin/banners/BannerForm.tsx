@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { FiUpload, FiTrash2, FiLink, FiImage } from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiLink, FiImage, FiLoader } from 'react-icons/fi';
+import { useBanner } from '@/contexts/BannerContext';
+import { toast } from 'react-hot-toast';
 
 // Định nghĩa kiểu dữ liệu cho Banner
 export interface Banner {
@@ -8,13 +10,19 @@ export interface Banner {
   title: string;
   campaignId: string;
   desktopImage: string;
+  desktopImagePublicId?: string;
+  desktopImageData?: string;
   mobileImage: string;
+  mobileImagePublicId?: string;
+  mobileImageData?: string;
   alt: string;
   href: string;
   active: boolean;
   order: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  startDate?: string;
+  endDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho Campaign (dùng để hiển thị dropdown)
@@ -42,6 +50,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
   onSubmit,
   isSubmitting
 }) => {
+  const { uploadBannerImage } = useBanner();
   const [formData, setFormData] = useState<Partial<Banner>>({
     title: '',
     campaignId: '',
@@ -60,11 +69,58 @@ const BannerForm: React.FC<BannerFormProps> = ({
   // Preview images
   const [desktopPreview, setDesktopPreview] = useState<string | null>(formData.desktopImage || null);
   const [mobilePreview, setMobilePreview] = useState<string | null>(formData.mobileImage || null);
+  
+  // Upload state
+  const [isUploading, setIsUploading] = useState({
+    desktop: false,
+    mobile: false
+  });
 
+  // Format thời gian
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 16); // Format 'YYYY-MM-DDTHH:MM'
+  };
+
+  // Chuyển đổi giá trị thời gian cho formData
   useEffect(() => {
-    // TODO: Fetch campaigns from API
-    // For now, use sample data
-  }, []);
+    if (initialData) {
+      setFormData(prev => ({
+        ...prev,
+        startDate: initialData.startDate ? formatDate(initialData.startDate) : '',
+        endDate: initialData.endDate ? formatDate(initialData.endDate) : ''
+      }));
+    }
+  }, [initialData]);
+
+  // Kiểm tra trạng thái hiển thị dựa vào thời gian
+  const getTimeBasedStatus = () => {
+    const now = new Date();
+    const startDate = formData.startDate ? new Date(formData.startDate) : null;
+    const endDate = formData.endDate ? new Date(formData.endDate) : null;
+    
+    if (!formData.active) {
+      return { status: 'inactive', message: 'Banner đang bị tắt (không hoạt động)' };
+    }
+    
+    if (startDate && now < startDate) {
+      return { status: 'pending', message: 'Banner sẽ hiển thị khi đến thời gian bắt đầu' };
+    }
+    
+    if (endDate && now > endDate) {
+      return { status: 'expired', message: 'Banner đã hết thời gian hiển thị' };
+    }
+    
+    if ((!startDate || now >= startDate) && (!endDate || now <= endDate)) {
+      return { status: 'active', message: 'Banner đang trong thời gian hiển thị' };
+    }
+    
+    return { status: 'unknown', message: 'Không xác định được trạng thái' };
+  };
+  
+  const timeStatus = getTimeBasedStatus();
 
   // Update campaign link when campaignId changes
   useEffect(() => {
@@ -104,8 +160,81 @@ const BannerForm: React.FC<BannerFormProps> = ({
     }));
   };
 
+  // Upload ảnh trực tiếp lên Cloudinary thông qua API
+  const handleCloudinaryUpload = async (
+    file: File, 
+    imageType: 'desktop' | 'mobile',
+    preview: string
+  ) => {
+    try {
+      // Bắt đầu uploading
+      setIsUploading(prev => ({ ...prev, [imageType]: true }));
+      
+      // Đọc file thành base64
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async (event) => {
+        if (!event.target?.result) return;
+        
+        const base64Data = event.target.result.toString();
+        
+        try {
+          // Upload ảnh lên Cloudinary
+          const uploadResult = await uploadBannerImage(
+            base64Data,
+            imageType,
+            formData.campaignId
+          );
+          
+          // Cập nhật formData với URL và publicId từ Cloudinary
+          setFormData(prev => ({
+            ...prev,
+            [`${imageType}Image`]: uploadResult.url,
+            [`${imageType}ImagePublicId`]: uploadResult.publicId,
+            [`${imageType}ImageData`]: ''  // Xóa dữ liệu base64 vì đã có URL
+          }));
+          
+          // Hiển thị thông báo thành công
+          toast.success(`Đã tải lên ảnh ${imageType} thành công`);
+          
+          // Clear error nếu có
+          if (errors[`${imageType}Image`]) {
+            setErrors(prev => ({ ...prev, [`${imageType}Image`]: '' }));
+          }
+        } catch (error: any) {
+          console.error(`Lỗi khi upload ảnh ${imageType}:`, error);
+          setErrors(prev => ({
+            ...prev,
+            [`${imageType}Image`]: error.message || `Lỗi khi tải lên ảnh ${imageType}`
+          }));
+          
+          // Hiển thị thông báo lỗi
+          toast.error(`Lỗi khi tải lên ảnh ${imageType}: ${error.message}`);
+        }
+      };
+      
+      reader.onerror = () => {
+        setErrors(prev => ({
+          ...prev,
+          [`${imageType}Image`]: `Lỗi khi đọc file ${file.name}`
+        }));
+        
+        toast.error(`Lỗi khi đọc file ${file.name}`);
+      };
+    } catch (error: any) {
+      console.error(`Lỗi khi xử lý ảnh ${imageType}:`, error);
+      setErrors(prev => ({
+        ...prev,
+        [`${imageType}Image`]: error.message || `Lỗi khi xử lý ảnh ${imageType}`
+      }));
+    } finally {
+      setIsUploading(prev => ({ ...prev, [imageType]: false }));
+    }
+  };
+
   // Xử lý upload ảnh
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, imageType: 'desktopImage' | 'mobileImage') => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, imageType: 'desktop' | 'mobile') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -113,7 +242,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
     if (file.size > 2 * 1024 * 1024) {
       setErrors(prev => ({
         ...prev,
-        [imageType]: 'Kích thước ảnh không được vượt quá 2MB'
+        [`${imageType}Image`]: 'Kích thước ảnh không được vượt quá 2MB'
       }));
       return;
     }
@@ -122,7 +251,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setErrors(prev => ({
         ...prev,
-        [imageType]: 'Chỉ chấp nhận các file ảnh JPG, PNG, hoặc WebP'
+        [`${imageType}Image`]: 'Chỉ chấp nhận các file ảnh JPG, PNG, hoặc WebP'
       }));
       return;
     }
@@ -130,70 +259,19 @@ const BannerForm: React.FC<BannerFormProps> = ({
     // Tạo URL cho preview
     const previewUrl = URL.createObjectURL(file);
     
-    if (imageType === 'desktopImage') {
+    if (imageType === 'desktop') {
       setDesktopPreview(previewUrl);
     } else {
       setMobilePreview(previewUrl);
     }
 
-    // Nén ảnh và chuyển đổi sang base64
-    compressAndConvertToBase64(file, imageType, file.type, 0.7, 1200);
-  };
-
-  // Hàm nén ảnh và chuyển đổi sang base64
-  const compressAndConvertToBase64 = (file: File, imageType: 'desktopImage' | 'mobileImage', fileType: string, quality: number, maxWidth: number) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    
-    reader.onload = (event) => {
-      const img = document.createElement('img');
-      img.src = event.target?.result as string;
-      
-      img.onload = () => {
-        // Tạo canvas để nén ảnh
-        const canvas = document.createElement('canvas');
-        
-        // Tính toán kích thước mới giữ nguyên tỷ lệ
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > maxWidth) {
-          const ratio = maxWidth / width;
-          width = maxWidth;
-          height = height * ratio;
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Chuyển đổi canvas thành base64 với chất lượng được nén
-          const dataUrl = canvas.toDataURL(fileType, quality);
-          
-          // Cập nhật state với chuỗi base64 đã nén
-          setFormData(prev => ({
-            ...prev,
-            [imageType]: dataUrl
-          }));
-          
-          // Clear error
-          if (errors[imageType]) {
-            setErrors(prev => ({
-              ...prev,
-              [imageType]: ''
-            }));
-          }
-        }
-      };
-    };
+    // Upload ảnh lên Cloudinary
+    handleCloudinaryUpload(file, imageType, previewUrl);
   };
 
   // Xóa ảnh
-  const handleRemoveImage = (imageType: 'desktopImage' | 'mobileImage') => {
-    if (imageType === 'desktopImage') {
+  const handleRemoveImage = (imageType: 'desktop' | 'mobile') => {
+    if (imageType === 'desktop') {
       setDesktopPreview(null);
     } else {
       setMobilePreview(null);
@@ -201,7 +279,8 @@ const BannerForm: React.FC<BannerFormProps> = ({
 
     setFormData(prev => ({
       ...prev,
-      [imageType]: ''
+      [`${imageType}Image`]: '',
+      [`${imageType}ImagePublicId`]: ''
     }));
   };
 
@@ -242,7 +321,19 @@ const BannerForm: React.FC<BannerFormProps> = ({
     e.preventDefault();
     
     if (validateForm()) {
-      onSubmit(formData);
+      // Chuẩn bị dữ liệu form để gửi đi, loại bỏ các trường tạm thời
+      const submitData = { ...formData };
+      
+      // Nếu đã upload riêng lẻ thì không gửi base64 data
+      if (formData.desktopImage) {
+        delete submitData.desktopImageData;
+      }
+      
+      if (formData.mobileImage) {
+        delete submitData.mobileImageData;
+      }
+      
+      onSubmit(submitData);
     }
   };
 
@@ -301,7 +392,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
             <div className={`flex-grow p-2 border ${
               errors.desktopImage ? 'border-red-300' : 'border-gray-300'
             } border-dashed rounded-md`}>
-              {desktopPreview ? (
+              {isUploading.desktop && (
+                <div className="flex flex-col items-center justify-center py-4">
+                  <FiLoader className="animate-spin h-8 w-8 text-pink-500 mb-2" />
+                  <p className="text-sm text-gray-600">Đang tải lên...</p>
+                </div>
+              )}
+              {!isUploading.desktop && desktopPreview ? (
                 <div className="relative">
                   <Image 
                     src={desktopPreview} 
@@ -312,13 +409,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemoveImage('desktopImage')}
+                    onClick={() => handleRemoveImage('desktop')}
                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
                   >
                     <FiTrash2 className="h-4 w-4" />
                   </button>
                 </div>
-              ) : (
+              ) : !isUploading.desktop && (
                 <div className="space-y-1 text-center">
                   <FiImage className="mx-auto h-12 w-12 text-gray-400" />
                   <div className="flex text-sm text-gray-600">
@@ -333,7 +430,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
                         type="file"
                         className="sr-only"
                         accept="image/jpeg,image/png,image/webp"
-                        onChange={(e) => handleImageChange(e, 'desktopImage')}
+                        onChange={(e) => handleImageChange(e, 'desktop')}
                       />
                     </label>
                     <p className="pl-1">hoặc kéo thả ảnh vào đây</p>
@@ -356,7 +453,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
             <div className={`flex-grow p-2 border ${
               errors.mobileImage ? 'border-red-300' : 'border-gray-300'
             } border-dashed rounded-md`}>
-              {mobilePreview ? (
+              {isUploading.mobile && (
+                <div className="flex flex-col items-center justify-center py-4">
+                  <FiLoader className="animate-spin h-8 w-8 text-pink-500 mb-2" />
+                  <p className="text-sm text-gray-600">Đang tải lên...</p>
+                </div>
+              )}
+              {!isUploading.mobile && mobilePreview ? (
                 <div className="relative">
                   <Image 
                     src={mobilePreview} 
@@ -367,13 +470,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemoveImage('mobileImage')}
+                    onClick={() => handleRemoveImage('mobile')}
                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
                   >
                     <FiTrash2 className="h-4 w-4" />
                   </button>
                 </div>
-              ) : (
+              ) : !isUploading.mobile && (
                 <div className="space-y-1 text-center">
                   <FiImage className="mx-auto h-12 w-12 text-gray-400" />
                   <div className="flex text-sm text-gray-600">
@@ -388,7 +491,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
                         type="file"
                         className="sr-only"
                         accept="image/jpeg,image/png,image/webp"
-                        onChange={(e) => handleImageChange(e, 'mobileImage')}
+                        onChange={(e) => handleImageChange(e, 'mobile')}
                       />
                     </label>
                     <p className="pl-1">hoặc kéo thả ảnh vào đây</p>
@@ -401,7 +504,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
           {errors.mobileImage && <p className="mt-1 text-sm text-red-600">{errors.mobileImage}</p>}
         </div>
 
-        {/* Alt cho ảnh */}
+        {/* Mô tả alt */}
         <div>
           <label htmlFor="alt" className="block text-sm font-medium text-gray-700 mb-1">
             Mô tả alt cho ảnh <span className="text-red-500">*</span>
@@ -419,10 +522,10 @@ const BannerForm: React.FC<BannerFormProps> = ({
           {errors.alt && <p className="mt-1 text-sm text-red-600">{errors.alt}</p>}
         </div>
 
-        {/* Link khi click vào banner */}
+        {/* Đường dẫn */}
         <div>
           <label htmlFor="href" className="block text-sm font-medium text-gray-700 mb-1">
-            Link khi click vào banner <span className="text-red-500">*</span>
+            Đường dẫn khi click <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
@@ -431,18 +534,13 @@ const BannerForm: React.FC<BannerFormProps> = ({
               name="href"
               value={formData.href || ''}
               onChange={handleChange}
-              className={`w-full px-3 py-2 pl-10 border ${
+              className={`w-full pl-8 pr-3 py-2 border ${
                 errors.href ? 'border-red-300' : 'border-gray-300'
               } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
             />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiLink className="h-5 w-5 text-gray-400" />
-            </div>
+            <FiLink className="absolute left-2 top-2.5 text-gray-400" />
           </div>
           {errors.href && <p className="mt-1 text-sm text-red-600">{errors.href}</p>}
-          <p className="mt-1 text-xs text-gray-500">
-            Link sẽ tự động được tạo khi chọn chiến dịch (dạng /shop?campaign=xxx)
-          </p>
         </div>
 
         {/* Thứ tự hiển thị */}
@@ -459,39 +557,131 @@ const BannerForm: React.FC<BannerFormProps> = ({
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
           />
-          <p className="mt-1 text-xs text-gray-500">
-            Banner có thứ tự nhỏ hơn sẽ hiển thị trước
-          </p>
         </div>
 
-        {/* Trạng thái hiển thị */}
+        {/* Trạng thái */}
         <div>
           <div className="flex items-center">
             <input
-              type="checkbox"
               id="active"
               name="active"
-              checked={formData.active || false}
+              type="checkbox"
+              checked={formData.active}
               onChange={handleCheckboxChange}
               className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
             />
-            <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
-              Hiển thị banner
+            <label htmlFor="active" className="ml-2 block text-sm text-gray-700">
+              Hiển thị banner (Hoạt động)
             </label>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Nếu không chọn, banner sẽ không hiển thị cho người dùng
-          </p>
+        </div>
+
+        {/* Ngày bắt đầu */}
+        <div>
+          <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+            Ngày bắt đầu
+          </label>
+          {initialData && initialData.startDate && (
+            <div className="mb-2 text-sm text-gray-600">
+              Đã thiết lập: {new Date(initialData.startDate).toLocaleString('vi-VN')}
+            </div>
+          )}
+          <input
+            type="datetime-local"
+            id="startDate"
+            name="startDate"
+            value={formData.startDate || ''}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+          />
+        </div>
+
+        {/* Ngày kết thúc */}
+        <div>
+          <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+            Ngày kết thúc
+          </label>
+          {initialData && initialData.endDate && (
+            <div className="mb-2 text-sm text-gray-600">
+              Đã thiết lập: {new Date(initialData.endDate).toLocaleString('vi-VN')}
+            </div>
+          )}
+          <input
+            type="datetime-local"
+            id="endDate"
+            name="endDate"
+            value={formData.endDate || ''}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+          />
+        </div>
+        
+        {/* Thông tin trạng thái hiển thị dựa trên thời gian */}
+        <div className="col-span-3">
+          <div className={`p-3 rounded-md mt-3 ${
+            timeStatus.status === 'active' ? 'bg-green-100 text-green-800' :
+            timeStatus.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+            timeStatus.status === 'expired' ? 'bg-gray-100 text-gray-800' :
+            timeStatus.status === 'inactive' ? 'bg-red-100 text-red-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${
+                timeStatus.status === 'active' ? 'bg-green-500' :
+                timeStatus.status === 'pending' ? 'bg-yellow-500' :
+                timeStatus.status === 'expired' ? 'bg-gray-500' :
+                timeStatus.status === 'inactive' ? 'bg-red-500' :
+                'bg-gray-500'
+              }`}></div>
+              <span className="font-medium">Trạng thái hiển thị:</span>
+              <span className="ml-2">{timeStatus.message}</span>
+            </div>
+            <div className="mt-2 text-sm">
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <span className="font-medium">Thời gian hiện tại:</span>
+                  <span className="ml-1">{new Date().toLocaleString('vi-VN')}</span>
+                </div>
+                {formData.startDate && (
+                  <div>
+                    <span className="font-medium">Bắt đầu:</span>
+                    <span className="ml-1">{new Date(formData.startDate).toLocaleString('vi-VN')}</span>
+                  </div>
+                )}
+                {formData.endDate && (
+                  <div>
+                    <span className="font-medium">Kết thúc:</span>
+                    <span className="ml-1">{new Date(formData.endDate).toLocaleString('vi-VN')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="pt-5">
+      {/* Buttons */}
+      <div className="flex justify-end space-x-3 pt-4">
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+        >
+          Hủy
+        </button>
         <button
           type="submit"
-          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:text-sm"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploading.desktop || isUploading.mobile}
+          className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 ${
+            (isSubmitting || isUploading.desktop || isUploading.mobile) ? 'opacity-70 cursor-not-allowed' : ''
+          }`}
         >
-          {isSubmitting ? 'Đang lưu...' : 'Lưu banner'}
+          {isSubmitting ? (
+            <div className="flex items-center">
+              <FiLoader className="animate-spin mr-2" />
+              <span>Đang xử lý...</span>
+            </div>
+          ) : 'Lưu banner'}
         </button>
       </div>
     </form>

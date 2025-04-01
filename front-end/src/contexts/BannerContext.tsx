@@ -1,454 +1,517 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 import { useAdminAuth } from './AdminAuthContext';
-import Cookies from 'js-cookie';
-import { toast } from 'react-hot-toast';
 
-// Định nghĩa kiểu dữ liệu cho Banner
+// Định nghĩa kiểu dữ liệu cho banner
 export interface Banner {
-  _id: string;
+  _id?: string;
   title: string;
   campaignId?: string;
   desktopImage: string;
+  desktopImagePublicId?: string;
+  desktopImageData?: string;
   mobileImage: string;
-  alt?: string;
-  href?: string;
+  mobileImagePublicId?: string;
+  mobileImageData?: string;
+  alt: string;
+  href: string;
   active: boolean;
   order: number;
-  startDate?: Date;
-  endDate?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Response từ API phân trang
-export interface PaginatedBannersResponse {
-  items: Banner[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-// Định nghĩa kiểu dữ liệu cho việc lọc banner
-export interface BannerFilter {
-  page?: number;
-  limit?: number;
-  search?: string;
-  campaignId?: string;
-  active?: boolean;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  startDate?: string;
-  endDate?: string;
-}
-
-// Định nghĩa kiểu dữ liệu cho form thêm/sửa banner
-export interface BannerFormData {
-  title: string;
-  campaignId?: string;
-  desktopImage: string;
-  mobileImage: string;
-  alt?: string;
-  href?: string;
-  active?: boolean;
-  order?: number;
-  startDate?: string;
-  endDate?: string;
-}
-
-// Kiểu dữ liệu thống kê
-export interface BannerStats {
-  total: number;
-  active: number;
-  inactive: number;
-  expiringSoon: number;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 // Định nghĩa kiểu dữ liệu cho context
 interface BannerContextType {
-  // Dữ liệu
   banners: Banner[];
-  activeBanners: Banner[];
-  currentBanner: Banner | null;
   loading: boolean;
   error: string | null;
-  stats: BannerStats | null;
-  pagination: {
-    page: number;
-    limit: number;
+  totalBanners: number;
+  currentPage: number;
+  totalPages: number;
+  itemsPerPage: number;
+  statistics: {
     total: number;
-    totalPages: number;
-  };
-  
-  // Actions
-  fetchBanners: (filter?: BannerFilter) => Promise<void>;
+    active: number;
+    inactive: number;
+    expiringSoon: number;
+  } | null;
+  // Phương thức cho Cloudinary
+  uploadBannerImage: (
+    imageData: string, 
+    type: 'desktop' | 'mobile',
+    campaignId?: string
+  ) => Promise<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+    format: string;
+  }>;
+  // Các phương thức CRUD
+  fetchBanners: (
+    page?: number,
+    limit?: number,
+    search?: string,
+    campaignId?: string,
+    active?: boolean,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+    startDate?: string,
+    endDate?: string
+  ) => Promise<void>;
   fetchActiveBanners: () => Promise<void>;
   fetchBannerById: (id: string) => Promise<Banner>;
-  createBanner: (data: BannerFormData) => Promise<Banner>;
-  updateBanner: (id: string, data: Partial<BannerFormData>) => Promise<Banner>;
+  createBanner: (bannerData: Partial<Banner>) => Promise<Banner>;
+  updateBanner: (id: string, bannerData: Partial<Banner>) => Promise<Banner>;
   deleteBanner: (id: string) => Promise<void>;
   toggleBannerStatus: (id: string) => Promise<Banner>;
   changeBannerOrder: (id: string, direction: 'up' | 'down') => Promise<Banner[]>;
-  fetchBannerStats: () => Promise<void>;
+  fetchStatistics: () => Promise<void>;
 }
 
 // Tạo context
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
 
-// Các hàm tiện ích cho xác thực và token
-const getAuthToken = (): string | null => {
-  // Thứ tự ưu tiên: token từ cookie > token từ localStorage
-  const token = Cookies.get('adminToken') || localStorage.getItem('adminToken');
-  return token;
+// Hook để sử dụng context
+export const useBanner = () => {
+  const context = useContext(BannerContext);
+  if (!context) {
+    throw new Error('useBanner must be used within a BannerProvider');
+  }
+  return context;
 };
 
-// Tạo instance axios với xử lý token
-const apiClient = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// Interceptor để thêm token vào request
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = getAuthToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Interceptor để xử lý refresh token khi token hết hạn
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // Nếu lỗi 401 (Unauthorized) và chưa thử refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Thử làm mới token
-        const refreshToken = Cookies.get('adminRefreshToken') || localStorage.getItem('adminRefreshToken');
-        if (!refreshToken) {
-          throw new Error('Không tìm thấy refresh token');
-        }
-        
-        const response = await axios.post('/api/admin/auth/refresh', { refreshToken });
-        
-        if (response.data && response.data.accessToken) {
-          // Lưu token mới
-          Cookies.set('adminToken', response.data.accessToken, { expires: 1/24 }); // 1 giờ
-          localStorage.setItem('adminToken', response.data.accessToken);
-          
-          // Thêm token mới vào request gốc và thử lại
-          originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
-          return axios(originalRequest);
-        }
-      } catch (refreshError) {
-        console.error('Lỗi khi làm mới token:', refreshError);
-        // Chuyển hướng về trang đăng nhập nếu refresh token thất bại
-        if (typeof window !== 'undefined') {
-          window.location.href = '/admin/auth/login';
-        }
-      }
-    }
-    
-    return Promise.reject(error);
-  }
-);
-
-// Provider
+// Provider component
 export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const adminAuth = useAdminAuth();
-  const { isAuthenticated } = adminAuth;
+  const router = useRouter();
+  const { accessToken } = useAdminAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [activeBanners, setActiveBanners] = useState<Banner[]>([]);
-  const [currentBanner, setCurrentBanner] = useState<Banner | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<BannerStats | null>(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
+  const [totalBanners, setTotalBanners] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [statistics, setStatistics] = useState<BannerContextType['statistics']>(null);
 
-  // Hàm xử lý lỗi
-  const handleError = (error: any) => {
-    console.error('Banner API Error:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi không xác định';
+  // Hàm lấy header xác thực
+  const getAuthHeader = useCallback(() => {
+    const token = localStorage.getItem('adminToken');
+    return {
+      'Authorization': token ? `Bearer ${token}` : ''
+    };
+  }, []);
+
+  // Xử lý lỗi chung
+  const handleError = useCallback((error: any) => {
+    console.error('Banner operation error:', error);
+    const errorMessage = error.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
-    toast.error(errorMessage);
-  };
-
-  // Lấy danh sách banner (phân trang, lọc)
-  const fetchBanners = async (filter: BannerFilter = {}) => {
-    if (!isAuthenticated) return;
     
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Tạo query string từ filter
-      const queryParams = new URLSearchParams();
-      Object.entries(filter).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          queryParams.append(key, value.toString());
-        }
-      });
-      
-      const response = await apiClient.get<PaginatedBannersResponse>(
-        `/admin/banners?${queryParams.toString()}`
-      );
-      
-      setBanners(response.data.items);
-      setPagination({
-        page: response.data.page,
-        limit: response.data.limit,
-        total: response.data.total,
-        totalPages: response.data.totalPages,
-      });
-    } catch (err: any) {
-      handleError(err);
-    } finally {
-      setLoading(false);
+    // Nếu là lỗi xác thực, chuyển hướng về trang đăng nhập
+    if (error.status === 401) {
+      router.push('/admin/login');
     }
-  };
-
-  // Lấy danh sách banner đang active (cho homepage)
-  const fetchActiveBanners = async () => {
-    setLoading(true);
-    setError(null);
     
+    return errorMessage;
+  }, [router]);
+
+  // Upload ảnh lên Cloudinary thông qua API
+  const uploadBannerImage = useCallback(async (
+    imageData: string, 
+    type: 'desktop' | 'mobile',
+    campaignId?: string
+  ) => {
     try {
-      const response = await axios.get<Banner[]>(
-        `/banners/active`
-      );
+      setLoading(true);
       
-      setActiveBanners(response.data);
-    } catch (err: any) {
-      // Đặc biệt xử lý trường hợp API không có sẵn (404)
-      console.error('Banner API Error:', err);
+      console.log(`Đang tải lên ảnh ${type} lên Cloudinary...`);
       
-      // Nếu là lỗi 404, đặt mảng rỗng và không hiển thị lỗi
-      if (err.response && err.response.status === 404) {
-        setActiveBanners([]);
-        setError('API chưa sẵn sàng');
-        return;
+      const response = await fetch('/api/admin/banners/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          imageData,
+          type,
+          campaignId
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Lỗi upload Cloudinary:', errorData);
+        throw new Error(errorData.message || `Lỗi khi tải lên ảnh: ${response.status}`);
       }
       
-      const errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tải banner';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      const data = await response.json();
+      console.log(`Tải lên ảnh ${type} thành công, URL: ${data.url ? data.url.substring(0, 50) + '...' : 'không có'}`);
+      return data;
+    } catch (error: any) {
+      console.error('Chi tiết lỗi upload ảnh:', error);
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError]);
 
-  // Lấy thông tin chi tiết banner
-  const fetchBannerById = async (id: string): Promise<Banner> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Fetch banners với phân trang và bộ lọc
+  const fetchBanners = useCallback(async (
+    page = 1,
+    limit = 10,
+    search = '',
+    campaignId = '',
+    active?: boolean,
+    sortBy = 'order',
+    sortOrder: 'asc' | 'desc' = 'asc',
+    startDate = '',
+    endDate = ''
+  ) => {
     try {
-      const response = await apiClient.get<Banner>(
-        `/admin/banners/${id}`
-      );
+      setLoading(true);
       
-      setCurrentBanner(response.data);
-      return response.data;
-    } catch (err: any) {
-      handleError(err);
-      throw err;
+      // Tạo query params
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', page.toString());
+      queryParams.append('limit', limit.toString());
+      if (search) queryParams.append('search', search);
+      if (campaignId) queryParams.append('campaignId', campaignId);
+      if (active !== undefined) queryParams.append('active', active.toString());
+      if (sortBy) queryParams.append('sortBy', sortBy);
+      if (sortOrder) queryParams.append('sortOrder', sortOrder);
+      if (startDate) queryParams.append('startDate', startDate);
+      if (endDate) queryParams.append('endDate', endDate);
+      
+      const response = await fetch(`/api/admin/banners?${queryParams.toString()}`, {
+        headers: getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error fetching banners: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      setBanners(data.items);
+      setTotalBanners(data.total);
+      setCurrentPage(data.page);
+      setTotalPages(data.totalPages);
+      setItemsPerPage(data.limit);
+      setError(null);
+    } catch (error: any) {
+      handleError(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError]);
 
-  // Tạo banner mới
-  const createBanner = async (data: BannerFormData): Promise<Banner> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Fetch banner by ID
+  const fetchBannerById = useCallback(async (id: string): Promise<Banner> => {
     try {
-      const response = await apiClient.post<Banner>(
-        `/admin/banners`,
-        data
-      );
+      setLoading(true);
       
-      // Cập nhật danh sách banner và đảm bảo hoàn thành trước khi trả về kết quả
-      await fetchBanners({ page: pagination.page, limit: pagination.limit });
+      const response = await fetch(`/api/admin/banners/${id}`, {
+        headers: getAuthHeader()
+      });
       
-      return response.data;
-    } catch (err: any) {
-      handleError(err);
-      throw err;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error fetching banner: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError]);
 
-  // Cập nhật banner
-  const updateBanner = async (id: string, data: Partial<BannerFormData>): Promise<Banner> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Create banner
+  const createBanner = useCallback(async (bannerData: Partial<Banner>): Promise<Banner> => {
     try {
-      const response = await apiClient.patch<Banner>(
-        `/admin/banners/${id}`,
-        data
-      );
+      setLoading(true);
       
-      // Cập nhật danh sách banner và đảm bảo hoàn thành trước khi trả về kết quả
-      await fetchBanners({ page: pagination.page, limit: pagination.limit });
+      console.log('Đang tạo banner mới:', {
+        title: bannerData.title,
+        campaignId: bannerData.campaignId,
+        hasDesktopImage: !!bannerData.desktopImage,
+        hasDesktopImageData: !!(bannerData.desktopImageData && bannerData.desktopImageData.length > 100),
+        hasMobileImage: !!bannerData.mobileImage,
+        hasMobileImageData: !!(bannerData.mobileImageData && bannerData.mobileImageData.length > 100)
+      });
       
-      return response.data;
-    } catch (err: any) {
-      handleError(err);
-      throw err;
+      const response = await fetch('/api/admin/banners', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(bannerData)
+      });
+      
+      // Đọc body response dưới dạng text trước để debug nếu có lỗi JSON
+      const responseText = await response.text();
+      let data;
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error('Lỗi phân tích JSON:', parseError);
+        console.error('Response text:', responseText.substring(0, 500));
+        throw new Error(`Lỗi phân tích response từ server: ${parseError.message}`);
+      }
+      
+      if (!response.ok) {
+        console.error('Lỗi tạo banner:', data);
+        throw new Error(data.message || `Lỗi tạo banner: ${response.status}`);
+      }
+      
+      console.log('Tạo banner thành công:', data._id);
+      
+      // Cập nhật danh sách banner nếu đang ở trang 1
+      if (currentPage === 1) {
+        fetchBanners(1, itemsPerPage);
+      }
+      
+      return data;
+    } catch (error: any) {
+      console.error('Chi tiết lỗi tạo banner:', error);
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError, fetchBanners, currentPage, itemsPerPage]);
 
-  // Xóa banner
-  const deleteBanner = async (id: string): Promise<void> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Update banner
+  const updateBanner = useCallback(async (id: string, bannerData: Partial<Banner>): Promise<Banner> => {
     try {
-      await apiClient.delete(
-        `/admin/banners/${id}`
-      );
+      setLoading(true);
+      
+      const response = await fetch(`/api/admin/banners/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(bannerData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error updating banner: ${response.status}`);
+      }
+      
+      const data = await response.json();
       
       // Cập nhật danh sách banner
-      await fetchBanners({ page: pagination.page, limit: pagination.limit });
-    } catch (err: any) {
-      handleError(err);
-      throw err;
+      setBanners(prevBanners => 
+        prevBanners.map(banner => 
+          banner._id === id ? data : banner
+        )
+      );
+      
+      return data;
+    } catch (error: any) {
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError]);
 
-  // Bật/tắt trạng thái banner
-  const toggleBannerStatus = async (id: string): Promise<Banner> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Delete banner
+  const deleteBanner = useCallback(async (id: string): Promise<void> => {
     try {
-      const response = await apiClient.patch<Banner>(
-        `/admin/banners/${id}/toggle-status`,
-        {}
-      );
+      setLoading(true);
+      
+      const response = await fetch(`/api/admin/banners/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error deleting banner: ${response.status}`);
+      }
       
       // Cập nhật danh sách banner
-      await fetchBanners({ page: pagination.page, limit: pagination.limit });
+      setBanners(prevBanners => 
+        prevBanners.filter(banner => banner._id !== id)
+      );
       
-      return response.data;
-    } catch (err: any) {
-      handleError(err);
-      throw err;
+      // Cập nhật tổng số banner
+      setTotalBanners(prev => prev - 1);
+      
+      // Refresh danh sách nếu trang hiện tại trống
+      if (banners.length === 1 && currentPage > 1) {
+        fetchBanners(currentPage - 1, itemsPerPage);
+      } else {
+        fetchBanners(currentPage, itemsPerPage);
+      }
+    } catch (error: any) {
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader, handleError, fetchBanners, banners.length, currentPage, itemsPerPage]);
 
-  // Thay đổi thứ tự hiển thị banner
-  const changeBannerOrder = async (id: string, direction: 'up' | 'down'): Promise<Banner[]> => {
-    if (!isAuthenticated) throw new Error('Không có quyền truy cập');
-    
-    setLoading(true);
-    setError(null);
-    
+  // Toggle banner status (active/inactive)
+  const toggleBannerStatus = useCallback(async (id: string): Promise<Banner> => {
     try {
-      const response = await apiClient.patch<Banner[]>(
-        `/admin/banners/${id}/change-order/${direction}`,
-        {}
-      );
+      setLoading(true);
+      
+      const response = await fetch(`/api/admin/banners/${id}/toggle-status`, {
+        method: 'PATCH',
+        headers: getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error toggling banner status: ${response.status}`);
+      }
+      
+      const data = await response.json();
       
       // Cập nhật danh sách banner
-      await fetchBanners({ page: pagination.page, limit: pagination.limit });
-      
-      return response.data;
-    } catch (err: any) {
-      handleError(err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Lấy thống kê banner
-  const fetchBannerStats = async (): Promise<void> => {
-    if (!isAuthenticated) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await apiClient.get<BannerStats>(
-        `/admin/banners/statistics`
+      setBanners(prevBanners => 
+        prevBanners.map(banner => 
+          banner._id === id ? data : banner
+        )
       );
       
-      setStats(response.data);
-    } catch (err: any) {
-      handleError(err);
+      return data;
+    } catch (error: any) {
+      handleError(error);
+      throw error;
     } finally {
       setLoading(false);
     }
+  }, [getAuthHeader, handleError]);
+
+  // Change banner order (up/down)
+  const changeBannerOrder = useCallback(async (id: string, direction: 'up' | 'down'): Promise<Banner[]> => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`/api/admin/banners/${id}/change-order/${direction}`, {
+        method: 'PATCH',
+        headers: getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error changing banner order: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Refresh danh sách sau khi thay đổi thứ tự
+      fetchBanners(currentPage, itemsPerPage);
+      
+      return data;
+    } catch (error: any) {
+      handleError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeader, handleError, fetchBanners, currentPage, itemsPerPage]);
+
+  // Fetch banner statistics
+  const fetchStatistics = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/api/admin/banners/statistics', {
+        headers: getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error fetching statistics: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setStatistics(data);
+    } catch (error: any) {
+      handleError(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeader, handleError]);
+
+  // Fetch active banners (for public pages)
+  const fetchActiveBanners = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      
+      console.log('Đang lấy banner active cho trang public');
+      
+      const response = await fetch('/api/banners/active');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lỗi khi lấy banner active:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || `Lỗi khi lấy banner active: ${response.status}`);
+        } catch (parseError) {
+          throw new Error(`Lỗi khi lấy banner active: ${response.status}`);
+        }
+      }
+      
+      const data = await response.json();
+      console.log(`Đã lấy ${data.length} banner active thành công`);
+      
+      setBanners(data);
+      setError(null);
+    } catch (error: any) {
+      console.error('Chi tiết lỗi khi lấy banner active:', error);
+      setError(error.message || 'Lỗi khi lấy danh sách banner');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Chuẩn bị giá trị cho context
+  const value: BannerContextType = {
+    banners,
+    loading,
+    error,
+    totalBanners,
+    currentPage,
+    totalPages,
+    itemsPerPage,
+    statistics,
+    uploadBannerImage,
+    fetchBanners,
+    fetchActiveBanners,
+    fetchBannerById,
+    createBanner,
+    updateBanner,
+    deleteBanner,
+    toggleBannerStatus,
+    changeBannerOrder,
+    fetchStatistics
   };
 
   return (
-    <BannerContext.Provider value={{
-      // State
-      banners,
-      activeBanners,
-      currentBanner,
-      loading,
-      error,
-      stats,
-      pagination,
-      
-      // Actions
-      fetchBanners,
-      fetchActiveBanners,
-      fetchBannerById,
-      createBanner,
-      updateBanner,
-      deleteBanner,
-      toggleBannerStatus,
-      changeBannerOrder,
-      fetchBannerStats
-    }}>
+    <BannerContext.Provider value={value}>
       {children}
     </BannerContext.Provider>
   );
 };
 
-// Custom hook để sử dụng banner context
-export const useBanner = () => {
-  const context = useContext(BannerContext);
-  if (context === undefined) {
-    throw new Error('useBanner must be used within a BannerProvider');
-  }
-  return context;
-}; 
+export default BannerContext; 

@@ -69,8 +69,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/banners`;
       
-      console.log('Gửi request tạo banner đến backend:', apiUrl);
-      console.log('Dữ liệu gửi đi:', JSON.stringify(req.body).substring(0, 200) + '...');
+      // Log chi tiết quá trình tạo banner
+      const requestData = req.body;
+      console.log('API - Tạo banner mới:', {
+        title: requestData.title,
+        campaignId: requestData.campaignId,
+        hasDesktopImage: !!requestData.desktopImage,
+        hasDesktopImageData: !!(requestData.desktopImageData && requestData.desktopImageData.length > 100),
+        hasMobileImage: !!requestData.mobileImage,
+        hasMobileImageData: !!(requestData.mobileImageData && requestData.mobileImageData.length > 100),
+        url: apiUrl
+      });
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -78,22 +87,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'Content-Type': 'application/json',
           'Authorization': token
         },
-        body: JSON.stringify(req.body),
+        body: JSON.stringify(requestData),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Lỗi từ backend:', errorData);
-        return res.status(response.status).json(errorData);
+      // Nhận response dưới dạng text trước để kiểm tra lỗi
+      const responseText = await response.text();
+      let responseData;
+      
+      try {
+        // Chuyển đổi text thành JSON
+        responseData = JSON.parse(responseText);
+      } catch (parseError: any) {
+        console.error('API - Lỗi phân tích JSON response:', parseError);
+        console.error('API - Response text:', responseText.substring(0, 200) + '...');
+        return res.status(500).json({
+          message: 'Lỗi phân tích dữ liệu phản hồi từ server',
+          error: parseError.message,
+          rawResponse: responseText.substring(0, 500) // Giới hạn độ dài
+        });
       }
       
-      const data = await response.json();
-      return res.status(response.status).json(data);
+      if (!response.ok) {
+        console.error('API - Lỗi từ backend khi tạo banner:', responseData);
+        return res.status(response.status).json(responseData);
+      }
+      
+      console.log('API - Tạo banner thành công:', responseData._id);
+      return res.status(response.status).json(responseData);
     } catch (error: any) {
-      console.error('Lỗi khi tạo banner mới:', error);
+      console.error('API - Lỗi khi tạo banner mới:', error);
       return res.status(500).json({ 
         message: 'Lỗi máy chủ khi tạo banner mới', 
-        error: error.message 
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

@@ -14,8 +14,14 @@ export class Banner {
   @Prop({ required: true })
   desktopImage: string;
 
+  @Prop()
+  desktopImagePublicId: string;
+
   @Prop({ required: true })
   mobileImage: string;
+
+  @Prop()
+  mobileImagePublicId: string;
 
   @Prop()
   alt: string;

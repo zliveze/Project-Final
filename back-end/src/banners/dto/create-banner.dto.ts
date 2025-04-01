@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsNumber, IsBoolean, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsNumber, IsBoolean, IsDateString, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateBannerDto {
@@ -13,15 +13,35 @@ export class CreateBannerDto {
   @IsString()
   campaignId?: string;
 
-  @ApiProperty({ description: 'URL ảnh cho desktop' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ description: 'URL ảnh cho desktop (khi đã upload riêng lẻ)' })
+  @ValidateIf(o => !o.desktopImageData)
   @IsString()
-  desktopImage: string;
+  desktopImage?: string;
 
-  @ApiProperty({ description: 'URL ảnh cho mobile' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ description: 'Dữ liệu ảnh base64 cho desktop' })
+  @ValidateIf(o => !o.desktopImage)
   @IsString()
-  mobileImage: string;
+  desktopImageData?: string;
+
+  @ApiPropertyOptional({ description: 'ID công khai của ảnh desktop trên Cloudinary' })
+  @IsOptional()
+  @IsString()
+  desktopImagePublicId?: string;
+
+  @ApiPropertyOptional({ description: 'URL ảnh cho mobile (khi đã upload riêng lẻ)' })
+  @ValidateIf(o => !o.mobileImageData)
+  @IsString()
+  mobileImage?: string;
+
+  @ApiPropertyOptional({ description: 'Dữ liệu ảnh base64 cho mobile' })
+  @ValidateIf(o => !o.mobileImage)
+  @IsString()
+  mobileImageData?: string;
+
+  @ApiPropertyOptional({ description: 'ID công khai của ảnh mobile trên Cloudinary' })
+  @IsOptional()
+  @IsString()
+  mobileImagePublicId?: string;
 
   @ApiPropertyOptional({ description: 'Mô tả alt cho ảnh' })
   @IsOptional()

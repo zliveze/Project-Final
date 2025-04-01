@@ -1,7 +1,9 @@
 import React from 'react';
 import Image from 'next/image';
-import { FiExternalLink, FiCalendar, FiTag, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiExternalLink, FiCalendar, FiTag, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiLink, FiLayers, FiImage } from 'react-icons/fi';
 import { Banner } from './BannerForm';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface BannerDetailProps {
   banner: Banner;
@@ -9,25 +11,95 @@ interface BannerDetailProps {
 
 const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
   // Format date
-  const formatDate = (date: Date | undefined) => {
+  const formatDate = (date: Date | string | undefined) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi });
   };
 
+  // Kiểm tra trạng thái hiển thị dựa vào thời gian
+  const getTimeBasedStatus = () => {
+    const now = new Date();
+    const startDate = banner.startDate ? new Date(banner.startDate) : null;
+    const endDate = banner.endDate ? new Date(banner.endDate) : null;
+    
+    if (!banner.active) {
+      return { status: 'inactive', message: 'Banner đang bị tắt (không hoạt động)', color: 'gray' };
+    }
+    
+    if (startDate && now < startDate) {
+      return { status: 'pending', message: 'Banner sẽ hiển thị khi đến thời gian bắt đầu', color: 'yellow' };
+    }
+    
+    if (endDate && now > endDate) {
+      return { status: 'expired', message: 'Banner đã hết thời gian hiển thị', color: 'red' };
+    }
+    
+    if ((!startDate || now >= startDate) && (!endDate || now <= endDate)) {
+      return { status: 'active', message: 'Banner đang trong thời gian hiển thị', color: 'green' };
+    }
+    
+    return { status: 'unknown', message: 'Không xác định được trạng thái', color: 'gray' };
+  };
+  
+  const timeStatus = getTimeBasedStatus();
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6">
-        {/* Banner images */}
-        <div className="space-y-4">
+    <div className="space-y-8">
+      {/* Thông tin cơ bản */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Thông tin cơ bản</h3>
+        </div>
+        <div className="px-6 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Tiêu đề</label>
+              <p className="mt-1 text-sm text-gray-900">{banner.title}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Chiến dịch</label>
+              <div className="mt-1 flex items-center">
+                <FiTag className="h-4 w-4 text-gray-400 mr-1" />
+                <span className="text-sm text-gray-900">{banner.campaignId}</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Thứ tự hiển thị</label>
+              <div className="mt-1 flex items-center">
+                <FiLayers className="h-4 w-4 text-gray-400 mr-1" />
+                <span className="text-sm text-gray-900">{banner.order}</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500">Đường dẫn</label>
+              <div className="mt-1 flex items-center">
+                <FiLink className="h-4 w-4 text-gray-400 mr-1" />
+                <a 
+                  href={banner.href} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 truncate"
+                >
+                  {banner.href}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hình ảnh */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Hình ảnh</h3>
+        </div>
+        <div className="px-6 py-4 space-y-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2">Ảnh Desktop</h4>
-            <div className="relative border rounded-md overflow-hidden">
+            <div className="flex items-center mb-2">
+              <FiImage className="h-4 w-4 text-gray-400 mr-1" />
+              <label className="text-sm font-medium text-gray-500">Ảnh Desktop</label>
+            </div>
+            <div className="relative border rounded-lg overflow-hidden">
               <Image
                 src={banner.desktopImage || 'https://via.placeholder.com/1200x400?text=No+Image'}
                 alt={banner.alt || 'Banner preview'}
@@ -39,8 +111,11 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
           </div>
           
           <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2">Ảnh Mobile</h4>
-            <div className="relative border rounded-md overflow-hidden w-1/2 mx-auto">
+            <div className="flex items-center mb-2">
+              <FiImage className="h-4 w-4 text-gray-400 mr-1" />
+              <label className="text-sm font-medium text-gray-500">Ảnh Mobile</label>
+            </div>
+            <div className="relative border rounded-lg overflow-hidden w-1/2 mx-auto">
               <Image
                 src={banner.mobileImage || 'https://via.placeholder.com/600x300?text=No+Image'}
                 alt={banner.alt || 'Banner preview'}
@@ -51,80 +126,64 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Banner info */}
-        <div className="bg-gray-50 rounded-lg px-4 py-5 border">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Thời gian */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Thời gian</h3>
+        </div>
+        <div className="px-6 py-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">{banner.title}</h3>
-              <div className="mt-2 flex items-start">
-                <FiTag className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-500" />
-                <span className="text-sm text-gray-500">{banner.campaignId}</span>
+              <div className="flex items-center text-sm text-gray-500 mb-4">
+                <FiCalendar className="h-4 w-4 mr-1" />
+                <span>Ngày tạo: {formatDate(banner.createdAt)}</span>
               </div>
-              <div className="mt-2 flex items-start">
-                <FiExternalLink className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-500" />
-                <a 
-                  href={banner.href} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  {banner.href}
-                </a>
+              <div className="flex items-center text-sm text-gray-500">
+                <FiCalendar className="h-4 w-4 mr-1" />
+                <span>Cập nhật: {formatDate(banner.updatedAt)}</span>
               </div>
             </div>
-
             <div>
-              <div className="flex items-center mt-2">
-                <div className="mr-3 flex-shrink-0">
-                  {banner.active ? (
-                    <FiCheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <FiXCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Trạng thái</p>
-                  <p className="text-sm text-gray-500">
-                    {banner.active ? 'Đang hiển thị' : 'Đã ẩn'}
-                  </p>
-                </div>
+              <div className="flex items-center text-sm text-gray-500 mb-4">
+                <FiClock className="h-4 w-4 mr-1" />
+                <span>Bắt đầu: {formatDate(banner.startDate)}</span>
               </div>
-
-              <div className="flex items-center mt-4">
-                <div className="mr-3 flex-shrink-0">
-                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-100">
-                    <span className="text-sm font-medium text-gray-600">{banner.order}</span>
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Thứ tự hiển thị</p>
-                  <p className="text-sm text-gray-500">
-                    Banner có thứ tự nhỏ sẽ hiển thị trước
-                  </p>
-                </div>
+              <div className="flex items-center text-sm text-gray-500">
+                <FiClock className="h-4 w-4 mr-1" />
+                <span>Kết thúc: {formatDate(banner.endDate)}</span>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center">
-                  <FiCalendar className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-500">Ngày tạo:</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-900">{formatDate(banner.createdAt)}</p>
-              </div>
-
-              <div>
-                <div className="flex items-center">
-                  <FiCalendar className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-500">Cập nhật lần cuối:</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-900">{formatDate(banner.updatedAt)}</p>
-              </div>
+      {/* Trạng thái */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Trạng thái</h3>
+        </div>
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {banner.active ? (
+                <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
+              ) : (
+                <FiXCircle className="h-5 w-5 text-red-500 mr-2" />
+              )}
+              <span className="text-sm font-medium">
+                {banner.active ? 'Đang hoạt động' : 'Đã tắt'}
+              </span>
             </div>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+              ${timeStatus.color === 'green' ? 'bg-green-100 text-green-800' :
+                timeStatus.color === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
+                timeStatus.color === 'red' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'}`}
+            >
+              {timeStatus.message}
+            </span>
           </div>
         </div>
       </div>

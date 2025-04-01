@@ -15,7 +15,7 @@ import 'swiper/css/effect-fade'
 import 'swiper/css/parallax'
 
 // Dữ liệu banner dự phòng nếu API không có sẵn
-const fallbackBanners = [
+const fallbackBanners: Banner[] = [
   {
     _id: 'valentine-2024',
     title: 'Valentine - Chạm tim deal ngọt ngào',
@@ -80,7 +80,7 @@ export default function Herobanners() {
   const [isClient, setIsClient] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const swiperRef = useRef(null)
-  const { activeBanners, loading, error, fetchActiveBanners } = useBanner()
+  const { banners, loading, error, fetchActiveBanners } = useBanner()
 
   // Fetch banners khi component được mount
   useEffect(() => {
@@ -141,7 +141,7 @@ export default function Herobanners() {
   }
 
   // Hiển thị placeholder hoặc thông báo lỗi nếu cần
-  if (loading && activeBanners.length === 0) {
+  if (loading) {
     return (
       <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
         <div className="container mx-auto px-4 h-[320px] md:h-[500px] flex items-center justify-center">
@@ -150,14 +150,19 @@ export default function Herobanners() {
       </div>
     )
   }
-
+  
   // Ghi log lỗi nhưng không hiển thị thông báo lỗi 
   if (error) {
     console.error('Lỗi khi tải banner:', error)
   }
 
-  // Sử dụng banners từ API nếu có, nếu không thì sử dụng banner dự phòng
-  const bannersList = activeBanners.length > 0 ? activeBanners : fallbackBanners;
+  // Sử dụng banners từ API, không dùng banner dự phòng
+  const bannersList = banners && banners.length > 0 ? banners : [];
+
+  // Nếu không có banner nào, không hiển thị phần banner
+  if (bannersList.length === 0 && !loading) {
+    return null;
+  }
 
   return (
     <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
@@ -407,7 +412,7 @@ export default function Herobanners() {
             className="hero-swiper"
             ref={swiperRef}
           >
-            {bannersList.map((banner, index) => (
+            {bannersList.map((banner: Banner, index: number) => (
               <SwiperSlide key={banner._id} className="relative">
                 {/* Desktop Image */}
                 <div className="hidden md:block w-full h-[500px] relative">
