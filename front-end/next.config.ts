@@ -83,6 +83,14 @@ const nextConfig: NextConfig = {
         source: '/api/admin/reviews/:path*',
         destination: 'http://localhost:3001/admin/reviews/:path*',
       },
+      {
+        source: '/api/admin/notifications/:path*',
+        destination: 'http://localhost:3001/admin/notifications/:path*',
+      },
+      {
+        source: '/api/admin/notifications',
+        destination: 'http://localhost:3001/admin/notifications',
+      },
     ];
   },
 };

@@ -226,4 +226,6 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
     createNotification,
     updateNotification,
     deleteNotification,
- 
+    toggleNotificationStatus
+  };
+}; 

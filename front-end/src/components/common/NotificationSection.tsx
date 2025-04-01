@@ -27,13 +27,24 @@ export default function NotificationSection() {
       try {
         setLoading(true);
         
+        console.log('Đang tải thông báo từ API...');
         const response = await fetch('/api/notifications/public');
+        console.log('Kết quả response:', response.status, response.statusText);
         
         if (!response.ok) {
+          console.error('Lỗi response:', response.status, response.statusText);
           throw new Error('Không thể tải thông báo');
         }
         
         const data = await response.json();
+        console.log('Dữ liệu thông báo nhận được:', data);
+        
+        // Kiểm tra nếu dữ liệu là mảng rỗng
+        if (!data || !Array.isArray(data) || data.length === 0) {
+          console.log('Không có thông báo nào');
+          setNotifications([]);
+          return;
+        }
         
         // Chuyển đổi chuỗi ngày thành đối tượng Date
         const formattedNotifications = data.map((notification: any) => ({
@@ -47,11 +58,13 @@ export default function NotificationSection() {
           a.priority - b.priority
         );
         
+        console.log('Số lượng thông báo sau khi xử lý:', sortedNotifications.length);
         setNotifications(sortedNotifications);
         setError(null);
       } catch (error) {
         console.error('Lỗi khi tải thông báo:', error);
         setError('Không thể tải thông báo');
+        setNotifications([]);
       } finally {
         setLoading(false);
       }
@@ -66,8 +79,13 @@ export default function NotificationSection() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Nếu đang tải, lỗi hoặc không có thông báo, không hiển thị gì
-  if (loading || error || notifications.length === 0) {
+  // Nếu đang tải, không hiển thị gì
+  if (loading) {
+    return null;
+  }
+  
+  // Nếu có lỗi hoặc không có thông báo, không hiển thị gì
+  if (error || notifications.length === 0) {
     return null;
   }
 
@@ -124,7 +142,8 @@ export default function NotificationSection() {
             style={{ 
               color: notifications[0]?.textColor || '#DB2777',
               fontSize: '0.875rem',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              gap: '200px'
             }}
           >
             {/* Lặp lại thông báo nhiều lần để tạo hiệu ứng chạy liên tục */}
