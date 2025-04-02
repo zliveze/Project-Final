@@ -117,6 +117,78 @@ export class CloudinaryService {
   }
 
   /**
+   * Tải lên một file hình ảnh trực tiếp lên Cloudinary
+   * @param filePath Đường dẫn đến file
+   * @param options Tùy chọn tải lên (folder, resourceType, tags, ...)
+   * @returns Thông tin hình ảnh sau khi tải lên
+   */
+  async uploadImageFile(
+    filePath: string,
+    options: {
+      folder?: keyof typeof this.folders | string;
+      resourceType?: 'image' | 'video' | 'raw' | 'auto';
+      tags?: string[];
+      transformation?: any;
+      uploadPreset?: string;
+    } = {},
+  ): Promise<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+    format: string;
+    secureUrl: string;
+    resourceType: string;
+    tags?: string[];
+  }> {
+    try {
+      const { 
+        folder = 'banner', 
+        resourceType = 'image', 
+        tags = [],
+        transformation = {},
+        uploadPreset = this.defaultUploadPreset
+      } = options;
+
+      const uploadOptions: UploadApiOptions = {
+        upload_preset: uploadPreset,
+        folder: typeof folder === 'string' ? 
+          (this.folders[folder as keyof typeof this.folders] || folder) : 
+          this.folders.banner,
+        resource_type: resourceType,
+        tags: tags,
+        transformation: transformation,
+      };
+
+      this.logger.debug(`Uploading file with options: ${JSON.stringify({
+        preset: uploadPreset,
+        folder: uploadOptions.folder,
+        resource_type: resourceType,
+        tags: tags
+      })}`);
+
+      // Tải file trực tiếp lên Cloudinary
+      const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(filePath, uploadOptions);
+
+      this.logger.log(`Uploaded file ${resourceType} to Cloudinary: ${uploadResult.public_id}`);
+      
+      return {
+        url: uploadResult.url,
+        secureUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        width: uploadResult.width,
+        height: uploadResult.height,
+        format: uploadResult.format,
+        resourceType: uploadResult.resource_type,
+        tags: uploadResult.tags,
+      };
+    } catch (error) {
+      this.logger.error(`Upload file to Cloudinary failed: ${error.message}`, error.stack);
+      throw new Error(`Upload file to Cloudinary failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Xóa một hình ảnh khỏi Cloudinary
    * @param publicId ID công khai của hình ảnh
    * @param options Tùy chọn xóa

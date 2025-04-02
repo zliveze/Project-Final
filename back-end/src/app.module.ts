@@ -11,6 +11,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BannersModule } from './banners/banners.module';
 import { CloudinaryModule } from './cloudinary';
+import { BrandsModule } from './brands/brands.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { CloudinaryModule } from './cloudinary';
     ReviewsModule,
     NotificationsModule,
     BannersModule,
+    BrandsModule,
     CloudinaryModule,
   ],
   controllers: [AppController],

@@ -4,14 +4,24 @@ import { Logger } from '@nestjs/common';
 import * as session from 'express-session';
 import * as passport from 'passport';
 import * as bodyParser from 'body-parser';
+import * as express from 'express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as path from 'path';
+import * as fs from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
   
-  // Cấu hình giới hạn payload JSON cho request
-  app.use(bodyParser.json({ limit: '10mb' }));
-  app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+  // Cấu hình CORS để cho phép front-end truy cập API
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  });
+  
+  // Cấu hình để xử lý upload file
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   
   // Cấu hình session middleware
   app.use(
@@ -31,23 +41,34 @@ async function bootstrap() {
   app.use(passport.initialize());
   app.use(passport.session());
   
-  // Bật CORS để front-end có thể gọi API
-  app.enableCors({
-    origin: 'http://localhost:3000', // Chỉ định cụ thể origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-  });
+  // Cấu hình Swagger
+  const config = new DocumentBuilder()
+    .setTitle('Yumin API')
+    .setDescription('API documentation for Yumin Cosmetic Store')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+  
+  // Tạo thư mục uploads nếu chưa tồn tại
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  const tempDir = path.join(uploadsDir, 'temp');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
   
   // Không sử dụng prefix '/api' cho các routes
-  app.setGlobalPrefix('');
+  app.setGlobalPrefix('api');
   
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   
   logger.log(`Application is running on port ${port}`);
-  logger.log(`CORS is enabled for origin: http://localhost:3000`);
+  logger.log(`CORS is enabled for origin: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
 }
 bootstrap();

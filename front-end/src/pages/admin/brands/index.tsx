@@ -10,7 +10,9 @@ import BrandDetailModal from '@/components/admin/brands/BrandDetailModal';
 import BrandDeleteModal from '@/components/admin/brands/BrandDeleteModal';
 import Pagination from '@/components/admin/common/Pagination';
 import { Brand } from '@/components/admin/brands/BrandForm';
+import { useBrands } from '@/contexts/BrandContext';
 import toast from 'react-hot-toast';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 // Dữ liệu mẫu cho thương hiệu
 const sampleBrands = [
@@ -150,25 +152,26 @@ const sampleBrands = [
 
 export default function AdminBrands() {
   const router = useRouter();
-  const [brands, setBrands] = useState<Brand[]>(sampleBrands);
-  const [statistics, setStatistics] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    products: 0
-  });
+  const { isAuthenticated, accessToken } = useAdminAuth();
+  const { 
+    brands, 
+    statistics, 
+    pagination, 
+    loading, 
+    error,
+    fetchBrands, 
+    createBrand, 
+    updateBrand, 
+    deleteBrand, 
+    toggleBrandStatus,
+    toggleBrandFeatured
+  } = useBrands();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  const totalPages = Math.ceil(brands.length / itemsPerPage);
-
-  // Tính toán dữ liệu phân trang 
-  const paginatedBrands = useMemo(() => {
-    const indexOfLastBrand = currentPage * itemsPerPage;
-    const indexOfFirstBrand = indexOfLastBrand - itemsPerPage;
-    return brands.slice(indexOfFirstBrand, indexOfLastBrand);
-  }, [brands, currentPage, itemsPerPage]);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -177,25 +180,37 @@ export default function AdminBrands() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
 
-  // Cập nhật thống kê khi brands thay đổi
+  // Lấy dữ liệu từ API khi trang được tải
   useEffect(() => {
-    const total = brands.length;
-    const active = brands.filter(b => b.status === 'active').length;
-    const inactive = brands.filter(b => b.status === 'inactive').length;
-    const products = brands.reduce((sum, brand) => sum + (brand.productCount || 0), 0);
+    const loadBrandsData = async () => {
+      if (!isAuthenticated || !accessToken) {
+        console.log('Chưa đăng nhập hoặc không có token, bỏ qua việc tải dữ liệu thương hiệu');
+        return;
+      }
 
-    setStatistics({
-      total,
-      active,
-      inactive,
-      products
-    });
-    
-    // Nếu trang hiện tại lớn hơn tổng số trang mới, chuyển về trang cuối
-    if (currentPage > Math.ceil(total / itemsPerPage) && total > 0) {
-      setCurrentPage(Math.ceil(total / itemsPerPage));
-    }
-  }, [brands, currentPage, itemsPerPage]);
+      try {
+        setLoadError(null);
+        await fetchBrands(currentPage, itemsPerPage);
+        setIsInitialized(true);
+      } catch (err: any) {
+        console.error('Lỗi khi tải dữ liệu thương hiệu:', err);
+        setLoadError(err.message || 'Có lỗi xảy ra khi tải dữ liệu thương hiệu');
+        // Không hiển thị toast ở đây vì đã được xử lý trong context
+      }
+    };
+
+    loadBrandsData();
+  }, [currentPage, itemsPerPage, isAuthenticated, accessToken]);
+
+  // Tính toán tổng số trang
+  const totalPages = useMemo(() => {
+    return pagination.totalPages;
+  }, [pagination.totalPages]);
+
+  // Lấy brands từ API với phân trang
+  const paginatedBrands = useMemo(() => {
+    return brands;
+  }, [brands]);
 
   // Xử lý xem chi tiết thương hiệu
   const handleViewBrand = (id: string) => {
@@ -242,77 +257,48 @@ export default function AdminBrands() {
   };
 
   // Thêm thương hiệu mới
-  const handleAddBrandSubmit = (brandData: Partial<Brand>) => {
-    // Tạo ID mới theo quy tắc BRD-XXX
-    const newId = `BRD-${(brands.length + 1).toString().padStart(3, '0')}`;
-    
-    // Tạo slug từ tên thương hiệu
-    const slug = brandData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '') || '';
-    
-    // Tạo thương hiệu mới với dữ liệu mặc định và dữ liệu đầu vào
-    const newBrand: Brand = {
-      id: newId,
-      name: brandData.name || '',
-      slug: slug,
-      logo: brandData.logo || { url: 'https://via.placeholder.com/150', alt: '' },
-      description: brandData.description || '',
-      origin: brandData.origin || '',
-      website: brandData.website || '',
-      featured: brandData.featured || false,
-      status: brandData.status || 'active',
-      socialMedia: brandData.socialMedia || { facebook: '', instagram: '', youtube: '' },
-      productCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Thêm thương hiệu mới vào danh sách
-    setBrands(prevBrands => [...prevBrands, newBrand]);
-    
-    // Chuyển đến trang cuối để xem thương hiệu mới
-    setTimeout(() => {
-      setCurrentPage(Math.ceil((brands.length + 1) / itemsPerPage));
-    }, 100);
-    
-    // Đóng modal
-    setShowAddModal(false);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Thêm thương hiệu mới thành công!');
+  const handleAddBrandSubmit = async (brandData: Partial<Brand>) => {
+    try {
+      await createBrand(brandData);
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Lỗi khi thêm thương hiệu:', error);
+    }
   };
 
   // Cập nhật thương hiệu
-  const handleEditBrandSubmit = (brandData: Partial<Brand>) => {
+  const handleEditBrandSubmit = async (brandData: Partial<Brand>) => {
     if (!selectedBrand) return;
     
-    // Cập nhật thương hiệu trong danh sách
-    setBrands(prevBrands => prevBrands.map(brand => 
-      brand.id === selectedBrand.id
-        ? { 
-            ...brand, 
-            ...brandData, 
-            updatedAt: new Date().toISOString() 
-          }
-        : brand
-    ));
-    
-    // Đóng modal
-    setShowEditModal(false);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Cập nhật thương hiệu thành công!');
+    try {
+      await updateBrand(selectedBrand.id, brandData);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Lỗi khi cập nhật thương hiệu:', error);
+    }
   };
 
   // Xóa thương hiệu
-  const handleDeleteBrandSubmit = (id: string) => {
-    // Xóa thương hiệu khỏi danh sách
-    setBrands(prevBrands => prevBrands.filter(brand => brand.id !== id));
-    
-    // Đóng modal
-    setShowDeleteModal(false);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Xóa thương hiệu thành công!');
+  const handleDeleteBrandSubmit = async (id: string) => {
+    try {
+      await deleteBrand(id);
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('Lỗi khi xóa thương hiệu:', error);
+    }
+  };
+
+  // Thử tải lại dữ liệu khi có lỗi
+  const handleRetry = async () => {
+    try {
+      setLoadError(null);
+      await fetchBrands(currentPage, itemsPerPage);
+      setIsInitialized(true);
+      toast.success('Đã tải lại dữ liệu thành công');
+    } catch (err: any) {
+      console.error('Lỗi khi tải lại dữ liệu thương hiệu:', err);
+      setLoadError(err.message || 'Có lỗi xảy ra khi tải lại dữ liệu thương hiệu');
+    }
   };
 
   return (
@@ -402,10 +388,10 @@ export default function AdminBrands() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Tổng số sản phẩm
+                    Thương hiệu nổi bật
                   </dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{statistics.products}</div>
+                    <div className="text-lg font-medium text-gray-900">{statistics.featured}</div>
                   </dd>
                 </dl>
               </div>
@@ -415,27 +401,47 @@ export default function AdminBrands() {
       </div>
 
       <div className="mt-8">
-        <BrandTable
-          brands={paginatedBrands}
-          onView={handleViewBrand}
-          onEdit={handleEditBrand}
-          onDelete={handleDeleteBrand}
-          itemsPerPage={itemsPerPage}
-          onItemsPerPageChange={handleItemsPerPageChange}
-        />
-        
-        {/* Phân trang */}
-        <div className="mt-6">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            totalItems={brands.length}
-            itemsPerPage={itemsPerPage}
-            showItemsInfo={true}
-            className="mt-6"
-          />
-        </div>
+        {loading && !isInitialized ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col justify-center items-center h-64 bg-red-50 rounded-lg p-6">
+            <div className="text-red-500 text-lg font-medium mb-4">
+              {loadError}
+            </div>
+            <button
+              onClick={handleRetry}
+              className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : (
+          <>
+            <BrandTable
+              brands={paginatedBrands}
+              onView={handleViewBrand}
+              onEdit={handleEditBrand}
+              onDelete={handleDeleteBrand}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={handleItemsPerPageChange}
+            />
+            
+            {/* Phân trang */}
+            <div className="mt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={pagination.total}
+                itemsPerPage={itemsPerPage}
+                showItemsInfo={true}
+                className="mt-6"
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal thêm thương hiệu */}

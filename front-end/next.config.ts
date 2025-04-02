@@ -4,8 +4,11 @@ require('dotenv').config();
 const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_API_URL: 'http://localhost:3001/api', // URL của backend API
+  },
   images: {
-    domains: ['media.hcdn.vn', 'theme.hstatic.net'],
+    domains: ['media.hcdn.vn', 'theme.hstatic.net', 'via.placeholder.com', 'res.cloudinary.com'],
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
@@ -112,6 +115,20 @@ const nextConfig: NextConfig = {
       {
         source: '/api/admin/banners',
         destination: 'http://localhost:3001/admin/banners',
+      },
+    ];
+  },
+  // Cấu hình CORS cho API routes
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' },
+        ],
       },
     ];
   },

@@ -4,8 +4,9 @@ import Image from 'next/image';
 
 // Định nghĩa interfaces cho Brand
 export interface BrandLogo {
-  url: string;
+  url?: string;
   alt: string;
+  publicId?: string;
 }
 
 export interface BrandSocialMedia {
@@ -28,6 +29,7 @@ export interface Brand {
   productCount?: number;
   createdAt: string;
   updatedAt: string;
+  logoFile?: File;
 }
 
 interface BrandFormProps {
@@ -110,19 +112,47 @@ const BrandForm: React.FC<BrandFormProps> = ({
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
-        setFormData(prev => ({
+      console.log('Selected file:', file.name, 'size:', file.size, 'type:', file.type);
+      
+      // Kiểm tra kích thước file, giới hạn 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({
           ...prev,
-          logo: {
-            url: result,
-            alt: prev.logo?.alt || file.name
-          }
+          logo: 'Kích thước file quá lớn. Vui lòng chọn file dưới 5MB.'
         }));
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
+      
+      // Kiểm tra định dạng file
+      if (!file.type.match(/image\/(jpeg|jpg|png|gif)$/)) {
+        setErrors(prev => ({
+          ...prev,
+          logo: 'Định dạng file không được hỗ trợ. Vui lòng chọn file PNG, JPG hoặc GIF.'
+        }));
+        return;
+      }
+      
+      // Tạo URL để xem trước ảnh
+      const previewUrl = URL.createObjectURL(file);
+      setLogoPreview(previewUrl);
+      
+      // Lưu file để khi submit form sẽ gửi file trực tiếp lên server
+      setFormData(prev => ({
+        ...prev,
+        logoFile: file,
+        logo: {
+          ...prev.logo,
+          alt: prev.logo?.alt || file.name
+        }
+      }));
+      
+      // Xóa lỗi nếu có
+      if (errors.logo) {
+        setErrors(prev => ({
+          ...prev,
+          logo: ''
+        }));
+      }
     }
   };
 
@@ -207,6 +237,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
             Tải lên logo thương hiệu
           </label>
           <span className="text-xs text-gray-500 mt-2">Khuyến nghị kích thước 150x150px, định dạng PNG, JPG</span>
+          {errors.logo && <p className="mt-1 text-sm text-red-600">{errors.logo}</p>}
         </div>
 
         {/* Tên thương hiệu */}
