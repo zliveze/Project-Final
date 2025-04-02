@@ -27,13 +27,29 @@ export default function NotificationSection() {
       try {
         setLoading(true);
         
-        console.log('Đang tải thông báo từ API...');
-        const response = await fetch('/api/notifications/public');
+        // Sử dụng biến môi trường từ .env
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        console.log('Đang tải thông báo từ API:', `${apiUrl}/notifications`);
+        
+        const response = await fetch(`${apiUrl}/notifications`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
         console.log('Kết quả response:', response.status, response.statusText);
         
+        // Xử lý lỗi HTTP
         if (!response.ok) {
           console.error('Lỗi response:', response.status, response.statusText);
-          throw new Error('Không thể tải thông báo');
+          if (response.status === 404) {
+            console.log('API endpoint chưa được triển khai, sử dụng mảng rỗng tạm thời');
+            setNotifications([]);
+            setLoading(false);
+            return;
+          }
+          throw new Error(`Không thể tải thông báo: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
@@ -63,8 +79,13 @@ export default function NotificationSection() {
         setError(null);
       } catch (error) {
         console.error('Lỗi khi tải thông báo:', error);
-        setError('Không thể tải thông báo');
+        // Để tránh lỗi hiển thị, đặt mảng rỗng khi có lỗi
         setNotifications([]);
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('Không thể tải thông báo');
+        }
       } finally {
         setLoading(false);
       }
@@ -79,13 +100,10 @@ export default function NotificationSection() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Nếu đang tải, không hiển thị gì
-  if (loading) {
-    return null;
-  }
+  // Hiển thị mặc định nếu không có thông báo hoặc đang tải/lỗi
+  const shouldDisplay = !loading && !error && notifications.length > 0;
   
-  // Nếu có lỗi hoặc không có thông báo, không hiển thị gì
-  if (error || notifications.length === 0) {
+  if (!shouldDisplay) {
     return null;
   }
 

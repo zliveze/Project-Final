@@ -20,19 +20,25 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @ApiBearerAuth()
 export class BannersAdminController {
   private readonly logger = new Logger(BannersAdminController.name);
+  private readonly isDebugEnabled = process.env.NODE_ENV !== 'production'; // Chỉ log nếu không phải môi trường production
   
   constructor(
     private readonly bannersService: BannersService,
     private readonly cloudinaryService: CloudinaryService
   ) {}
 
+  // Phương thức log tùy chỉnh để giảm số lượng log
+  private customLog(message: string, isImportant = false) {
+    if (isImportant || this.isDebugEnabled) {
+      this.logger.log(message);
+    }
+  }
+
   @Post('upload/image')
   @ApiOperation({ summary: 'Upload ảnh cho banner' })
   @ApiResponse({ status: 201, description: 'Upload ảnh thành công', type: Object })
   async uploadImage(@Body() uploadImageDto: UploadBannerImageDto) {
     try {
-      this.logger.log(`Đang xử lý upload ảnh banner loại ${uploadImageDto.type}, campaignId: ${uploadImageDto.campaignId || 'không có'}`);
-      
       const { imageData, type, campaignId } = uploadImageDto;
       
       const tags = ['banner', type];
@@ -40,7 +46,7 @@ export class BannersAdminController {
         tags.push(`campaign-${campaignId}`);
       }
       
-      this.logger.debug(`Chuẩn bị gọi CloudinaryService.uploadImage với tags: ${tags.join(', ')}`);
+      this.logger.debug(`Xử lý upload ảnh banner: ${type}`);
       
       try {
         const result = await this.cloudinaryService.uploadImage(imageData, {
@@ -51,8 +57,6 @@ export class BannersAdminController {
             fetch_format: 'auto',
           }
         });
-        
-        this.logger.log(`Upload ảnh thành công: ${result.publicId}`);
         
         return {
           url: result.secureUrl,
@@ -82,23 +86,8 @@ export class BannersAdminController {
   @ApiResponse({ status: 201, description: 'Banner đã được tạo thành công', type: Object })
   async create(@Body() createBannerDto: CreateBannerDto) {
     try {
-      this.logger.log(`Đang tạo banner mới: "${createBannerDto.title}"`);
-      
-      // Kiểm tra xem có dùng URL đã có sẵn hay cần upload ảnh mới
-      if (createBannerDto.desktopImage) {
-        this.logger.log(`Sử dụng ảnh desktop có sẵn: ${createBannerDto.desktopImage.substring(0, 50)}...`);
-      } else if (createBannerDto.desktopImageData) {
-        this.logger.log(`Sẽ upload ảnh desktop mới từ dữ liệu base64`);
-      }
-      
-      if (createBannerDto.mobileImage) {
-        this.logger.log(`Sử dụng ảnh mobile có sẵn: ${createBannerDto.mobileImage.substring(0, 50)}...`);
-      } else if (createBannerDto.mobileImageData) {
-        this.logger.log(`Sẽ upload ảnh mobile mới từ dữ liệu base64`);
-      }
-      
       const banner = await this.bannersService.create(createBannerDto);
-      this.logger.log(`Banner đã được tạo thành công với ID: ${banner._id}`);
+      this.customLog(`Banner đã được tạo thành công với ID: ${banner._id}`, true);
       return banner;
     } catch (error) {
       this.logger.error(`Lỗi khi tạo banner: ${error.message}`, error.stack);
@@ -129,7 +118,6 @@ export class BannersAdminController {
   @ApiResponse({ status: 200, description: 'Thống kê banner' })
   async getStatistics() {
     try {
-      this.logger.log('Lấy thống kê banner');
       return this.bannersService.getStatistics();
     } catch (error) {
       this.logger.error(`Lỗi khi lấy thống kê banner: ${error.message}`, error.stack);
@@ -146,7 +134,6 @@ export class BannersAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy banner' })
   async findOne(@Param('id') id: string) {
     try {
-      this.logger.log(`Lấy chi tiết banner với ID: ${id}`);
       return this.bannersService.findOne(id);
     } catch (error) {
       this.logger.error(`Lỗi khi lấy chi tiết banner: ${error.message}`, error.stack);
@@ -163,7 +150,6 @@ export class BannersAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy banner' })
   async update(@Param('id') id: string, @Body() updateBannerDto: UpdateBannerDto) {
     try {
-      this.logger.log(`Cập nhật banner với ID: ${id}, dữ liệu: ${JSON.stringify(updateBannerDto)}`);
       return this.bannersService.update(id, updateBannerDto);
     } catch (error) {
       this.logger.error(`Lỗi khi cập nhật banner: ${error.message}`, error.stack);
@@ -180,7 +166,6 @@ export class BannersAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy banner' })
   async toggleStatus(@Param('id') id: string) {
     try {
-      this.logger.log(`Thay đổi trạng thái banner với ID: ${id}`);
       return this.bannersService.toggleStatus(id);
     } catch (error) {
       this.logger.error(`Lỗi khi thay đổi trạng thái banner: ${error.message}`, error.stack);
@@ -204,7 +189,6 @@ export class BannersAdminController {
         );
       }
       
-      this.logger.log(`Thay đổi thứ tự banner ID: ${id}, hướng: ${direction}`);
       return this.bannersService.changeOrder(id, direction);
     } catch (error) {
       this.logger.error(`Lỗi khi thay đổi thứ tự banner: ${error.message}`, error.stack);
@@ -221,7 +205,6 @@ export class BannersAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy banner' })
   async remove(@Param('id') id: string) {
     try {
-      this.logger.log(`Xóa banner với ID: ${id}`);
       return this.bannersService.remove(id);
     } catch (error) {
       this.logger.error(`Lỗi khi xóa banner: ${error.message}`, error.stack);

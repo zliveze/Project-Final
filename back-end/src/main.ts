@@ -10,7 +10,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Giảm mức độ log trong ứng dụng
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn'], // Chỉ hiển thị lỗi và cảnh báo
+  });
   const logger = new Logger('Bootstrap');
   
   // Cấu hình CORS để cho phép front-end truy cập API

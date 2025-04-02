@@ -219,7 +219,7 @@ export default function AdminBanners() {
   // Lọc banner dựa trên các điều kiện
   const filteredBanners = banners.filter(banner => {
     const matchesSearch = banner.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         banner.campaignId.toLowerCase().includes(searchTerm.toLowerCase());
+                        (banner.campaignId?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' ? true : 
                          filterStatus === 'active' ? banner.active : !banner.active;
     const matchesCampaign = filterCampaign === 'all' ? true : 
@@ -254,6 +254,7 @@ export default function AdminBanners() {
             <BannerForm
               onSubmit={handleSubmitAdd}
               isSubmitting={isSubmitting}
+              onCancel={handleCloseModal}
             />
           </BannerModal>
         );
@@ -271,6 +272,7 @@ export default function AdminBanners() {
               initialData={convertToFormBanner(currentBanner)}
               onSubmit={handleSubmitEdit}
               isSubmitting={isSubmitting}
+              onCancel={handleCloseModal}
             />
           </BannerModal>
         ) : null;

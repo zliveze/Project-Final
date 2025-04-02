@@ -18,16 +18,25 @@ import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 @ApiBearerAuth()
 export class NotificationsAdminController {
   private readonly logger = new Logger(NotificationsAdminController.name);
+  private readonly isDebugEnabled = process.env.NODE_ENV !== 'production'; // Chỉ log nếu không phải môi trường production
   
   constructor(private readonly notificationsService: NotificationsService) {}
+
+  // Phương thức log tùy chỉnh để giảm số lượng log
+  private customLog(message: string, isImportant = false) {
+    if (isImportant || this.isDebugEnabled) {
+      this.logger.log(message);
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Tạo thông báo mới' })
   @ApiResponse({ status: 201, description: 'Tạo thông báo thành công', type: NotificationResponseDto })
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     try {
-      this.logger.log(`Tạo thông báo mới: ${JSON.stringify(createNotificationDto)}`);
-      return this.notificationsService.create(createNotificationDto);
+      const result = await this.notificationsService.create(createNotificationDto);
+      this.customLog(`Tạo thông báo mới thành công với ID: ${result._id}`, true);
+      return result;
     } catch (error) {
       this.logger.error(`Lỗi khi tạo thông báo: ${error.message}`, error.stack);
       throw new HttpException(
@@ -42,7 +51,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 200, description: 'Danh sách thông báo', type: PaginatedNotificationsResponseDto })
   async findAll(@Query() queryDto: QueryNotificationDto) {
     try {
-      this.logger.log(`Lấy danh sách thông báo với query: ${JSON.stringify(queryDto)}`);
       return this.notificationsService.findAll(queryDto);
     } catch (error) {
       this.logger.error(`Lỗi khi lấy danh sách thông báo: ${error.message}`, error.stack);
@@ -58,7 +66,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 200, description: 'Thống kê thông báo' })
   async getStatistics() {
     try {
-      this.logger.log('Lấy thống kê thông báo');
       return this.notificationsService.getStatistics();
     } catch (error) {
       this.logger.error(`Lỗi khi lấy thống kê thông báo: ${error.message}`, error.stack);
@@ -75,7 +82,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy thông báo' })
   async findOne(@Param('id') id: string) {
     try {
-      this.logger.log(`Lấy chi tiết thông báo với ID: ${id}`);
       return this.notificationsService.findOne(id);
     } catch (error) {
       this.logger.error(`Lỗi khi lấy chi tiết thông báo: ${error.message}`, error.stack);
@@ -92,7 +98,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy thông báo' })
   async update(@Param('id') id: string, @Body() updateNotificationDto: UpdateNotificationDto) {
     try {
-      this.logger.log(`Cập nhật thông báo với ID: ${id}, dữ liệu: ${JSON.stringify(updateNotificationDto)}`);
       return this.notificationsService.update(id, updateNotificationDto);
     } catch (error) {
       this.logger.error(`Lỗi khi cập nhật thông báo: ${error.message}`, error.stack);
@@ -109,7 +114,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy thông báo' })
   async toggleStatus(@Param('id') id: string) {
     try {
-      this.logger.log(`Thay đổi trạng thái thông báo với ID: ${id}`);
       return this.notificationsService.toggleStatus(id);
     } catch (error) {
       this.logger.error(`Lỗi khi thay đổi trạng thái thông báo: ${error.message}`, error.stack);
@@ -126,7 +130,6 @@ export class NotificationsAdminController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy thông báo' })
   async remove(@Param('id') id: string) {
     try {
-      this.logger.log(`Xóa thông báo với ID: ${id}`);
       return this.notificationsService.remove(id);
     } catch (error) {
       this.logger.error(`Lỗi khi xóa thông báo: ${error.message}`, error.stack);
