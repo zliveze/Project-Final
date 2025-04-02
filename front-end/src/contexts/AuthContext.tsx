@@ -17,7 +17,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (token: string, password: string) => Promise<boolean>;
-  googleLogin: (token: string) => Promise<boolean>;
+  googleLogin: (code: string) => Promise<boolean>;
   resendVerificationEmail: (email: string) => Promise<boolean>;
   setUser: (user: User | null) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
@@ -29,6 +29,7 @@ export const useAuth = () => useContext(AuthContext);
 
 // Base API URL từ biến môi trường
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3001/auth';
 
 // Hàm lưu token vào cả localStorage và cookie
 const saveToken = (name: string, value: string, expires?: number) => {
@@ -215,54 +216,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const googleLogin = async (token: string) => {
+  const googleLogin = async (code: string) => {
     try {
       setIsLoading(true);
       
-      console.log('Đang gọi Google login API với URL:', `${API_URL}/auth/google`);
+      console.log('Đang gọi Google login API với code:', code);
+      console.log('API URL:', `${AUTH_URL}/google/callback`);
       
-      // Kết nối trực tiếp đến backend API thay vì qua API trung gian
-      const response = await fetch(`${API_URL}/auth/google`, {
+      // Gọi API endpoint xử lý Google OAuth
+      const response = await fetch(`${AUTH_URL}/google/callback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token }),
-        mode: 'cors',
+        body: JSON.stringify({ code }),
         credentials: 'include'
       });
 
-      console.log('Google login API response status:', response.status);
-      console.log('Google login API response type:', response.type);
+      console.log('Response status:', response.status);
       
-      // Xử lý response
-      try {
-        const data = await response.json();
-        console.log('Google login API response data:', data);
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Đăng nhập Google thất bại');
-        }
-
-        // Lưu token và thông tin người dùng vào localStorage và cookie
-        saveToken('accessToken', data.accessToken, 2); // 2 ngày
-        saveToken('refreshToken', data.refreshToken, 7); // 7 ngày
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        setUser(data.user);
-        setIsAuthenticated(true);
-      } catch (parseError) {
-        console.error('Không thể phân tích phản hồi:', parseError);
-        return false;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Đăng nhập Google thất bại');
       }
-      
+
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (!data.accessToken || !data.user) {
+        throw new Error('Không nhận được thông tin xác thực từ server');
+      }
+
+      // Lưu token và thông tin người dùng
+      saveToken('accessToken', data.accessToken, 2);
+      if (data.refreshToken) {
+        saveToken('refreshToken', data.refreshToken, 7);
+      }
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      setUser(data.user);
+      setIsAuthenticated(true);
       return true;
     } catch (error) {
       console.error('Lỗi đăng nhập Google:', error);
-      // Log thêm thông tin để debug
-      console.error('API_URL:', API_URL);
-      console.error('Error details:', error instanceof Error ? error.message : String(error));
-      return false;
+      throw error;
     } finally {
       setIsLoading(false);
     }

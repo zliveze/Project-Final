@@ -10,6 +10,10 @@ export interface User {
   role: string;
   status: string;
   createdAt: string;
+  customerLevel: string;
+  monthlyOrders: number;
+  totalOrders: number;
+  lastOrderDate?: string;
 }
 
 interface UserTableProps {
@@ -492,6 +496,12 @@ const UserTable: React.FC<UserTableProps> = ({
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Ngày tạo
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Cấp độ
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Đơn hàng
               </th>
               <th scope="col" className="relative px-6 py-3">
                 <span className="sr-only">Thao tác</span>

@@ -60,6 +60,21 @@ export class User {
   @Prop({ enum: ['user', 'admin', 'superadmin'], default: 'user' })
   role: string;
 
+  @Prop({ 
+    enum: ['Khách hàng mới', 'Khách hàng bạc', 'Khách hàng vàng', 'Khách hàng thân thiết'], 
+    default: 'Khách hàng mới' 
+  })
+  customerLevel: string;
+
+  @Prop({ default: 0 })
+  totalOrders: number;
+
+  @Prop({ default: 0 })
+  monthlyOrders: number;
+
+  @Prop()
+  lastOrderDate: Date;
+
   @Prop({ default: false })
   isActive: boolean;
 

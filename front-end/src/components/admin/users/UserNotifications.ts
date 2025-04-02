@@ -29,6 +29,11 @@ export const UserNotifications = {
       delete: () => toast.success('Xóa địa chỉ thành công!', { id: 'user-address-delete-success' }),
       setDefault: () => toast.success('Đặt địa chỉ mặc định thành công!', { id: 'user-address-default-success' }),
     },
+    
+    customerLevel: {
+      update: (level: string) => toast.success(`Đã cập nhật cấp độ khách hàng thành ${level}!`, { id: 'user-customer-level-update-success' }),
+      reset: () => toast.success('Đã reset số đơn hàng tháng này!', { id: 'user-customer-level-reset-success' }),
+    },
   },
   
   // Thông báo lỗi
@@ -51,6 +56,11 @@ export const UserNotifications = {
       update: () => toast.error('Có lỗi xảy ra khi cập nhật địa chỉ!', { id: 'user-address-update-error' }),
       delete: () => toast.error('Có lỗi xảy ra khi xóa địa chỉ!', { id: 'user-address-delete-error' }),
       setDefault: () => toast.error('Có lỗi xảy ra khi đặt địa chỉ mặc định!', { id: 'user-address-default-error' }),
+    },
+    
+    customerLevel: {
+      update: () => toast.error('Có lỗi xảy ra khi cập nhật cấp độ khách hàng!', { id: 'user-customer-level-update-error' }),
+      reset: () => toast.error('Có lỗi xảy ra khi reset số đơn hàng!', { id: 'user-customer-level-reset-error' }),
     },
   },
   
@@ -76,6 +86,13 @@ export const UserNotifications = {
       icon: 'ℹ️',
       id: 'user-reset-password-info'
     }),
+    
+    customerLevel: {
+      info: (level: string, orders: number) => toast(`Cần ${orders} đơn hàng nữa để đạt cấp độ ${level}`, {
+        icon: 'ℹ️',
+        id: 'user-customer-level-info'
+      }),
+    },
   },
 };
 

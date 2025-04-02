@@ -14,6 +14,10 @@ interface UserFormProps {
     password?: string;
     avatar?: string;
     googleId?: string;
+    customerLevel: string;
+    monthlyOrders?: number;
+    totalOrders?: number;
+    lastOrderDate?: string;
     addresses?: {
       addressId: string;
       addressLine: string;
@@ -49,6 +53,9 @@ const UserForm: React.FC<UserFormProps> = ({
     status: 'active',
     password: '',
     avatar: '',
+    customerLevel: 'Khách hàng mới',
+    monthlyOrders: 0,
+    totalOrders: 0,
     addresses: [],
     wishlist: [],
   },
@@ -63,6 +70,13 @@ const UserForm: React.FC<UserFormProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Cấu hình trường dữ liệu
+  const customerLevelOptions = [
+    { value: 'Khách hàng mới', label: 'Khách hàng mới' },
+    { value: 'Khách hàng bạc', label: 'Khách hàng bạc' },
+    { value: 'Khách hàng vàng', label: 'Khách hàng vàng' },
+    { value: 'Khách hàng thân thiết', label: 'Khách hàng thân thiết' },
+  ];
+
   const formFields: FormField[] = [
     {
       name: 'name',
@@ -110,6 +124,15 @@ const UserForm: React.FC<UserFormProps> = ({
         { value: 'inactive', label: 'Không hoạt động' },
         { value: 'blocked', label: 'Đã khóa' }
       ]
+    },
+    {
+      name: 'customerLevel',
+      label: 'Cấp độ khách hàng',
+      type: 'select',
+      icon: <FiUser />,
+      placeholder: 'Chọn cấp độ khách hàng',
+      options: customerLevelOptions,
+      required: true,
     }
   ];
   

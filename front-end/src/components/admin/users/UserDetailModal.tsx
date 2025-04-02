@@ -37,6 +37,10 @@ interface UserDetailModalProps {
     addresses?: Address[];
     orders?: OrderSummary[];
     wishlist?: any[];
+    customerLevel: string;
+    monthlyOrders?: number;
+    totalOrders?: number;
+    lastOrderDate?: string;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -45,8 +49,47 @@ interface UserDetailModalProps {
 
 // Tab Content Components
 const UserInfoTab: React.FC<{ user: UserDetailModalProps['user'] }> = ({ user }) => {
+  const getCustomerLevelColor = (level: string) => {
+    switch (level) {
+      case 'Khách hàng thân thiết':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'Khách hàng vàng':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Khách hàng bạc':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+  };
+
   return (
     <div className="space-y-6 py-4 animate-fadeIn">
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin khách hàng</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <span className="text-sm font-medium text-gray-500 block mb-1">Cấp độ hiện tại</span>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getCustomerLevelColor(user.customerLevel)}`}>
+              {user.customerLevel}
+            </span>
+          </div>
+          <div>
+            <span className="text-sm font-medium text-gray-500 block mb-1">Số đơn hàng tháng này</span>
+            <span className="text-sm text-gray-900">{user.monthlyOrders || 0} đơn</span>
+          </div>
+          <div>
+            <span className="text-sm font-medium text-gray-500 block mb-1">Tổng số đơn hàng</span>
+            <span className="text-sm text-gray-900">{user.totalOrders || 0} đơn</span>
+          </div>
+          <div>
+            <span className="text-sm font-medium text-gray-500 block mb-1">Đơn hàng gần nhất</span>
+            <span className="text-sm text-gray-900">
+              {user.lastOrderDate ? new Date(user.lastOrderDate).toLocaleDateString('vi-VN') : 'Chưa có'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center mb-3">
