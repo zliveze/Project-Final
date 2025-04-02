@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiX, FiEdit2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
-import { Category } from './CategoryTable';
+import { Category } from '@/contexts/CategoryContext';
 
 interface CategoryEditModalProps {
   category: Category | null;
@@ -32,30 +32,48 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = (formData: Partial<Category>) => {
-    if (!category) return;
-    
-    setIsSubmitting(true);
-    
+  const handleSubmit = async (values: any) => {
     try {
-      // Đảm bảo rằng id được giữ nguyên
-      const updatedData = {
-        ...formData,
-        id: category.id
+      setIsSubmitting(true);
+      
+      console.log(`Đang chuẩn bị cập nhật danh mục ID: ${category?._id}`);
+      console.log(`Dữ liệu form được submit:`, JSON.stringify(values, null, 2));
+      
+      // Đảm bảo _id được đính kèm
+      const dataToSubmit = {
+        ...values,
+        _id: category?._id
       };
       
-      // Gọi hàm xử lý từ props
-      setTimeout(() => {
-        setIsSubmitting(false);
-        onSubmit(updatedData);
-      }, 500);
-    } catch (error) {
+      console.log(`Dữ liệu sẽ gửi đến callback:`, JSON.stringify(dataToSubmit, null, 2));
+      
+      // Giả lập độ trễ của API
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       setIsSubmitting(false);
-      toast.error('Có lỗi xảy ra khi cập nhật danh mục!', {
+      toast.success("Danh mục đã được cập nhật thành công!", {
         duration: 3000,
-        position: 'top-right',
+        position: "bottom-right",
+        icon: '✅'
       });
-      console.error('Error updating category:', error);
+      
+      // Đóng modal và gọi hàm callback để làm mới dữ liệu
+      onClose();
+      
+      if (onSubmit) {
+        console.log('Gọi onSubmit callback với dữ liệu đã chuẩn bị');
+        onSubmit(dataToSubmit);
+      } else {
+        console.warn('Không có onSubmit callback để gửi dữ liệu');
+      }
+    } catch (error) {
+      console.error("Lỗi chi tiết khi cập nhật danh mục:", error);
+      setIsSubmitting(false);
+      toast.error("Đã xảy ra lỗi khi cập nhật danh mục", {
+        duration: 3000,
+        position: "bottom-right",
+        icon: '❌'
+      });
     }
   };
   
@@ -100,7 +118,7 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
           <div className="p-6 max-h-[80vh] overflow-y-auto">
             <CategoryForm 
               initialData={category}
-              categories={categories.filter(cat => cat.id !== category.id)}
+              categories={categories.filter(cat => cat._id !== category._id)}
               onSubmit={handleSubmit}
               onCancel={onClose}
               isSubmitting={isSubmitting}

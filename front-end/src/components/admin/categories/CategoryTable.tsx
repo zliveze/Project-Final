@@ -1,155 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiEdit2, FiTrash2, FiEye, FiStar, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import Image from 'next/image';
 import Pagination from '@/components/admin/common/Pagination';
+import CategoryHierarchy from './CategoryHierarchy';
+import { Category } from '@/contexts/CategoryContext';
 
-// Định nghĩa interface cho Category dựa trên model
-export interface Category {
-  id: string;
-  name: string;
-  description: string;
-  slug: string;
-  parentId?: string | null;
-  level: number;
-  image: {
-    url: string;
-    alt: string;
-  };
-  status: 'active' | 'inactive';
-  featured: boolean;
-  order: number;
-  productCount?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Dữ liệu mẫu cho danh mục
-const sampleCategories: Category[] = [
-  {
-    id: 'CAT-001',
-    name: 'Chăm sóc da',
-    slug: 'cham-soc-da',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chăm sóc da'
-    },
-    description: 'Các sản phẩm chăm sóc da mặt',
-    level: 1,
-    parentId: null,
-    productCount: 45,
-    status: 'active',
-    featured: true,
-    order: 1,
-    createdAt: '15/03/2025',
-    updatedAt: '15/03/2025'
-  },
-  {
-    id: 'CAT-002',
-    name: 'Trang điểm',
-    slug: 'trang-diem',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Trang điểm'
-    },
-    description: 'Các sản phẩm trang điểm',
-    level: 1,
-    parentId: null,
-    productCount: 32,
-    status: 'active',
-    featured: true,
-    order: 2,
-    createdAt: '14/03/2025',
-    updatedAt: '14/03/2025'
-  },
-  {
-    id: 'CAT-003',
-    name: 'Chăm sóc tóc',
-    slug: 'cham-soc-toc',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chăm sóc tóc'
-    },
-    description: 'Các sản phẩm chăm sóc tóc',
-    level: 1,
-    parentId: null,
-    productCount: 18,
-    status: 'active',
-    featured: false,
-    order: 3,
-    createdAt: '13/03/2025',
-    updatedAt: '13/03/2025'
-  },
-  {
-    id: 'CAT-004',
-    name: 'Chống nắng',
-    slug: 'chong-nang',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chống nắng'
-    },
-    description: 'Các sản phẩm chống nắng',
-    level: 2,
-    parentId: 'CAT-001',
-    productCount: 12,
-    status: 'active',
-    featured: false,
-    order: 1,
-    createdAt: '12/03/2025',
-    updatedAt: '12/03/2025'
-  },
-  {
-    id: 'CAT-005',
-    name: 'Mặt nạ',
-    slug: 'mat-na',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Mặt nạ'
-    },
-    description: 'Các loại mặt nạ dưỡng da',
-    level: 2,
-    parentId: 'CAT-001',
-    productCount: 24,
-    status: 'active',
-    featured: false,
-    order: 2,
-    createdAt: '11/03/2025',
-    updatedAt: '11/03/2025'
-  },
-  {
-    id: 'CAT-006',
-    name: 'Nước hoa',
-    slug: 'nuoc-hoa',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Nước hoa'
-    },
-    description: 'Các loại nước hoa',
-    level: 1,
-    parentId: null,
-    productCount: 0,
-    status: 'inactive',
-    featured: false,
-    order: 4,
-    createdAt: '10/03/2025',
-    updatedAt: '10/03/2025'
-  }
-];
-
+// Định nghĩa interface cho props
 interface CategoryTableProps {
+  categories: Category[];
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onToggleStatus?: (id: string) => void;
+  onToggleFeatured?: (id: string) => void;
+  onChangeOrder?: (id: string, order: number) => void;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTableProps) {
-  const [categories, setCategories] = useState<Category[]>(sampleCategories);
+export default function CategoryTable({ 
+  categories, 
+  onView, 
+  onEdit, 
+  onDelete,
+  onToggleStatus,
+  onToggleFeatured,
+  onChangeOrder,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange
+}: CategoryTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState<number | 'all'>('all');
   const [selectedFeatured, setSelectedFeatured] = useState<boolean | 'all'>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const categoriesPerPage = 5;
   const [sortConfig, setSortConfig] = useState<{ key: keyof Category; direction: 'ascending' | 'descending' } | null>(null);
+  const [itemsPerPage] = useState(10);
 
   // Hàm sắp xếp
   const sortedCategories = [...categories];
@@ -181,7 +68,7 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
   const filteredCategories = sortedCategories.filter(category => {
     const matchesSearch = 
       category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      category.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = selectedStatus === 'all' || category.status === selectedStatus;
     
@@ -191,12 +78,6 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
     
     return matchesSearch && matchesStatus && matchesLevel && matchesFeatured;
   });
-
-  // Phân trang
-  const indexOfLastCategory = currentPage * categoriesPerPage;
-  const indexOfFirstCategory = indexOfLastCategory - categoriesPerPage;
-  const currentCategories = filteredCategories.slice(indexOfFirstCategory, indexOfLastCategory);
-  const totalPages = Math.ceil(filteredCategories.length / categoriesPerPage);
 
   // Hàm để hiển thị màu sắc dựa trên trạng thái danh mục
   const getStatusColor = (status: string) => {
@@ -225,7 +106,7 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
   // Hàm để lấy tên danh mục cha
   const getParentCategoryName = (parentId: string | null | undefined) => {
     if (!parentId) return 'Không có';
-    const parent = categories.find(cat => cat.id === parentId);
+    const parent = categories.find(cat => cat._id === parentId);
     return parent ? parent.name : 'Không tìm thấy';
   };
 
@@ -237,9 +118,24 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
     return sortConfig.direction === 'ascending' ? <FiChevronUp className="inline-block ml-1" /> : <FiChevronDown className="inline-block ml-1" />;
   };
 
-  // Hàm chuyển trang
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  // Format date nếu cần
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return '';
+    
+    try {
+      if (typeof dateString === 'string' && dateString.includes('/')) {
+        return dateString;
+      }
+      
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(date);
+    } catch (error) {
+      return dateString.toString();
+    }
   };
 
   return (
@@ -325,7 +221,7 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
                 Thứ tự {getSortIcon('order')}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Số sản phẩm
+                Con
               </th>
               <th 
                 scope="col" 
@@ -354,18 +250,24 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentCategories.map((category) => (
-              <tr key={category.id} className="hover:bg-gray-50">
+            {filteredCategories.map((category) => (
+              <tr key={category._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden">
-                      <Image 
-                        src={category.image.url} 
-                        alt={category.image.alt}
-                        width={40}
-                        height={40}
-                        className="h-full w-full object-cover"
-                      />
+                      {category.image && category.image.url ? (
+                        <Image 
+                          src={category.image.url} 
+                          alt={category.image.alt || category.name}
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 bg-gray-200 flex items-center justify-center rounded-md">
+                          <span className="text-gray-500 text-xs">{category.name.substring(0, 2).toUpperCase()}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">{category.name}</div>
@@ -374,7 +276,7 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.description.length > 50 
+                  {category.description && category.description.length > 50 
                     ? `${category.description.substring(0, 50)}...` 
                     : category.description}
                 </td>
@@ -385,44 +287,75 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
                   {getParentCategoryName(category.parentId)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.order}
+                  <div className="flex items-center">
+                    <span className="mr-2">{category.order}</span>
+                    {onChangeOrder && (
+                      <div className="flex flex-col">
+                        <button 
+                          onClick={() => onChangeOrder(category._id || '', category.order - 1)}
+                          disabled={category.order <= 0}
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Tăng thứ tự"
+                        >
+                          <FiChevronUp className="h-3 w-3" />
+                        </button>
+                        <button 
+                          onClick={() => onChangeOrder(category._id || '', category.order + 1)}
+                          className="text-gray-400 hover:text-gray-700"
+                          title="Giảm thứ tự"
+                        >
+                          <FiChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.productCount || 0}
+                  {category.childrenCount || 0}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(category.status)}`}>
+                  <button 
+                    onClick={() => onToggleStatus && onToggleStatus(category._id || '')}
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(category.status)} ${onToggleStatus ? 'cursor-pointer' : ''}`}
+                    title={onToggleStatus ? 'Nhấp để thay đổi trạng thái' : ''}
+                  >
                     {getStatusText(category.status)}
-                  </span>
+                  </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.featured ? (
-                    <FiStar className="h-5 w-5 text-yellow-500" />
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
+                  <button
+                    onClick={() => onToggleFeatured && onToggleFeatured(category._id || '')}
+                    className={`${onToggleFeatured ? 'cursor-pointer' : ''}`}
+                    title={onToggleFeatured ? 'Nhấp để thay đổi trạng thái nổi bật' : ''}
+                  >
+                    {category.featured ? (
+                      <FiStar className="h-5 w-5 text-yellow-500" />
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.createdAt}
+                  {formatDate(category.createdAt)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">
                     <button 
-                      onClick={() => onView(category.id)}
+                      onClick={() => onView(category._id || '')}
                       className="text-gray-600 hover:text-gray-900"
                       title="Xem chi tiết"
                     >
                       <FiEye className="h-5 w-5" />
                     </button>
                     <button 
-                      onClick={() => onEdit(category.id)}
+                      onClick={() => onEdit(category._id || '')}
                       className="text-blue-600 hover:text-blue-900"
                       title="Chỉnh sửa"
                     >
                       <FiEdit2 className="h-5 w-5" />
                     </button>
                     <button 
-                      onClick={() => onDelete(category.id)}
+                      onClick={() => onDelete(category._id || '')}
                       className="text-red-600 hover:text-red-900"
                       title="Xóa"
                     >
@@ -443,14 +376,25 @@ export default function CategoryTable({ onView, onEdit, onDelete }: CategoryTabl
       )}
       
       <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-          totalItems={filteredCategories.length}
-          itemsPerPage={categoriesPerPage}
-          showItemsInfo={true}
-        />
+        {onPageChange ? (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            totalItems={categories.length}
+            itemsPerPage={itemsPerPage}
+            showItemsInfo={true}
+          />
+        ) : (
+          <Pagination
+            currentPage={1}
+            totalPages={Math.ceil(filteredCategories.length / itemsPerPage)}
+            onPageChange={() => {}}
+            totalItems={filteredCategories.length}
+            itemsPerPage={itemsPerPage}
+            showItemsInfo={true}
+          />
+        )}
       </div>
     </div>
   );

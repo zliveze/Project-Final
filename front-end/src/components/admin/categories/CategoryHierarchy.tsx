@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { FiChevronRight, FiChevronDown, FiFolder, FiEdit2, FiEye, FiTrash2, FiStar } from 'react-icons/fi';
 import Image from 'next/image';
-import { Category } from './CategoryTable';
 import Pagination from '@/components/admin/common/Pagination';
+import { Category } from '@/contexts/CategoryContext';
 
 interface CategoryTreeItem extends Category {
   children: CategoryTreeItem[];
@@ -32,7 +32,9 @@ export default function CategoryHierarchy({
 
     // Đầu tiên, chuyển đổi mỗi danh mục thành node trong cây
     categories.forEach(category => {
-      categoryMap[category.id] = {
+      if (!category._id) return;
+      
+      categoryMap[category._id] = {
         ...category,
         children: []
       };
@@ -40,7 +42,9 @@ export default function CategoryHierarchy({
 
     // Sau đó, xây dựng cây bằng cách liên kết các node
     categories.forEach(category => {
-      const node = categoryMap[category.id];
+      if (!category._id) return;
+      
+      const node = categoryMap[category._id];
       if (category.parentId && categoryMap[category.parentId]) {
         // Nếu có parentId và parent tồn tại, thêm node vào children của parent
         categoryMap[category.parentId].children.push(node);
@@ -69,21 +73,29 @@ export default function CategoryHierarchy({
     setExpandedCategories(newExpanded);
   };
 
+  // Format description
+  const formatDescription = (desc?: string) => {
+    if (!desc) return '';
+    return desc.length > 40 ? `${desc.substring(0, 40)}...` : desc;
+  };
+
   // Đệ quy hiển thị cây danh mục
   const renderCategoryTree = (categories: CategoryTreeItem[], level = 0) => {
     return categories.map(category => {
+      if (!category._id) return null;
+      
       const hasChildren = category.children.length > 0;
-      const isExpanded = expandedCategories.has(category.id);
+      const isExpanded = expandedCategories.has(category._id);
       const indentClass = `pl-${level * 6}`;
 
       return (
-        <React.Fragment key={category.id}>
+        <React.Fragment key={category._id}>
           <tr className="hover:bg-gray-50">
             <td className={`px-6 py-3 whitespace-nowrap ${indentClass}`}>
               <div className="flex items-center">
                 {hasChildren ? (
                   <button
-                    onClick={() => toggleCategory(category.id)}
+                    onClick={() => toggleCategory(category._id || '')}
                     className="mr-2 p-1 rounded-full hover:bg-gray-200 focus:outline-none"
                   >
                     {isExpanded ? (
@@ -118,19 +130,17 @@ export default function CategoryHierarchy({
                       )}
                     </div>
                     <div className="text-xs text-gray-500">
-                      ID: {category.id} | Cấp độ: {category.level}
+                      ID: {category._id.substring(0, 8)}... | Cấp độ: {category.level}
                     </div>
                   </div>
                 </div>
               </div>
             </td>
             <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-              {category.description.length > 40 
-                ? `${category.description.substring(0, 40)}...` 
-                : category.description}
+              {formatDescription(category.description)}
             </td>
             <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-              {category.productCount || 0}
+              {category.childrenCount || 0}
             </td>
             <td className="px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500">
               {category.order}
@@ -145,21 +155,21 @@ export default function CategoryHierarchy({
             <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
               <div className="flex items-center justify-end space-x-2">
                 <button 
-                  onClick={() => onView(category.id)}
+                  onClick={() => onView(category._id || '')}
                   className="text-gray-600 hover:text-gray-900"
                   title="Xem chi tiết"
                 >
                   <FiEye className="h-5 w-5" />
                 </button>
                 <button 
-                  onClick={() => onEdit(category.id)}
+                  onClick={() => onEdit(category._id || '')}
                   className="text-blue-600 hover:text-blue-900"
                   title="Chỉnh sửa"
                 >
                   <FiEdit2 className="h-5 w-5" />
                 </button>
                 <button 
-                  onClick={() => onDelete(category.id)}
+                  onClick={() => onDelete(category._id || '')}
                   className="text-red-600 hover:text-red-900"
                   title="Xóa"
                 >
@@ -209,7 +219,7 @@ export default function CategoryHierarchy({
                 Mô tả
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Sản phẩm
+                Số danh mục con
               </th>
               <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thứ tự

@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { FiEdit2, FiTrash2, FiStar, FiCheck, FiX } from 'react-icons/fi';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { Category } from './CategoryTable';
+import { Category } from '@/contexts/CategoryContext';
 
 interface CategoryDetailProps {
-  category: Category;
+  category: Category | null;
   parentCategory?: Category | null;
   childCategories: Category[];
-  productCount: number;
+  productCount?: number;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
@@ -18,16 +18,33 @@ export default function CategoryDetail({
   category,
   parentCategory,
   childCategories,
-  productCount,
+  productCount = 0,
   onEdit,
   onDelete,
   onBack
 }: CategoryDetailProps) {
+  // Nếu category là null, hiển thị thông báo lỗi
+  if (!category) {
+    return (
+      <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-md">
+        <p className="text-yellow-700">Không thể tải thông tin danh mục.</p>
+        <button 
+          onClick={onBack}
+          className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-pink-600 hover:bg-pink-700"
+        >
+          Quay lại
+        </button>
+      </div>
+    );
+  }
+
   // Format date
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date | undefined) => {
+    if (!dateString) return '';
+    
     try {
       // Check if dateString is already in DD/MM/YYYY format
-      if (dateString.includes('/')) {
+      if (typeof dateString === 'string' && dateString.includes('/')) {
         return dateString;
       }
       
@@ -40,7 +57,7 @@ export default function CategoryDetail({
         minute: '2-digit'
       }).format(date);
     } catch (error) {
-      return dateString;
+      return String(dateString);
     }
   };
 
@@ -69,9 +86,16 @@ export default function CategoryDetail({
   };
 
   // Hàm xử lý khi nhấn nút chỉnh sửa
-  const handleEdit = (id: string = category.id) => {
+  const handleEdit = () => {
     try {
-      onEdit(id);
+      if (category._id) {
+        onEdit(category._id);
+      } else {
+        toast.error("Không tìm thấy ID danh mục", {
+          duration: 3000,
+          position: "top-right"
+        });
+      }
     } catch (error) {
       console.error("Lỗi khi chuyển sang chỉnh sửa danh mục:", error);
       toast.error("Đã xảy ra lỗi khi chuyển sang chỉnh sửa danh mục", {
@@ -83,9 +107,16 @@ export default function CategoryDetail({
   };
 
   // Hàm xử lý khi nhấn nút xóa
-  const handleDelete = (id: string = category.id) => {
+  const handleDelete = () => {
     try {
-      onDelete(id);
+      if (category._id) {
+        onDelete(category._id);
+      } else {
+        toast.error("Không tìm thấy ID danh mục", {
+          duration: 3000,
+          position: "top-right"
+        });
+      }
     } catch (error) {
       console.error("Lỗi khi chuyển sang xóa danh mục:", error);
       toast.error("Đã xảy ra lỗi khi chuyển sang xóa danh mục", {
@@ -101,14 +132,14 @@ export default function CategoryDetail({
       {/* Buttons */}
       <div className="flex justify-end space-x-3">
         <button
-          onClick={() => handleEdit()}
+          onClick={handleEdit}
           className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
         >
           <FiEdit2 className="mr-2 -ml-1 h-5 w-5" />
           Chỉnh sửa
         </button>
         <button
-          onClick={() => handleDelete()}
+          onClick={handleDelete}
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
           <FiTrash2 className="mr-2 -ml-1 h-5 w-5" />
@@ -156,7 +187,7 @@ export default function CategoryDetail({
                   <dl className="divide-y divide-gray-200">
                     <div className="py-3 flex justify-between">
                       <dt className="text-sm font-medium text-gray-500">ID</dt>
-                      <dd className="text-sm text-gray-900">{category.id}</dd>
+                      <dd className="text-sm text-gray-900">{category._id || 'N/A'}</dd>
                     </div>
                     <div className="py-3 flex justify-between">
                       <dt className="text-sm font-medium text-gray-500">Tên danh mục</dt>
@@ -210,7 +241,7 @@ export default function CategoryDetail({
               <div>
                 <h3 className="text-lg font-medium text-gray-900">Mô tả</h3>
                 <div className="mt-3 border-t border-gray-200 py-3">
-                  <p className="text-sm text-gray-700">{category.description}</p>
+                  <p className="text-sm text-gray-700">{category.description || 'Không có mô tả'}</p>
                 </div>
               </div>
               
@@ -234,7 +265,7 @@ export default function CategoryDetail({
                         )}
                         <div>
                           <p className="text-sm font-medium text-gray-900">{parentCategory.name}</p>
-                          <p className="text-sm text-gray-500">ID: {parentCategory.id}</p>
+                          <p className="text-sm text-gray-500">ID: {parentCategory._id || 'N/A'}</p>
                         </div>
                       </div>
                     ) : (
@@ -246,9 +277,13 @@ export default function CategoryDetail({
               
               {/* Thống kê sản phẩm */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900">Thống kê sản phẩm</h3>
+                <h3 className="text-lg font-medium text-gray-900">Thống kê</h3>
                 <div className="mt-3 border-t border-gray-200">
                   <dl className="divide-y divide-gray-200">
+                    <div className="py-3 flex justify-between">
+                      <dt className="text-sm font-medium text-gray-500">Số danh mục con</dt>
+                      <dd className="text-sm text-gray-900">{category.childrenCount || 0}</dd>
+                    </div>
                     <div className="py-3 flex justify-between">
                       <dt className="text-sm font-medium text-gray-500">Tổng số sản phẩm</dt>
                       <dd className="text-sm text-gray-900">{productCount}</dd>
@@ -279,7 +314,7 @@ export default function CategoryDetail({
                     Mô tả
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Số sản phẩm
+                    Số danh mục con
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng thái
@@ -291,7 +326,7 @@ export default function CategoryDetail({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {childCategories.map((childCategory) => (
-                  <tr key={childCategory.id} className="hover:bg-gray-50">
+                  <tr key={childCategory._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         {childCategory.image && childCategory.image.url && (
@@ -312,12 +347,12 @@ export default function CategoryDetail({
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {childCategory.description.length > 50 
+                      {childCategory.description && childCategory.description.length > 50 
                         ? `${childCategory.description.substring(0, 50)}...` 
                         : childCategory.description}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {childCategory.productCount || 0}
+                      {childCategory.childrenCount || 0}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(childCategory.status)}
@@ -325,14 +360,14 @@ export default function CategoryDetail({
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
                         <button 
-                          onClick={() => handleEdit(childCategory.id)}
+                          onClick={() => onEdit(childCategory._id || '')}
                           className="text-blue-600 hover:text-blue-900"
                           title="Chỉnh sửa"
                         >
                           <FiEdit2 className="h-5 w-5" />
                         </button>
                         <button 
-                          onClick={() => handleDelete(childCategory.id)}
+                          onClick={() => onDelete(childCategory._id || '')}
                           className="text-red-600 hover:text-red-900"
                           title="Xóa"
                         >

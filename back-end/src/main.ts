@@ -10,9 +10,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  // Giảm mức độ log trong ứng dụng
+  // Bật lại tất cả các level log
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn'], // Chỉ hiển thị lỗi và cảnh báo
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'], // Hiển thị tất cả các log
   });
   const logger = new Logger('Bootstrap');
   

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiX, FiTrash2, FiAlertTriangle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { Category } from './CategoryTable';
+import { Category } from '@/contexts/CategoryContext';
 
 interface CategoryDeleteModalProps {
   category: Category | null;
@@ -38,7 +38,7 @@ const CategoryDeleteModal: React.FC<CategoryDeleteModalProps> = ({
       // Gọi hàm xử lý từ props
       setTimeout(() => {
         setIsSubmitting(false);
-        onDelete(category.id);
+        onDelete(category._id || '');
       }, 500);
     } catch (error) {
       setIsSubmitting(false);
@@ -103,13 +103,13 @@ const CategoryDeleteModal: React.FC<CategoryDeleteModalProps> = ({
                     Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn và không thể khôi phục.
                   </p>
 
-                  {category.productCount && category.productCount > 0 && (
+                  {category.childrenCount && category.childrenCount > 0 && (
                     <div className="mt-2 p-2 bg-yellow-50 rounded-md border border-yellow-100 text-sm">
                       <p className="flex items-start">
                         <FiAlertTriangle className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
                         <span>
-                          Danh mục này hiện đang có <strong>{category.productCount}</strong> sản phẩm liên kết.<br />
-                          Xóa danh mục có thể ảnh hưởng đến hiển thị của các sản phẩm này.
+                          Danh mục này hiện đang có <strong>{category.childrenCount}</strong> danh mục con liên kết.<br />
+                          Xóa danh mục có thể ảnh hưởng đến hiển thị của các danh mục này.
                         </span>
                       </p>
                     </div>

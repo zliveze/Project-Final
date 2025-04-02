@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiX, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
-import { Category } from './CategoryTable';
+import { Category } from '@/contexts/CategoryContext';
 
 interface CategoryAddModalProps {
   isOpen: boolean;

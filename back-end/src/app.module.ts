@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { BannersModule } from './banners/banners.module';
 import { CloudinaryModule } from './cloudinary';
 import { BrandsModule } from './brands/brands.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { BrandsModule } from './brands/brands.module';
     BannersModule,
     BrandsModule,
     CloudinaryModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

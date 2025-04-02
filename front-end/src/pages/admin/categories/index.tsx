@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers } from 'react-icons/fi';
+import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers, FiStar } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import AdminLayout from '@/components/admin/AdminLayout';
 import CategoryTable from '@/components/admin/categories/CategoryTable';
@@ -9,125 +9,30 @@ import CategoryAddModal from '@/components/admin/categories/CategoryAddModal';
 import CategoryEditModal from '@/components/admin/categories/CategoryEditModal';
 import CategoryDetailModal from '@/components/admin/categories/CategoryDetailModal';
 import CategoryDeleteModal from '@/components/admin/categories/CategoryDeleteModal';
-import { Category } from '@/components/admin/categories/CategoryTable';
-
-// Giả lập dữ liệu mẫu
-const sampleCategories: Category[] = [
-  {
-    id: 'CAT-001',
-    name: 'Chăm sóc da',
-    slug: 'cham-soc-da',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chăm sóc da'
-    },
-    description: 'Các sản phẩm chăm sóc da mặt chất lượng cao, giúp dưỡng ẩm và phục hồi da.',
-    level: 1,
-    parentId: null,
-    productCount: 45,
-    status: 'active',
-    featured: true,
-    order: 1,
-    createdAt: '15/03/2025',
-    updatedAt: '15/03/2025'
-  },
-  {
-    id: 'CAT-002',
-    name: 'Trang điểm',
-    slug: 'trang-diem',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Trang điểm'
-    },
-    description: 'Các sản phẩm trang điểm cao cấp, giúp tôn lên vẻ đẹp tự nhiên.',
-    level: 1,
-    parentId: null,
-    productCount: 32,
-    status: 'active',
-    featured: true,
-    order: 2,
-    createdAt: '14/03/2025',
-    updatedAt: '14/03/2025'
-  },
-  {
-    id: 'CAT-003',
-    name: 'Chăm sóc tóc',
-    slug: 'cham-soc-toc',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chăm sóc tóc'
-    },
-    description: 'Các sản phẩm chăm sóc tóc chuyên nghiệp, giúp phục hồi và nuôi dưỡng mái tóc.',
-    level: 1,
-    parentId: null,
-    productCount: 18,
-    status: 'active',
-    featured: false,
-    order: 3,
-    createdAt: '13/03/2025',
-    updatedAt: '13/03/2025'
-  },
-  {
-    id: 'CAT-004',
-    name: 'Chống nắng',
-    slug: 'chong-nang',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Chống nắng'
-    },
-    description: 'Các sản phẩm chống nắng hiệu quả, bảo vệ da khỏi tác hại của tia UV.',
-    level: 2,
-    parentId: 'CAT-001',
-    productCount: 12,
-    status: 'active',
-    featured: false,
-    order: 1,
-    createdAt: '12/03/2025',
-    updatedAt: '12/03/2025'
-  },
-  {
-    id: 'CAT-005',
-    name: 'Mặt nạ',
-    slug: 'mat-na',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Mặt nạ'
-    },
-    description: 'Các loại mặt nạ dưỡng da đa dạng, phù hợp với nhiều loại da.',
-    level: 2,
-    parentId: 'CAT-001',
-    productCount: 24,
-    status: 'active',
-    featured: false,
-    order: 2,
-    createdAt: '11/03/2025',
-    updatedAt: '11/03/2025'
-  },
-  {
-    id: 'CAT-006',
-    name: 'Nước hoa',
-    slug: 'nuoc-hoa',
-    image: {
-      url: 'https://via.placeholder.com/50',
-      alt: 'Nước hoa'
-    },
-    description: 'Các loại nước hoa cao cấp từ các thương hiệu nổi tiếng.',
-    level: 1,
-    parentId: null,
-    productCount: 0,
-    status: 'inactive',
-    featured: false,
-    order: 4,
-    createdAt: '10/03/2025',
-    updatedAt: '10/03/2025'
-  }
-];
+import { useCategory, Category } from '@/contexts/CategoryContext';
 
 type ViewMode = 'list' | 'hierarchy';
 
 export default function AdminCategories() {
-  // State cho dữ liệu
-  const [categories, setCategories] = useState<Category[]>(sampleCategories);
+  const { 
+    categories, 
+    loading, 
+    error, 
+    totalCategories,
+    currentPage,
+    totalPages,
+    fetchCategories,
+    fetchCategoryById,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    uploadImage,
+    changeCategoryOrder,
+    toggleCategoryStatus,
+    toggleCategoryFeatured,
+    statistics,
+    fetchStatistics
+  } = useCategory();
   
   // State cho chế độ xem
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -140,6 +45,15 @@ export default function AdminCategories() {
   
   // State cho category đang được thao tác
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [parentCategory, setParentCategory] = useState<Category | null>(null);
+  const [childCategories, setChildCategories] = useState<Category[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  
+  // Fetch dữ liệu khi component mount
+  useEffect(() => {
+    fetchCategories();
+    fetchStatistics();
+  }, [fetchCategories, fetchStatistics]);
   
   // Xử lý mở modal thêm danh mục mới
   const handleOpenAddModal = () => {
@@ -147,132 +61,233 @@ export default function AdminCategories() {
   };
   
   // Xử lý xem chi tiết danh mục
-  const handleViewCategory = (id: string) => {
-    const category = categories.find(cat => cat.id === id);
-    if (category) {
-      setSelectedCategory(category);
-      setShowDetailModal(true);
+  const handleViewCategory = async (id: string) => {
+    try {
+      setLoadingDetails(true);
+      const category = await fetchCategoryById(id);
+      if (category) {
+        setSelectedCategory(category);
+        
+        // Lấy thông tin danh mục cha nếu có
+        if (category.parentId) {
+          const parent = await fetchCategoryById(category.parentId);
+          setParentCategory(parent);
+        } else {
+          setParentCategory(null);
+        }
+        
+        // Lấy danh mục con
+        const childCats = categories.filter(cat => cat.parentId === id);
+        setChildCategories(childCats);
+        
+        setShowDetailModal(true);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin danh mục:', error);
+      toast.error('Không thể tải thông tin danh mục');
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
   // Xử lý mở modal chỉnh sửa danh mục
-  const handleEditCategory = (id: string) => {
-    // Đóng modal chi tiết trước nếu đang mở
-    if (showDetailModal) {
-      setShowDetailModal(false);
-    }
+  const handleEditCategory = async (id: string) => {
+    try {
+      // Đóng modal chi tiết trước nếu đang mở
+      if (showDetailModal) {
+        setShowDetailModal(false);
+      }
 
-    const category = categories.find(cat => cat.id === id);
-    if (category) {
-      setSelectedCategory(category);
-      setShowEditModal(true);
+      setLoadingDetails(true);
+      const category = await fetchCategoryById(id);
+      if (category) {
+        setSelectedCategory(category);
+        setShowEditModal(true);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin danh mục:', error);
+      toast.error('Không thể tải thông tin danh mục');
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
   // Xử lý mở modal xóa danh mục
-  const handleDeleteCategory = (id: string) => {
-    // Đóng modal chi tiết trước nếu đang mở
-    if (showDetailModal) {
-      setShowDetailModal(false);
-    }
-    
-    const category = categories.find(cat => cat.id === id);
-    if (category) {
-      setSelectedCategory(category);
-      setShowDeleteModal(true);
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      // Đóng modal chi tiết trước nếu đang mở
+      if (showDetailModal) {
+        setShowDetailModal(false);
+      }
+      
+      setLoadingDetails(true);
+      const category = await fetchCategoryById(id);
+      if (category) {
+        setSelectedCategory(category);
+        setShowDeleteModal(true);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin danh mục:', error);
+      toast.error('Không thể tải thông tin danh mục');
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
   // Xử lý thêm danh mục mới
-  const handleAddCategory = (categoryData: Partial<Category>) => {
-    // Tạo ID mới
-    const newId = `CAT-${(categories.length + 1).toString().padStart(3, '0')}`;
-    
-    // Tạo thời gian hiện tại
-    const currentDate = new Date().toLocaleDateString('vi-VN');
-    
-    // Tạo category mới
-    const newCategory: Category = {
-      id: newId,
-      name: categoryData.name || '',
-      slug: categoryData.slug || '',
-      description: categoryData.description || '',
-      parentId: categoryData.parentId || null,
-      level: categoryData.level || 1,
-      image: categoryData.image || { url: '', alt: '' },
-      status: categoryData.status as 'active' | 'inactive' || 'active',
-      featured: categoryData.featured || false,
-      order: categoryData.order || 0,
-      productCount: 0,
-      createdAt: currentDate,
-      updatedAt: currentDate
-    };
-    
-    // Cập nhật state
-    setCategories(prev => [...prev, newCategory]);
-    
-    // Đóng modal
-    setShowAddModal(false);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Thêm danh mục mới thành công!', {
-      duration: 3000,
-      position: 'top-right',
-    });
+  const handleAddCategory = async (categoryData: Partial<Category>) => {
+    try {
+      const newCategory = await createCategory(categoryData);
+      
+      // Đóng modal
+      setShowAddModal(false);
+      
+      // Refresh danh sách
+      fetchCategories();
+      fetchStatistics();
+      
+      // Hiển thị thông báo thành công
+      toast.success('Thêm danh mục mới thành công!', {
+        duration: 3000,
+        position: 'top-right',
+      });
+    } catch (error) {
+      console.error('Lỗi khi thêm danh mục:', error);
+      toast.error('Không thể thêm danh mục mới');
+    }
   };
 
   // Xử lý cập nhật danh mục
-  const handleUpdateCategory = (categoryData: Partial<Category>) => {
-    if (!categoryData.id) return;
-    
-    // Cập nhật state
-    setCategories(prev => prev.map(cat => 
-      cat.id === categoryData.id 
-        ? { ...cat, ...categoryData, updatedAt: new Date().toLocaleDateString('vi-VN') } 
-        : cat
-    ));
-    
-    // Đóng modal
-    setShowEditModal(false);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Cập nhật danh mục thành công!', {
-      duration: 3000,
-      position: 'top-right',
-    });
+  const handleUpdateCategory = async (categoryData: Partial<Category> & { imageData?: string }) => {
+    try {
+      if (!categoryData._id) {
+        console.error('Không thể cập nhật danh mục khi không có ID');
+        toast.error('Thiếu ID danh mục');
+        return;
+      }
+      
+      console.log('Nhận dữ liệu cập nhật danh mục:', JSON.stringify({
+        ...categoryData,
+        imageData: categoryData.imageData ? '[base64 data]' : undefined
+      }, null, 2));
+      
+      // Tách imageData ra khỏi categoryData trước khi cập nhật
+      const { imageData, ...dataToUpdate } = categoryData;
+      
+      console.log('Dữ liệu đã xử lý để gửi đến API:', JSON.stringify(dataToUpdate, null, 2));
+      
+      try {
+        const updatedCategory = await updateCategory(categoryData._id, dataToUpdate);
+        console.log('Phản hồi từ API cập nhật:', JSON.stringify(updatedCategory, null, 2));
+        
+        // Xử lý upload ảnh nếu có
+        if (imageData && categoryData._id) {
+          console.log('Phát hiện dữ liệu hình ảnh, tiếp tục upload ảnh...');
+          const uploadResult = await uploadImage(
+            categoryData._id, 
+            imageData, 
+            categoryData.image?.alt
+          );
+          console.log('Kết quả upload ảnh:', JSON.stringify(uploadResult, null, 2));
+        }
+        
+        // Đóng modal
+        setShowEditModal(false);
+        
+        // Refresh danh sách
+        await fetchCategories();
+        
+        // Hiển thị thông báo thành công
+        toast.success('Cập nhật danh mục thành công!', {
+          duration: 3000,
+          position: 'top-right',
+        });
+      } catch (apiError: any) {
+        console.error('Lỗi API khi cập nhật danh mục:', apiError);
+        toast.error(`Lỗi: ${apiError.message || 'Không thể cập nhật danh mục'}`);
+      }
+    } catch (error: any) {
+      console.error('Lỗi tổng thể khi cập nhật danh mục:', error);
+      toast.error(`Lỗi cập nhật: ${error.message || 'Không thể cập nhật danh mục'}`);
+    }
   };
 
   // Xử lý xóa danh mục
-  const handleConfirmDelete = (id: string) => {
-    // Xóa danh mục khỏi state
-    setCategories(prev => prev.filter(cat => cat.id !== id));
-    
-    // Đóng modal
-    setShowDeleteModal(false);
-    setSelectedCategory(null);
-    
-    // Hiển thị thông báo thành công
-    toast.success('Xóa danh mục thành công!', {
-      duration: 3000,
-      position: 'top-right',
-    });
+  const handleConfirmDelete = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      
+      // Đóng modal
+      setShowDeleteModal(false);
+      setSelectedCategory(null);
+      
+      // Refresh danh sách
+      fetchCategories();
+      fetchStatistics();
+      
+      // Hiển thị thông báo thành công
+      toast.success('Xóa danh mục thành công!', {
+        duration: 3000,
+        position: 'top-right',
+      });
+    } catch (error) {
+      console.error('Lỗi khi xóa danh mục:', error);
+      toast.error('Không thể xóa danh mục');
+    }
   };
 
-  // Lấy danh mục cha (nếu có)
-  const getParentCategory = (parentId: string | null | undefined) => {
-    if (!parentId) return null;
-    return categories.find(cat => cat.id === parentId) || null;
+  // Xử lý thay đổi trạng thái
+  const handleToggleStatus = async (id: string) => {
+    try {
+      await toggleCategoryStatus(id);
+      fetchCategories();
+      toast.success('Đã thay đổi trạng thái danh mục!');
+    } catch (error) {
+      console.error('Lỗi khi thay đổi trạng thái:', error);
+      toast.error('Không thể thay đổi trạng thái danh mục');
+    }
   };
 
-  // Lấy các danh mục con (nếu có)
-  const getChildCategories = (parentId: string) => {
-    return categories.filter(cat => cat.parentId === parentId);
+  // Xử lý thay đổi trạng thái nổi bật
+  const handleToggleFeatured = async (id: string) => {
+    try {
+      await toggleCategoryFeatured(id);
+      fetchCategories();
+      toast.success('Đã thay đổi trạng thái nổi bật!');
+    } catch (error) {
+      console.error('Lỗi khi thay đổi trạng thái nổi bật:', error);
+      toast.error('Không thể thay đổi trạng thái nổi bật');
+    }
   };
 
-  // Tính toán số lượng danh mục theo trạng thái
-  const activeCategories = categories.filter(cat => cat.status === 'active').length;
-  const inactiveCategories = categories.filter(cat => cat.status === 'inactive').length;
-  const totalProducts = categories.reduce((sum, cat) => sum + (cat.productCount || 0), 0);
+  // Xử lý thay đổi thứ tự
+  const handleChangeOrder = async (id: string, order: number) => {
+    try {
+      await changeCategoryOrder(id, order);
+      fetchCategories();
+      toast.success('Đã thay đổi thứ tự danh mục!');
+    } catch (error) {
+      console.error('Lỗi khi thay đổi thứ tự:', error);
+      toast.error('Không thể thay đổi thứ tự danh mục');
+    }
+  };
+
+  if (error) {
+    return (
+      <AdminLayout title="Quản lý danh mục">
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 my-4">
+          <h3 className="text-lg font-medium">Đã xảy ra lỗi</h3>
+          <p>{error}</p>
+          <button 
+            onClick={() => fetchCategories()} 
+            className="mt-2 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded"
+          >
+            Thử lại
+          </button>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Quản lý danh mục">
@@ -339,7 +354,9 @@ export default function AdminCategories() {
                       Tổng số danh mục
                     </dt>
                     <dd>
-                      <div className="text-lg font-medium text-gray-900">{categories.length}</div>
+                      <div className="text-lg font-medium text-gray-900">
+                        {statistics?.total || categories.length}
+                      </div>
                     </dd>
                   </dl>
                 </div>
@@ -359,7 +376,9 @@ export default function AdminCategories() {
                       Danh mục hoạt động
                     </dt>
                     <dd>
-                      <div className="text-lg font-medium text-gray-900">{activeCategories}</div>
+                      <div className="text-lg font-medium text-gray-900">
+                        {statistics?.active || categories.filter(c => c.status === 'active').length}
+                      </div>
                     </dd>
                   </dl>
                 </div>
@@ -379,7 +398,9 @@ export default function AdminCategories() {
                       Danh mục không hoạt động
                     </dt>
                     <dd>
-                      <div className="text-lg font-medium text-gray-900">{inactiveCategories}</div>
+                      <div className="text-lg font-medium text-gray-900">
+                        {statistics?.inactive || categories.filter(c => c.status === 'inactive').length}
+                      </div>
                     </dd>
                   </dl>
                 </div>
@@ -391,15 +412,17 @@ export default function AdminCategories() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <FiGrid className="h-6 w-6 text-blue-400" />
+                  <FiStar className="h-6 w-6 text-yellow-400" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Tổng số sản phẩm
+                      Danh mục nổi bật
                     </dt>
                     <dd>
-                      <div className="text-lg font-medium text-gray-900">{totalProducts}</div>
+                      <div className="text-lg font-medium text-gray-900">
+                        {statistics?.featured || categories.filter(c => c.featured).length}
+                      </div>
                     </dd>
                   </dl>
                 </div>
@@ -408,22 +431,38 @@ export default function AdminCategories() {
           </div>
         </div>
 
-        <div className="mt-8">
-          {viewMode === 'list' ? (
-            <CategoryTable
-              onView={handleViewCategory}
-              onEdit={handleEditCategory}
-              onDelete={handleDeleteCategory}
-            />
-          ) : (
-            <CategoryHierarchy
-              categories={categories}
-              onView={handleViewCategory}
-              onEdit={handleEditCategory}
-              onDelete={handleDeleteCategory}
-            />
-          )}
-        </div>
+        {loading || loadingDetails ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-pink-600 border-t-transparent" role="status">
+              <span className="visually-hidden">Đang tải...</span>
+            </div>
+            <p className="ml-2 text-gray-600">Đang tải dữ liệu...</p>
+          </div>
+        ) : (
+          <div className="mt-8">
+            {viewMode === 'list' ? (
+              <CategoryTable
+                categories={categories}
+                onView={handleViewCategory}
+                onEdit={handleEditCategory}
+                onDelete={handleDeleteCategory}
+                onToggleStatus={handleToggleStatus}
+                onToggleFeatured={handleToggleFeatured}
+                onChangeOrder={handleChangeOrder}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page: number) => fetchCategories(page)}
+              />
+            ) : (
+              <CategoryHierarchy
+                categories={categories}
+                onView={handleViewCategory}
+                onEdit={handleEditCategory}
+                onDelete={handleDeleteCategory}
+              />
+            )}
+          </div>
+        )}
       </div>
       
       {/* Modal Thêm danh mục mới */}
@@ -446,8 +485,8 @@ export default function AdminCategories() {
       {/* Modal Xem chi tiết danh mục */}
       <CategoryDetailModal
         category={selectedCategory}
-        parentCategory={selectedCategory ? getParentCategory(selectedCategory.parentId) : null}
-        childCategories={selectedCategory ? getChildCategories(selectedCategory.id) : []}
+        parentCategory={parentCategory}
+        childCategories={childCategories}
         isOpen={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         onEdit={handleEditCategory}

@@ -4,6 +4,7 @@ import { AdminAuthProvider } from './AdminAuthContext';
 import { NotificationProvider } from './NotificationContext';
 import { BannerProvider } from './BannerContext';
 import { BrandProvider } from './BrandContext';
+import { CategoryProvider } from './CategoryContext';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -12,7 +13,9 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
         <NotificationProvider>
           <BannerProvider>
             <BrandProvider>
-              {children}
+              <CategoryProvider>
+                {children}
+              </CategoryProvider>
             </BrandProvider>
           </BannerProvider>
         </NotificationProvider>
@@ -25,4 +28,5 @@ export { useAuth } from './AuthContext';
 export { useAdminAuth } from './AdminAuthContext';
 export { useNotification } from './NotificationContext';
 export { useBanner } from './BannerContext';
-export { useBrands } from './BrandContext'; 
+export { useBrands } from './BrandContext';
+export { useCategory } from './CategoryContext'; 
