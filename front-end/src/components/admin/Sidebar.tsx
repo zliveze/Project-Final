@@ -13,7 +13,8 @@ import {
   FiLogOut,
   FiImage,
   FiBell,
-  FiStar
+  FiStar,
+  FiMap
 } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
 
@@ -72,6 +73,10 @@ const menuItems = [
     name: 'Thông báo',
     href: '/admin/notifications',
     icon: FiBell
+  },{
+    name: 'Chi nhánh',
+    href: '/admin/branches',
+    icon: FiMap
   }
 ];
 

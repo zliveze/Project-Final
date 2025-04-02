@@ -13,6 +13,7 @@ import { BannersModule } from './banners/banners.module';
 import { CloudinaryModule } from './cloudinary';
 import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
+import { BranchesModule } from './branches/branches.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { CategoriesModule } from './categories/categories.module';
     BrandsModule,
     CloudinaryModule,
     CategoriesModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
