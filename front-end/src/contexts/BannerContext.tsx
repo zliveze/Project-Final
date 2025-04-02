@@ -84,6 +84,13 @@ export const useBanner = () => {
   return context;
 };
 
+// Cấu hình API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const BANNER_API = {
+  ADMIN: `${API_URL}/admin/banners`,
+  PUBLIC: `${API_URL}/banners`
+};
+
 // Provider component
 export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -130,7 +137,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       console.log(`Đang tải lên ảnh ${type} lên Cloudinary...`);
       
-      const response = await fetch('/api/admin/banners/upload', {
+      const response = await fetch(`${BANNER_API.ADMIN}/upload/image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +195,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (startDate) queryParams.append('startDate', startDate);
       if (endDate) queryParams.append('endDate', endDate);
       
-      const response = await fetch(`/api/admin/banners?${queryParams.toString()}`, {
+      const response = await fetch(`${BANNER_API.ADMIN}?${queryParams.toString()}`, {
         headers: getAuthHeader()
       });
       
@@ -217,7 +224,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/admin/banners/${id}`, {
+      const response = await fetch(`${BANNER_API.ADMIN}/${id}`, {
         headers: getAuthHeader()
       });
       
@@ -250,7 +257,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         hasMobileImageData: !!(bannerData.mobileImageData && bannerData.mobileImageData.length > 100)
       });
       
-      const response = await fetch('/api/admin/banners', {
+      const response = await fetch(BANNER_API.ADMIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +305,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/admin/banners/${id}`, {
+      const response = await fetch(`${BANNER_API.ADMIN}/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -335,7 +342,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/admin/banners/${id}`, {
+      const response = await fetch(`${BANNER_API.ADMIN}/${id}`, {
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -372,7 +379,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/admin/banners/${id}/toggle-status`, {
+      const response = await fetch(`${BANNER_API.ADMIN}/${id}/toggle-status`, {
         method: 'PATCH',
         headers: getAuthHeader()
       });
@@ -405,7 +412,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/admin/banners/${id}/change-order/${direction}`, {
+      const response = await fetch(`${BANNER_API.ADMIN}/${id}/change-order/${direction}`, {
         method: 'PATCH',
         headers: getAuthHeader()
       });
@@ -434,7 +441,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       
-      const response = await fetch('/api/admin/banners/statistics', {
+      const response = await fetch(`${BANNER_API.ADMIN}/statistics`, {
         headers: getAuthHeader()
       });
       
@@ -459,7 +466,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       console.log('Đang lấy banner active cho trang public');
       
-      const response = await fetch('/api/banners/active');
+      const response = await fetch(`${BANNER_API.PUBLIC}/active`);
       
       if (!response.ok) {
         const errorText = await response.text();

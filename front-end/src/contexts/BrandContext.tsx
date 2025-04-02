@@ -531,11 +531,6 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      // Kiểm tra ID thương hiệu trước khi gửi yêu cầu
-      if (!id || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('ID thương hiệu không hợp lệ');
-      }
-
       const brand = brands.find(b => b.id === id);
       if (!brand) {
         throw new Error('Không tìm thấy thương hiệu');
@@ -560,6 +555,19 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
       
       const data = await response.json();
       
+      // Cập nhật danh sách thương hiệu
+      const updatedBrand = transformBrand(data);
+      setBrands(prevBrands => 
+        prevBrands.map(brand => 
+          brand.id === id ? updatedBrand : brand
+        )
+      );
+      
+      // Cập nhật thống kê
+      fetchStatistics();
+      
+      toast.success(`Đã ${newStatus === 'active' ? 'kích hoạt' : 'vô hiệu hóa'} thương hiệu!`);
+      return updatedBrand;
     } catch (err: any) {
       console.error('Error toggling brand status:', err);
       

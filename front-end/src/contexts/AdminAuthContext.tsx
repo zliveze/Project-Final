@@ -3,6 +3,9 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+// Cấu hình API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 // Biến môi trường kiểm soát logging
 const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'true' || process.env.NODE_ENV === 'development';
 
@@ -130,8 +133,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         
         // Nếu lỗi là 401 và chưa thử làm mới token
         if (error.response?.status === 401 && !originalRequest._retry && 
-            !originalRequest.url?.includes('/api/admin/auth/refresh') && 
-            !originalRequest.url?.includes('/api/admin/auth/login')) {
+            !originalRequest.url?.includes(`${API_URL}/admin/auth/refresh`) && 
+            !originalRequest.url?.includes(`${API_URL}/admin/auth/login`)) {
           originalRequest._retry = true;
           
           try {
@@ -143,7 +146,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
             
             // Gọi API làm mới token
-            const response = await axios.post('/api/admin/auth/refresh', {
+            const response = await axios.post(`${API_URL}/admin/auth/refresh`, {
               refreshToken,
             });
             
@@ -218,7 +221,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       // Gọi API để kiểm tra token
-      const response = await axios.get('/api/admin/profile', {
+      const response = await axios.get(`${API_URL}/admin/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -246,8 +249,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setIsLoading(true);
       
-      // Gọi API đăng nhập admin thông qua API route của Next.js
-      const response = await axios.post('/api/admin/auth/login', { email, password });
+      // Gọi API đăng nhập admin
+      const response = await axios.post(`${API_URL}/admin/auth/login`, { email, password });
       const data = response.data;
 
       if (!data || data.success === false) {
@@ -286,12 +289,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setIsLoading(true);
       
-      // Gọi API đăng xuất admin thông qua API route của Next.js
+      // Gọi API đăng xuất admin
       const token = localStorage.getItem('adminToken');
       
       if (token) {
         try {
-          await axios.post('/api/admin/auth/logout', null, {
+          await axios.post(`${API_URL}/admin/auth/logout`, null, {
             headers: {
               Authorization: `Bearer ${token}`,
             },

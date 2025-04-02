@@ -28,10 +28,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const useAuth = () => useContext(AuthContext);
 
 // Base API URL từ biến môi trường
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// API URL cho Google login sử dụng proxy Next.js để bypass CORS
-const GOOGLE_LOGIN_URL = '/api/auth/google';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Hàm lưu token vào cả localStorage và cookie
 const saveToken = (name: string, value: string, expires?: number) => {
@@ -75,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // TODO: Gọi API đăng nhập thực tế
+      // Gọi API đăng nhập trực tiếp
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -119,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // TODO: Gọi API đăng ký thực tế
+      // Gọi API đăng ký trực tiếp
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
@@ -147,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // TODO: Gọi API đăng xuất thực tế
+      // Gọi API đăng xuất trực tiếp
       const token = localStorage.getItem('accessToken');
       
       if (token) {
@@ -200,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // TODO: Gọi API đặt lại mật khẩu thực tế
+      // Gọi API đặt lại mật khẩu trực tiếp
       const response = await fetch(`${API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {
@@ -222,17 +219,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      console.log('Đang gọi Google login API với URL:', GOOGLE_LOGIN_URL);
-      console.log('LƯU Ý: Đây là chức năng demo, sẽ trả về người dùng mẫu');
+      console.log('Đang gọi Google login API với URL:', `${API_URL}/auth/google`);
       
-      // Sử dụng proxy Next.js để tránh vấn đề CORS
-      const response = await fetch(GOOGLE_LOGIN_URL, {
+      // Kết nối trực tiếp đến backend API thay vì qua API trung gian
+      const response = await fetch(`${API_URL}/auth/google`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token }),
-        // Trở lại mode 'cors' thông thường
         mode: 'cors',
         credentials: 'include'
       });

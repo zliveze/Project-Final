@@ -4,6 +4,9 @@ import { useAdminAuth } from './AdminAuthContext';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+// Định nghĩa API_URL từ biến môi trường hoặc giá trị mặc định
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 // Định nghĩa kiểu dữ liệu
 export interface Notification {
   _id?: string;
@@ -88,7 +91,7 @@ const getAuthToken = (): string | null => {
 
 // Tạo instance axios với xử lý token
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -123,7 +126,7 @@ apiClient.interceptors.response.use(
           throw new Error('Không tìm thấy refresh token');
         }
         
-        const response = await axios.post('/api/admin/auth/refresh', { refreshToken });
+        const response = await axios.post(`${API_URL}/admin/auth/refresh`, { refreshToken });
         
         if (response.data && response.data.accessToken) {
           // Lưu token mới
@@ -405,7 +408,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
     resetError();
     
     try {
-      const response = await fetch('/api/notifications');
+      const response = await fetch(`${API_URL}/notifications`);
       
       if (!response.ok) {
         throw new Error('Không thể tải thông báo');
