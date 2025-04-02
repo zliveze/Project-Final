@@ -147,6 +147,7 @@ interface AdminUserContextType {
   resetPassword: (id: string, newPassword: string) => Promise<boolean>;
   updateUserStatus: (id: string, status: string) => Promise<User | null>;
   updateUserRole: (id: string, role: string) => Promise<User | null>;
+  updateUserCustomerLevel: (id: string, customerLevel: string) => Promise<User | null>;
   createUser: (userData: any) => Promise<User | null>;
 }
 
@@ -333,7 +334,18 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
       
+      console.log('Đang gửi request cập nhật user:', {
+        id,
+        userData
+      });
+
       const response = await api().patch(`/api/admin/users/${id}`, userData);
+      
+      console.log('Phản hồi từ server:', response.data);
+
+      if (!response.data) {
+        throw new Error('Không nhận được dữ liệu từ server');
+      }
       
       // Cập nhật state users nếu người dùng đã được chỉnh sửa trong danh sách
       setUsers(prevUsers => 
@@ -384,6 +396,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       toast.success('Cập nhật thông tin người dùng thành công!');
       return response.data;
     } catch (err) {
+      console.error('Lỗi khi cập nhật user:', err);
       handleError(err);
       return null;
     } finally {
@@ -554,9 +567,59 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [accessToken, api]);
+  }, [api]);
 
-  // Thêm người dùng mới
+  // Cập nhật cấp độ khách hàng
+  const updateUserCustomerLevel = useCallback(async (id: string, customerLevel: string): Promise<User | null> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await api().patch(`/api/admin/users/customer-level/${id}`, { customerLevel });
+      
+      // Cập nhật state users
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === id 
+            ? { ...user, customerLevel: response.data.customerLevel } 
+            : user
+        )
+      );
+      
+      // Cập nhật cache
+      setPageCache(prevCache => {
+        const newCache = { ...prevCache };
+        
+        // Duyệt qua tất cả các trang trong cache
+        Object.keys(newCache).forEach(cacheKey => {
+          const pageData = newCache[cacheKey];
+          // Cập nhật cấp độ khách hàng trong cache
+          const updatedUsers = pageData.users.map(user => 
+            user.id === id 
+              ? { ...user, customerLevel: response.data.customerLevel } 
+              : user
+          );
+          // Cập nhật cache
+          newCache[cacheKey] = {
+            ...pageData,
+            users: updatedUsers
+          };
+        });
+        
+        return newCache;
+      });
+      
+      toast.success('Cập nhật cấp độ khách hàng thành công!');
+      return response.data;
+    } catch (err) {
+      handleError(err);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  // Tạo người dùng mới
   const createUser = useCallback(async (userData: any): Promise<User | null> => {
     try {
       setLoading(true);
@@ -564,38 +627,36 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       
       const response = await api().post(`/api/admin/users/create`, userData);
       
-      // Cập nhật state users để thêm người dùng mới
-      if (response.data) {
-        const newUser = {
-          id: response.data._id || response.data.id,
-          name: response.data.name || '',
-          email: response.data.email || '',
-          phone: response.data.phone || '',
-          role: response.data.role || 'user',
-          status: response.data.isBanned ? 'blocked' : (response.data.isActive ? 'active' : 'inactive'),
-          createdAt: response.data.createdAt || new Date().toISOString()
-        };
-        
-        setUsers(prevUsers => [newUser, ...prevUsers]);
-        
-        // Cập nhật stats
-        setStats(prevStats => ({
-          ...prevStats,
-          totalUsers: prevStats.totalUsers + 1,
-          activeUsers: response.data.isActive ? prevStats.activeUsers + 1 : prevStats.activeUsers
-        }));
-        
-        toast.success('Thêm người dùng mới thành công!');
-        return newUser;
-      }
-      return null;
+      // Thêm người dùng mới vào state
+      setUsers(prevUsers => [...prevUsers, {
+        id: response.data._id,
+        name: response.data.name,
+        email: response.data.email,
+        phone: response.data.phone || '',
+        role: response.data.role,
+        status: response.data.status,
+        createdAt: response.data.createdAt,
+      }]);
+      
+      // Cập nhật thống kê
+      setStats(prevStats => ({
+        ...prevStats,
+        totalUsers: prevStats.totalUsers + 1,
+        activeUsers: response.data.status === 'active' ? prevStats.activeUsers + 1 : prevStats.activeUsers,
+      }));
+      
+      // Làm mới cache (xóa cache để buộc load lại dữ liệu)
+      setPageCache({});
+      
+      toast.success('Tạo người dùng mới thành công!');
+      return response.data;
     } catch (err) {
       handleError(err);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [api]);
 
   // Lấy danh sách người dùng với bộ lọc và phân trang
   const fetchUsers = useCallback(async (
@@ -887,6 +948,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         resetPassword,
         updateUserStatus,
         updateUserRole,
+        updateUserCustomerLevel,
         createUser,
       }}
     >

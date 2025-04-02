@@ -100,6 +100,13 @@ export class ChangeUserRoleDto {
   role: string;
 }
 
+export class ChangeUserCustomerLevelDto {
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(['Khách hàng mới', 'Khách hàng bạc', 'Khách hàng vàng', 'Khách hàng thân thiết'])
+  customerLevel: string;
+}
+
 export class CreateUserByAdminDto {
   @IsNotEmpty()
   @IsString()

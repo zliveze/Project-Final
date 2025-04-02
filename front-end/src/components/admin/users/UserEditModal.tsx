@@ -3,6 +3,7 @@ import { FiX, FiEdit } from 'react-icons/fi';
 import UserForm from './UserForm';
 import { UserNotifications } from './';
 import { toast } from 'react-hot-toast';
+import { useAdminUser } from '../../../contexts/AdminUserContext';
 
 interface UserEditModalProps {
   user: {
@@ -12,6 +13,7 @@ interface UserEditModalProps {
     phone: string;
     role: string;
     status: string;
+    customerLevel: string;
     avatar?: string;
     googleId?: string;
     addresses?: {
@@ -37,6 +39,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   onSubmit,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const { updateUserStatus, updateUserCustomerLevel } = useAdminUser();
   
   useEffect(() => {
     if (isOpen) {
@@ -48,23 +51,44 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = (userData: any) => {
+  const handleSubmit = async (userData: any) => {
     // Hiển thị thông báo đang xử lý
     const toastId = UserNotifications.info.loading();
     
-    // Đảm bảo rằng _id được giữ nguyên
-    const updatedUserData = {
-      ...userData,
-      _id: user._id,
-      addresses: userData.addresses || user.addresses || [],
-      wishlist: userData.wishlist || user.wishlist || [],
-    };
-    
-    // Gọi hàm xử lý cập nhật từ props
-    setTimeout(() => {
-      toast.dismiss(toastId);
+    try {
+      // Kiểm tra xem trạng thái có thay đổi không
+      if (userData.status !== user.status) {
+        // Nếu trạng thái thay đổi, gọi API cập nhật trạng thái riêng
+        await updateUserStatus(user._id, userData.status);
+        console.log('Đã cập nhật trạng thái người dùng thành:', userData.status);
+      }
+      
+      // Kiểm tra xem cấp độ khách hàng có thay đổi không
+      if (userData.customerLevel !== user.customerLevel) {
+        // Nếu cấp độ thay đổi, gọi API cập nhật cấp độ riêng
+        await updateUserCustomerLevel(user._id, userData.customerLevel);
+        console.log('Đã cập nhật cấp độ khách hàng thành:', userData.customerLevel);
+      }
+      
+      // Đảm bảo rằng _id và các trường bắt buộc được giữ nguyên
+      const updatedUserData = {
+        ...userData,
+        _id: user._id,
+        customerLevel: userData.customerLevel || 'Khách hàng mới',
+        addresses: userData.addresses || user.addresses || [],
+        wishlist: userData.wishlist || user.wishlist || [],
+      };
+      
+      // Gọi hàm xử lý cập nhật từ props cho các thông tin khác
       onSubmit(updatedUserData);
-    }, 500);
+      
+      toast.dismiss(toastId);
+      toast.success('Cập nhật thông tin người dùng thành công!');
+    } catch (error) {
+      toast.dismiss(toastId);
+      console.error('Lỗi khi cập nhật người dùng:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật thông tin người dùng');
+    }
   };
   
   if (!isOpen && !modalVisible) return null;

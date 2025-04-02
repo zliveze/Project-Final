@@ -12,7 +12,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  UnauthorizedException
+  UnauthorizedException,
+  InternalServerErrorException
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -27,7 +28,8 @@ import {
   ResetPasswordDto,
   ChangeUserStatusDto,
   ChangeUserRoleDto,
-  CreateUserByAdminDto
+  CreateUserByAdminDto,
+  ChangeUserCustomerLevelDto
 } from './dto/user-management.dto';
 
 @Controller('admin/users')
@@ -283,6 +285,7 @@ export class AdminUsersController {
       role: user.role,
       status: user.isBanned ? 'blocked' : (user.isActive ? 'active' : 'inactive'),
       isVerified: user.isVerified,
+      customerLevel: user.customerLevel || 'Khách hàng mới',
       createdAt: userObj.createdAt,
       updatedAt: userObj.updatedAt,
       addresses: user.addresses,
@@ -322,6 +325,7 @@ export class AdminUsersController {
       phone: updatedUser.phone || '',
       role: updatedUser.role,
       status: updatedUser.isBanned ? 'blocked' : (updatedUser.isActive ? 'active' : 'inactive'),
+      customerLevel: updatedUser.customerLevel || 'Khách hàng mới',
     };
   }
 
@@ -394,6 +398,7 @@ export class AdminUsersController {
       phone: updatedUser.phone || '',
       role: updatedUser.role,
       status: updatedUser.isBanned ? 'blocked' : (updatedUser.isActive ? 'active' : 'inactive'),
+      customerLevel: updatedUser.customerLevel || 'Khách hàng mới',
     };
   }
 
@@ -413,12 +418,51 @@ export class AdminUsersController {
         phone: updatedUser.phone || '',
         role: updatedUser.role,
         status: updatedUser.isBanned ? 'blocked' : (updatedUser.isActive ? 'active' : 'inactive'),
+        customerLevel: updatedUser.customerLevel || 'Khách hàng mới',
       };
     } catch (error) {
       if (error.message.includes('superadmin')) {
         throw new ForbiddenException(error.message);
       }
       throw error;
+    }
+  }
+
+  @Patch('customer-level/:id')
+  async updateCustomerLevel(
+    @Param('id') id: string,
+    @Body() changeCustomerLevelDto: ChangeUserCustomerLevelDto,
+    @CurrentUser() currentUser: any
+  ) {
+    try {
+      const userToUpdate = await this.usersService.findOne(id);
+      
+      // Kiểm tra phân quyền
+      if (userToUpdate.role === 'superadmin' && currentUser.role !== 'superadmin') {
+        throw new ForbiddenException('Không thể thay đổi cấp độ khách hàng của Super Admin');
+      }
+      
+      if (userToUpdate.role === 'admin' && currentUser.role !== 'superadmin') {
+        throw new ForbiddenException('Chỉ Super Admin mới có quyền thay đổi cấp độ khách hàng của Admin');
+      }
+      
+      const updatedUser = await this.usersService.updateUserCustomerLevel(id, changeCustomerLevelDto.customerLevel);
+      
+      return {
+        _id: updatedUser._id.toString(),
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone || '',
+        role: updatedUser.role,
+        customerLevel: updatedUser.customerLevel,
+        status: updatedUser.isBanned ? 'blocked' : (updatedUser.isActive ? 'active' : 'inactive'),
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      console.error('Lỗi khi cập nhật cấp độ khách hàng:', error);
+      throw new InternalServerErrorException('Không thể cập nhật cấp độ khách hàng');
     }
   }
 

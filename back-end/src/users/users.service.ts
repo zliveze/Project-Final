@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -452,6 +452,26 @@ export class UsersService {
     
     const updatedUser = await this.userModel
       .findByIdAndUpdate(userId, { role }, { new: true })
+      .exec();
+      
+    if (!updatedUser) {
+      throw new NotFoundException(`Không tìm thấy người dùng với ID ${userId}`);
+    }
+      
+    return updatedUser;
+  }
+
+  async updateUserCustomerLevel(userId: string, customerLevel: string): Promise<UserDocument> {
+    const validLevels = ['Khách hàng mới', 'Khách hàng bạc', 'Khách hàng vàng', 'Khách hàng thân thiết'];
+    
+    if (!validLevels.includes(customerLevel)) {
+      throw new BadRequestException('Cấp độ khách hàng không hợp lệ');
+    }
+    
+    const user = await this.findOne(userId);
+    
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(userId, { customerLevel }, { new: true })
       .exec();
       
     if (!updatedUser) {
