@@ -1,11 +1,11 @@
 import React from 'react';
 import Image from 'next/image';
-import { 
-  FiEdit, 
-  FiTrash2, 
-  FiEye, 
-  FiChevronDown, 
-  FiChevronUp, 
+import {
+  FiEdit,
+  FiTrash2,
+  FiEye,
+  FiChevronDown,
+  FiChevronUp,
   FiMoreVertical,
   FiCopy,
   FiExternalLink
@@ -13,6 +13,7 @@ import {
 import ProductStatusBadge from './ProductStatusBadge';
 import ProductFlagBadge from './ProductFlagBadge';
 import { Product } from '../hooks/useProductTable';
+import { useProduct } from '@/contexts/ProductContext';
 
 interface ProductTableProps {
   products: Product[];
@@ -23,8 +24,8 @@ interface ProductTableProps {
   // Các handler
   onView: (id: string) => void;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  onDuplicate?: (id: string) => void;
+  onDelete: (id: string) => Promise<boolean>;
+  onDuplicate?: (id: string) => Promise<boolean>;
   toggleProductSelection: (id: string) => void;
   toggleSelectAll: () => void;
   toggleProductDetails: (id: string) => void;
@@ -44,8 +45,23 @@ const ProductTable: React.FC<ProductTableProps> = ({
   toggleSelectAll,
   toggleProductDetails
 }) => {
+  // Access the ProductContext for additional functionality if needed
+  const { loading: contextLoading } = useProduct();
   // Xử lý menu hành động cho từng sản phẩm
   const [openActionMenu, setOpenActionMenu] = React.useState<string | null>(null);
+  const [processingAction, setProcessingAction] = React.useState<{ id: string, action: string } | null>(null);
+
+  // Đóng tất cả menu khi click bên ngoài
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenActionMenu(null);
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const toggleActionMenu = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,25 +72,37 @@ const ProductTable: React.FC<ProductTableProps> = ({
     setOpenActionMenu(null);
   };
 
-  const handleAction = (action: 'view' | 'edit' | 'delete' | 'duplicate', id: string, e: React.MouseEvent) => {
+  const handleAction = async (action: 'view' | 'edit' | 'delete' | 'duplicate', id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     closeActionMenus();
-    
-    switch (action) {
-      case 'view':
-        onView(id);
-        break;
-      case 'edit':
-        onEdit(id);
-        break;
-      case 'delete':
-        onDelete(id);
-        break;
-      case 'duplicate':
-        if (onDuplicate) onDuplicate(id);
-        break;
+
+    // Đánh dấu đang xử lý hành động
+    setProcessingAction({ id, action });
+
+    try {
+      switch (action) {
+        case 'view':
+          onView(id);
+          break;
+        case 'edit':
+          onEdit(id);
+          break;
+        case 'delete':
+          await onDelete(id);
+          break;
+        case 'duplicate':
+          if (onDuplicate) await onDuplicate(id);
+          break;
+      }
+    } catch (error) {
+      console.error(`Lỗi khi thực hiện hành động ${action} cho sản phẩm ${id}:`, error);
+    } finally {
+      setProcessingAction(null);
     }
   };
+
+  // Kết hợp trạng thái loading từ props và context
+  const combinedLoading = isLoading || contextLoading;
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden" onClick={closeActionMenus}>
@@ -90,7 +118,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
                     checked={isAllSelected}
                     onChange={toggleSelectAll}
-                    disabled={isLoading || products.length === 0}
+                    disabled={combinedLoading || products.length === 0}
                   />
                 </div>
               </th>
@@ -121,7 +149,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {isLoading ? (
+            {combinedLoading ? (
               // Skeleton loading
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={`skeleton-${index}`}>
@@ -181,19 +209,26 @@ const ProductTable: React.FC<ProductTableProps> = ({
                           className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
                           checked={selectedProducts.includes(product.id)}
                           onChange={() => toggleProductSelection(product.id)}
+                          disabled={processingAction?.id === product.id}
                         />
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden border border-gray-200">
-                          <Image 
-                            src={product.image} 
-                            alt={product.name}
-                            width={40}
-                            height={40}
-                            className="h-full w-full object-cover"
-                          />
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              width={40}
+                              height={40}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-gray-100 flex items-center justify-center text-gray-400">
+                              <span className="text-xs">No img</span>
+                            </div>
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -208,10 +243,10 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {product.brand}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                      {product.price}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button 
+                      <button
                         onClick={() => toggleProductDetails(product.id)}
                         className="flex items-center text-sm text-gray-500 hover:text-gray-700"
                       >
@@ -246,39 +281,46 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <button 
+                        <button
                           onClick={(e) => handleAction('view', product.id, e)}
                           className="text-gray-500 hover:text-gray-700"
                           title="Xem chi tiết"
+                          disabled={!!processingAction}
                         >
                           <FiEye className="h-5 w-5" />
                         </button>
-                        <button 
+                        <button
                           onClick={(e) => handleAction('edit', product.id, e)}
                           className="text-blue-500 hover:text-blue-700"
                           title="Chỉnh sửa"
+                          disabled={!!processingAction}
                         >
                           <FiEdit className="h-5 w-5" />
                         </button>
-                        <div className="relative">
-                          <button 
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <button
                             onClick={(e) => toggleActionMenu(product.id, e)}
                             className="text-gray-500 hover:text-gray-700"
                             title="Thêm hành động"
+                            disabled={!!processingAction}
                           >
                             <FiMoreVertical className="h-5 w-5" />
                           </button>
-                          
+
                           {openActionMenu === product.id && (
                             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
                               <div className="py-1">
                                 <button
                                   onClick={(e) => handleAction('duplicate', product.id, e)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                  disabled={processingAction?.id === product.id && processingAction?.action === 'duplicate'}
                                 >
                                   <span className="flex items-center">
                                     <FiCopy className="mr-2 text-gray-500" />
-                                    Nhân bản sản phẩm
+                                    {processingAction?.id === product.id && processingAction?.action === 'duplicate'
+                                      ? 'Đang nhân bản...'
+                                      : 'Nhân bản sản phẩm'
+                                    }
                                   </span>
                                 </button>
                                 <a
@@ -294,11 +336,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                                 </a>
                                 <button
                                   onClick={(e) => handleAction('delete', product.id, e)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 disabled:opacity-50"
+                                  disabled={processingAction?.id === product.id && processingAction?.action === 'delete'}
                                 >
                                   <span className="flex items-center">
                                     <FiTrash2 className="mr-2 text-red-500" />
-                                    Xóa sản phẩm
+                                    {processingAction?.id === product.id && processingAction?.action === 'delete'
+                                      ? 'Đang xóa...'
+                                      : 'Xóa sản phẩm'
+                                    }
                                   </span>
                                 </button>
                               </div>
@@ -308,7 +354,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       </div>
                     </td>
                   </tr>
-                  
+
                   {/* Chi tiết tồn kho theo chi nhánh */}
                   {expandedProduct === product.id && (
                     <tr className="bg-gray-50">
@@ -341,4 +387,4 @@ const ProductTable: React.FC<ProductTableProps> = ({
   );
 };
 
-export default ProductTable; 
+export default ProductTable;

@@ -74,8 +74,15 @@ export const useProductFormData = (initialData?: any) => {
     
     // Đảm bảo expiry tồn tại
     result.cosmetic_info.expiry = result.cosmetic_info.expiry || { shelf: 0, afterOpening: 0 };
-    result.cosmetic_info.expiry.shelf = result.cosmetic_info.expiry.shelf || 0;
-    result.cosmetic_info.expiry.afterOpening = result.cosmetic_info.expiry.afterOpening || 0;
+    
+    // Chuyển đổi sang số nếu là chuỗi
+    if (typeof result.cosmetic_info.expiry === 'object') {
+      result.cosmetic_info.expiry.shelf = Number(result.cosmetic_info.expiry.shelf || 0);
+      result.cosmetic_info.expiry.afterOpening = Number(result.cosmetic_info.expiry.afterOpening || 0);
+    } else if (typeof result.cosmetic_info.expiry === 'string') {
+      // Nếu expiry là chuỗi (có thể là từ API trả về), tạo đối tượng mới
+      result.cosmetic_info.expiry = { shelf: 0, afterOpening: 0 };
+    }
     
     // Đảm bảo các thuộc tính khác
     result.cosmetic_info.usage = result.cosmetic_info.usage || '';

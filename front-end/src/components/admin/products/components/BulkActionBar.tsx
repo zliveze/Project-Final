@@ -1,16 +1,39 @@
-import React, { useState } from 'react';
-import { FiTrash2, FiCheck, FiTag, FiStar, FiAward, FiAlertTriangle } from 'react-icons/fi';
+import React, { useState, useRef, useEffect } from 'react';
+import { FiTrash2, FiTag, FiCheckCircle, FiAlertCircle, FiXCircle, FiChevronDown, FiFlag, FiStar, FiGift } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
+
+// Hook để xử lý click bên ngoài
+const useOnClickOutside = (ref: React.RefObject<HTMLDivElement | null>, handler: () => void) => {
+  useEffect(() => {
+    const listener = (event: MouseEvent | TouchEvent) => {
+      if (!ref.current || ref.current.contains(event.target as Node)) {
+        return;
+      }
+      handler();
+    };
+
+    document.addEventListener('mousedown', listener);
+    document.addEventListener('touchstart', listener);
+
+    return () => {
+      document.removeEventListener('mousedown', listener);
+      document.removeEventListener('touchstart', listener);
+    };
+  }, [ref, handler]);
+};
 
 interface BulkActionBarProps {
   selectedCount: number;
   onClearSelection: () => void;
-  onBulkDelete: () => void;
-  onBulkSetStatus: (status: ProductStatus) => void;
-  onBulkSetFlag: (flag: string, value: boolean) => void;
+  onBulkDelete: () => Promise<boolean>;
+  onBulkSetStatus: (status: ProductStatus) => Promise<boolean>;
+  onBulkSetFlag: (flag: string, value: boolean) => Promise<boolean>;
   disabled?: boolean;
 }
 
+/**
+ * Component thanh công cụ cho các thao tác hàng loạt với sản phẩm
+ */
 const BulkActionBar: React.FC<BulkActionBarProps> = ({
   selectedCount,
   onClearSelection,
@@ -21,202 +44,273 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
 }) => {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showFlagMenu, setShowFlagMenu] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  const flagMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Đóng menu khi click bên ngoài
+  useOnClickOutside(statusMenuRef, () => setShowStatusMenu(false));
+  useOnClickOutside(flagMenuRef, () => setShowFlagMenu(false));
 
-  // Đóng tất cả menu khi click ra ngoài
+  /**
+   * Đóng tất cả các menu
+   */
   const closeAllMenus = () => {
     setShowStatusMenu(false);
     setShowFlagMenu(false);
   };
 
-  // Mở/đóng menu trạng thái
+  /**
+   * Mở/đóng menu trạng thái
+   */
   const toggleStatusMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowFlagMenu(false);
-    setShowStatusMenu(!showStatusMenu);
+    setShowStatusMenu(prev => !prev);
   };
 
-  // Mở/đóng menu flag
+  /**
+   * Mở/đóng menu cờ đánh dấu
+   */
   const toggleFlagMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowStatusMenu(false);
-    setShowFlagMenu(!showFlagMenu);
+    setShowFlagMenu(prev => !prev);
   };
 
-  // Xử lý khi chọn trạng thái
-  const handleStatusSelection = (status: ProductStatus, e: React.MouseEvent) => {
+  /**
+   * Xử lý khi chọn trạng thái
+   */
+  const handleStatusSelection = async (status: ProductStatus, e: React.MouseEvent) => {
     e.stopPropagation();
-    onBulkSetStatus(status);
-    setShowStatusMenu(false);
-  };
-
-  // Xử lý khi chọn flag
-  const handleFlagSelection = (flag: string, value: boolean, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onBulkSetFlag(flag, value);
-    setShowFlagMenu(false);
-  };
-
-  // Xử lý khi xóa hàng loạt
-  const handleDeleteClick = () => {
-    // Thông thường sẽ có một modal xác nhận trước khi xóa
-    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCount} sản phẩm đã chọn?`)) {
-      onBulkDelete();
+    closeAllMenus();
+    
+    setIsProcessing(true);
+    try {
+      const success = await onBulkSetStatus(status);
+      if (success) {
+        console.log(`Đã cập nhật ${selectedCount} sản phẩm thành trạng thái: ${status}`);
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật trạng thái hàng loạt:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  /**
+   * Xử lý khi chọn cờ đánh dấu
+   */
+  const handleFlagSelection = async (flag: string, value: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeAllMenus();
+    
+    setIsProcessing(true);
+    try {
+      const success = await onBulkSetFlag(flag, value);
+      if (success) {
+        console.log(`Đã ${value ? 'bật' : 'tắt'} cờ ${flag} cho ${selectedCount} sản phẩm`);
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật cờ đánh dấu hàng loạt:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Xử lý khi click nút xóa
+   */
+  const handleDeleteClick = async () => {
+    if (selectedCount === 0 || disabled || isProcessing) return;
+    
+    if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCount} sản phẩm đã chọn không?`)) {
+      setIsProcessing(true);
+      try {
+        const success = await onBulkDelete();
+        if (success) {
+          console.log(`Đã xóa ${selectedCount} sản phẩm`);
+        }
+      } catch (error) {
+        console.error('Lỗi khi xóa sản phẩm hàng loạt:', error);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  // Nếu không có sản phẩm nào được chọn, không hiển thị thanh công cụ
   if (selectedCount === 0) {
     return null;
   }
 
   return (
-    <div 
-      className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 p-4 z-10"
-      onClick={closeAllMenus}
-    >
-      <div className="container mx-auto flex flex-wrap items-center justify-between gap-3">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
+      <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center">
-          <span className="bg-pink-100 text-pink-800 text-sm font-semibold px-3 py-1 rounded-full mr-3">
-            {selectedCount} sản phẩm đã chọn
+          <span className="text-sm font-medium text-gray-700 mr-4">
+            Đã chọn {selectedCount} sản phẩm
           </span>
           <button
+            type="button"
             onClick={onClearSelection}
-            className="text-sm text-gray-600 hover:text-gray-800"
-            disabled={disabled}
+            className="text-sm text-gray-600 hover:text-gray-900"
+            disabled={disabled || isProcessing}
           >
             Bỏ chọn tất cả
           </button>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {/* Dropdown thay đổi trạng thái */}
-          <div className="relative">
+        <div className="flex items-center space-x-3">
+          {/* Nút Thay đổi trạng thái */}
+          <div className="relative" ref={statusMenuRef}>
             <button
+              type="button"
               onClick={toggleStatusMenu}
-              disabled={disabled}
-              className="px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+              disabled={disabled || isProcessing}
             >
-              <FiCheck className="mr-1" />
+              <FiTag className="-ml-0.5 mr-2 h-4 w-4" />
               Thay đổi trạng thái
+              <FiChevronDown className="ml-2 h-4 w-4" />
             </button>
             
             {showStatusMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
-                <div className="py-1">
+              <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <div className="py-1" role="menu" aria-orientation="vertical">
                   <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleStatusSelection('active', e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                      Đánh dấu đang bán
-                    </span>
+                    <FiCheckCircle className="mr-3 h-5 w-5 text-green-500" />
+                    Đang bán
                   </button>
                   <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleStatusSelection('out_of_stock', e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>
-                      Đánh dấu hết hàng
-                    </span>
+                    <FiAlertCircle className="mr-3 h-5 w-5 text-yellow-500" />
+                    Hết hàng
                   </button>
                   <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleStatusSelection('discontinued', e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
-                      Đánh dấu ngừng kinh doanh
-                    </span>
+                    <FiXCircle className="mr-3 h-5 w-5 text-red-500" />
+                    Ngừng kinh doanh
                   </button>
                 </div>
               </div>
             )}
           </div>
           
-          {/* Dropdown thay đổi flag */}
-          <div className="relative">
+          {/* Nút Đánh dấu */}
+          <div className="relative" ref={flagMenuRef}>
             <button
+              type="button"
               onClick={toggleFlagMenu}
-              disabled={disabled}
-              className="px-4 py-2 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+              disabled={disabled || isProcessing}
             >
-              <FiTag className="mr-1" />
-              Thay đổi nhãn
+              <FiFlag className="-ml-0.5 mr-2 h-4 w-4" />
+              Đánh dấu
+              <FiChevronDown className="ml-2 h-4 w-4" />
             </button>
             
             {showFlagMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
-                <div className="py-1">
+              <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <div className="py-1" role="menu" aria-orientation="vertical">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bật cờ
+                  </div>
                   <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleFlagSelection('isBestSeller', true, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <FiAward className="mr-2 text-orange-500" />
-                      Đánh dấu bán chạy
-                    </span>
+                    <FiStar className="mr-3 h-5 w-5 text-orange-500" />
+                    Bán chạy
                   </button>
                   <button
-                    onClick={(e) => handleFlagSelection('isBestSeller', false, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <span className="flex items-center">
-                      <FiAward className="mr-2 text-gray-400" />
-                      Bỏ đánh dấu bán chạy
-                    </span>
-                  </button>
-                  <hr className="my-1" />
-                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleFlagSelection('isNew', true, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <FiStar className="mr-2 text-blue-500" />
-                      Đánh dấu sản phẩm mới
-                    </span>
+                    <FiTag className="mr-3 h-5 w-5 text-blue-500" />
+                    Mới
                   </button>
                   <button
-                    onClick={(e) => handleFlagSelection('isNew', false, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <span className="flex items-center">
-                      <FiStar className="mr-2 text-gray-400" />
-                      Bỏ đánh dấu sản phẩm mới
-                    </span>
-                  </button>
-                  <hr className="my-1" />
-                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={(e) => handleFlagSelection('isOnSale', true, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <span className="flex items-center">
-                      <FiTag className="mr-2 text-pink-500" />
-                      Đánh dấu giảm giá
-                    </span>
+                    <FiTag className="mr-3 h-5 w-5 text-pink-500" />
+                    Giảm giá
                   </button>
                   <button
-                    onClick={(e) => handleFlagSelection('isOnSale', false, e)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => handleFlagSelection('hasGifts', true, e)}
                   >
-                    <span className="flex items-center">
-                      <FiTag className="mr-2 text-gray-400" />
-                      Bỏ đánh dấu giảm giá
-                    </span>
+                    <FiGift className="mr-3 h-5 w-5 text-purple-500" />
+                    Có quà tặng
+                  </button>
+                  
+                  <div className="border-t border-gray-100 my-1"></div>
+                  
+                  <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tắt cờ
+                  </div>
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => handleFlagSelection('isBestSeller', false, e)}
+                  >
+                    <FiStar className="mr-3 h-5 w-5 text-gray-400" />
+                    Bỏ đánh dấu bán chạy
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => handleFlagSelection('isNew', false, e)}
+                  >
+                    <FiTag className="mr-3 h-5 w-5 text-gray-400" />
+                    Bỏ đánh dấu mới
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => handleFlagSelection('isOnSale', false, e)}
+                  >
+                    <FiTag className="mr-3 h-5 w-5 text-gray-400" />
+                    Bỏ đánh dấu giảm giá
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => handleFlagSelection('hasGifts', false, e)}
+                  >
+                    <FiGift className="mr-3 h-5 w-5 text-gray-400" />
+                    Bỏ đánh dấu có quà tặng
                   </button>
                 </div>
               </div>
             )}
           </div>
           
-          {/* Nút xóa hàng loạt */}
+          {/* Nút Xóa */}
           <button
+            type="button"
             onClick={handleDeleteClick}
-            disabled={disabled}
-            className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center"
+            className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            disabled={disabled || isProcessing}
           >
-            <FiTrash2 className="mr-1" />
-            Xóa sản phẩm
+            <FiTrash2 className="-ml-0.5 mr-2 h-4 w-4" />
+            Xóa
           </button>
         </div>
       </div>
@@ -224,4 +318,4 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
   );
 };
 
-export default BulkActionBar; 
+export default BulkActionBar;

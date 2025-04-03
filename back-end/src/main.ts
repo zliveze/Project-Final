@@ -71,7 +71,14 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   
+  const serverUrl = `http://localhost:${port}`;
+  
   logger.log(`Application is running on port ${port}`);
+  logger.log(`API endpoint: ${serverUrl}/api`);
+  logger.log(`Health check: ${serverUrl}/api/health`);
+  logger.log(`Swagger API documentation: ${serverUrl}/api/docs`);
   logger.log(`CORS is enabled for origin: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  logger.log(`MongoDB connection: ${process.env.MONGODB_URI ? 'Configured' : 'Not configured'}`);
+  logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 }
 bootstrap();

@@ -1,5 +1,6 @@
-import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { useState, useRef, DragEvent, ChangeEvent, useCallback } from 'react';
 import { ProductFormData, ProductImage } from '../types';
+import { useProduct } from '@/contexts/ProductContext';
 
 /**
  * Hook quản lý hình ảnh sản phẩm
@@ -11,39 +12,79 @@ export const useProductImages = (
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Access the ProductContext for image uploads
+  const { uploadProductImage } = useProduct();
+
   /**
    * Xử lý upload hình ảnh từ file input
    */
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newImages: ProductImage[] = [];
-      
-      Array.from(e.target.files).forEach(file => {
+
+      // First, create previews for all images
+      for (const file of Array.from(e.target.files)) {
         const reader = new FileReader();
-        reader.onload = () => {
-          const newImage: ProductImage = {
-            url: '',
-            alt: file.name.split('.')[0],
-            isPrimary: (!formData.images || !Array.isArray(formData.images) || formData.images.length === 0) && newImages.length === 0,
-            file: file,
-            preview: reader.result as string,
-            id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`
+        await new Promise<void>((resolve) => {
+          reader.onload = () => {
+            const newImage: ProductImage = {
+              url: '',
+              alt: file.name.split('.')[0],
+              isPrimary: (!formData.images || !Array.isArray(formData.images) || formData.images.length === 0) && newImages.length === 0,
+              file: file,
+              preview: reader.result as string,
+              id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`
+            };
+
+            newImages.push(newImage);
+            resolve();
           };
-          
-          newImages.push(newImage);
-          
-          // Cập nhật state nếu đã đọc tất cả files
-          if (newImages.length === e.target.files!.length) {
-            setFormData(prev => ({
-              ...prev,
-              images: [...(prev.images || []), ...newImages]
-            }));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // Update the form data with the new images
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), ...newImages]
+      }));
+
+      // If we have a product ID, upload the images immediately
+      if (formData.id) {
+        try {
+          // Upload each image
+          for (const image of newImages) {
+            if (image.file) {
+              try {
+                const uploadResult = await uploadProductImage(image.file, formData.id, image.isPrimary);
+
+                // Update the image with the uploaded URL
+                setFormData(prev => {
+                  const updatedImages = prev.images?.map(img =>
+                    img.id === image.id ? {
+                      ...img,
+                      url: uploadResult.url,
+                      publicId: uploadResult.publicId
+                    } : img
+                  ) || [];
+
+                  return {
+                    ...prev,
+                    images: updatedImages
+                  };
+                });
+              } catch (uploadError) {
+                console.error('Error uploading image:', uploadError);
+                // Keep the image in the list with the preview URL
+              }
+            }
           }
-        };
-        reader.readAsDataURL(file);
-      });
+        } catch (error) {
+          console.error('Error uploading images:', error);
+        }
+      }
     }
-  };
+  }, [formData.id, formData.images, setFormData, uploadProductImage]);
 
   /**
    * Xử lý khi kéo file vào khu vực upload
@@ -64,17 +105,17 @@ export const useProductImages = (
   /**
    * Xử lý khi thả file vào khu vực upload
    */
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       if (fileInputRef.current) {
         fileInputRef.current.files = e.dataTransfer.files;
         handleImageUpload({ target: { files: e.dataTransfer.files } } as any);
       }
     }
-  };
+  }, [handleImageUpload]);
 
   /**
    * Xóa một hình ảnh
@@ -83,16 +124,16 @@ export const useProductImages = (
     // Xử lý xóa ảnh
     let updatedImages = [...(formData.images || [])];
     const removeIndex = updatedImages.findIndex(img => img.id === imageId);
-    
+
     if (removeIndex !== -1) {
       // Nếu xóa ảnh chính, chọn ảnh đầu tiên còn lại làm ảnh chính
       if (updatedImages[removeIndex].isPrimary && updatedImages.length > 1) {
         const nextIndex = removeIndex === updatedImages.length - 1 ? 0 : removeIndex + 1;
         updatedImages[nextIndex].isPrimary = true;
       }
-      
+
       updatedImages.splice(removeIndex, 1);
-      
+
       // Cập nhật formData
       setFormData(prev => ({
         ...prev,
@@ -106,12 +147,12 @@ export const useProductImages = (
    */
   const handleSetPrimaryImage = (imageId: string) => {
     if (!formData.images || !Array.isArray(formData.images)) return;
-    
+
     const updatedImages = formData.images.map((image: ProductImage) => ({
       ...image,
       isPrimary: image.id === imageId
     }));
-    
+
     setFormData(prev => ({
       ...prev,
       images: updatedImages
@@ -123,11 +164,11 @@ export const useProductImages = (
    */
   const handleImageAltChange = (imageId: string, alt: string) => {
     if (!formData.images || !Array.isArray(formData.images)) return;
-    
-    const updatedImages = formData.images.map((image: ProductImage) => 
+
+    const updatedImages = formData.images.map((image: ProductImage) =>
       image.id === imageId ? { ...image, alt } : image
     );
-    
+
     setFormData(prev => ({
       ...prev,
       images: updatedImages
@@ -147,4 +188,4 @@ export const useProductImages = (
   };
 };
 
-export default useProductImages; 
+export default useProductImages;

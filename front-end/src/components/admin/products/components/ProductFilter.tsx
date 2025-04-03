@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp, FiList } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
+import { useProduct } from '@/contexts/ProductContext';
 
 interface ProductFilterProps {
   onSearch: (term: string) => void;
@@ -34,6 +35,17 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   itemsPerPage = 20,
   onItemsPerPageChange
 }) => {
+  // Access the ProductContext for additional functionality
+  const { statistics, fetchStatistics, loading: contextLoading } = useProduct();
+
+  // Fetch statistics when component mounts
+  useEffect(() => {
+    // Chỉ gọi API nếu chưa có dữ liệu statistics
+    if (!statistics) {
+      fetchStatistics();
+    }
+  }, [statistics, fetchStatistics]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -45,6 +57,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     isOnSale: false,
     hasGifts: false
   });
+
+  // Kết hợp trạng thái loading từ props và context
+  const combinedLoading = loading || contextLoading;
 
   const handleSearch = () => {
     onSearch(searchTerm);
@@ -60,7 +75,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     const updatedCategories = selectedCategories.includes(categoryId)
       ? selectedCategories.filter(id => id !== categoryId)
       : [...selectedCategories, categoryId];
-    
+
     setSelectedCategories(updatedCategories);
     applyFilters({ categories: updatedCategories });
   };
@@ -69,7 +84,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     const updatedBrands = selectedBrands.includes(brandId)
       ? selectedBrands.filter(id => id !== brandId)
       : [...selectedBrands, brandId];
-    
+
     setSelectedBrands(updatedBrands);
     applyFilters({ brands: updatedBrands });
   };
@@ -84,7 +99,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
       ...selectedFlags,
       [flag]: !selectedFlags[flag]
     };
-    
+
     setSelectedFlags(updatedFlags);
     applyFilters({ flags: updatedFlags });
   };
@@ -98,7 +113,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
       flags: selectedFlags,
       ...partialFilters
     };
-    
+
     onFilterChange(filters);
   };
 
@@ -113,7 +128,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
       isOnSale: false,
       hasGifts: false
     });
-    
+
     onSearch('');
     onFilterChange({
       searchTerm: '',
@@ -133,6 +148,19 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     );
   };
 
+  // Sử dụng statistics từ context để hiển thị số lượng cho các danh mục, thương hiệu, v.v.
+  const getCountForCategory = (categoryId: string) => {
+    if (!(statistics as any)?.categories) return null;
+    const categoryStats = (statistics as any).categories.find((cat: any) => cat.id === categoryId);
+    return categoryStats ? categoryStats.count : null;
+  };
+
+  const getCountForBrand = (brandId: string) => {
+    if (!(statistics as any)?.brands) return null;
+    const brandStats = (statistics as any).brands.find((brand: any) => brand.id === brandId);
+    return brandStats ? brandStats.count : null;
+  };
+
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
       <div className="p-4 border-b border-gray-200">
@@ -149,20 +177,20 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={handleKeyPress}
-                disabled={loading}
+                disabled={combinedLoading}
               />
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={handleSearch}
-              disabled={loading}
+              disabled={combinedLoading}
               className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
             >
               Tìm kiếm
             </button>
-            
+
             <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
@@ -171,7 +199,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
               Lọc nâng cao
               {showAdvancedFilters ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />}
             </button>
-            
+
             {hasActiveFilters() && (
               <button
                 onClick={clearAllFilters}
@@ -192,7 +220,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     value={itemsPerPage}
                     onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
                     className="border border-gray-300 rounded-md text-sm p-1 focus:outline-none focus:ring-1 focus:ring-pink-500"
-                    disabled={loading}
+                    disabled={combinedLoading}
                   >
                     <option value={10}>10</option>
                     <option value={20}>20</option>
@@ -204,177 +232,253 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             )}
           </div>
         </div>
-        
+
         {showAdvancedFilters && (
           <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Bộ lọc danh mục */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
               <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
-                {categories.map((category) => (
-                  <div key={category.id} className="flex items-center">
-                    <input
-                      id={`category-${category.id}`}
-                      type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                      checked={selectedCategories.includes(category.id)}
-                      onChange={() => handleCategoryChange(category.id)}
-                      disabled={loading}
-                    />
-                    <label htmlFor={`category-${category.id}`} className="ml-2 text-sm text-gray-700">
-                      {category.name}
-                    </label>
-                  </div>
-                ))}
+                {categories.map((category) => {
+                  const categoryCount = getCountForCategory(category.id);
+                  return (
+                    <div key={category.id} className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <input
+                          id={`category-${category.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                          checked={selectedCategories.includes(category.id)}
+                          onChange={() => handleCategoryChange(category.id)}
+                          disabled={combinedLoading}
+                        />
+                        <label htmlFor={`category-${category.id}`} className="ml-2 text-sm text-gray-700">
+                          {category.name}
+                        </label>
+                      </div>
+                      {categoryCount !== null && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          {categoryCount}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
                 {categories.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có danh mục</p>
                 )}
               </div>
             </div>
-            
+
             {/* Bộ lọc thương hiệu */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Thương hiệu</h3>
               <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
-                {brands.map((brand) => (
-                  <div key={brand.id} className="flex items-center">
-                    <input
-                      id={`brand-${brand.id}`}
-                      type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                      checked={selectedBrands.includes(brand.id)}
-                      onChange={() => handleBrandChange(brand.id)}
-                      disabled={loading}
-                    />
-                    <label htmlFor={`brand-${brand.id}`} className="ml-2 text-sm text-gray-700">
-                      {brand.name}
-                    </label>
-                  </div>
-                ))}
+                {brands.map((brand) => {
+                  const brandCount = getCountForBrand(brand.id);
+                  return (
+                    <div key={brand.id} className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <input
+                          id={`brand-${brand.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                          checked={selectedBrands.includes(brand.id)}
+                          onChange={() => handleBrandChange(brand.id)}
+                          disabled={combinedLoading}
+                        />
+                        <label htmlFor={`brand-${brand.id}`} className="ml-2 text-sm text-gray-700">
+                          {brand.name}
+                        </label>
+                      </div>
+                      {brandCount !== null && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          {brandCount}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
                 {brands.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có thương hiệu</p>
                 )}
               </div>
             </div>
-            
+
             {/* Bộ lọc trạng thái */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Trạng thái</h3>
               <div className="space-y-1">
-                <div className="flex items-center">
-                  <input
-                    id="status-all"
-                    type="radio"
-                    name="status"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    checked={selectedStatus === ''}
-                    onChange={() => handleStatusChange('')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="status-all" className="ml-2 text-sm text-gray-700">
-                    Tất cả
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="status-all"
+                      type="radio"
+                      name="status"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      checked={selectedStatus === ''}
+                      onChange={() => handleStatusChange('')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="status-all" className="ml-2 text-sm text-gray-700">
+                      Tất cả
+                    </label>
+                  </div>
+                  {statistics?.total && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.total}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="status-active"
-                    type="radio"
-                    name="status"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    checked={selectedStatus === 'active'}
-                    onChange={() => handleStatusChange('active')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="status-active" className="ml-2 text-sm text-gray-700">
-                    Đang bán
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="status-active"
+                      type="radio"
+                      name="status"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      checked={selectedStatus === 'active'}
+                      onChange={() => handleStatusChange('active')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="status-active" className="ml-2 text-sm text-gray-700">
+                      Đang bán
+                    </label>
+                  </div>
+                  {statistics?.active !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.active}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="status-out_of_stock"
-                    type="radio"
-                    name="status"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    checked={selectedStatus === 'out_of_stock'}
-                    onChange={() => handleStatusChange('out_of_stock')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="status-out_of_stock" className="ml-2 text-sm text-gray-700">
-                    Hết hàng
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="status-out_of_stock"
+                      type="radio"
+                      name="status"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      checked={selectedStatus === 'out_of_stock'}
+                      onChange={() => handleStatusChange('out_of_stock')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="status-out_of_stock" className="ml-2 text-sm text-gray-700">
+                      Hết hàng
+                    </label>
+                  </div>
+                  {statistics?.outOfStock !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.outOfStock}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="status-discontinued"
-                    type="radio"
-                    name="status"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    checked={selectedStatus === 'discontinued'}
-                    onChange={() => handleStatusChange('discontinued')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="status-discontinued" className="ml-2 text-sm text-gray-700">
-                    Ngừng kinh doanh
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="status-discontinued"
+                      type="radio"
+                      name="status"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      checked={selectedStatus === 'discontinued'}
+                      onChange={() => handleStatusChange('discontinued')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="status-discontinued" className="ml-2 text-sm text-gray-700">
+                      Ngừng kinh doanh
+                    </label>
+                  </div>
+                  {statistics?.discontinued !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.discontinued}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
-            
+
             {/* Bộ lọc flags */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Đặc điểm</h3>
               <div className="space-y-1">
-                <div className="flex items-center">
-                  <input
-                    id="flag-bestseller"
-                    type="checkbox"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                    checked={selectedFlags.isBestSeller}
-                    onChange={() => handleFlagChange('isBestSeller')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="flag-bestseller" className="ml-2 text-sm text-gray-700">
-                    Bán chạy
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="flag-bestseller"
+                      type="checkbox"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      checked={selectedFlags.isBestSeller}
+                      onChange={() => handleFlagChange('isBestSeller')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="flag-bestseller" className="ml-2 text-sm text-gray-700">
+                      Bán chạy
+                    </label>
+                  </div>
+                  {statistics?.bestSellers !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.bestSellers}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="flag-new"
-                    type="checkbox"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                    checked={selectedFlags.isNew}
-                    onChange={() => handleFlagChange('isNew')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="flag-new" className="ml-2 text-sm text-gray-700">
-                    Mới
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="flag-new"
+                      type="checkbox"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      checked={selectedFlags.isNew}
+                      onChange={() => handleFlagChange('isNew')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="flag-new" className="ml-2 text-sm text-gray-700">
+                      Mới
+                    </label>
+                  </div>
+                  {statistics?.newProducts !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.newProducts}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="flag-sale"
-                    type="checkbox"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                    checked={selectedFlags.isOnSale}
-                    onChange={() => handleFlagChange('isOnSale')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="flag-sale" className="ml-2 text-sm text-gray-700">
-                    Giảm giá
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="flag-sale"
+                      type="checkbox"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      checked={selectedFlags.isOnSale}
+                      onChange={() => handleFlagChange('isOnSale')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="flag-sale" className="ml-2 text-sm text-gray-700">
+                      Giảm giá
+                    </label>
+                  </div>
+                  {statistics?.onSale !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.onSale}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center">
-                  <input
-                    id="flag-gifts"
-                    type="checkbox"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                    checked={selectedFlags.hasGifts}
-                    onChange={() => handleFlagChange('hasGifts')}
-                    disabled={loading}
-                  />
-                  <label htmlFor="flag-gifts" className="ml-2 text-sm text-gray-700">
-                    Có quà tặng
-                  </label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="flag-gifts"
+                      type="checkbox"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      checked={selectedFlags.hasGifts}
+                      onChange={() => handleFlagChange('hasGifts')}
+                      disabled={combinedLoading}
+                    />
+                    <label htmlFor="flag-gifts" className="ml-2 text-sm text-gray-700">
+                      Có quà tặng
+                    </label>
+                  </div>
+                  {statistics?.withGifts !== undefined && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {statistics.withGifts}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -385,4 +489,4 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   );
 };
 
-export default ProductFilter; 
+export default ProductFilter;

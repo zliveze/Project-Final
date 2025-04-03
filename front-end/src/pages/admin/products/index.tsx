@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Toaster, toast } from 'react-hot-toast';
 import { FiAlertCircle, FiUpload, FiDownload, FiX, FiCheck, FiEdit, FiEye, FiPlus } from 'react-icons/fi';
+import { useProduct } from '@/contexts/ProductContext';
 
 // Import các components mới
 import ProductTable from '@/components/admin/products/components/ProductTable';
 import ProductTableSummary from '@/components/admin/products/components/ProductTableSummary';
 import ProductFilter from '@/components/admin/products/components/ProductFilter';
 import BulkActionBar from '@/components/admin/products/components/BulkActionBar';
+
 import ProductForm from '@/components/admin/products/ProductForm/index';
 import { Pagination } from '@/components/admin/common';
 
@@ -17,9 +19,12 @@ import { ProductFilterState } from '@/components/admin/products/components/Produ
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
 
 export default function AdminProducts() {
-  // Sử dụng hook quản lý sản phẩm
+  // Get the product context
+  const productContext = useProduct();
+
+  // Sử dụng hook quản lý sản phẩm (now using ProductContext internally)
   const {
-    products,
+    // products, // Unused
     filteredProducts,
     isLoading,
     selectedProducts,
@@ -31,14 +36,14 @@ export default function AdminProducts() {
     currentPage,
     itemsPerPage,
     toggleProductSelection,
-    toggleSelectAll,
+    // toggleSelectAll, // Unused
     toggleProductDetails,
     applyFilter,
     setPage,
     setItemsPerPage,
     clearSelectedProducts,
     fetchProducts,
-    isAllSelected,
+    // isAllSelected, // Unused
     filter
   } = useProductTable();
 
@@ -47,14 +52,14 @@ export default function AdminProducts() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [branches, setBranches] = useState([
+  const [branches] = useState([
     { id: '1', name: 'Chi nhánh Hà Nội' },
     { id: '2', name: 'Chi nhánh Hồ Chí Minh' },
     { id: '3', name: 'Chi nhánh Đà Nẵng' },
   ]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
+
   // State cho các modal product
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
@@ -65,339 +70,130 @@ export default function AdminProducts() {
   const categories = getCategories();
   const brands = getBrands();
 
-  // Reload dữ liệu khi component mount
+  // Component did mount - không gọi fetchProducts từ đây nữa
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  // Hàm lấy thông tin sản phẩm theo ID (ví dụ)
-  const getProductById = (id: string) => {
-    // Trong thực tế sẽ gọi API để lấy thông tin sản phẩm
-    // Ở đây giả lập bằng cách sử dụng dữ liệu mẫu
-    const sampleProducts = [
-      {
-        id: 'PRD-001',
-        name: 'Kem dưỡng ẩm Yumin',
-        sku: 'SKU-001',
-        image: 'https://via.placeholder.com/300',
-        price: 350000,
-        description: {
-          short: 'Kem dưỡng ẩm dành cho da khô',
-          full: 'Kem dưỡng ẩm Yumin là sản phẩm chăm sóc da cao cấp, giúp cung cấp độ ẩm sâu và duy trì làn da mềm mại, mịn màng suốt ngày dài.'
-        },
-        category: 'Chăm sóc da',
-        categoryIds: ['1'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 25 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 15 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 5 }
-        ],
-        stock: 45,
-        status: 'active',
-        tags: ['dưỡng ẩm', 'da khô', 'chăm sóc da'],
-        cosmetic_info: {
-          skinType: ['Khô', 'Thường'],
-          ingredients: ['Hyaluronic acid', 'Ceramide', 'Vitamin E'],
-          volume: {
-            value: 50,
-            unit: 'ml'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: true,
-          isNew: false,
-          isOnSale: false,
-          hasGifts: false
-        },
-        createdAt: '2023-08-15T10:00:00Z',
-        updatedAt: '2023-09-10T15:30:00Z'
-      },
-      {
-        id: 'PRD-002',
-        name: 'Sữa rửa mặt Yumin',
-        sku: 'SKU-002',
-        image: 'https://via.placeholder.com/300',
-        price: 250000,
-        description: {
-          short: 'Sữa rửa mặt làm sạch sâu',
-          full: 'Sữa rửa mặt Yumin giúp làm sạch sâu, loại bỏ bụi bẩn và dầu thừa, để lại làn da sạch mịn và tươi mát.'
-        },
-        category: 'Chăm sóc da',
-        categoryIds: ['1'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 12 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 20 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 0 }
-        ],
-        stock: 32,
-        status: 'active',
-        tags: ['làm sạch', 'rửa mặt', 'chăm sóc da'],
-        cosmetic_info: {
-          skinType: ['Dầu', 'Hỗn hợp', 'Thường'],
-          ingredients: ['Vitamin B5', 'Glycerin', 'Chamomile Extract'],
-          volume: {
-            value: 150,
-            unit: 'ml'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: false,
-          isNew: true,
-          isOnSale: false,
-          hasGifts: false
-        },
-        createdAt: '2023-07-20T10:00:00Z',
-        updatedAt: '2023-08-15T15:30:00Z'
-      },
-      {
-        id: 'PRD-003',
-        name: 'Serum Vitamin C Yumin',
-        sku: 'SKU-003',
-        image: 'https://via.placeholder.com/300',
-        price: 450000,
-        description: {
-          short: 'Serum làm sáng da với Vitamin C',
-          full: 'Serum Vitamin C Yumin giúp làm sáng da, mờ thâm nám và tăng cường độ đàn hồi cho làn da.'
-        },
-        category: 'Chăm sóc da',
-        categoryIds: ['1'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 8 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 10 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 0 }
-        ],
-        stock: 18,
-        status: 'active',
-        tags: ['serum', 'vitamin c', 'làm sáng da'],
-        cosmetic_info: {
-          skinType: ['Mọi loại da'],
-          ingredients: ['Vitamin C', 'Niacinamide', 'Hyaluronic Acid'],
-          volume: {
-            value: 30,
-            unit: 'ml'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: true,
-          isNew: false,
-          isOnSale: true,
-          hasGifts: true
-        },
-        createdAt: '2023-06-10T10:00:00Z',
-        updatedAt: '2023-07-20T15:30:00Z'
-      },
-      {
-        id: 'PRD-004',
-        name: 'Mặt nạ dưỡng ẩm Yumin',
-        sku: 'SKU-004',
-        image: 'https://via.placeholder.com/300',
-        price: 50000,
-        description: {
-          short: 'Mặt nạ cấp ẩm chuyên sâu',
-          full: 'Mặt nạ dưỡng ẩm Yumin giúp cung cấp độ ẩm tức thì, làm dịu da khô và mệt mỏi.'
-        },
-        category: 'Mặt nạ',
-        categoryIds: ['1', '6'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 0 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 0 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 0 }
-        ],
-        stock: 0,
-        status: 'out_of_stock',
-        tags: ['mặt nạ', 'dưỡng ẩm', 'chăm sóc da'],
-        cosmetic_info: {
-          skinType: ['Khô', 'Thiếu nước'],
-          ingredients: ['Hyaluronic Acid', 'Aloe Vera', 'Vitamin E'],
-          volume: {
-            value: 25,
-            unit: 'ml'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: false,
-          isNew: false,
-          isOnSale: false,
-          hasGifts: false
-        },
-        createdAt: '2023-05-05T10:00:00Z',
-        updatedAt: '2023-06-15T15:30:00Z'
-      },
-      {
-        id: 'PRD-005',
-        name: 'Kem chống nắng Yumin SPF50',
-        sku: 'SKU-005',
-        image: 'https://via.placeholder.com/300',
-        price: 320000,
-        description: {
-          short: 'Kem chống nắng bảo vệ da tối ưu',
-          full: 'Kem chống nắng Yumin SPF50 bảo vệ da khỏi tia UV, ngăn ngừa lão hóa và thâm nám do ánh nắng.'
-        },
-        category: 'Chống nắng',
-        categoryIds: ['1', '7'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 7 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 15 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 5 }
-        ],
-        stock: 27,
-        status: 'active',
-        tags: ['chống nắng', 'spf50', 'bảo vệ da'],
-        cosmetic_info: {
-          skinType: ['Mọi loại da'],
-          ingredients: ['Zinc Oxide', 'Titanium Dioxide', 'Vitamin E'],
-          volume: {
-            value: 50,
-            unit: 'ml'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: false,
-          isNew: true,
-          isOnSale: true,
-          hasGifts: false
-        },
-        createdAt: '2023-04-01T10:00:00Z',
-        updatedAt: '2023-05-10T15:30:00Z'
-      },
-      {
-        id: 'PRD-006',
-        name: 'Son môi Yumin màu đỏ',
-        sku: 'SKU-006',
-        image: 'https://via.placeholder.com/300',
-        price: 180000,
-        description: {
-          short: 'Son lì mềm mịn, bền màu',
-          full: 'Son môi Yumin màu đỏ mang đến đôi môi quyến rũ với màu sắc tươi tắn, công thức dưỡng ẩm và bền màu suốt ngày dài.'
-        },
-        category: 'Trang điểm',
-        categoryIds: ['2'],
-        brandId: '1',
-        brand: 'Yumin',
-        inventory: [
-          { branchId: '1', branchName: 'Chi nhánh Hà Nội', quantity: 0 },
-          { branchId: '2', branchName: 'Chi nhánh Hồ Chí Minh', quantity: 0 },
-          { branchId: '3', branchName: 'Chi nhánh Đà Nẵng', quantity: 0 }
-        ],
-        stock: 0,
-        status: 'discontinued',
-        tags: ['son môi', 'trang điểm', 'màu đỏ'],
-        cosmetic_info: {
-          skinType: ['Mọi loại da'],
-          ingredients: ['Shea Butter', 'Vitamin E', 'Jojoba Oil'],
-          volume: {
-            value: 4,
-            unit: 'g'
-          },
-          madeIn: 'Hàn Quốc'
-        },
-        flags: {
-          isBestSeller: false,
-          isNew: false,
-          isOnSale: false,
-          hasGifts: false
-        },
-        createdAt: '2023-03-01T10:00:00Z',
-        updatedAt: '2023-04-10T15:30:00Z'
-      },
-      {
-        id: 'PRD-007',
-        name: 'Sữa rửa mặt Yumin',
-        sku: 'SKU-007',
-        image: 'https://via.placeholder.com/300',
-        price: 250000,
-        description: {
-          short: 'Sữa rửa mặt làm sạch sâu',
-          full: 'Sữa rửa mặt Yumin giúp làm sạch sâu, loại bỏ bụi bẩn và dầu thừa, để lại làn da sạch mịn và tươi mát.'
-        },
-      },{
-        id: 'PRD-008',
-        name: 'Sữa rửa mặt Yumin',
-        sku: 'SKU-008',
-        image: 'https://via.placeholder.com/300',
-        price: 250000,
-        description: {
-          short: 'Sữa rửa mặt làm sạch sâu',
-          full: 'Sữa rửa mặt Yumin giúp làm sạch sâu, loại bỏ bụi bẩn và dầu thừa, để lại làn da sạch mịn và tươi mát.'
-        },
+    console.log('Admin Products page mounted');
+    // Không cần gọi fetchProducts vì useProductTable đã tự động gọi khi mount
+    
+    // Tạo một hàm kiểm tra tình trạng backend
+    const checkBackendStatus = async () => {
+      try {
+        const isOnline = await productContext.checkApiHealth();
+        if (!isOnline) {
+          toast.error('Không thể kết nối đến server API. Vui lòng kiểm tra lại kết nối hoặc khởi động lại server.', {
+            duration: 5000,
+          });
+        }
+      } catch (error) {
+        console.error('Lỗi kiểm tra kết nối API:', error);
       }
-    ];
+    };
+    
+    checkBackendStatus();
+  }, []); // Empty dependency array để chỉ chạy một lần khi component mount
 
-    // Tìm sản phẩm theo ID
-    return sampleProducts.find(p => p.id === id) || null;
-  };
+  // Hàm lấy thông tin sản phẩm theo ID đã được thay thế bằng ProductContext.fetchProductById
 
-  const handleEdit = (id: string) => {
-    // Lấy thông tin sản phẩm
-    console.log('Đang mở modal sửa sản phẩm với ID:', id);
-    const product = getProductById(id);
-    if (product) {
+  const handleEdit = async (id: string): Promise<boolean> => {
+    try {
+      // Lấy thông tin sản phẩm
+      console.log('Đang mở modal sửa sản phẩm với ID:', id);
+
+      // Use ProductContext to get the product by ID
+      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
+
+      const product = await productContext.fetchProductById(id);
+      toast.dismiss(loadingToast);
       console.log('Đã tìm thấy sản phẩm:', product);
-      setSelectedProduct(product);
+
+      // Convert to the format expected by the form
+      const formattedProduct = {
+        ...product,
+        id: product._id
+      };
+
+      setSelectedProduct(formattedProduct);
       setShowEditProductModal(true);
       toast.success(`Đang sửa sản phẩm: ${product.name}`, {
         duration: 2000,
         icon: <FiEdit className="text-blue-500" />
       });
-    } else {
-      console.error('Không tìm thấy sản phẩm với ID:', id);
-      toast.error('Không tìm thấy thông tin sản phẩm!', {
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
         duration: 3000
       });
+      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return false;
     }
   };
 
-  const handleView = (id: string) => {
-    // Lấy thông tin sản phẩm
-    console.log('Đang mở modal xem sản phẩm với ID:', id);
-    const product = getProductById(id);
-    if (product) {
+  const handleView = async (id: string): Promise<boolean> => {
+    try {
+      // Lấy thông tin sản phẩm
+      console.log('Đang mở modal xem sản phẩm với ID:', id);
+
+      // Use ProductContext to get the product by ID
+      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
+
+      const product = await productContext.fetchProductById(id);
+      toast.dismiss(loadingToast);
       console.log('Đã tìm thấy sản phẩm:', product);
-      setSelectedProduct(product);
+
+      // Convert to the format expected by the form
+      const formattedProduct = {
+        ...product,
+        id: product._id
+      };
+
+      setSelectedProduct(formattedProduct);
       setShowProductDetailModal(true);
       toast.success(`Đang xem sản phẩm: ${product.name}`, {
         duration: 2000,
         icon: <FiEye className="text-gray-500" />
       });
-    } else {
-      console.error('Không tìm thấy sản phẩm với ID:', id);
-      toast.error('Không tìm thấy thông tin sản phẩm!', {
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
         duration: 3000
       });
+      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return false;
     }
   };
 
-  const handleDelete = (id: string) => {
-    // Kiểm tra xem sản phẩm có tồn tại không
-    console.log('Đang yêu cầu xóa sản phẩm với ID:', id);
-    const product = getProductById(id);
-    
-    if (product) {
+  const handleDelete = async (id: string): Promise<boolean> => {
+    try {
+      // Kiểm tra xem sản phẩm có tồn tại không
+      console.log('Đang yêu cầu xóa sản phẩm với ID:', id);
+
+      // Use ProductContext to get the product by ID
+      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
+
+      const product = await productContext.fetchProductById(id);
+      toast.dismiss(loadingToast);
       console.log('Đã tìm thấy sản phẩm sẽ xóa:', product);
+
+      // Convert to the format expected by the form
+      const formattedProduct = {
+        ...product,
+        id: product._id
+      };
+
       // Hiển thị modal xác nhận xóa
       setProductToDelete(id);
-      setSelectedProduct(product);
+      setSelectedProduct(formattedProduct);
       setShowDeleteModal(true);
-    } else {
-      console.error('Không tìm thấy sản phẩm với ID:', id);
-      toast.error('Không tìm thấy thông tin sản phẩm để xóa!', {
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Không tìm thấy thông tin sản phẩm để xóa: ${error.message}`, {
         duration: 3000
       });
+      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return false;
     }
   };
 
@@ -406,27 +202,34 @@ export default function AdminProducts() {
     console.log(`Đã xóa sản phẩm ${productToDelete}`);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang xóa sản phẩm...');
-    
+
     try {
-      // Trong thực tế sẽ gọi API để xóa sản phẩm
-      // API call goes here...
-      
-      // Mô phỏng delay của API call
-      setTimeout(() => {
-        // Cập nhật dữ liệu sau khi xóa (tùy thuộc vào API thực tế)
-        // setProducts(prevProducts => prevProducts.filter(p => p.id !== productToDelete));
-        
-        // Thông báo thành công
-        toast.dismiss(loadingToast);
-        toast.success('Đã xóa sản phẩm thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-        
-        // Đóng modal
-        setShowDeleteModal(false);
-        setProductToDelete(null);
-      }, 1000);
+      if (productToDelete) {
+        // Use the ProductContext to delete the product
+        productContext.deleteProduct(productToDelete)
+          .then(() => {
+            // Thông báo thành công
+            toast.dismiss(loadingToast);
+            toast.success('Đã xóa sản phẩm thành công!', {
+              duration: 3000,
+              icon: <FiCheck className="text-green-500" />
+            });
+
+            // Đóng modal
+            setShowDeleteModal(false);
+            setProductToDelete(null);
+
+            // Refresh the product list
+            fetchProducts();
+          })
+          .catch(error => {
+            // Xử lý lỗi
+            toast.dismiss(loadingToast);
+            toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${error.message}`, {
+              duration: 3000
+            });
+          });
+      }
     } catch (error) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
@@ -456,11 +259,11 @@ export default function AdminProducts() {
 
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading(`Đang import file ${selectedFile.name}...`);
-    
+
     try {
       // Xử lý import file Excel
       console.log(`Đang import file ${selectedFile.name} cho chi nhánh ${selectedBranch}`);
-      
+
       // Mô phỏng delay của API call
       setTimeout(() => {
         // Thông báo thành công
@@ -469,12 +272,12 @@ export default function AdminProducts() {
           duration: 3000,
           icon: <FiCheck className="text-green-500" />
         });
-        
+
         // Đóng modal và reset form
         setShowImportModal(false);
         setSelectedFile(null);
         setSelectedBranch('');
-        
+
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -491,11 +294,11 @@ export default function AdminProducts() {
   const handleExportData = () => {
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang xuất dữ liệu ra file Excel...');
-    
+
     try {
       // Xử lý export dữ liệu ra file Excel
       console.log('Đang xuất dữ liệu ra file Excel');
-      
+
       // Mô phỏng delay của API call
       setTimeout(() => {
         // Thông báo thành công
@@ -519,69 +322,106 @@ export default function AdminProducts() {
     setShowAddProductModal(true);
   };
 
-  const handleSaveNewProduct = (newProduct: any) => {
+  const handleSaveNewProduct = async (newProduct: any) => {
     console.log('Thêm sản phẩm mới:', newProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang thêm sản phẩm mới...');
-    
+
     try {
-      // Trong thực tế sẽ gọi API để thêm sản phẩm mới
-      // API call goes here...
-      
-      // Mô phỏng delay của API call
-      setTimeout(() => {
-        // Sau đó cập nhật danh sách sản phẩm
-        // setProducts(prevProducts => [...prevProducts, newProduct]);
-        
-        // Thông báo thành công
-        toast.dismiss(loadingToast);
-        toast.success('Thêm sản phẩm mới thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-        
-        // Đóng modal
-        setShowAddProductModal(false);
-      }, 1000);
-    } catch (error) {
+      // Process the product data before sending it to the API
+      const productToCreate = { ...newProduct };
+
+      // Remove file objects from images to avoid circular references
+      if (productToCreate.images && Array.isArray(productToCreate.images)) {
+        productToCreate.images = productToCreate.images.map((img: any) => ({
+          url: img.url || img.preview || '',
+          alt: img.alt || '',
+          isPrimary: img.isPrimary || false,
+          publicId: img.publicId || ''
+        }));
+      }
+
+      // Use the ProductContext to create a new product
+      const createdProduct = await productContext.createProduct(productToCreate);
+
+      // Thông báo thành công
+      toast.dismiss(loadingToast);
+      toast.success('Thêm sản phẩm mới thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Đóng modal
+      setShowAddProductModal(false);
+
+      // Refresh the product list
+      fetchProducts();
+
+      return createdProduct;
+    } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
-      toast.error('Có lỗi xảy ra khi thêm sản phẩm!', {
+      toast.error(`Có lỗi xảy ra khi thêm sản phẩm: ${error.message}`, {
         duration: 3000
       });
+      throw error;
     }
   };
 
-  const handleUpdateProduct = (updatedProduct: any) => {
+  const handleUpdateProduct = async (updatedProduct: any) => {
     console.log('Cập nhật sản phẩm:', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
-    
+
     try {
-      // Trong thực tế sẽ gọi API để cập nhật sản phẩm
-      // API call goes here...
+      // Process the product data before sending it to the API
+      const productToUpdate = { ...updatedProduct };
+
+      // Remove file objects from images to avoid circular references
+      if (productToUpdate.images && Array.isArray(productToUpdate.images)) {
+        productToUpdate.images = productToUpdate.images.map((img: any) => ({
+          url: img.url || img.preview || '',
+          alt: img.alt || '',
+          isPrimary: img.isPrimary || false,
+          publicId: img.publicId || ''
+        }));
+      }
+
+      // Xác định ID sản phẩm, ưu tiên id trước, sau đó mới dùng _id
+      const productId = productToUpdate.id || productToUpdate._id;
       
-      // Mô phỏng delay của API call
-      setTimeout(() => {
-        // Sau đó cập nhật danh sách sản phẩm
-        // setProducts(prevProducts => prevProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-        
-        // Thông báo thành công
-        toast.dismiss(loadingToast);
-        toast.success('Cập nhật sản phẩm thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-        
-        // Đóng modal
-        setShowEditProductModal(false);
-      }, 1000);
-    } catch (error) {
+      if (!productId) {
+        throw new Error('Không tìm thấy ID sản phẩm');
+      }
+      
+      // Xóa id và _id khỏi dữ liệu gửi đi để tránh lỗi
+      delete productToUpdate.id;
+      delete productToUpdate._id;
+
+      // Use the ProductContext to update the product
+      const updatedProductResult = await productContext.updateProduct(productId, productToUpdate);
+
+      // Thông báo thành công
+      toast.dismiss(loadingToast);
+      toast.success('Cập nhật sản phẩm thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Đóng modal
+      setShowEditProductModal(false);
+
+      // Refresh the product list
+      fetchProducts();
+
+      return updatedProductResult;
+    } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
-      toast.error('Có lỗi xảy ra khi cập nhật sản phẩm!', {
+      toast.error(`Có lỗi xảy ra khi cập nhật sản phẩm: ${error.message}`, {
         duration: 3000
       });
+      throw error;
     }
   };
 
@@ -597,137 +437,167 @@ export default function AdminProducts() {
   };
 
   // Xử lý thao tác hàng loạt
-  const handleBulkDelete = () => {
-    if (selectedProducts.length === 0) return;
-    
+  const handleBulkDelete = async (): Promise<boolean> => {
+    if (selectedProducts.length === 0) return false;
+
     // Thông báo xác nhận
     if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedProducts.length} sản phẩm đã chọn?`)) {
-      // Hiển thị thông báo đang xử lý
-      const loadingToast = toast.loading(`Đang xóa ${selectedProducts.length} sản phẩm...`);
-      
       try {
-        // Trong thực tế sẽ gọi API để xóa sản phẩm
-        // Mock API call với timeout
-        setTimeout(() => {
-          // Thông báo thành công
-          toast.dismiss(loadingToast);
-          toast.success(`Đã xóa ${selectedProducts.length} sản phẩm thành công!`, {
-            duration: 3000,
-            icon: <FiCheck className="text-green-500" />
-          });
-          
-          // Clear selection và reload dữ liệu
-          clearSelectedProducts();
-          fetchProducts();
-        }, 1000);
-      } catch (error) {
-        toast.dismiss(loadingToast);
-        toast.error('Có lỗi xảy ra khi xóa sản phẩm!', {
-          duration: 3000
-        });
-      }
-    }
-  };
+        // Hiển thị thông báo đang xử lý
+        const loadingToast = toast.loading(`Đang xóa ${selectedProducts.length} sản phẩm...`);
 
-  // Xử lý thay đổi trạng thái hàng loạt
-  const handleBulkSetStatus = (status: ProductStatus) => {
-    if (selectedProducts.length === 0) return;
-    
-    // Hiển thị thông báo đang xử lý
-    const loadingToast = toast.loading(`Đang cập nhật trạng thái cho ${selectedProducts.length} sản phẩm...`);
-    
-    try {
-      // Trong thực tế sẽ gọi API để cập nhật trạng thái
-      // Mock API call với timeout
-      setTimeout(() => {
+        // Use ProductContext to delete multiple products
+        const deletePromises = selectedProducts.map(id => productContext.deleteProduct(id));
+        await Promise.all(deletePromises);
+        
         // Thông báo thành công
         toast.dismiss(loadingToast);
-        toast.success(`Đã cập nhật trạng thái cho ${selectedProducts.length} sản phẩm thành công!`, {
+        toast.success(`Đã xóa ${selectedProducts.length} sản phẩm thành công!`, {
           duration: 3000,
           icon: <FiCheck className="text-green-500" />
         });
-        
-        // Reload dữ liệu
+
+        // Clear selection và reload dữ liệu
+        clearSelectedProducts();
         fetchProducts();
-      }, 1000);
-    } catch (error) {
+        
+        return true;
+      } catch (error: any) {
+        toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${error.message || 'Unknown error'}`, {
+          duration: 3000
+        });
+        return false;
+      }
+    }
+    return false;
+  };
+
+  // Xử lý thay đổi trạng thái hàng loạt
+  const handleBulkSetStatus = async (newStatus: ProductStatus): Promise<boolean> => {
+    if (selectedProducts.length === 0) return false;
+
+    try {
+      // Hiển thị thông báo đang xử lý
+      const loadingToast = toast.loading(`Đang cập nhật trạng thái cho ${selectedProducts.length} sản phẩm...`);
+
+      // Use ProductContext to update multiple products
+      const updatePromises = selectedProducts.map(id =>
+        productContext.updateProduct(id, { status: newStatus })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Thông báo thành công
       toast.dismiss(loadingToast);
-      toast.error('Có lỗi xảy ra khi cập nhật trạng thái sản phẩm!', {
+      toast.success(`Đã cập nhật trạng thái cho ${selectedProducts.length} sản phẩm thành công!`, {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Reload dữ liệu
+      fetchProducts();
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Có lỗi xảy ra khi cập nhật trạng thái sản phẩm: ${error.message || 'Unknown error'}`, {
         duration: 3000
       });
+      return false;
     }
   };
 
   // Xử lý thay đổi flag hàng loạt
-  const handleBulkSetFlag = (flag: string, value: boolean) => {
-    if (selectedProducts.length === 0) return;
-    
-    // Hiển thị thông báo đang xử lý
-    const loadingToast = toast.loading(`Đang cập nhật nhãn cho ${selectedProducts.length} sản phẩm...`);
-    
+  const handleBulkSetFlag = async (flagName: string, flagValue: boolean): Promise<boolean> => {
+    if (selectedProducts.length === 0) return false;
+
     try {
-      // Trong thực tế sẽ gọi API để cập nhật flag
-      // Mock API call với timeout
-      setTimeout(() => {
-        // Thông báo thành công
-        toast.dismiss(loadingToast);
-        toast.success(`Đã cập nhật nhãn cho ${selectedProducts.length} sản phẩm thành công!`, {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-        
-        // Reload dữ liệu
-        fetchProducts();
-      }, 1000);
-    } catch (error) {
+      // Hiển thị thông báo đang xử lý
+      const loadingToast = toast.loading(`Đang cập nhật nhãn cho ${selectedProducts.length} sản phẩm...`);
+
+      // Use ProductContext to update flags for multiple products
+      const updatePromises = selectedProducts.map(id => {
+        // Create flags object with the specific flag to update
+        const flagsUpdate = { flags: { [flagName]: flagValue } };
+        return productContext.updateProductFlags(id, flagsUpdate);
+      });
+      
+      await Promise.all(updatePromises);
+      
+      // Thông báo thành công
       toast.dismiss(loadingToast);
-      toast.error('Có lỗi xảy ra khi cập nhật nhãn sản phẩm!', {
+      toast.success(`Đã cập nhật nhãn cho ${selectedProducts.length} sản phẩm thành công!`, {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Reload dữ liệu
+      fetchProducts();
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Có lỗi xảy ra khi cập nhật nhãn sản phẩm: ${error.message || 'Unknown error'}`, {
         duration: 3000
       });
+      return false;
     }
   };
 
   // Xử lý nhân bản sản phẩm
-  const handleDuplicate = (id: string) => {
-    // Lấy thông tin sản phẩm
-    console.log('Đang nhân bản sản phẩm với ID:', id);
-    const product = getProductById(id);
-    
-    if (product) {
+  const handleDuplicate = async (id: string): Promise<boolean> => {
+    try {
+      // Lấy thông tin sản phẩm
+      console.log('Đang nhân bản sản phẩm với ID:', id);
+
+      // Use ProductContext to get the product by ID
+      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
+
+      const product = await productContext.fetchProductById(id);
+      toast.dismiss(loadingToast);
+
       // Tạo phiên bản copy của sản phẩm
       const duplicatedProduct = {
         ...product,
-        id: `COPY-${product.id}`,
+        _id: undefined, // Remove ID so a new one will be generated
         name: `Bản sao - ${product.name}`,
         sku: `COPY-${product.sku}`
       };
-      
+
       console.log('Sản phẩm sau khi nhân bản:', duplicatedProduct);
-      setSelectedProduct(duplicatedProduct);
+
+      // Convert to the format expected by the form
+      const formattedProduct = {
+        ...duplicatedProduct,
+        id: undefined
+      };
+
+      setSelectedProduct(formattedProduct);
       setShowAddProductModal(true);
-      
+
       toast.success(`Đang tạo bản sao của sản phẩm: ${product.name}`, {
         duration: 2000,
         icon: <FiCheck className="text-blue-500" />
       });
-    } else {
-      console.error('Không tìm thấy sản phẩm với ID:', id);
-      toast.error('Không tìm thấy thông tin sản phẩm!', {
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
         duration: 3000
       });
+      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return false;
     }
   };
 
-  // Xử lý chọn tất cả sản phẩm trên trang hiện tại 
+  // Xử lý chọn tất cả sản phẩm trên trang hiện tại
   const handleToggleSelectAll = () => {
     const currentPageProducts = filteredProducts.slice(
-      (currentPage - 1) * itemsPerPage, 
+      (currentPage - 1) * itemsPerPage,
       currentPage * itemsPerPage
     );
     const allCurrentPageSelected = currentPageProducts.every(
       p => selectedProducts.includes(p.id)
     );
-    
+
     if (allCurrentPageSelected) {
       // Bỏ chọn các sản phẩm trên trang hiện tại
       const newSelected = selectedProducts.filter(
@@ -738,15 +608,15 @@ export default function AdminProducts() {
     } else {
       // Chọn tất cả sản phẩm trên trang hiện tại
       const currentPageIds = currentPageProducts.map(p => p.id);
-      
+
       // Xóa tất cả lựa chọn trước và chọn lại
       clearSelectedProducts();
-      
+
       // Chọn lại các mục cũ đã được chọn
       const oldSelected = selectedProducts.filter(
         id => !currentPageProducts.some(p => p.id === id)
       );
-      
+
       // Chọn tất cả các mục trên trang hiện tại cùng với các mục đã chọn trước đó
       [...oldSelected, ...currentPageIds].forEach(id => toggleProductSelection(id));
     }
@@ -756,7 +626,7 @@ export default function AdminProducts() {
     <AdminLayout title="Quản lý sản phẩm">
       <div className="space-y-6">
         <Toaster position="top-right" />
-        
+
         {/* Phần thanh công cụ và nút thêm sản phẩm */}
         <div className="flex justify-between items-center">
           <div className="flex space-x-3">
@@ -785,6 +655,7 @@ export default function AdminProducts() {
         </div>
 
         {/* Hiển thị thống kê */}
+
         <ProductTableSummary
           totalItems={totalItems}
           totalActive={totalActive}
@@ -811,7 +682,7 @@ export default function AdminProducts() {
           selectedProducts={selectedProducts}
           expandedProduct={expandedProduct}
           isLoading={isLoading}
-          isAllSelected={filteredProducts.length > 0 && 
+          isAllSelected={filteredProducts.length > 0 &&
             filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
               .every(p => selectedProducts.includes(p.id))}
           onView={handleView}
@@ -824,7 +695,7 @@ export default function AdminProducts() {
         />
 
         {/* Phân trang */}
-        <Pagination 
+        <Pagination
           currentPage={currentPage}
           totalPages={Math.ceil(filteredProducts.length / itemsPerPage)}
           onPageChange={setPage}
@@ -842,7 +713,7 @@ export default function AdminProducts() {
           disabled={isLoading}
         />
       </div>
-      
+
       {/* Modal xác nhận xóa */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -850,9 +721,9 @@ export default function AdminProducts() {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
@@ -891,7 +762,7 @@ export default function AdminProducts() {
           </div>
         </div>
       )}
-      
+
       {/* Modal Import Excel */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -899,9 +770,9 @@ export default function AdminProducts() {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
@@ -1003,9 +874,9 @@ export default function AdminProducts() {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -1020,7 +891,7 @@ export default function AdminProducts() {
                     <FiX className="h-6 w-6" />
                   </button>
                 </div>
-                
+
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
                     onSubmit={handleSaveNewProduct}
@@ -1040,9 +911,9 @@ export default function AdminProducts() {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -1057,7 +928,7 @@ export default function AdminProducts() {
                     <FiX className="h-6 w-6" />
                   </button>
                 </div>
-                
+
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
                     initialData={selectedProduct}
@@ -1078,9 +949,9 @@ export default function AdminProducts() {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -1095,7 +966,7 @@ export default function AdminProducts() {
                     <FiX className="h-6 w-6" />
                   </button>
                 </div>
-                
+
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
                     initialData={selectedProduct}
@@ -1120,4 +991,4 @@ export default function AdminProducts() {
       )}
     </AdminLayout>
   );
-} 
+}

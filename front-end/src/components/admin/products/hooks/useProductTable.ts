@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProductStatus } from '../components/ProductStatusBadge';
 import { ProductFilterState } from '../components/ProductFilter';
+import { useProduct } from '@/contexts/ProductContext';
 
 export interface ProductFlag {
   isBestSeller: boolean;
@@ -57,6 +58,9 @@ export interface UseProductTableResult {
   isAllSelected: boolean;
   // Thông tin filter
   filter: ProductFilterState;
+  bulkSetStatus: (status: ProductStatus) => Promise<boolean>;
+  bulkSetFlag: (flag: string, value: boolean) => Promise<boolean>;
+  bulkDelete: () => Promise<boolean>;
 }
 
 // Mock data lấy các danh mục
@@ -263,17 +267,36 @@ export const sampleProductData: Product[] = [
     createdAt: '2023-03-01T10:00:00Z',
     updatedAt: '2023-04-10T15:30:00Z'
   },
-  
+
 ];
 
 export function useProductTable(): UseProductTableResult {
+  // Use the ProductContext
+  const {
+    products: contextProducts,
+    loading,
+    totalProducts,
+    currentPage: apiCurrentPage,
+    totalPages,
+    itemsPerPage: apiItemsPerPage,
+    fetchProducts: fetchContextProducts,
+    fetchStatistics,
+    updateProduct,
+    updateProductFlags,
+    deleteProduct,
+    statistics
+  } = useProduct();
+
+  // Products state
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [fetchTimeout, setFetchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [filter, setFilter] = useState<ProductFilterState>({
     searchTerm: '',
     categories: [],
@@ -281,30 +304,217 @@ export function useProductTable(): UseProductTableResult {
     flags: {}
   });
 
+  // Convert context products to the format expected by the UI
+  const convertContextProducts = useCallback((contextProducts: any[]): Product[] => {
+    return contextProducts.map(p => ({
+      id: p._id || '',
+      name: p.name || '',
+      sku: p.sku || '',
+      image: p.images && p.images.length > 0 ? 
+        (p.images.find((img: any) => img.isPrimary) || p.images[0]).url : 
+        'https://via.placeholder.com/50',
+      price: p.price ? p.price.toLocaleString('vi-VN') + 'đ' : '0đ',
+      category: '', // This would need to be populated from categories
+      categoryIds: p.categoryIds || [],
+      brand: '', // This would need to be populated from brands
+      brandId: p.brandId || '',
+      inventory: p.inventory ? p.inventory.map((inv: any) => ({
+        branchId: inv.branchId,
+        branchName: 'Chi nhánh', // This would need to be populated from branches
+        quantity: inv.quantity
+      })) : [],
+      stock: p.inventory ? p.inventory.reduce((sum: number, inv: any) => sum + inv.quantity, 0) : 0,
+      status: p.status || 'active',
+      flags: p.flags || {
+        isBestSeller: false,
+        isNew: false,
+        isOnSale: false,
+        hasGifts: false
+      },
+      createdAt: p.createdAt || '',
+      updatedAt: p.updatedAt || ''
+    }));
+  }, []);
+
+  // Update products when context products change
+  useEffect(() => {
+    if (contextProducts) {
+      const convertedProducts = convertContextProducts(contextProducts);
+      setProducts(convertedProducts);
+      setFilteredProducts(convertedProducts);
+      setIsLoading(false);
+    }
+  }, [contextProducts, convertContextProducts]);
+
+  // Sync with API pagination
+  useEffect(() => {
+    if (apiCurrentPage) setCurrentPage(apiCurrentPage);
+    if (apiItemsPerPage) setItemsPerPage(apiItemsPerPage);
+  }, [apiCurrentPage, apiItemsPerPage]);
+
   // Thống kê sản phẩm theo trạng thái
-  const totalItems = products.length;
-  const totalActive = products.filter(p => p.status === 'active').length;
-  const totalOutOfStock = products.filter(p => p.status === 'out_of_stock').length;
-  const totalDiscontinued = products.filter(p => p.status === 'discontinued').length;
+  const totalItems = totalProducts || products.length;
+  const totalActive = statistics?.active || products.filter(p => p.status === 'active').length;
+  const totalOutOfStock = statistics?.outOfStock || products.filter(p => p.status === 'out_of_stock').length;
+  const totalDiscontinued = statistics?.discontinued || products.filter(p => p.status === 'discontinued').length;
 
   // Kiểm tra đã chọn tất cả chưa
   const isAllSelected = filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length;
 
-  // Mô phỏng việc lấy dữ liệu từ API
+  // Fetch products from the context with pagination and filters
   const fetchProducts = useCallback(() => {
-    setIsLoading(true);
+    // Nếu đang có một timeout fetch đang chờ, hủy nó
+    if (fetchTimeout) {
+      clearTimeout(fetchTimeout);
+    }
     
-    // Giả lập gọi API
-    setTimeout(() => {
-      setProducts(sampleProductData);
-      setFilteredProducts(sampleProductData);
-      setIsLoading(false);
-    }, 800);
+    // Đặt một timeout mới để đảm bảo debounce
+    const newTimeout = setTimeout(() => {
+      // Lưu thời gian gọi fetch hiện tại
+      const currentTime = Date.now();
+      
+      // Kiểm tra xem đã đủ thời gian debounce (1500ms) kể từ lần fetch cuối cùng chưa
+      if (currentTime - lastFetchTime < 1500) {
+        console.log('Bỏ qua yêu cầu fetchProducts trong useProductTable do đã gọi gần đây');
+        setIsLoading(false); // Đảm bảo tắt loading ngay cả khi bỏ qua request
+        return;
+      }
+      
+      setIsLoading(true);
+      setLastFetchTime(currentTime);
+      
+      // Prepare filters for API
+      const apiFilters: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: filter.searchTerm || undefined,
+        categoryId: filter.categories.length ? filter.categories.join(',') : undefined,
+        brandId: filter.brands.length ? filter.brands.join(',') : undefined,
+        status: filter.status || undefined,
+        isBestSeller: filter.flags.isBestSeller,
+        isNew: filter.flags.isNew,
+        isOnSale: filter.flags.isOnSale,
+        hasGifts: filter.flags.hasGifts
+      };
+      
+      // Filter out undefined values
+      Object.keys(apiFilters).forEach(key => {
+        if (apiFilters[key] === undefined) delete apiFilters[key];
+      });
+      
+      console.log('useProductTable đang gọi fetchProducts với:', apiFilters);
+      
+      // Fetch from context/API with filters
+      fetchContextProducts(
+        apiFilters.page,
+        apiFilters.limit,
+        apiFilters.search,
+        apiFilters.brandId,
+        apiFilters.categoryId,
+        apiFilters.status,
+        undefined, // minPrice
+        undefined, // maxPrice
+        undefined, // tags
+        undefined, // skinTypes
+        undefined, // concerns
+        apiFilters.isBestSeller,
+        apiFilters.isNew,
+        apiFilters.isOnSale,
+        apiFilters.hasGifts
+      )
+      .then(() => {
+        // Only fetch statistics if products were successfully fetched
+        return fetchStatistics().catch(error => {
+          console.error("Lỗi khi lấy thống kê:", error);
+        });
+      })
+      .catch(error => {
+        console.error("Lỗi khi lấy sản phẩm:", error);
+      })
+      .finally(() => {
+        // Luôn đảm bảo rằng trạng thái loading được tắt, ngay cả khi có lỗi
+        setIsLoading(false);
+      });
+    }, 1500); // Tăng thời gian debounce lên 1500ms
+    
+    setFetchTimeout(newTimeout);
+    
+    // Đảm bảo xóa timeout khi component unmount
+    return () => {
+      if (newTimeout) clearTimeout(newTimeout);
+    };
+  }, [
+    currentPage, 
+    itemsPerPage, 
+    filter, 
+    fetchContextProducts, 
+    fetchStatistics
+  ]);
+
+  // Sử dụng refs để theo dõi thay đổi thực sự
+  const initialFetchDoneRef = useRef(false);
+  const prevPageRef = useRef(currentPage);
+  const prevItemsPerPageRef = useRef(itemsPerPage);
+  const prevFilterRef = useRef(JSON.stringify(filter));
+  const isMountedRef = useRef(false);
+
+  // Fetch products lần đầu - chỉ chạy một lần khi component mount
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      console.log('Initial fetch in useProductTable - Khởi động');
+      const timer = setTimeout(() => {
+        if (!initialFetchDoneRef.current) {
+          console.log('Initial fetch in useProductTable - Thực thi fetch đầu tiên');
+          setLastFetchTime(Date.now());
+          fetchProducts();
+          initialFetchDoneRef.current = true;
+        }
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
   }, []);
 
+  // Xử lý thay đổi trang và itemsPerPage
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (initialFetchDoneRef.current && isMountedRef.current) {
+      if (prevPageRef.current !== currentPage || prevItemsPerPageRef.current !== itemsPerPage) {
+        console.log('Page hoặc limit thay đổi, đang fetch products:', 
+                    { prevPage: prevPageRef.current, currentPage, 
+                      prevLimit: prevItemsPerPageRef.current, itemsPerPage });
+                      
+        // Sử dụng timeout để tránh nhiều lần fetch
+        const timer = setTimeout(() => {
+          fetchProducts();
+        }, 300);
+        
+        prevPageRef.current = currentPage;
+        prevItemsPerPageRef.current = itemsPerPage;
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentPage, itemsPerPage]);
+
+  // Xử lý thay đổi filter
+  useEffect(() => {
+    if (initialFetchDoneRef.current && isMountedRef.current) {
+      const currentFilterString = JSON.stringify(filter);
+      if (prevFilterRef.current !== currentFilterString) {
+        console.log('Filter thay đổi, đang fetch products');
+        
+        // Sử dụng timeout để tránh nhiều lần fetch
+        const timer = setTimeout(() => {
+          fetchProducts();
+        }, 300);
+        
+        prevFilterRef.current = currentFilterString;
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [filter]);
 
   // Hàm chọn/bỏ chọn một sản phẩm
   const toggleProductSelection = useCallback((id: string) => {
@@ -334,61 +544,10 @@ export function useProductTable(): UseProductTableResult {
   // Hàm áp dụng bộ lọc
   const applyFilter = useCallback((newFilter: ProductFilterState) => {
     setFilter(newFilter);
+    setCurrentPage(1); // Reset về trang 1 khi thay đổi bộ lọc
     
-    let filtered = [...products];
-    
-    // Lọc theo từ khóa
-    if (newFilter.searchTerm) {
-      const searchTermLower = newFilter.searchTerm.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchTermLower) || 
-        p.sku.toLowerCase().includes(searchTermLower)
-      );
-    }
-    
-    // Lọc theo danh mục
-    if (newFilter.categories.length > 0) {
-      filtered = filtered.filter(p => 
-        p.categoryIds.some(id => newFilter.categories.includes(id))
-      );
-    }
-    
-    // Lọc theo thương hiệu
-    if (newFilter.brands.length > 0) {
-      filtered = filtered.filter(p => newFilter.brands.includes(p.brandId));
-    }
-    
-    // Lọc theo trạng thái
-    if (newFilter.status) {
-      filtered = filtered.filter(p => p.status === newFilter.status);
-    }
-    
-    // Lọc theo flags
-    if (newFilter.flags) {
-      if (newFilter.flags.isBestSeller) {
-        filtered = filtered.filter(p => p.flags.isBestSeller);
-      }
-      
-      if (newFilter.flags.isNew) {
-        filtered = filtered.filter(p => p.flags.isNew);
-      }
-      
-      if (newFilter.flags.isOnSale) {
-        filtered = filtered.filter(p => p.flags.isOnSale);
-      }
-      
-      if (newFilter.flags.hasGifts) {
-        filtered = filtered.filter(p => p.flags.hasGifts);
-      }
-    }
-    
-    setFilteredProducts(filtered);
-    setCurrentPage(1); // Reset trang về 1 khi thay đổi bộ lọc
-    
-    // Xóa các sản phẩm đã chọn nếu không còn trong danh sách lọc
-    const filteredIds = filtered.map(p => p.id);
-    setSelectedProducts(prev => prev.filter(id => filteredIds.includes(id)));
-  }, [products]);
+    // Khi thay đổi bộ lọc, gọi fetchProducts sẽ được kích hoạt qua useEffect
+  }, []);
 
   // Hàm đặt trang hiện tại
   const setPage = useCallback((page: number) => {
@@ -405,11 +564,54 @@ export function useProductTable(): UseProductTableResult {
   const clearSelectedProducts = useCallback(() => {
     setSelectedProducts([]);
   }, []);
+  
+  // Bulk actions using ProductContext
+  const bulkSetStatus = useCallback(async (status: ProductStatus) => {
+    try {
+      for (const id of selectedProducts) {
+        await updateProduct(id, { status });
+      }
+      fetchProducts(); // Refresh after update
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk updating status:', error);
+      return false;
+    }
+  }, [selectedProducts, updateProduct, fetchProducts, clearSelectedProducts]);
+  
+  const bulkSetFlag = useCallback(async (flag: string, value: boolean) => {
+    try {
+      for (const id of selectedProducts) {
+        await updateProductFlags(id, { flags: { [flag]: value } });
+      }
+      fetchProducts(); // Refresh after update
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk updating flags:', error);
+      return false;
+    }
+  }, [selectedProducts, updateProductFlags, fetchProducts, clearSelectedProducts]);
+  
+  const bulkDelete = useCallback(async () => {
+    try {
+      for (const id of selectedProducts) {
+        await deleteProduct(id);
+      }
+      fetchProducts(); // Refresh after deletion
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk deleting products:', error);
+      return false;
+    }
+  }, [selectedProducts, deleteProduct, fetchProducts, clearSelectedProducts]);
 
   return {
     products,
     filteredProducts,
-    isLoading,
+    isLoading: loading || isLoading,
     selectedProducts,
     expandedProduct,
     totalItems,
@@ -427,6 +629,9 @@ export function useProductTable(): UseProductTableResult {
     clearSelectedProducts,
     fetchProducts,
     isAllSelected,
-    filter
+    filter,
+    bulkSetStatus,
+    bulkSetFlag,
+    bulkDelete
   };
-} 
+}
