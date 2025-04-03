@@ -80,14 +80,19 @@ export default function ProductCardShop({
           </h3>
 
           {/* Price Section */}
-          <div className="flex items-baseline gap-2 mb-2">
+          <div className="flex flex-col mb-2">
             <span className="text-lg font-bold text-pink-600">
               {formatPrice(price)}đ
             </span>
             {originalPrice > price && (
-              <span className="text-sm text-gray-400 line-through">
-                {formatPrice(originalPrice)}đ
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400 line-through">
+                  {formatPrice(originalPrice)}đ
+                </span>
+                <span className="text-xs bg-pink-100 text-pink-700 px-1 py-0.5 rounded">
+                  Tiết kiệm {formatPrice(originalPrice - price)}đ
+                </span>
+              </div>
             )}
           </div>
 

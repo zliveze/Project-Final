@@ -4,7 +4,8 @@ import { ProductsService } from './products.service';
 import { 
   QueryProductDto,
   ProductResponseDto,
-  PaginatedProductsResponseDto
+  PaginatedProductsResponseDto,
+  LightProductResponseDto
 } from './dto';
 
 @ApiTags('Products')
@@ -23,6 +24,17 @@ export class ProductsController {
   })
   async findAll(@Query() queryDto: QueryProductDto): Promise<PaginatedProductsResponseDto> {
     return this.productsService.findAll(queryDto);
+  }
+
+  @Get('light')
+  @ApiOperation({ summary: 'Get all products with minimal data for faster loading' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns paginated light products', 
+    type: LightProductResponseDto 
+  })
+  async findAllLight(@Query() queryDto: QueryProductDto): Promise<LightProductResponseDto> {
+    return this.productsService.findAllLight(queryDto);
   }
 
   @Get(':id')

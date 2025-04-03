@@ -20,6 +20,7 @@ import useProductInventory from './hooks/useProductInventory';
 import useProductGifts from './hooks/useProductGifts';
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
+import { useBranches } from '@/contexts/BranchContext';
 
 // Import các tab components
 import BasicInfoTab from './tabs/BasicInfoTab';
@@ -38,6 +39,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
   isViewMode = false
 }) => {
+  // State để theo dõi tab hiện tại
+  const [currentTab, setCurrentTab] = useState(0);
+  
   // Sử dụng custom hook để quản lý form data
   const {
     formData,
@@ -118,9 +122,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
   // Sử dụng CategoryContext để lấy danh sách danh mục thực
   const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
   
+  // Sử dụng BranchContext để lấy danh sách chi nhánh thực
+  const { branches: backendBranches, loading: branchesLoading, fetchBranches } = useBranches();
+  
   // Chuyển đổi định dạng cho phù hợp với component
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
   
   // Sử dụng ref để theo dõi xem đã gọi API chưa
   const hasCalledAPI = useRef(false);
@@ -131,11 +139,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
     if (!hasCalledAPI.current) {
       fetchBrands(1, 100); // Lấy tối đa 100 thương hiệu
       fetchCategories(1, 100); // Lấy tối đa 100 danh mục
+      fetchBranches(1, 100); // Lấy tối đa 100 chi nhánh
       hasCalledAPI.current = true;
     }
-  }, [fetchBrands, fetchCategories]);
+  }, [fetchBrands, fetchCategories, fetchBranches]);
   
-  // Fetch brands và categories khi component mount
+  // Fetch brands, categories và branches khi component mount
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -164,6 +173,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   }, [backendCategories]);
 
+  // Khi branches từ backend thay đổi, cập nhật state
+  useEffect(() => {
+    if (backendBranches && backendBranches.length > 0) {
+      // Chuyển đổi từ định dạng backend sang định dạng component
+      const formattedBranches = backendBranches.map(branch => ({
+        id: branch.id,
+        name: branch.name
+      }));
+      setBranches(formattedBranches);
+    }
+  }, [backendBranches]);
+
   // Kiểm tra một lần nữa khi formData thay đổi và chưa có dữ liệu
   useEffect(() => {
     // Nếu đã có dữ liệu sản phẩm và đã chọn brandId hoặc categoryIds
@@ -186,6 +207,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
   //   { id: '5', name: 'Chi nhánh Hải Phòng' }
   // ]);
 
+  // Xử lý khi chuyển tab
+  const handleTabChange = (index: number) => {
+    setCurrentTab(index);
+  };
+
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,77 +225,84 @@ const ProductForm: React.FC<ProductFormProps> = ({
       return;
     }
     
-    // Xác nhận trước khi submit
-    if (!isViewMode && window.confirm('Bạn có chắc chắn muốn lưu thông tin sản phẩm này?')) {
-      onSubmit(formData);
-    } else if (isViewMode) {
-      onSubmit(formData);
-    }
+    // Submit dữ liệu form nếu hợp lệ
+    onSubmit(formData);
   };
 
-  // Tab titles
-  const tabTitles = [
-    'Thông tin cơ bản',
-    'Hình ảnh & Biến thể',
-    'Thông tin mỹ phẩm',
-    'SEO & Mô tả',
-    'Tồn kho',
-    'Quà tặng'
-  ];
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Tiêu đề và các nút */}
-      <div className="bg-white shadow px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">
-          {isViewMode ? 'Xem thông tin sản phẩm' : (initialData ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới')}
-        </h1>
-        
-        <div className="flex space-x-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Tab.Group onChange={handleTabChange}>
+        <Tab.List className="flex p-1 space-x-1 bg-gray-100 rounded-lg">
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
           >
-            <FiX className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            {isViewMode ? 'Đóng' : 'Hủy'}
-          </button>
-          
-          {!isViewMode && (
-            <button
-              type="submit"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
-            >
-              <FiSave className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-              Lưu sản phẩm
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <Tab.Group>
-        <Tab.List className="flex space-x-1 border-b border-gray-200">
-          {tabTitles.map((title, idx) => (
-            <Tab
-              key={idx}
-              className={({ selected }) =>
-                `py-3 px-4 text-sm font-medium border-b-2 -mb-px focus:outline-none whitespace-nowrap
-                ${selected 
-                  ? 'border-pink-500 text-pink-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`
-              }
-            >
-              {title}
-            </Tab>
-          ))}
+            Thông tin cơ bản
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
+          >
+            Hình ảnh & Biến thể
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
+          >
+            Thông tin mỹ phẩm
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
+          >
+            SEO & Mô tả
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
+          >
+            Tồn kho
+          </Tab>
+          <Tab 
+            className={({ selected }) =>
+              `w-full py-2.5 text-sm font-medium rounded-md
+              ${selected 
+                ? 'bg-white text-pink-600 shadow'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+              }`
+            }
+          >
+            Quà tặng
+          </Tab>
         </Tab.List>
-        
         <Tab.Panels className="mt-2">
-          {/* Tab 1: Thông tin cơ bản */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
-            <BasicInfoTab 
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
+            <BasicInfoTab
               formData={formData}
               handleInputChange={handleInputChange}
               handleCheckboxChange={handleCheckboxChange}
@@ -281,12 +314,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
               categories={categories}
             />
           </Tab.Panel>
-
-          {/* Tab 2: Hình ảnh & Biến thể */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
+          
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <ImagesAndVariantsTab
               formData={formData}
-              isViewMode={isViewMode}
               fileInputRef={fileInputRef}
               dragOver={dragOver}
               handleImageUpload={handleImageUpload}
@@ -306,11 +337,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
               handleVariantImageSelect={handleVariantImageSelect}
               handleSaveVariant={handleSaveVariant}
               handleCancelVariant={handleCancelVariant}
+              isViewMode={isViewMode}
             />
           </Tab.Panel>
-
-          {/* Tab 3: Thông tin mỹ phẩm */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
+          
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <CosmeticInfoTab
               formData={formData}
               handleInputChange={handleInputChange}
@@ -321,9 +352,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
               isViewMode={isViewMode}
             />
           </Tab.Panel>
-
-          {/* Tab 4: SEO & Mô tả */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
+          
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <SeoDescriptionTab
               formData={formData}
               handleInputChange={handleInputChange}
@@ -332,28 +362,26 @@ const ProductForm: React.FC<ProductFormProps> = ({
               isViewMode={isViewMode}
             />
           </Tab.Panel>
-
-          {/* Tab 5: Tồn kho */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
+          
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <InventoryTab
               formData={formData}
-              isViewMode={isViewMode}
-              showBranchModal={showBranchModal}
-              availableBranches={availableBranches}
               handleInventoryChange={handleInventoryChange}
               handleRemoveInventory={handleRemoveInventory}
               handleAddBranch={handleAddBranch}
               handleShowBranchModal={handleShowBranchModal}
               handleCloseBranchModal={handleCloseBranchModal}
+              showBranchModal={showBranchModal}
+              availableBranches={availableBranches}
               getTotalInventory={getTotalInventory}
               getInStockBranchesCount={getInStockBranchesCount}
               getLowStockBranchesCount={getLowStockBranchesCount}
-              branches={availableBranches}
+              isViewMode={isViewMode}
+              branches={branches}
             />
           </Tab.Panel>
-
-          {/* Tab 6: Quà tặng */}
-          <Tab.Panel className="rounded-xl bg-white p-6 shadow">
+          
+          <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <GiftsTab
               formData={formData}
               handleGiftChange={handleGiftChange}
@@ -370,6 +398,24 @@ const ProductForm: React.FC<ProductFormProps> = ({
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
+
+      {!isViewMode && (
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          >
+            <FiX className="mr-2 -ml-1 h-5 w-5" /> Hủy
+          </button>
+          <button
+            type="submit"
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          >
+            <FiSave className="mr-2 -ml-1 h-5 w-5" /> Lưu
+          </button>
+        </div>
+      )}
     </form>
   );
 };

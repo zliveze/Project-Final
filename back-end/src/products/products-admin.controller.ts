@@ -20,7 +20,8 @@ import {
   UpdateProductDto, 
   QueryProductDto,
   ProductResponseDto,
-  PaginatedProductsResponseDto
+  PaginatedProductsResponseDto,
+  AdminListProductResponseDto
 } from './dto';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
@@ -61,6 +62,18 @@ export class ProductsAdminController {
   })
   async findAll(@Query() queryDto: QueryProductDto): Promise<PaginatedProductsResponseDto> {
     return this.productsService.findAll(queryDto);
+  }
+
+  @Get('list')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Get products in optimized format for admin UI' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns paginated products optimized for admin UI', 
+    type: AdminListProductResponseDto 
+  })
+  async findAllForAdmin(@Query() queryDto: QueryProductDto): Promise<AdminListProductResponseDto> {
+    return this.productsService.findAllForAdmin(queryDto);
   }
 
   @Get('statistics')
@@ -206,9 +219,18 @@ export class ProductsAdminController {
         throw new Error('Không tìm thấy file ảnh trong yêu cầu');
       }
 
-      this.logger.log(`Received image upload request: ${image.originalname}, size: ${image.size}`);
+      this.logger.log(`Received image upload request: ${image.originalname}, size: ${image.size}, mimetype: ${image.mimetype}`);
+      this.logger.log(`File path: ${image.path}, destination: ${image.destination}`);
+      
+      // Kiểm tra thư mục upload có tồn tại không
+      const fs = require('fs');
+      if (!fs.existsSync(image.path)) {
+        this.logger.error(`File path does not exist: ${image.path}`);
+        throw new Error(`File không tồn tại tại đường dẫn: ${image.path}`);
+      }
       
       // Upload image to Cloudinary
+      this.logger.log(`Uploading to Cloudinary from path: ${image.path}`);
       const result = await this.cloudinaryService.uploadImageFile(image.path, {
         folder: 'products',
       });
@@ -221,7 +243,10 @@ export class ProductsAdminController {
         isPrimary: isPrimary === true || isPrimary === 'true',
       };
 
+      this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`);
+
       // Get the product
+      this.logger.log(`Getting product with ID: ${id}`);
       const product = await this.productsService.findOne(id);
 
       // If this is the primary image, set all other images to non-primary
@@ -234,6 +259,7 @@ export class ProductsAdminController {
       images.push(imageObj);
 
       // Update the product
+      this.logger.log(`Updating product with new image, total images: ${images.length}`);
       return this.productsService.update(id, { images });
     } catch (error) {
       this.logger.error(`Error uploading product image: ${error.message}`, error.stack);

@@ -1,5 +1,5 @@
-import React from 'react';
-import { FiTrash2, FiPlus } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { ProductFormData, BranchItem } from '../types';
 
 interface InventoryTabProps {
@@ -36,6 +36,33 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   getLowStockBranchesCount,
   branches
 }) => {
+  // State cho phân trang chi nhánh
+  const [currentPage, setCurrentPage] = useState(1);
+  const branchesPerPage = 5;
+  
+  // Tính toán tổng số trang
+  const totalPages = Math.ceil(availableBranches.length / branchesPerPage);
+  
+  // Lấy chi nhánh cho trang hiện tại
+  const getCurrentPageBranches = () => {
+    const startIndex = (currentPage - 1) * branchesPerPage;
+    const endIndex = startIndex + branchesPerPage;
+    return availableBranches.slice(startIndex, endIndex);
+  };
+  
+  // Xử lý chuyển trang
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -168,15 +195,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
       {/* Modal thêm chi nhánh */}
       {showBranchModal && !isViewMode && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 z-10" style={{ overflow: 'hidden' }}>
+          <div className="flex items-center justify-center min-h-screen px-4 text-center" style={{ overflow: 'hidden' }}>
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" style={{ maxHeight: '80vh', overflow: 'hidden' }}>
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
@@ -189,21 +216,58 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       </p>
                       
                       {availableBranches.length > 0 ? (
-                        <div className="max-h-60 overflow-y-auto">
-                          <ul className="divide-y divide-gray-200">
-                            {availableBranches.map((branch) => (
-                              <li key={branch.id} className="py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddBranch(branch.id, branch.name)}
-                                  className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
-                                >
-                                  {branch.name}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        <>
+                          <div className="branch-list-container">
+                            <ul className="divide-y divide-gray-200">
+                              {getCurrentPageBranches().map((branch) => (
+                                <li key={branch.id} className="py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddBranch(branch.id, branch.name)}
+                                    className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
+                                  >
+                                    {branch.name}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          {/* Điều khiển phân trang */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4 border-t pt-2">
+                              <button
+                                onClick={handlePrevPage}
+                                disabled={currentPage === 1}
+                                className={`inline-flex items-center px-2 py-1 text-sm rounded ${
+                                  currentPage === 1 
+                                    ? 'text-gray-400 cursor-not-allowed' 
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <FiChevronLeft className="mr-1" />
+                                Trước
+                              </button>
+                              
+                              <span className="text-sm text-gray-600">
+                                Trang {currentPage}/{totalPages}
+                              </span>
+                              
+                              <button
+                                onClick={handleNextPage}
+                                disabled={currentPage === totalPages}
+                                className={`inline-flex items-center px-2 py-1 text-sm rounded ${
+                                  currentPage === totalPages 
+                                    ? 'text-gray-400 cursor-not-allowed' 
+                                    : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                Tiếp
+                                <FiChevronRight className="ml-1" />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <p className="py-4 text-center text-gray-500">
                           Tất cả chi nhánh đã được thêm vào danh sách

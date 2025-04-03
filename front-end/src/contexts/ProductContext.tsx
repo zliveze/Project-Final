@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
-import { useRouter } from 'next/router';
-import { useAdminAuth } from './AdminAuthContext';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { useProductAdmin } from '@/hooks/useProductAdmin';
+import { useApiStats } from '@/hooks/useApiStats';
+import { AdminProduct } from '@/hooks/useProductAdmin';
 
-// Define Product interface based on the backend model
+// Tạo interface cho sản phẩm từ Admin API
 export interface Product {
   _id?: string;
+  id?: string;
   sku: string;
   name: string;
   slug: string;
@@ -105,6 +107,10 @@ export interface Product {
   updatedAt?: Date | string;
 }
 
+// API configuration
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+
 // Define ProductContext type
 interface ProductContextType {
   products: Product[];
@@ -159,7 +165,6 @@ interface ProductContextType {
     sortBy?: string,
     sortOrder?: 'asc' | 'desc'
   ) => Promise<void>;
-  fetchFeaturedProducts: () => Promise<void>;
   fetchProductById: (id: string) => Promise<Product>;
   fetchProductBySlug: (slug: string) => Promise<Product>;
   createProduct: (productData: Partial<Product>) => Promise<Product>;
@@ -171,10 +176,12 @@ interface ProductContextType {
   updateVariant: (id: string, variantId: string, variantData: any) => Promise<Product>;
   removeVariant: (id: string, variantId: string) => Promise<Product>;
   fetchStatistics: () => Promise<void>;
+  clearProductCache: (id?: string) => void;
 }
 
 // Create context
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
+export { ProductContext };
 
 // Hook to use the context
 export const useProduct = () => {
@@ -185,169 +192,117 @@ export const useProduct = () => {
   return context;
 };
 
-// API configuration
-// Check if API_URL already includes '/api' to avoid duplication
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+// Component to display API status
+const ApiStatusAlert: React.FC<{
+  status: 'online' | 'offline' | 'checking';
+  onRetry: () => void;
+}> = ({ status, onRetry }) => {
+  if (status === 'online') return null;
 
-const PRODUCT_API = {
-  ADMIN: `${API_URL}/admin/products`,
-  PUBLIC: `${API_URL}/products`
+  const alertStyle = {
+    position: 'fixed' as const,
+    bottom: '20px',
+    right: '20px',
+    padding: '12px 20px',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    zIndex: 9999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    fontSize: '14px',
+    backgroundColor: status === 'checking' ? '#FEF3C7' : '#FEE2E2',
+    color: status === 'checking' ? '#92400E' : '#B91C1C',
+    border: `1px solid ${status === 'checking' ? '#F59E0B' : '#EF4444'}`
+  };
+
+  const buttonStyle = {
+    padding: '6px 12px',
+    borderRadius: '4px',
+    border: 'none',
+    cursor: 'pointer',
+    backgroundColor: status === 'checking' ? '#F59E0B' : '#EF4444',
+    color: 'white',
+    fontWeight: 500 as const,
+    fontSize: '12px'
+  };
+
+  const statusMessage = status === 'checking'
+    ? 'Đang kiểm tra kết nối đến API...'
+    : 'Không thể kết nối đến API. Vui lòng kiểm tra server backend.';
+
+  return (
+    <div style={alertStyle}>
+      <span>{statusMessage}</span>
+      <button onClick={onRetry} style={buttonStyle}>
+        {status === 'checking' ? 'Đang thử lại...' : 'Kiểm tra lại'}
+      </button>
+    </div>
+  );
 };
-
-// Log the API URLs for debugging
-console.log('Product API URLs:', PRODUCT_API);
 
 // Provider component
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const router = useRouter();
-  const { accessToken: _ } = useAdminAuth(); // Using accessToken in getAuthHeader
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalProducts, setTotalProducts] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [statistics, setStatistics] = useState<ProductContextType['statistics']>(null);
   const [apiHealthStatus, setApiHealthStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  
+  // Sử dụng hooks mới cho API
+  const { 
+    products: adminProducts, 
+    loading, 
+    error,
+    totalItems: totalProducts,
+    totalPages,
+    currentPage,
+    itemsPerPage,
+    fetchProducts: fetchAdminProducts,
+    checkApiHealth,
+  } = useProductAdmin();
+  
+  // Sử dụng hook thống kê
+  const { 
+    statistics, 
+    fetchStatistics: fetchApiStatistics
+  } = useApiStats();
 
-  // Last fetch timestamp to prevent duplicate calls
-  const lastFetchTimestampRef = useRef<number>(0);
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastRequestParamsRef = useRef<string>(''); // Lưu trữ tham số request cuối cùng
-  const isFetchingRef = useRef<boolean>(false); // Trạng thái đang fetch
-  const productsCache = useRef<{[key: string]: {data: any, timestamp: number}}>({});
-  const CACHE_TTL = 5 * 60 * 1000; // 5 phút
+  // Chuyển đổi từ AdminProduct sang Product
+  const products = adminProducts.map(convertAdminProductToProduct);
 
-  // Get auth header
-  const getAuthHeader = useCallback(() => {
-    const token = localStorage.getItem('adminToken');
+  // Hàm chuyển đổi từ AdminProduct sang Product
+  function convertAdminProductToProduct(adminProduct: AdminProduct): Product {
     return {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
+      _id: adminProduct.id,
+      id: adminProduct.id,
+      name: adminProduct.name,
+      slug: adminProduct.slug,
+      sku: adminProduct.sku,
+      price: adminProduct.originalPrice,
+      currentPrice: adminProduct.currentPrice,
+      status: adminProduct.status as any,
+      brandId: adminProduct.brandId,
+      categoryIds: adminProduct.categoryIds,
+      inventory: [{ branchId: '1', quantity: adminProduct.stock }],
+      images: adminProduct.image ? [{ url: adminProduct.image, isPrimary: true }] : [],
+      flags: adminProduct.flags,
+      createdAt: adminProduct.createdAt,
+      updatedAt: adminProduct.updatedAt
     };
-  }, []);
+  }
 
-  // Kiểm tra sức khỏe API
-  const checkApiHealth = useCallback(async () => {
+  // Chuyển đổi lại API health check
+  const handleCheckApiHealth = useCallback(async (): Promise<boolean> => {
+    setApiHealthStatus('checking');
     try {
-      // Không thay đổi trạng thái loading toàn cục khi kiểm tra sức khỏe API
-      // setApiHealthStatus('checking');
-      const prevStatus = apiHealthStatus;
-      
-      // Sử dụng timeout để tránh chờ quá lâu
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 giây timeout
-
-      const response = await fetch(`${API_URL}/health`, {
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        // Chỉ log khi trạng thái thay đổi từ offline sang online
-        if (prevStatus !== 'online') {
-          console.log('API đang hoạt động bình thường');
-        }
-        setApiHealthStatus('online');
-        setError(null);
-        return true;
-      } else {
-        console.error('API không phản hồi đúng cách:', response.status);
-        setApiHealthStatus('offline');
-        setError('API không phản hồi đúng cách. Vui lòng kiểm tra trạng thái server.');
-        return false;
-      }
-    } catch (error: any) {
-      console.error('Lỗi khi kiểm tra sức khỏe API:', error);
+      const isHealthy = await checkApiHealth();
+      setApiHealthStatus(isHealthy ? 'online' : 'offline');
+      return isHealthy;
+    } catch (error) {
       setApiHealthStatus('offline');
-      if (error.name === 'AbortError') {
-        setError('Kết nối API quá hạn, vui lòng kiểm tra lại server hoặc mạng của bạn.');
-      } else {
-        setError('Không thể kết nối đến API. Vui lòng đảm bảo server backend đang chạy.');
-      }
       return false;
     }
-  }, [API_URL, apiHealthStatus]);
+  }, [checkApiHealth]);
 
-  // Kiểm tra sức khỏe API khi component được mount, sử dụng useEffect riêng biệt
-  useEffect(() => {
-    // Chỉ kiểm tra khi khởi động trang/component, tránh gây ra các side effects
-    const checkInitialApiHealth = async () => {
-      await checkApiHealth();
-    };
-    
-    checkInitialApiHealth();
-    // Không thêm checkApiHealth vào dependency để tránh gọi lại khi checkApiHealth thay đổi
-  }, []);
-
-  // Error handling
-  const handleError = useCallback((error: any) => {
-    console.error('Product operation error:', error);
-    const errorMessage = error.message || 'Đã xảy ra lỗi';
-    setError(errorMessage);
-
-    // Redirect to login page if authentication error
-    if (error.status === 401) {
-      router.push('/admin/login');
-    }
-
-    return errorMessage;
-  }, [router]);
-
-  // Upload product image
-  const uploadProductImage = useCallback(async (
-    file: File,
-    productId: string,
-    isPrimary: boolean = false
-  ) => {
-    try {
-      setLoading(true);
-
-      console.log(`Đang tải lên ảnh cho sản phẩm ${productId}...`);
-      console.log(`Thông tin file: name=${file.name}, size=${file.size}, type=${file.type}`);
-
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('isPrimary', isPrimary.toString());
-
-      // Lấy token xác thực từ localStorage
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('Không tìm thấy token xác thực');
-      }
-      
-      // Quan trọng: Không đặt Content-Type khi sử dụng FormData
-      // Để browser tự động thiết lập boundary cho multipart/form-data
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${productId}/upload-image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Lỗi tải ảnh:', errorData);
-        throw new Error(errorData.message || `Lỗi khi tải lên ảnh: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`Tải ảnh thành công, URL: ${data.url ? data.url.substring(0, 50) + '...' : 'không có'}`);
-      return data;
-    } catch (error: any) {
-      console.error('Chi tiết lỗi tải ảnh:', error);
-      handleError(error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthHeader, handleError]);
-
-  // Fetch products with filtering and pagination
+  // Các phương thức tương tác với API tương tự như cũ nhưng sử dụng hooks mới
   const fetchProducts = useCallback(async (
     page: number = 1,
     limit: number = 10,
@@ -364,643 +319,338 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     isNew?: boolean,
     isOnSale?: boolean,
     hasGifts?: boolean,
-    sortBy: string = '',
+    sortBy: string = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc'
   ) => {
-    // Xây dựng query params để so sánh với request cuối cùng
-    const queryParams = new URLSearchParams();
-    queryParams.append('page', page.toString());
-    queryParams.append('limit', limit.toString());
-    if (search) queryParams.append('search', search);
-    if (brandId) queryParams.append('brandId', brandId);
-    if (categoryId) queryParams.append('categoryId', categoryId);
-    if (status) queryParams.append('status', status);
-    if (minPrice !== undefined) queryParams.append('minPrice', minPrice.toString());
-    if (maxPrice !== undefined) queryParams.append('maxPrice', maxPrice.toString());
-    if (tags) queryParams.append('tags', tags);
-    if (skinTypes) queryParams.append('skinTypes', skinTypes);
-    if (concerns) queryParams.append('concerns', concerns);
-    if (isBestSeller !== undefined) queryParams.append('isBestSeller', isBestSeller.toString());
-    if (isNew !== undefined) queryParams.append('isNew', isNew.toString());
-    if (isOnSale !== undefined) queryParams.append('isOnSale', isOnSale.toString());
-    if (hasGifts !== undefined) queryParams.append('hasGifts', hasGifts.toString());
-    if (sortBy) queryParams.append('sortBy', sortBy);
-    if (sortOrder) queryParams.append('sortOrder', sortOrder);
-
-    const currentQueryString = queryParams.toString();
-    const url = `${PRODUCT_API.ADMIN}?${currentQueryString}`;
-    const cacheKey = currentQueryString;
-
-    // Kiểm tra xem đang có một request đang thực hiện hay không
-    if (isFetchingRef.current) {
-      console.log('Bỏ qua fetchProducts - Đang trong quá trình fetch');
-      return Promise.resolve();
-    }
-
-    const currentTime = Date.now();
-    
-    // Kiểm tra cache trước
-    if (cacheKey in productsCache.current) {
-      const cacheEntry = productsCache.current[cacheKey];
-      
-      // Nếu cache còn hiệu lực
-      if (currentTime - cacheEntry.timestamp < CACHE_TTL) {
-        console.log('Sử dụng dữ liệu cache cho request:', url.substring(0, 100) + '...');
-        
-        const cachedData = cacheEntry.data;
-        
-        // Chỉ cập nhật state nếu dữ liệu thực sự thay đổi để tránh re-render không cần thiết
-        const currentProductIds = products.map(p => p._id).join(',');
-        const cachedProductIds = cachedData.items.map((p: Product) => p._id).join(',');
-        
-        // So sánh ID sản phẩm để xác định xem có cần cập nhật UI hay không
-        if (currentProductIds !== cachedProductIds || 
-            totalProducts !== cachedData.total || 
-            currentPage !== cachedData.page || 
-            totalPages !== cachedData.totalPages || 
-            itemsPerPage !== cachedData.limit) {
-            
-          // Cập nhật state từ cache
-          setProducts(cachedData.items || []);
-          setTotalProducts(cachedData.total || 0);
-          setCurrentPage(cachedData.page || 1);
-          setTotalPages(cachedData.totalPages || 1);
-          setItemsPerPage(cachedData.limit || limit);
-          
-          console.log('Đã cập nhật UI từ cache');
-        } else {
-          console.log('Dữ liệu không thay đổi, giữ nguyên UI');
-        }
-        
-        return Promise.resolve();
-      }
-    }
-
-    // Kiểm tra cooldown: nếu request giống hệt request trước đó và chưa quá thời gian cooldown
-    const REQUEST_COOLDOWN = 3000; // 3 giây
-    if (currentQueryString === lastRequestParamsRef.current && 
-       currentTime - lastFetchTimestampRef.current < REQUEST_COOLDOWN) {
-      console.log('Bỏ qua fetchProducts - Request trùng lặp trong thời gian cooldown');
-      // Không thay đổi state để tránh re-render không cần thiết
-      setLoading(false);
-      return Promise.resolve();
-    }
-
-    // Xóa timeout trước đó nếu có
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-      fetchTimeoutRef.current = null;
-    }
-
-    // Bắt đầu quá trình fetch
-    isFetchingRef.current = true;
-    setLoading(true);
-    lastRequestParamsRef.current = currentQueryString;
-    lastFetchTimestampRef.current = currentTime;
-    
-    // Return promise để caller có thể await
-    return new Promise<void>((resolve, reject) => {
-      try {
-        // Kiểm tra sức khỏe API nếu bị offline
-        if (apiHealthStatus === 'offline') {
-          checkApiHealth().then(isApiHealthy => {
-            if (!isApiHealthy) {
-              setLoading(false);
-              isFetchingRef.current = false;
-              reject(new Error('API đang offline. Vui lòng khởi động lại server backend.'));
-              return;
-            }
-            executeRequest();
-          });
-        } else {
-          executeRequest();
-        }
-
-        async function executeRequest() {
-          try {
-            // Log URL request (rút gọn nếu quá dài)
-            const shortUrl = url.length > 100 ? url.substring(0, 100) + '...' : url;
-            console.log('Đang lấy danh sách sản phẩm từ URL:', shortUrl);
-            
-            // Thiết lập timeout 10 giây cho request
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            
-            // Thực hiện request API
-            const response = await fetch(url, {
-              headers: getAuthHeader(),
-              signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-
-            // Xử lý lỗi HTTP
-            if (!response.ok) {
-              let errorMessage = `Lỗi khi lấy danh sách sản phẩm: ${response.status}`;
-              try {
-                const errorData = await response.json();
-                errorMessage = errorData.message || errorMessage;
-              } catch (parseError) {
-                console.error('Lỗi phân tích JSON response:', parseError);
-              }
-              throw new Error(errorMessage);
-            }
-
-            // Parse JSON response
-            const data = await response.json();
-            
-            // Lưu vào cache cho các request tương tự sau này
-            productsCache.current[cacheKey] = {
-              data,
-              timestamp: Date.now()
-            };
-            
-            // Cập nhật state với dữ liệu mới
-            setProducts(data.items || []);
-            setTotalProducts(data.total || 0);
-            setCurrentPage(data.page || 1);
-            setTotalPages(data.totalPages || 1);
-            setItemsPerPage(data.limit || limit);
-            setError(null);
-            
-            // Log thành công (chỉ trong development)
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`API đang hoạt động bình thường`);
-            }
-            
-            resolve();
-          } catch (fetchError: any) {
-            // Xử lý các loại lỗi
-            if (fetchError.name === 'AbortError') {
-              reject(new Error('Kết nối API quá hạn, vui lòng kiểm tra lại server hoặc mạng của bạn'));
-            } else if (fetchError.message.includes('Failed to fetch')) {
-              reject(new Error('Không thể kết nối đến server. Vui lòng kiểm tra xem server API đã được khởi động chưa.'));
-            } else {
-              reject(fetchError);
-            }
-          } finally {
-            // Luôn reset trạng thái loading khi hoàn thành
-            setLoading(false);
-            // Reset trạng thái fetch sau một khoảng thời gian ngắn
-            setTimeout(() => {
-              isFetchingRef.current = false;
-            }, 300);
-          }
-        }
-      } catch (error: any) {
-        // Xử lý lỗi tổng quát
-        console.error('Lỗi trong fetchProducts:', error);
-        handleError(error);
-        
-        // Reset về giá trị mặc định khi có lỗi
-        setProducts([]);
-        setTotalProducts(0);
-        setCurrentPage(1);
-        setTotalPages(1);
-        setLoading(false);
-        isFetchingRef.current = false;
-        reject(error);
-      }
+    await fetchAdminProducts({
+      page,
+      limit,
+      search,
+      brandId,
+      categoryId,
+      status,
+      minPrice,
+      maxPrice,
+      tags,
+      skinTypes,
+      concerns,
+      isBestSeller,
+      isNew,
+      isOnSale,
+      hasGifts,
+      sortBy,
+      sortOrder
     });
-  }, [getAuthHeader, handleError, checkApiHealth, apiHealthStatus, products, totalProducts, currentPage, totalPages, itemsPerPage]);
+  }, [fetchAdminProducts]);
 
-  // Fetch featured products for public pages
-  const fetchFeaturedProducts = useCallback(async () => {
+  // Phương thức GET để fetch sản phẩm theo ID
+  const fetchProductById = useCallback(async (id: string): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang lấy sản phẩm nổi bật cho trang public');
-      
-      const response = await fetch(`${PRODUCT_API.PUBLIC}?isBestSeller=true&limit=8`);
+      const response = await fetch(`${API_URL}/admin/products/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Lỗi khi lấy sản phẩm nổi bật:', errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.message || `Lỗi khi lấy sản phẩm nổi bật: ${response.status}`);
-        } catch (parseError) {
-          throw new Error(`Lỗi khi lấy sản phẩm nổi bật: ${response.status}`);
-        }
+        throw new Error(`Failed to fetch product: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log(`Đã lấy ${data.items ? data.items.length : 0} sản phẩm nổi bật thành công`);
-
-      setProducts(data.items || data);
-      setError(null);
+      return await response.json();
     } catch (error: any) {
-      console.error('Chi tiết lỗi khi lấy sản phẩm nổi bật:', error);
-      setError(error.message || 'Lỗi khi lấy sản phẩm nổi bật');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching product by ID:', error);
+      throw error;
     }
   }, []);
 
-  // Fetch product by ID
-  const fetchProductById = useCallback(async (id: string): Promise<Product> => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}`, {
-        headers: getAuthHeader()
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi lấy thông tin sản phẩm: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      handleError(error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthHeader, handleError]);
-
-  // Fetch product by slug
+  // Phương thức GET để fetch sản phẩm theo slug
   const fetchProductBySlug = useCallback(async (slug: string): Promise<Product> => {
     try {
-      setLoading(true);
-      
-      const response = await fetch(`${PRODUCT_API.PUBLIC}/slug/${slug}`);
+      const response = await fetch(`${API_URL}/products/slug/${slug}`);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi lấy thông tin sản phẩm theo slug: ${response.status}`);
+        throw new Error(`Failed to fetch product by slug: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error: any) {
-      handleError(error);
+      console.error('Error fetching product by slug:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [handleError]);
+  }, []);
 
-  // Create product
+  // Phương thức POST để tạo sản phẩm mới
   const createProduct = useCallback(async (productData: Partial<Product>): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang tạo sản phẩm mới:', {
-        name: productData.name,
-        sku: productData.sku,
-        price: productData.price
-      });
-      
-      // Chuẩn bị dữ liệu sản phẩm trước khi gửi đi
-      const processedData = {...productData};
-      
-      // Chuyển đổi brandId từ string thành ObjectId
-      if (processedData.brandId && typeof processedData.brandId === 'string') {
-        // Kiểm tra nếu brandId không phải định dạng ObjectId hợp lệ thì bỏ qua
-        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(processedData.brandId);
-        if (!isValidObjectId) {
-          delete processedData.brandId;
-        }
-      }
-      
-      const response = await fetch(PRODUCT_API.ADMIN, {
+      const response = await fetch(`${API_URL}/admin/products`, {
         method: 'POST',
-        headers: getAuthHeader(),
-        body: JSON.stringify(processedData)
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(productData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi tạo sản phẩm: ${response.status}`);
+        throw new Error(`Failed to create product: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('Tạo sản phẩm thành công:', data._id);
-
-      // Update product list if on page 1
-      if (currentPage === 1) {
-        fetchProducts(1, itemsPerPage);
-      }
-
-      return data;
+      const newProduct = await response.json();
+      
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+      
+      return newProduct;
     } catch (error: any) {
-      console.error('Chi tiết lỗi tạo sản phẩm:', error);
-      handleError(error);
+      console.error('Error creating product:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError, fetchProducts, currentPage, itemsPerPage]);
+  }, [fetchAdminProducts]);
 
-  // Update product
+  // Phương thức PATCH để cập nhật sản phẩm
   const updateProduct = useCallback(async (id: string, productData: Partial<Product>): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang cập nhật sản phẩm:', id);
-      
-      // Chuẩn bị dữ liệu sản phẩm trước khi gửi đi
-      const processedData = {...productData};
-      
-      // Chuyển đổi brandId từ string thành ObjectId
-      if (processedData.brandId && typeof processedData.brandId === 'string') {
-        // Kiểm tra nếu brandId không phải định dạng ObjectId hợp lệ thì bỏ qua
-        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(processedData.brandId);
-        if (!isValidObjectId) {
-          delete processedData.brandId;
-        }
-      }
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}`, {
         method: 'PATCH',
-        headers: getAuthHeader(),
-        body: JSON.stringify(processedData)
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(productData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi cập nhật sản phẩm: ${response.status}`);
+        throw new Error(`Failed to update product: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      const updatedProduct = await response.json();
+      
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+      
+      return updatedProduct;
     } catch (error: any) {
-      handleError(error);
+      console.error('Error updating product:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, [fetchAdminProducts]);
 
-  // Delete product
+  // Phương thức DELETE để xóa sản phẩm
   const deleteProduct = useCallback(async (id: string): Promise<void> => {
     try {
-      setLoading(true);
-
-      console.log('Đang xóa sản phẩm:', id);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeader()
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi xóa sản phẩm: ${response.status}`);
+        throw new Error(`Failed to delete product: ${response.status}`);
       }
 
-      // Update product list
-      setProducts(prevProducts =>
-        prevProducts.filter(product => product._id !== id)
-      );
-
-      // Update total count
-      setTotalProducts(prev => prev - 1);
-
-      // Refresh list if current page is empty
-      if (products.length === 1 && currentPage > 1) {
-        fetchProducts(currentPage - 1, itemsPerPage);
-      } else {
-        fetchProducts(currentPage, itemsPerPage);
-      }
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
     } catch (error: any) {
-      handleError(error);
+      console.error('Error deleting product:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError, fetchProducts, products.length, currentPage, itemsPerPage]);
+  }, [fetchAdminProducts]);
 
-  // Update inventory
+  // Phương thức POST để cập nhật tồn kho sản phẩm
   const updateInventory = useCallback(async (id: string, branchId: string, quantity: number): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang cập nhật hàng tồn kho cho sản phẩm:', id, 'chi nhánh:', branchId, 'số lượng:', quantity);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}/inventory/${branchId}`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}/inventory/${branchId}`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ quantity })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi cập nhật tồn kho: ${response.status}`);
+        throw new Error(`Failed to update inventory: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      const updatedProduct = await response.json();
+      
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+      
+      return updatedProduct;
     } catch (error: any) {
-      handleError(error);
+      console.error('Error updating inventory:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, [fetchAdminProducts]);
 
-  // Update product flags
+  // Phương thức PATCH để cập nhật flags sản phẩm
   const updateProductFlags = useCallback(async (id: string, flags: any): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang cập nhật cờ cho sản phẩm:', id, flags);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}/flags`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}/flags`, {
         method: 'PATCH',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(flags)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi cập nhật cờ: ${response.status}`);
+        throw new Error(`Failed to update product flags: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      const updatedProduct = await response.json();
+      
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+      
+      return updatedProduct;
     } catch (error: any) {
-      handleError(error);
+      console.error('Error updating product flags:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, [fetchAdminProducts]);
 
-  // Add variant
+  // Phương thức tải lên ảnh sản phẩm
+  const uploadProductImage = useCallback(async (
+    file: File,
+    productId: string,
+    isPrimary: boolean = false
+  ) => {
+    try {
+      console.log(`Đang chuẩn bị tải lên ảnh cho sản phẩm ID: ${productId}, tên file: ${file.name}, kích thước: ${file.size} bytes, isPrimary: ${isPrimary}`);
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('isPrimary', isPrimary.toString());
+
+      console.log(`Đang gửi yêu cầu đến ${API_URL}/admin/products/${productId}/upload-image`);
+      
+      const response = await fetch(`${API_URL}/admin/products/${productId}/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: formData
+      });
+
+      console.log(`Đã nhận phản hồi với status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lỗi phản hồi API:', errorText);
+        throw new Error(`Failed to upload image: ${response.status}. Details: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Tải lên thành công với kết quả:', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error uploading product image:', error);
+      console.error('Chi tiết lỗi:', error.message);
+      throw error;
+    }
+  }, []);
+
+  // Phương thức POST để thêm biến thể sản phẩm
   const addVariant = useCallback(async (id: string, variantData: any): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang thêm biến thể cho sản phẩm:', id, variantData);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}/variants`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}/variants`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(variantData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi thêm biến thể: ${response.status}`);
+        throw new Error(`Failed to add variant: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      return await response.json();
     } catch (error: any) {
-      handleError(error);
+      console.error('Error adding product variant:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, []);
 
-  // Update variant
+  // Phương thức PATCH để cập nhật biến thể sản phẩm
   const updateVariant = useCallback(async (id: string, variantId: string, variantData: any): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang cập nhật biến thể:', id, variantId, variantData);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}/variants/${variantId}`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}/variants/${variantId}`, {
         method: 'PATCH',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(variantData)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi cập nhật biến thể: ${response.status}`);
+        throw new Error(`Failed to update variant: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      return await response.json();
     } catch (error: any) {
-      handleError(error);
+      console.error('Error updating product variant:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, []);
 
-  // Remove variant
+  // Phương thức DELETE để xóa biến thể sản phẩm
   const removeVariant = useCallback(async (id: string, variantId: string): Promise<Product> => {
     try {
-      setLoading(true);
-
-      console.log('Đang xóa biến thể:', id, variantId);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/${id}/variants/${variantId}`, {
+      const response = await fetch(`${API_URL}/admin/products/${id}/variants/${variantId}`, {
         method: 'DELETE',
-        headers: getAuthHeader()
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi xóa biến thể: ${response.status}`);
+        throw new Error(`Failed to remove variant: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      // Update product in list
-      setProducts(prevProducts =>
-        prevProducts.map(product =>
-          product._id === id ? data : product
-        )
-      );
-
-      return data;
+      return await response.json();
     } catch (error: any) {
-      handleError(error);
+      console.error('Error removing product variant:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, []);
 
-  // Fetch product statistics
-  const fetchStatistics = useCallback(async (): Promise<void> => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(`${PRODUCT_API.ADMIN}/statistics`, {
-        headers: getAuthHeader()
-      });
+  // Cập nhật phương thức fetchStatistics để sử dụng useApiStats
+  const fetchStatsData = useCallback(async (): Promise<void> => {
+    await fetchApiStatistics();
+  }, [fetchApiStatistics]);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Lỗi khi lấy thống kê: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setStatistics(data);
-    } catch (error: any) {
-      handleError(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthHeader, handleError]);
+  // Phương thức cache (giữ lại để tương thích)
+  const clearProductCache = useCallback((id?: string): void => {
+    // With our new approach, we don't need caching as we use the hooks
+    console.log('Cache clearing not needed, using direct API with hooks');
+  }, []);
 
   // Context value
   const value: ProductContextType = {
     products,
     loading,
-    error,
+    error: error || null,
     totalProducts,
     currentPage,
     totalPages,
     itemsPerPage,
     apiHealthStatus,
-    checkApiHealth,
-    statistics,
+    checkApiHealth: handleCheckApiHealth,
+    statistics: statistics,
     // Image upload method
     uploadProductImage,
     // CRUD methods
     fetchProducts,
-    fetchFeaturedProducts,
     fetchProductById,
     fetchProductBySlug,
     createProduct,
@@ -1011,15 +661,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     addVariant,
     updateVariant,
     removeVariant,
-    fetchStatistics
+    fetchStatistics: fetchStatsData,
+    clearProductCache
   };
 
   return (
     <ProductContext.Provider value={value}>
       {children}
+      {/* Hiển thị thông báo trạng thái API nếu đang offline hoặc checking */}
+      <ApiStatusAlert
+        status={apiHealthStatus}
+        onRetry={handleCheckApiHealth}
+      />
     </ProductContext.Provider>
   );
-};
-
-export default ProductContext;
-
+}; 

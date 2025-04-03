@@ -12,11 +12,12 @@ import {
 } from 'react-icons/fi';
 import ProductStatusBadge from './ProductStatusBadge';
 import ProductFlagBadge from './ProductFlagBadge';
-import { Product } from '../hooks/useProductTable';
+import { AdminProduct } from '@/hooks/useProductAdmin';
+import { useApiStats } from '@/hooks/useApiStats';
 import { useProduct } from '@/contexts/ProductContext';
 
 interface ProductTableProps {
-  products: Product[];
+  products: AdminProduct[];
   selectedProducts: string[];
   expandedProduct: string | null;
   isLoading: boolean;
@@ -45,6 +46,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
   toggleSelectAll,
   toggleProductDetails
 }) => {
+  // Access the API stats for loading state
+  const { loading: statsLoading } = useApiStats();
   // Access the ProductContext for additional functionality if needed
   const { loading: contextLoading } = useProduct();
   // Xử lý menu hành động cho từng sản phẩm
@@ -102,7 +105,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   };
 
   // Kết hợp trạng thái loading từ props và context
-  const combinedLoading = isLoading || contextLoading;
+  const combinedLoading = isLoading || contextLoading || statsLoading;
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden" onClick={closeActionMenus}>
@@ -243,39 +246,40 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {product.brand}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price))}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => toggleProductDetails(product.id)}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        <span className={`mr-1 ${product.stock === 0 ? 'text-red-500 font-medium' : ''}`}>
-                          {product.stock}
+                      {product.currentPrice !== product.originalPrice ? (
+                        <div className="flex flex-col">
+                          <span className="text-pink-600 font-medium">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.currentPrice)}
+                          </span>
+                          <span className="text-gray-400 text-xs line-through">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.originalPrice)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>
+                          {product.price}
                         </span>
-                        {expandedProduct === product.id ? (
-                          <FiChevronUp className="h-4 w-4" />
-                        ) : (
-                          <FiChevronDown className="h-4 w-4" />
-                        )}
-                      </button>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.stock}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <ProductStatusBadge status={product.status} />
+                      <ProductStatusBadge status={product.status as 'active' | 'out_of_stock' | 'discontinued'} />
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {product.flags.isBestSeller && (
-                          <ProductFlagBadge type="bestSeller" small />
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-1">
+                        {product.flags?.isBestSeller && (
+                          <ProductFlagBadge type="bestseller" />
                         )}
-                        {product.flags.isNew && (
-                          <ProductFlagBadge type="new" small />
+                        {product.flags?.isNew && (
+                          <ProductFlagBadge type="new" />
                         )}
-                        {product.flags.isOnSale && (
-                          <ProductFlagBadge type="sale" small />
+                        {product.flags?.isOnSale && (
+                          <ProductFlagBadge type="sale" />
                         )}
-                        {product.flags.hasGifts && (
-                          <ProductFlagBadge type="gift" small />
+                        {product.flags?.hasGifts && (
+                          <ProductFlagBadge type="gift" />
                         )}
                       </div>
                     </td>

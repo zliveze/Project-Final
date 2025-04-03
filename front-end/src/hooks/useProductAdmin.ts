@@ -1,0 +1,370 @@
+import { useState, useEffect, useCallback } from 'react';
+
+// Định nghĩa interface cho AdminProduct
+export interface AdminProduct {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string;
+  price: string;
+  originalPrice: number; 
+  currentPrice: number;
+  category: string;
+  categoryIds: string[];
+  brand: string;
+  brandId: string;
+  image: string;
+  stock: number;
+  status: string;
+  flags: {
+    isBestSeller: boolean;
+    isNew: boolean;
+    isOnSale: boolean;
+    hasGifts: boolean;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// API configuration
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;
+
+interface UseProductAdminProps {
+  initialPage?: number;
+  initialLimit?: number;
+}
+
+export interface ProductAdminFilter {
+  page: number;
+  limit: number;
+  search?: string;
+  brandId?: string;
+  categoryId?: string;
+  status?: string; 
+  minPrice?: number;
+  maxPrice?: number;
+  tags?: string;
+  skinTypes?: string;
+  concerns?: string;
+  isBestSeller?: boolean;
+  isNew?: boolean;
+  isOnSale?: boolean;
+  hasGifts?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface ProductAdminResponse {
+  items: AdminProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProductAdminProps = {}) => {
+  const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<ProductAdminFilter>({
+    page: initialPage,
+    limit: initialLimit,
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
+  });
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(initialPage);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(initialLimit);
+
+  // Lấy token xác thực từ localStorage
+  const getAuthHeader = useCallback(() => {
+    const token = localStorage.getItem('adminToken');
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
+  }, []);
+
+  // Fetch sản phẩm
+  const fetchProducts = useCallback(async (newFilters?: Partial<ProductAdminFilter>) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Cập nhật filters nếu có
+      const currentFilters = newFilters 
+        ? { ...filters, ...newFilters } 
+        : filters;
+      
+      // Lưu filters mới nếu có sự thay đổi
+      if (newFilters) {
+        setFilters(currentFilters);
+        
+        // Cập nhật state cho currentPage và itemsPerPage
+        if (newFilters.page !== undefined) {
+          setCurrentPage(newFilters.page);
+        }
+        if (newFilters.limit !== undefined) {
+          setItemsPerPage(newFilters.limit);
+        }
+      }
+
+      // Xây dựng query string
+      const params = new URLSearchParams();
+      Object.entries(currentFilters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+
+      // Gọi API
+      const response = await fetch(`${ADMIN_PRODUCTS_API}?${params.toString()}`, {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error: ${response.status}`);
+      }
+
+      const data: ProductAdminResponse = await response.json();
+      
+      // Cập nhật state
+      setProducts(data.items);
+      setTotalItems(data.total);
+      setTotalPages(data.totalPages);
+      setCurrentPage(data.page);
+      setItemsPerPage(data.limit);
+      
+      return data;
+    } catch (error: any) {
+      console.error('Error fetching products:', error);
+      setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu sản phẩm');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, getAuthHeader]);
+
+  // Thay đổi trang
+  const changePage = useCallback((page: number) => {
+    fetchProducts({ page });
+  }, [fetchProducts]);
+
+  // Thay đổi số lượng sản phẩm trên trang
+  const changeLimit = useCallback((limit: number) => {
+    fetchProducts({ page: 1, limit });
+  }, [fetchProducts]);
+
+  // Tìm kiếm sản phẩm
+  const searchProducts = useCallback((search: string) => {
+    fetchProducts({ page: 1, search });
+  }, [fetchProducts]);
+
+  // Áp dụng filter
+  const applyFilters = useCallback((newFilters: Partial<ProductAdminFilter>) => {
+    fetchProducts({ page: 1, ...newFilters });
+  }, [fetchProducts]);
+
+  // Chọn/Bỏ chọn sản phẩm
+  const toggleProductSelection = useCallback((productId: string) => {
+    setSelectedProductIds(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  }, []);
+
+  // Chọn tất cả sản phẩm trên trang hiện tại
+  const selectAllProducts = useCallback(() => {
+    const allSelected = products.every(product => selectedProductIds.includes(product.id));
+    
+    if (allSelected) {
+      // Bỏ chọn tất cả sản phẩm trên trang hiện tại
+      setSelectedProductIds(prev => 
+        prev.filter(id => !products.some(product => product.id === id))
+      );
+    } else {
+      // Chọn tất cả sản phẩm trên trang hiện tại
+      const currentPageIds = products.map(product => product.id);
+      const newSelected = [...selectedProductIds];
+      
+      currentPageIds.forEach(id => {
+        if (!newSelected.includes(id)) {
+          newSelected.push(id);
+        }
+      });
+      
+      setSelectedProductIds(newSelected);
+    }
+  }, [products, selectedProductIds]);
+
+  // Bỏ chọn tất cả sản phẩm
+  const clearSelection = useCallback(() => {
+    setSelectedProductIds([]);
+  }, []);
+
+  // Xóa nhiều sản phẩm
+  const deleteMultipleProducts = useCallback(async (): Promise<boolean> => {
+    if (selectedProductIds.length === 0) return false;
+    
+    try {
+      setLoading(true);
+      
+      // Lặp qua từng sản phẩm đã chọn và xóa
+      const deletePromises = selectedProductIds.map(id => 
+        fetch(`${API_URL}/admin/products/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeader()
+        })
+      );
+      
+      const results = await Promise.all(deletePromises);
+      
+      // Kiểm tra nếu có bất kỳ lỗi nào
+      const hasErrors = results.some(res => !res.ok);
+      
+      if (hasErrors) {
+        throw new Error('Không thể xóa một số sản phẩm');
+      }
+      
+      // Fetch lại dữ liệu sau khi xóa
+      await fetchProducts();
+      
+      // Xóa khỏi danh sách đã chọn
+      clearSelection();
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting products:', error);
+      setError(error.message || 'Có lỗi xảy ra khi xóa sản phẩm');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProductIds, getAuthHeader, fetchProducts, clearSelection]);
+
+  // Cập nhật trạng thái nhiều sản phẩm
+  const updateMultipleProductsStatus = useCallback(async (status: string): Promise<boolean> => {
+    if (selectedProductIds.length === 0) return false;
+    
+    try {
+      setLoading(true);
+      
+      // Lặp qua từng sản phẩm đã chọn và cập nhật trạng thái
+      const updatePromises = selectedProductIds.map(id => 
+        fetch(`${API_URL}/admin/products/${id}`, {
+          method: 'PATCH',
+          headers: getAuthHeader(),
+          body: JSON.stringify({ status })
+        })
+      );
+      
+      const results = await Promise.all(updatePromises);
+      
+      // Kiểm tra nếu có bất kỳ lỗi nào
+      const hasErrors = results.some(res => !res.ok);
+      
+      if (hasErrors) {
+        throw new Error('Không thể cập nhật trạng thái một số sản phẩm');
+      }
+      
+      // Fetch lại dữ liệu sau khi cập nhật
+      await fetchProducts();
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error updating products status:', error);
+      setError(error.message || 'Có lỗi xảy ra khi cập nhật trạng thái sản phẩm');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProductIds, getAuthHeader, fetchProducts]);
+
+  // Cập nhật flag nhiều sản phẩm
+  const updateMultipleProductsFlag = useCallback(async (flagName: string, value: boolean): Promise<boolean> => {
+    if (selectedProductIds.length === 0) return false;
+    
+    try {
+      setLoading(true);
+      
+      // Lặp qua từng sản phẩm đã chọn và cập nhật flag
+      const updatePromises = selectedProductIds.map(id => 
+        fetch(`${API_URL}/admin/products/${id}/flags`, {
+          method: 'PATCH',
+          headers: getAuthHeader(),
+          body: JSON.stringify({ flags: { [flagName]: value } })
+        })
+      );
+      
+      const results = await Promise.all(updatePromises);
+      
+      // Kiểm tra nếu có bất kỳ lỗi nào
+      const hasErrors = results.some(res => !res.ok);
+      
+      if (hasErrors) {
+        throw new Error('Không thể cập nhật flag một số sản phẩm');
+      }
+      
+      // Fetch lại dữ liệu sau khi cập nhật
+      await fetchProducts();
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error updating products flag:', error);
+      setError(error.message || 'Có lỗi xảy ra khi cập nhật flag sản phẩm');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProductIds, getAuthHeader, fetchProducts]);
+
+  // Phương thức kiểm tra API health
+  const checkApiHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_URL}/health`);
+      return response.ok;
+    } catch (error) {
+      console.error('API health check failed:', error);
+      return false;
+    }
+  }, []);
+
+  // Load sản phẩm khi component mount
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  return {
+    products,
+    loading,
+    error,
+    filters,
+    totalItems,
+    totalPages,
+    selectedProductIds,
+    currentPage,
+    itemsPerPage,
+    fetchProducts,
+    changePage,
+    changeLimit,
+    searchProducts,
+    applyFilters,
+    toggleProductSelection,
+    selectAllProducts,
+    clearSelection,
+    deleteMultipleProducts,
+    updateMultipleProductsStatus,
+    updateMultipleProductsFlag,
+    checkApiHealth,
+    isAllSelected: products.length > 0 && products.every(product => selectedProductIds.includes(product.id)),
+    hasSelection: selectedProductIds.length > 0
+  };
+};

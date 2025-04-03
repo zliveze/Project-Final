@@ -22,6 +22,9 @@ export {
   PaginatedProductsResponseDto
 } from './product-response.dto';
 
+export * from './light-product.dto';
+export * from './admin-list-product.dto';
+
 import * as CreateDtos from './create-product.dto';
 import * as ResponseDtos from './product-response.dto';
 

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import DefaultLayout from '../../layout/DefaultLayout';
-import ShopBanner from '../../components/shop/ShopBanner';
-import ShopFilters from '../../components/shop/ShopFilters';
 import ProductCardShop from '../../components/common/ProductCardShop';
+import ShopFilters from '../../components/shop/ShopFilters';
+import ShopBanner from '../../components/shop/ShopBanner';
 import ShopPagination from '../../components/shop/ShopPagination';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
+import { useProduct } from '../../contexts';
 
 interface Product {
   _id: string;
@@ -12,22 +13,23 @@ interface Product {
   slug: string;
   price: number;
   currentPrice: number;
-  brandId: string;
-  images: {
+  brandId?: string;
+  images?: {
     url: string;
-    alt: string;
-    isPrimary: boolean;
+    alt?: string;
+    isPrimary?: boolean;
   }[];
-  reviews: {
+  reviews?: {
     averageRating: number;
     reviewCount: number;
   };
-  flags: {
-    isBestSeller: boolean;
-    isNew: boolean;
-    isOnSale: boolean;
-    hasGifts: boolean;
+  flags?: {
+    isBestSeller?: boolean;
+    isNew?: boolean;
+    isOnSale?: boolean;
+    hasGifts?: boolean;
   };
+  imageUrl?: string;
 }
 
 interface Filters {
@@ -45,12 +47,15 @@ interface Filters {
   volume: string[];
 }
 
-// Định nghĩa breadcrumb items cho trang Shop
-const shopBreadcrumItems: BreadcrumItem[] = [
-  { label: 'Cửa hàng' }
-];
-
 export default function Shop() {
+  const productContext = useProduct();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const [filters, setFilters] = useState<Filters>({
     categories: [],
     brands: [],
@@ -66,80 +71,73 @@ export default function Shop() {
     volume: []
   });
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
-
-  // Giả lập fetch dữ liệu sản phẩm
+  // Fetch products using API
   useEffect(() => {
-    // Trong thực tế, đây sẽ là API call
-    setLoading(true);
-    setTimeout(() => {
-      // Dữ liệu mẫu
-      const mockProducts: Product[] = Array(24).fill(null).map((_, index) => ({
-        _id: `product-${index}`,
-        name: `Sản phẩm mỹ phẩm ${index + 1}`,
-        slug: `san-pham-my-pham-${index + 1}`,
-        price: 350000 + (index * 50000),
-        currentPrice: 350000 + (index * 50000) - (index % 3 === 0 ? 50000 : 0),
-        brandId: `brand${(index % 7) + 1}`,
-        images: [{
-          url: `/images/product-${(index % 5) + 1}.jpg`,
-          alt: `Sản phẩm mỹ phẩm ${index + 1}`,
-          isPrimary: true
-        }],
-        reviews: {
-          averageRating: 3 + (index % 3),
-          reviewCount: 10 + index * 5
-        },
-        flags: {
-          isBestSeller: index % 5 === 0,
-          isNew: index % 7 === 0,
-          isOnSale: index % 3 === 0,
-          hasGifts: index % 4 === 0
-        }
-      }));
-      
-      // Lọc sản phẩm dựa trên bộ lọc
-      const filteredProducts = filterProducts(mockProducts);
-      
-      // Sắp xếp sản phẩm
-      const sortedProducts = sortProducts(filteredProducts);
-      
-      // Phân trang
-      const itemsPerPage = 24;
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const paginatedProducts = sortedProducts.slice(startIndex, startIndex + itemsPerPage);
-      
-      setProducts(paginatedProducts);
-      setTotalPages(Math.ceil(filteredProducts.length / itemsPerPage) || 1);
-      setLoading(false);
-    }, 800);
-  }, [filters, currentPage]);
+    // Fetch products from API
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        
+        // Use the efficient API endpoint
+        await productContext.fetchLightProducts(
+          currentPage,
+          12, // Increased limit for better display
+          searchTerm,
+          filters.brands.length > 0 ? filters.brands[0] : '',
+          filters.categories.length > 0 ? filters.categories[0] : '',
+          undefined,
+          filters.priceRange[0],
+          filters.priceRange[1],
+          undefined,
+          filters.skinType.join(','),
+          filters.concerns.join(','),
+          filters.sortBy === 'best_seller' ? true : undefined,
+          filters.sortBy === 'new_arrivals' ? true : undefined,
+          filters.hasPromotion ? true : undefined,
+          filters.hasGifts ? true : undefined,
+          filters.sortBy === 'price_asc' ? 'price' : 
+          filters.sortBy === 'price_desc' ? 'price' : 
+          filters.sortBy === 'newest' ? 'createdAt' : 
+          filters.sortBy === 'popularity' ? 'reviews.reviewCount' : 'createdAt',
+          
+          filters.sortBy === 'price_asc' ? 'asc' : 'desc'
+        );
 
-  // Đếm số bộ lọc đang được áp dụng
+        // Dữ liệu sản phẩm đã được cập nhật bởi context
+        setProducts(productContext.products);
+        setTotalPages(productContext.totalPages);
+
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [currentPage, searchTerm, filters, productContext]);
+
+  // Effect để đếm số bộ lọc đang active
   useEffect(() => {
     let count = 0;
     if (filters.categories.length > 0) count++;
     if (filters.brands.length > 0) count++;
+    if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000000) count++;
     if (filters.skinType.length > 0) count++;
     if (filters.concerns.length > 0) count++;
-    if (filters.colors && filters.colors.length > 0) count++;
-    if (filters.volume && filters.volume.length > 0) count++;
     if (filters.rating > 0) count++;
     if (filters.hasPromotion) count++;
     if (filters.hasFreeShipping) count++;
     if (filters.hasGifts) count++;
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000000) count++;
+    if (filters.colors.length > 0) count++;
+    if (filters.volume.length > 0) count++;
     
     setActiveFiltersCount(count);
   }, [filters]);
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters({ ...filters, ...newFilters });
-    setCurrentPage(1); // Reset về trang 1 khi thay đổi bộ lọc
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
   };
 
   const handlePageChange = (page: number) => {
@@ -147,110 +145,44 @@ export default function Shop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Hàm lọc sản phẩm dựa trên bộ lọc
-  const filterProducts = (products: Product[]): Product[] => {
-    return products.filter(product => {
-      // Lọc theo khoảng giá
-      if (product.currentPrice < filters.priceRange[0] || product.currentPrice > filters.priceRange[1]) {
-        return false;
-      }
-      
-      // Lọc theo thương hiệu
-      if (filters.brands.length > 0 && !filters.brands.includes(product.brandId)) {
-        return false;
-      }
-      
-      // Lọc theo đánh giá
-      if (filters.rating > 0 && product.reviews.averageRating < filters.rating) {
-        return false;
-      }
-      
-      // Lọc theo khuyến mãi
-      if (filters.hasPromotion && !product.flags.isOnSale) {
-        return false;
-      }
-      
-      // Lọc theo quà tặng
-      if (filters.hasGifts && !product.flags.hasGifts) {
-        return false;
-      }
-      
-      // Lọc theo miễn phí vận chuyển (giả định sản phẩm trên 500k được miễn phí vận chuyển)
-      if (filters.hasFreeShipping && product.currentPrice < 500000) {
-        return false;
-      }
-      
-      // Các bộ lọc khác có thể thêm vào đây
-      
-      return true;
-    });
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setCurrentPage(1);
   };
 
-  // Sắp xếp sản phẩm
-  const sortProducts = (products: Product[]): Product[] => {
-    const sortedProducts = [...products];
-    
-    switch (filters.sortBy) {
-      case 'priceAsc':
-        return sortedProducts.sort((a, b) => a.currentPrice - b.currentPrice);
-      case 'priceDesc':
-        return sortedProducts.sort((a, b) => b.currentPrice - a.currentPrice);
-      case 'newest':
-        return sortedProducts.sort((a, b) => a._id.localeCompare(b._id));
-      case 'rating':
-        return sortedProducts.sort((a, b) => b.reviews.averageRating - a.reviews.averageRating);
-      case 'popularity':
-      default:
-        return sortedProducts.sort((a, b) => (b.flags.isBestSeller ? 1 : 0) - (a.flags.isBestSeller ? 1 : 0));
-    }
-  };
+  // Breadcrumb cho trang
+  const breadcrumbs: BreadcrumItem[] = [
+    { label: 'Trang chủ', href: '/' },
+    { label: 'Cửa hàng', href: '/shop', active: true }
+  ];
 
   return (
-    <DefaultLayout breadcrumItems={shopBreadcrumItems}>
+    <DefaultLayout breadcrumItems={breadcrumbs}>
       <ShopBanner />
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Sidebar với bộ lọc */}
-          <div className="w-full md:w-1/4">
+          {/* Sidebar filters */}
+          <div className="md:w-64 shrink-0">
             <ShopFilters 
               filters={filters} 
-              onFilterChange={handleFilterChange} 
+              onFilterChange={handleFilterChange}
+              onSearch={handleSearch}
             />
           </div>
           
-          {/* Danh sách sản phẩm */}
-          <div className="w-full md:w-3/4">
-            <div className="flex flex-wrap justify-between items-center mb-6">
-              <h1 className="text-2xl font-semibold">Tất cả sản phẩm</h1>
-              
-              <div className="flex items-center mt-2 sm:mt-0">
-                {activeFiltersCount > 0 && (
-                  <span className="mr-3 text-sm bg-[#fdf2f8] text-[#d53f8c] px-2 py-1 rounded-full">
-                    {activeFiltersCount} bộ lọc đang áp dụng
-                  </span>
-                )}
-                <span className="mr-2">Sắp xếp theo:</span>
-                <select 
-                  className="border rounded p-2 focus:border-[#d53f8c] focus:ring-[#d53f8c]"
-                  value={filters.sortBy}
-                  onChange={(e) => handleFilterChange({ sortBy: e.target.value })}
-                >
-                  <option value="popularity">Phổ biến</option>
-                  <option value="newest">Mới nhất</option>
-                  <option value="priceAsc">Giá tăng dần</option>
-                  <option value="priceDesc">Giá giảm dần</option>
-                  <option value="rating">Đánh giá</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* Hiển thị các bộ lọc đang áp dụng */}
+          {/* Main content */}
+          <div className="flex-grow">
+            {/* Bộ lọc đang active */}
             {activeFiltersCount > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white rounded-lg shadow-sm">
+                <span className="text-sm font-medium text-gray-700 mr-2">
+                  Bộ lọc ({activeFiltersCount}):
+                </span>
+                
                 {filters.categories.length > 0 && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Danh mục: {filters.categories.length}
+                    Danh mục ({filters.categories.length})
                     <button 
                       className="ml-2 text-gray-500 hover:text-gray-700"
                       onClick={() => handleFilterChange({ categories: [] })}
@@ -262,7 +194,7 @@ export default function Shop() {
                 
                 {filters.brands.length > 0 && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Thương hiệu: {filters.brands.length}
+                    Thương hiệu ({filters.brands.length})
                     <button 
                       className="ml-2 text-gray-500 hover:text-gray-700"
                       onClick={() => handleFilterChange({ brands: [] })}
@@ -272,9 +204,33 @@ export default function Shop() {
                   </div>
                 )}
                 
+                {filters.skinType.length > 0 && (
+                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                    Loại da ({filters.skinType.length})
+                    <button 
+                      className="ml-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => handleFilterChange({ skinType: [] })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                
+                {filters.concerns.length > 0 && (
+                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                    Vấn đề ({filters.concerns.length})
+                    <button 
+                      className="ml-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => handleFilterChange({ concerns: [] })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                
                 {(filters.priceRange[0] > 0 || filters.priceRange[1] < 5000000) && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Khoảng giá
+                    {filters.priceRange[0].toLocaleString()}đ - {filters.priceRange[1].toLocaleString()}đ
                     <button 
                       className="ml-2 text-gray-500 hover:text-gray-700"
                       onClick={() => handleFilterChange({ priceRange: [0, 5000000] })}
@@ -393,15 +349,15 @@ export default function Shop() {
                     <ProductCardShop
                       id={product._id}
                       name={product.name}
-                      image={product.images[0]?.url || '/images/product-placeholder.jpg'}
+                      image={product.images && product.images[0]?.url || '/images/product-placeholder.jpg'}
                       price={product.currentPrice}
                       originalPrice={product.price}
-                      rating={product.reviews.averageRating}
-                      ratingCount={product.reviews.reviewCount}
+                      rating={product.reviews?.averageRating || 0}
+                      ratingCount={product.reviews?.reviewCount || 0}
                       soldCount={Math.floor(Math.random() * 100) + 10}
                       discount={product.currentPrice < product.price ? Math.round(((product.price - product.currentPrice) / product.price) * 100) : undefined}
                       slug={product.slug}
-                      flashSale={product.flags.isOnSale ? {
+                      flashSale={product.flags?.isOnSale ? {
                         isActive: true,
                         endTime: new Date(Date.now() + 86400000).toISOString(),
                         soldPercent: Math.floor(Math.random() * 80) + 20

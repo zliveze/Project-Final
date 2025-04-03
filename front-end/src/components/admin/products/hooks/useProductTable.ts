@@ -3,6 +3,13 @@ import { ProductStatus } from '../components/ProductStatusBadge';
 import { ProductFilterState } from '../components/ProductFilter';
 import { useProduct } from '@/contexts/ProductContext';
 
+// Thêm interface cho mục cache
+interface CacheItem {
+  key: string;
+  data: any;
+  timestamp: number;
+}
+
 export interface ProductFlag {
   isBestSeller: boolean;
   isNew: boolean;
@@ -21,7 +28,9 @@ export interface Product {
   name: string;
   sku: string;
   image: string;
-  price: string;
+  price: string; // giá gốc format string
+  originalPrice: number; // giá gốc số
+  currentPrice: number; // giá hiện tại sau giảm giá
   category: string;
   categoryIds: string[];
   brand: string;
@@ -83,7 +92,7 @@ export function getBrands() {
   ];
 }
 
-// Dữ liệu mẫu nếu cần thêm sản phẩm
+// Dữ liệu mẫu nếu cần thêm sản phẩm - đã cập nhật để phù hợp với interface Product
 export const sampleProductData: Product[] = [
   {
     id: 'PRD-001',
@@ -91,6 +100,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-001',
     image: 'https://via.placeholder.com/50',
     price: '350,000đ',
+    originalPrice: 350000,
+    currentPrice: 350000,
     category: 'Chăm sóc da',
     categoryIds: ['1'],
     brand: 'Yumin',
@@ -117,6 +128,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-002',
     image: 'https://via.placeholder.com/50',
     price: '250,000đ',
+    originalPrice: 250000,
+    currentPrice: 250000,
     category: 'Chăm sóc da',
     categoryIds: ['1'],
     brand: 'Yumin',
@@ -143,6 +156,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-003',
     image: 'https://via.placeholder.com/50',
     price: '450,000đ',
+    originalPrice: 450000,
+    currentPrice: 380000,
     category: 'Chăm sóc da',
     categoryIds: ['1'],
     brand: 'Yumin',
@@ -169,6 +184,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-004',
     image: 'https://via.placeholder.com/50',
     price: '50,000đ',
+    originalPrice: 50000,
+    currentPrice: 50000,
     category: 'Mặt nạ',
     categoryIds: ['1', '6'],
     brand: 'Yumin',
@@ -195,6 +212,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-005',
     image: 'https://via.placeholder.com/50',
     price: '320,000đ',
+    originalPrice: 320000,
+    currentPrice: 280000,
     category: 'Chống nắng',
     categoryIds: ['1', '7'],
     brand: 'Yumin',
@@ -221,6 +240,8 @@ export const sampleProductData: Product[] = [
     sku: 'SKU-006',
     image: 'https://via.placeholder.com/50',
     price: '180,000đ',
+    originalPrice: 180000,
+    currentPrice: 180000,
     category: 'Trang điểm',
     categoryIds: ['2'],
     brand: 'Yumin',
@@ -243,10 +264,12 @@ export const sampleProductData: Product[] = [
   },
   {
     id: 'PRD-007',
-    name: 'Son môi Yumin màu đỏ',
-    sku: 'SKU-006',
+    name: 'Son môi Yumin màu hồng',
+    sku: 'SKU-007',
     image: 'https://via.placeholder.com/50',
     price: '180,000đ',
+    originalPrice: 180000,
+    currentPrice: 180000,
     category: 'Trang điểm',
     categoryIds: ['2'],
     brand: 'Yumin',
@@ -270,20 +293,37 @@ export const sampleProductData: Product[] = [
 
 ];
 
+// Helper functions for getting names
+const getCategoryName = (categoryId: string): string => {
+  const categories = getCategories();
+  const category = categories.find(c => c.id === categoryId);
+  return category ? category.name : 'Chưa phân loại';
+};
+
+const getBrandName = (brandId: string): string => {
+  const brands = getBrands();
+  const brand = brands.find(b => b.id === brandId);
+  return brand ? brand.name : 'Không có thương hiệu';
+};
+
+const getBranchName = (branchId: string): string => {
+  // Ở đây có thể thêm logic lấy tên chi nhánh từ context
+  return `Chi nhánh ${branchId.slice(0, 5)}`;
+};
+
 export function useProductTable(): UseProductTableResult {
-  // Use the ProductContext
+  // Use the ProductContext - only extract what we need
   const {
-    products: contextProducts,
+    products: apiProducts,
+    // Removed unused variable: fetchProducts (fetchContextProducts)
+    fetchStatistics,
     loading,
     totalProducts,
-    currentPage: apiCurrentPage,
-    totalPages,
-    itemsPerPage: apiItemsPerPage,
-    fetchProducts: fetchContextProducts,
-    fetchStatistics,
+    // Removed unused variables: totalPages, apiCurrentPage, apiLimit
+    fetchLightProducts,
     updateProduct,
     updateProductFlags,
-    deleteProduct,
+    deleteProduct: deleteProductApi,
     statistics
   } = useProduct();
 
@@ -303,140 +343,138 @@ export function useProductTable(): UseProductTableResult {
     brands: [],
     flags: {}
   });
+  // Thêm state để lưu tổng số sản phẩm
+  const [localTotalProducts, setTotalProducts] = useState<number>(0);
 
-  // Convert context products to the format expected by the UI
-  const convertContextProducts = useCallback((contextProducts: any[]): Product[] => {
-    return contextProducts.map(p => ({
-      id: p._id || '',
-      name: p.name || '',
-      sku: p.sku || '',
-      image: p.images && p.images.length > 0 ? 
-        (p.images.find((img: any) => img.isPrimary) || p.images[0]).url : 
-        'https://via.placeholder.com/50',
-      price: p.price ? p.price.toLocaleString('vi-VN') + 'đ' : '0đ',
-      category: '', // This would need to be populated from categories
-      categoryIds: p.categoryIds || [],
-      brand: '', // This would need to be populated from brands
-      brandId: p.brandId || '',
-      inventory: p.inventory ? p.inventory.map((inv: any) => ({
-        branchId: inv.branchId,
-        branchName: 'Chi nhánh', // This would need to be populated from branches
-        quantity: inv.quantity
-      })) : [],
-      stock: p.inventory ? p.inventory.reduce((sum: number, inv: any) => sum + inv.quantity, 0) : 0,
-      status: p.status || 'active',
-      flags: p.flags || {
-        isBestSeller: false,
-        isNew: false,
-        isOnSale: false,
-        hasGifts: false
-      },
-      createdAt: p.createdAt || '',
-      updatedAt: p.updatedAt || ''
-    }));
+  // Thêm cache để lưu trữ kết quả trước đó
+  const cacheRef = useRef<CacheItem[]>([]);
+  const CACHE_EXPIRY = 5 * 60 * 1000; // 5 phút
+
+  // Hàm kiểm tra cache
+  const getCachedResult = (cacheKey: string) => {
+    const now = Date.now();
+    const cachedItem = cacheRef.current.find(item => item.key === cacheKey);
+
+    if (cachedItem && (now - cachedItem.timestamp < CACHE_EXPIRY)) {
+      console.log('Sử dụng kết quả từ cache');
+      return cachedItem.data;
+    }
+
+    return null;
+  };
+
+  // Hàm cập nhật cache
+  const updateCache = (cacheKey: string, data: any) => {
+    // Xóa cache cũ với cùng key nếu có
+    cacheRef.current = cacheRef.current.filter(item => item.key !== cacheKey);
+
+    // Thêm dữ liệu mới vào cache
+    cacheRef.current.push({
+      key: cacheKey,
+      data,
+      timestamp: Date.now()
+    });
+
+    // Giới hạn kích thước cache
+    if (cacheRef.current.length > 10) {
+      cacheRef.current.shift();
+    }
+  };
+
+  // Hàm xóa cache
+  const clearCache = () => {
+    cacheRef.current = [];
+  };
+
+  // Sử dụng refs để theo dõi thay đổi thực sự
+  const initialFetchDoneRef = useRef(false);
+  const isMountedRef = useRef(false);
+
+  // Hàm xóa tất cả sản phẩm đã chọn
+  const clearSelectedProducts = useCallback(() => {
+    setSelectedProducts([]);
   }, []);
 
-  // Update products when context products change
-  useEffect(() => {
-    if (contextProducts) {
-      const convertedProducts = convertContextProducts(contextProducts);
-      setProducts(convertedProducts);
-      setFilteredProducts(convertedProducts);
-      setIsLoading(false);
-    }
-  }, [contextProducts, convertContextProducts]);
+  // Note: We previously had a fetchProductsWithDebounce function here,
+  // but it has been replaced by the more efficient fetchProductsLight function
 
-  // Sync with API pagination - tối ưu để tránh gọi API không cần thiết
-  useEffect(() => {
-    // Chỉ cập nhật state nội bộ nếu giá trị thực sự thay đổi và khi component đã mount
-    if (isMountedRef.current) {
-      // Chỉ cập nhật khi giá trị thực sự khác nhau để tránh re-render
-      const shouldUpdatePage = apiCurrentPage && apiCurrentPage !== currentPage;
-      const shouldUpdateLimit = apiItemsPerPage && apiItemsPerPage !== itemsPerPage;
-      
-      if (shouldUpdatePage) {
-        console.log(`Đồng bộ currentPage từ API: ${apiCurrentPage}`);
-        setCurrentPage(apiCurrentPage);
-      }
-      
-      if (shouldUpdateLimit) {
-        console.log(`Đồng bộ itemsPerPage từ API: ${apiItemsPerPage}`);
-        setItemsPerPage(apiItemsPerPage);
-      }
-    }
-  }, [apiCurrentPage, apiItemsPerPage]);
-
-  // Thống kê sản phẩm theo trạng thái
-  const totalItems = totalProducts || products.length;
-  const totalActive = statistics?.active || products.filter(p => p.status === 'active').length;
-  const totalOutOfStock = statistics?.outOfStock || products.filter(p => p.status === 'out_of_stock').length;
-  const totalDiscontinued = statistics?.discontinued || products.filter(p => p.status === 'discontinued').length;
-
-  // Kiểm tra đã chọn tất cả chưa
-  const isAllSelected = filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length;
-
-  // Fetch products from the context with pagination and filters
-  const fetchProducts = useCallback(() => {
-    // Nếu đang có một timeout fetch đang chờ, hủy nó
+  // Optimized fetch method using Light API
+  const fetchProductsLight = useCallback(() => {
+    // Cancel previous timeout if exists
     if (fetchTimeout) {
       clearTimeout(fetchTimeout);
+      setFetchTimeout(null);
     }
-    
-    // Cache key cho request hiện tại
-    const requestCacheKey = JSON.stringify({
+
+    const currentTime = Date.now();
+
+    // Create optimized filters for API request
+    const apiFilters: any = {
       page: currentPage,
-      limit: itemsPerPage,
-      filter: filter
-    });
-    
-    // Lưu request hiện tại để so sánh sau này
-    const currentRequestKey = requestCacheKey;
-    
-    // Đặt một timeout mới để đảm bảo debounce
-    const newTimeout = setTimeout(() => {
-      // Lưu thời gian gọi fetch hiện tại
-      const currentTime = Date.now();
-      
-      // Kiểm tra xem đã đủ thời gian debounce (1500ms) kể từ lần fetch cuối cùng chưa
-      if (currentTime - lastFetchTime < 1500) {
-        console.log('Bỏ qua yêu cầu fetchProducts trong useProductTable do đã gọi gần đây');
-        setIsLoading(false); // Đảm bảo tắt loading ngay cả khi bỏ qua request
+      limit: itemsPerPage
+    };
+
+    // Only add filters that have values to reduce query complexity
+    if (filter.searchTerm) apiFilters.search = filter.searchTerm;
+
+    if (filter.categories.length) {
+      apiFilters.categoryId = filter.categories.join(',');
+    }
+
+    if (filter.brands.length) {
+      apiFilters.brandId = filter.brands.join(',');
+    }
+
+    if (filter.status) apiFilters.status = filter.status;
+
+    // Only add flag filters if they're explicitly set to true
+    if (filter.flags.isBestSeller === true) apiFilters.isBestSeller = true;
+    if (filter.flags.isNew === true) apiFilters.isNew = true;
+    if (filter.flags.isOnSale === true) apiFilters.isOnSale = true;
+    if (filter.flags.hasGifts === true) apiFilters.hasGifts = true;
+
+    // Create cache key
+    const cacheKey = JSON.stringify(apiFilters);
+
+    // Check cache first
+    const cachedData = getCachedResult(cacheKey);
+    if (cachedData) {
+      console.log('Using data from cache instead of API call');
+      // Use cached data
+      setProducts(cachedData.products);
+      setFilteredProducts(cachedData.products);
+      setTotalProducts(cachedData.total);
+      setCurrentPage(cachedData.page);
+      setItemsPerPage(cachedData.limit);
+      return;
+    }
+
+    // Create new timeout with reduced debounce time
+    const newTimeout = setTimeout(async () => {
+      // Check if enough time has passed since last fetch (reduced to 200ms for better responsiveness)
+      if (currentTime - lastFetchTime < 200) {
+        console.log('Skipping fetchProducts request due to recent call');
+        setIsLoading(false); // Ensure loading is turned off even when skipping request
         return;
       }
-      
-      // Nếu đang trong quá trình loading, bỏ qua request mới
+
+      // If already loading, skip this request
       if (loading) {
-        console.log('Bỏ qua yêu cầu fetchProducts do ProductContext đang trong quá trình fetch');
+        console.log('Skipping fetchProducts request because ProductContext is already fetching');
         setIsLoading(false);
         return;
       }
-      
+
       setIsLoading(true);
       setLastFetchTime(currentTime);
-      
-      // Prepare filters for API
-      const apiFilters: any = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: filter.searchTerm || undefined,
-        categoryId: filter.categories.length ? filter.categories.join(',') : undefined,
-        brandId: filter.brands.length ? filter.brands.join(',') : undefined,
-        status: filter.status || undefined,
-        isBestSeller: filter.flags.isBestSeller,
-        isNew: filter.flags.isNew,
-        isOnSale: filter.flags.isOnSale,
-        hasGifts: filter.flags.hasGifts
-      };
-      
-      // Filter out undefined values
-      Object.keys(apiFilters).forEach(key => {
-        if (apiFilters[key] === undefined) delete apiFilters[key];
-      });
-      
-      console.log('useProductTable đang gọi fetchProducts với:', apiFilters);
-      
-      // Fetch from context/API with filters
-      fetchContextProducts(
+
+      console.log('useProductTable calling fetchLightProducts with:', apiFilters);
+
+      // Use Promise.all to fetch products and statistics in parallel when possible
+      const fetchPromises = [];
+
+      // Main products fetch promise
+      const productsPromise = fetchLightProducts(
         apiFilters.page,
         apiFilters.limit,
         apiFilters.search,
@@ -452,201 +490,125 @@ export function useProductTable(): UseProductTableResult {
         apiFilters.isNew,
         apiFilters.isOnSale,
         apiFilters.hasGifts
-      )
-      .then(() => {
-        // Only fetch statistics if products were successfully fetched
-        return fetchStatistics().catch(error => {
-          console.error("Lỗi khi lấy thống kê:", error);
+      ).then(() => {
+        // Update cache with new data
+        updateCache(cacheKey, {
+          products: apiProducts,
+          total: totalProducts,
+          page: currentPage,
+          limit: itemsPerPage
         });
-      })
-      .catch(error => {
-        console.error("Lỗi khi lấy sản phẩm:", error);
-      })
-      .finally(() => {
-        // Luôn đảm bảo rằng trạng thái loading được tắt, ngay cả khi có lỗi
-        setIsLoading(false);
+        return apiProducts;
       });
-    }, 1500); // Tăng thời gian debounce lên 1500ms
-    
+
+      fetchPromises.push(productsPromise);
+
+      // Only fetch statistics if we're on the first page or explicitly requested
+      if (currentPage === 1 || apiFilters.page === 1) {
+        fetchPromises.push(fetchStatistics().catch(error => {
+          console.error("Error fetching statistics:", error);
+          // Don't fail the whole operation if statistics fail
+          return null;
+        }));
+      }
+
+      // Execute all promises in parallel
+      Promise.all(fetchPromises)
+        .catch(error => {
+          console.error("Error fetching products:", error);
+        })
+        .finally(() => {
+          // Always ensure loading state is turned off, even when there's an error
+          setIsLoading(false);
+        });
+    }, 200); // Reduced debounce time to 200ms for better responsiveness
+
     setFetchTimeout(newTimeout);
-    
-    // Đảm bảo xóa timeout khi component unmount
+
+    // Ensure timeout is cleared when component unmounts
     return () => {
       if (newTimeout) clearTimeout(newTimeout);
     };
   }, [
-    currentPage, 
-    itemsPerPage, 
-    filter, 
-    fetchContextProducts, 
+    currentPage,
+    itemsPerPage,
+    filter,
+    fetchLightProducts,
     fetchStatistics,
-    loading // Thêm loading vào dependencies để theo dõi trạng thái loading của ProductContext
+    loading,
+    apiProducts,
+    totalProducts
   ]);
 
-  // Sử dụng refs để theo dõi thay đổi thực sự
-  const initialFetchDoneRef = useRef(false);
-  const prevPageRef = useRef(currentPage);
-  const prevItemsPerPageRef = useRef(itemsPerPage);
-  const prevFilterRef = useRef(JSON.stringify(filter));
-  const isMountedRef = useRef(false);
+  // Định nghĩa fetchProducts mới sử dụng API light
+  const fetchProducts = fetchProductsLight;
 
-  // Fetch products lần đầu - chỉ chạy một lần khi component mount
+  // Thêm hàm để xóa cache khi cần làm mới dữ liệu
+  const refreshProducts = useCallback(() => {
+    clearCache();
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // Cập nhật useEffect ban đầu để sử dụng API light - cần thêm lại
   useEffect(() => {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
       console.log('Initial fetch in useProductTable - Khởi động');
-      
+
       // Đánh dấu đã thực hiện fetch ban đầu
       initialFetchDoneRef.current = true;
       setLastFetchTime(Date.now());
-      
-      // Kiểm tra xem API có đang fetch không trước khi tiếp tục
-      if (loading) {
-        console.log('Bỏ qua initial fetch do đang trong quá trình loading từ ProductContext');
-        return;
-      }
-      
-      // Không gọi fetchProducts() ở đây vì nó sẽ gây ra fetch lặp lại
-      // Thay vào đó, trực tiếp fetch dữ liệu ban đầu
-      setIsLoading(true);
-      
-      // Prepare filters for API
-      const apiFilters: any = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: filter.searchTerm || undefined,
-        categoryId: filter.categories.length ? filter.categories.join(',') : undefined,
-        brandId: filter.brands.length ? filter.brands.join(',') : undefined,
-        status: filter.status || undefined,
-        isBestSeller: filter.flags.isBestSeller,
-        isNew: filter.flags.isNew,
-        isOnSale: filter.flags.isOnSale,
-        hasGifts: filter.flags.hasGifts
-      };
-      
-      // Filter out undefined values
-      Object.keys(apiFilters).forEach(key => {
-        if (apiFilters[key] === undefined) delete apiFilters[key];
-      });
-      
-      console.log('Initial useProductTable mount - gọi fetchProducts với:', apiFilters);
-      
-      // Thực hiện fetch dữ liệu ban đầu nhưng với một timeout để tránh race condition
-      setTimeout(() => {
-        fetchContextProducts(
-          apiFilters.page,
-          apiFilters.limit,
-          apiFilters.search,
-          apiFilters.brandId,
-          apiFilters.categoryId,
-          apiFilters.status,
-          undefined, // minPrice
-          undefined, // maxPrice
-          undefined, // tags
-          undefined, // skinTypes
-          undefined, // concerns
-          apiFilters.isBestSeller,
-          apiFilters.isNew,
-          apiFilters.isOnSale,
-          apiFilters.hasGifts
-        )
-        .then(() => {
-          // Only fetch statistics if products were successfully fetched
-          return fetchStatistics().catch(error => {
-            console.error("Lỗi khi lấy thống kê:", error);
-          });
-        })
-        .catch(error => {
-          console.error("Lỗi khi lấy sản phẩm:", error);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-      }, 100); // Delay nhỏ để tránh race condition với các initialization khác
-      
-      // Cập nhật các refs để theo dõi thay đổi
-      prevPageRef.current = currentPage;
-      prevItemsPerPageRef.current = itemsPerPage;
-      prevFilterRef.current = JSON.stringify(filter);
-    }
-  }, []);
 
-  // Xử lý thay đổi trang và itemsPerPage với debounce tốt hơn
-  useEffect(() => {
-    // Chỉ xử lý sau khi đã fetch lần đầu và component đã mount
-    if (initialFetchDoneRef.current && isMountedRef.current) {
-      const isPageChanged = prevPageRef.current !== currentPage;
-      const isLimitChanged = prevItemsPerPageRef.current !== itemsPerPage;
-      
-      if (isPageChanged || isLimitChanged) {
-        // Log chi tiết về sự thay đổi để dễ debug
-        console.log('Page hoặc limit thay đổi, đang chuẩn bị fetch products:', 
-                    { prevPage: prevPageRef.current, currentPage, 
-                      prevLimit: prevItemsPerPageRef.current, itemsPerPage });
-        
-        // Cập nhật refs ngay để tránh việc xử lý lặp lại
-        prevPageRef.current = currentPage;
-        prevItemsPerPageRef.current = itemsPerPage;
-        
-        // Kiểm tra trạng thái loading từ ProductContext
-        if (loading) {
-          console.log('Bỏ qua fetch do ProductContext đang loading');
-          return;
-        }
-        
-        // Sử dụng clearTimeout để đảm bảo chỉ có một fetch được gọi
-        if (fetchTimeout) {
-          clearTimeout(fetchTimeout);
-        }
-        
-        // Thiết lập một khoảng delay ngắn để tránh các lần gọi liên tiếp
-        const newTimeout = setTimeout(() => {
-          // Kiểm tra lại xem có đang trong quá trình loading không
-          if (!loading) {
-            fetchProducts();
-          }
-        }, 300);
-        
-        setFetchTimeout(newTimeout);
-      }
+      // Fetch dữ liệu ngay khi component mount
+      fetchProducts();
     }
-  }, [currentPage, itemsPerPage, loading, fetchProducts]);
+  }, [fetchProducts]);
 
-  // Xử lý thay đổi filter với debounce tốt hơn
-  useEffect(() => {
-    // Chỉ xử lý sau khi đã fetch lần đầu và component đã mount
-    if (initialFetchDoneRef.current && isMountedRef.current) {
-      const currentFilterString = JSON.stringify(filter);
-      
-      if (prevFilterRef.current !== currentFilterString) {
-        console.log('Filter thay đổi, đang chuẩn bị fetch products');
-        
-        // Cập nhật ref ngay để tránh việc xử lý lặp lại
-        prevFilterRef.current = currentFilterString;
-        
-        // Kiểm tra trạng thái loading từ ProductContext
-        if (loading) {
-          console.log('Bỏ qua fetch filter do ProductContext đang loading');
-          return;
-        }
-        
-        // Sử dụng clearTimeout để đảm bảo chỉ có một fetch được gọi
-        if (fetchTimeout) {
-          clearTimeout(fetchTimeout);
-        }
-        
-        // Thiết lập timeout dài hơn cho filter để người dùng có thời gian điều chỉnh xong
-        const newTimeout = setTimeout(() => {
-          // Kiểm tra lại trạng thái loading trước khi fetch
-          if (!loading) {
-            fetchProducts();
-          }
-        }, 500);
-        
-        setFetchTimeout(newTimeout);
+  // Cập nhật các phương thức bulk để xóa cache sau khi thực hiện
+  const bulkSetStatus = useCallback(async (status: ProductStatus) => {
+    try {
+      for (const id of selectedProducts) {
+        await updateProduct(id, { status });
       }
+      clearCache(); // Xóa cache sau khi cập nhật
+      fetchProducts(); // Refresh after update
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk updating status:', error);
+      return false;
     }
-  }, [filter, loading, fetchProducts]);
+  }, [selectedProducts, updateProduct, fetchProducts, clearSelectedProducts]);
+
+  const bulkSetFlag = useCallback(async (flag: string, value: boolean) => {
+    try {
+      for (const id of selectedProducts) {
+        await updateProductFlags(id, { flags: { [flag]: value } });
+      }
+      clearCache(); // Xóa cache sau khi cập nhật
+      fetchProducts(); // Refresh after update
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk updating flags:', error);
+      return false;
+    }
+  }, [selectedProducts, updateProductFlags, fetchProducts, clearSelectedProducts]);
+
+  const bulkDelete = useCallback(async () => {
+    try {
+      for (const id of selectedProducts) {
+        await deleteProductApi(id);
+      }
+      clearCache(); // Xóa cache sau khi xóa
+      fetchProducts(); // Refresh after deletion
+      clearSelectedProducts();
+      return true;
+    } catch (error) {
+      console.error('Error bulk deleting products:', error);
+      return false;
+    }
+  }, [selectedProducts, deleteProductApi, fetchProducts, clearSelectedProducts]);
 
   // Hàm chọn/bỏ chọn một sản phẩm
   const toggleProductSelection = useCallback((id: string) => {
@@ -677,7 +639,7 @@ export function useProductTable(): UseProductTableResult {
   const applyFilter = useCallback((newFilter: ProductFilterState) => {
     setFilter(newFilter);
     setCurrentPage(1); // Reset về trang 1 khi thay đổi bộ lọc
-    
+
     // Khi thay đổi bộ lọc, gọi fetchProducts sẽ được kích hoạt qua useEffect
   }, []);
 
@@ -692,64 +654,77 @@ export function useProductTable(): UseProductTableResult {
     setCurrentPage(1); // Reset trang về 1 khi thay đổi số SP/trang
   }, []);
 
-  // Hàm xóa tất cả sản phẩm đã chọn
-  const clearSelectedProducts = useCallback(() => {
-    setSelectedProducts([]);
-  }, []);
-  
-  // Bulk actions using ProductContext
-  const bulkSetStatus = useCallback(async (status: ProductStatus) => {
-    try {
-      for (const id of selectedProducts) {
-        await updateProduct(id, { status });
+  // Cập nhật phương thức mapApiProductsToUiModel để xử lý dữ liệu từ Light API
+  const mapApiProductsToUiModel = useCallback(() => {
+    return apiProducts.map(product => {
+      // Xử lý khi dữ liệu từ Light API có cấu trúc khác
+      let imageUrl = '';
+      if (product.images && product.images.length > 0) {
+        const primaryImage = product.images.find(img => img.isPrimary);
+        imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
+      } else if ((product as any).imageUrl) {
+        // Sử dụng imageUrl từ Light API nếu có
+        imageUrl = (product as any).imageUrl;
       }
-      fetchProducts(); // Refresh after update
-      clearSelectedProducts();
-      return true;
-    } catch (error) {
-      console.error('Error bulk updating status:', error);
-      return false;
+
+      // Format giá hiển thị
+      const formatPrice = (price: number): string => {
+        return price.toLocaleString('vi-VN') + 'đ';
+      };
+
+      // Tính tổng tồn kho
+      const stock = (product.inventory || []).reduce((total, inv) => total + inv.quantity, 0);
+
+      return {
+        id: product._id || '',
+        name: product.name || '',
+        sku: product.sku || '',
+        image: imageUrl || '/images/product-placeholder.jpg',
+        price: formatPrice(product.price || 0),
+        originalPrice: product.price || 0,
+        currentPrice: product.currentPrice || product.price || 0,
+        category: product.categoryIds && product.categoryIds.length > 0 ? getCategoryName(product.categoryIds[0]) : 'Chưa phân loại',
+        categoryIds: product.categoryIds || [],
+        brand: (product as any).brandName || getBrandName(product.brandId || ''),
+        brandId: product.brandId || '',
+        inventory: (product.inventory || []).map(inv => ({
+          branchId: inv.branchId,
+          branchName: getBranchName(inv.branchId),
+          quantity: inv.quantity
+        })),
+        stock,
+        status: (product.status || 'active') as ProductStatus,
+        flags: {
+          isBestSeller: product.flags?.isBestSeller === true,
+          isNew: product.flags?.isNew === true,
+          isOnSale: product.flags?.isOnSale === true,
+          hasGifts: product.flags?.hasGifts === true
+        },
+        createdAt: product.createdAt?.toString() || '',
+        updatedAt: product.updatedAt?.toString() || ''
+      };
+    });
+  }, [apiProducts]);
+
+  // Update products when apiProducts change
+  useEffect(() => {
+    if (apiProducts && apiProducts.length > 0) {
+      const mappedProducts = mapApiProductsToUiModel();
+      setProducts(mappedProducts);
+      setFilteredProducts(mappedProducts);
     }
-  }, [selectedProducts, updateProduct, fetchProducts, clearSelectedProducts]);
-  
-  const bulkSetFlag = useCallback(async (flag: string, value: boolean) => {
-    try {
-      for (const id of selectedProducts) {
-        await updateProductFlags(id, { flags: { [flag]: value } });
-      }
-      fetchProducts(); // Refresh after update
-      clearSelectedProducts();
-      return true;
-    } catch (error) {
-      console.error('Error bulk updating flags:', error);
-      return false;
-    }
-  }, [selectedProducts, updateProductFlags, fetchProducts, clearSelectedProducts]);
-  
-  const bulkDelete = useCallback(async () => {
-    try {
-      for (const id of selectedProducts) {
-        await deleteProduct(id);
-      }
-      fetchProducts(); // Refresh after deletion
-      clearSelectedProducts();
-      return true;
-    } catch (error) {
-      console.error('Error bulk deleting products:', error);
-      return false;
-    }
-  }, [selectedProducts, deleteProduct, fetchProducts, clearSelectedProducts]);
+  }, [apiProducts, mapApiProductsToUiModel]);
 
   return {
     products,
     filteredProducts,
-    isLoading: loading || isLoading,
+    isLoading,
     selectedProducts,
     expandedProduct,
-    totalItems,
-    totalActive,
-    totalOutOfStock,
-    totalDiscontinued,
+    totalItems: totalProducts || localTotalProducts || products.length,
+    totalActive: statistics?.active || products.filter(p => p.status === 'active').length,
+    totalOutOfStock: statistics?.outOfStock || products.filter(p => p.status === 'out_of_stock').length,
+    totalDiscontinued: statistics?.discontinued || products.filter(p => p.status === 'discontinued').length,
     currentPage,
     itemsPerPage,
     toggleProductSelection,
@@ -759,8 +734,8 @@ export function useProductTable(): UseProductTableResult {
     setPage,
     setItemsPerPage: setPerPage,
     clearSelectedProducts,
-    fetchProducts,
-    isAllSelected,
+    fetchProducts: refreshProducts, // Sử dụng refreshProducts để đảm bảo xóa cache
+    isAllSelected: filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length,
     filter,
     bulkSetStatus,
     bulkSetFlag,

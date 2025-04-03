@@ -277,20 +277,44 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 
 // Add text index for search functionality
 ProductSchema.index(
-  { 
-    name: 'text', 
-    'description.short': 'text', 
+  {
+    name: 'text',
+    'description.short': 'text',
     'description.full': 'text',
     'tags': 'text',
     'cosmetic_info.ingredients': 'text'
-  }, 
-  { 
-    weights: { 
-      name: 10, 
-      'description.short': 5, 
+  },
+  {
+    weights: {
+      name: 10,
+      'description.short': 5,
       'description.full': 3,
       'tags': 2,
       'cosmetic_info.ingredients': 1
-    } 
+    }
   }
 );
+
+// Add single field indexes for common query fields
+ProductSchema.index({ sku: 1 }, { unique: true });
+ProductSchema.index({ slug: 1 }, { unique: true });
+ProductSchema.index({ name: 1 });
+ProductSchema.index({ status: 1 });
+ProductSchema.index({ price: 1 });
+ProductSchema.index({ currentPrice: 1 });
+ProductSchema.index({ brandId: 1 });
+ProductSchema.index({ categoryIds: 1 });
+ProductSchema.index({ 'flags.isBestSeller': 1 });
+ProductSchema.index({ 'flags.isNew': 1 });
+ProductSchema.index({ 'flags.isOnSale': 1 });
+ProductSchema.index({ 'flags.hasGifts': 1 });
+ProductSchema.index({ createdAt: -1 });
+ProductSchema.index({ updatedAt: -1 });
+
+// Add compound indexes for common query combinations
+ProductSchema.index({ status: 1, brandId: 1 });
+ProductSchema.index({ status: 1, categoryIds: 1 });
+ProductSchema.index({ status: 1, 'flags.isBestSeller': 1 });
+ProductSchema.index({ status: 1, 'flags.isNew': 1 });
+ProductSchema.index({ status: 1, 'flags.isOnSale': 1 });
+ProductSchema.index({ price: 1, status: 1 });
