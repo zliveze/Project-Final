@@ -200,6 +200,14 @@ export class ProductsAdminController {
     @Body('isPrimary') isPrimary: boolean | string
   ) {
     try {
+      // Kiểm tra file tải lên
+      if (!image) {
+        this.logger.error('No image file provided in the request');
+        throw new Error('Không tìm thấy file ảnh trong yêu cầu');
+      }
+
+      this.logger.log(`Received image upload request: ${image.originalname}, size: ${image.size}`);
+      
       // Upload image to Cloudinary
       const result = await this.cloudinaryService.uploadImageFile(image.path, {
         folder: 'products',

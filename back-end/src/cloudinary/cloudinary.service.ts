@@ -142,6 +142,19 @@ export class CloudinaryService {
     tags?: string[];
   }> {
     try {
+      // Kiểm tra đường dẫn file
+      if (!filePath) {
+        this.logger.error('Missing filePath in uploadImageFile');
+        throw new Error('Missing required parameter - file');
+      }
+
+      // Kiểm tra xem file có tồn tại không
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        this.logger.error(`File không tồn tại tại đường dẫn: ${filePath}`);
+        throw new Error(`File không tồn tại tại đường dẫn: ${filePath}`);
+      }
+
       const { 
         folder = 'banner', 
         resourceType = 'image', 

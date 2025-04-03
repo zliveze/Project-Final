@@ -293,15 +293,24 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       setLoading(true);
 
       console.log(`Đang tải lên ảnh cho sản phẩm ${productId}...`);
+      console.log(`Thông tin file: name=${file.name}, size=${file.size}, type=${file.type}`);
 
       const formData = new FormData();
       formData.append('image', file);
       formData.append('isPrimary', isPrimary.toString());
 
+      // Lấy token xác thực từ localStorage
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+      
+      // Quan trọng: Không đặt Content-Type khi sử dụng FormData
+      // Để browser tự động thiết lập boundary cho multipart/form-data
       const response = await fetch(`${PRODUCT_API.ADMIN}/${productId}/upload-image`, {
         method: 'POST',
         headers: {
-          'Authorization': getAuthHeader().Authorization
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
