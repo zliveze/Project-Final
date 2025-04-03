@@ -369,17 +369,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     // Implement debounce to prevent frequent API calls
     const currentTime = Date.now();
-    const debounceTime = 2000; // Tăng thời gian debounce lên 2 giây
+    const debounceTime = 500; // Giảm thời gian debounce xuống 500ms để tải dữ liệu nhanh hơn
 
-    // Kiểm tra kỹ hơn để tránh gọi API trùng lặp
+    // Kiểm tra trong quá trình fetch
     if (isFetchingRef.current) {
       console.log('Bỏ qua fetchProducts - Đang trong quá trình fetch');
       return Promise.resolve();
     }
 
-    // Nếu request giống hệt request trước đó và chưa quá thời gian debounce lớn hơn
+    // Nếu request giống hệt request trước đó và chưa quá thời gian debounce
     if (currentQueryString === lastRequestParamsRef.current && 
-       currentTime - lastFetchTimestampRef.current < debounceTime * 3) {
+       currentTime - lastFetchTimestampRef.current < debounceTime) {
       console.log('Bỏ qua fetchProducts - Request trùng lặp trong thời gian debounce');
       return Promise.resolve();
     }
@@ -390,42 +390,36 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchTimeoutRef.current = null;
     }
 
+    // Đánh dấu đang bắt đầu fetch để hiển thị loading
+    setLoading(true);
+    
+    // Đặt flag đang fetch và lưu thông tin request
+    isFetchingRef.current = true;
+    lastRequestParamsRef.current = currentQueryString;
+    lastFetchTimestampRef.current = Date.now();
+    
     // Return a promise that will be resolved when the API call is made
     return new Promise<void>((resolve, reject) => {
-      fetchTimeoutRef.current = setTimeout(async () => {
-        // Đánh dấu đang bắt đầu fetch để hiển thị loading
-        setLoading(true);
-        
-        // Double-check if we've made this exact request recently
-        if (currentQueryString === lastRequestParamsRef.current && 
-            currentTime - lastFetchTimestampRef.current < debounceTime * 3) {
-          console.log('Bỏ qua fetchProducts do trùng lặp sau khi timeout');
-          setLoading(false); // Đảm bảo tắt loading khi bỏ qua request
-          resolve();
-          return;
-        }
-
-        // Đặt flag đang fetch và lưu thông tin request
-        isFetchingRef.current = true;
-        lastRequestParamsRef.current = currentQueryString;
-        lastFetchTimestampRef.current = Date.now(); // Cập nhật lại timestamp hiện tại
-        
-        try {
-          // Kiểm tra sức khỏe API trước khi lấy dữ liệu nếu đang trong trạng thái offline
-          if (apiHealthStatus === 'offline') {
-            const isApiHealthy = await checkApiHealth();
+      try {
+        // Kiểm tra sức khỏe API nếu trong trạng thái offline
+        if (apiHealthStatus === 'offline') {
+          checkApiHealth().then(isApiHealthy => {
             if (!isApiHealthy) {
-              setLoading(false); // Đảm bảo tắt loading
-              throw new Error('API đang offline. Vui lòng khởi động lại server backend.');
+              setLoading(false);
+              isFetchingRef.current = false;
+              reject(new Error('API đang offline. Vui lòng khởi động lại server backend.'));
+              return;
             }
-          }
-
-          setError(null);
-
-          console.log('Đang lấy danh sách sản phẩm từ URL:', url);
-          
-          // Kiểm tra kết nối API trước khi thực hiện fetch
+            executeRequest();
+          });
+        } else {
+          executeRequest();
+        }
+        
+        async function executeRequest() {
           try {
+            console.log('Đang lấy danh sách sản phẩm từ URL:', url);
+            
             // Thiết lập timeout để tránh chờ đợi quá lâu
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 giây timeout
@@ -459,31 +453,33 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             resolve();
           } catch (fetchError: any) {
             if (fetchError.name === 'AbortError') {
-              throw new Error('Kết nối API quá hạn, vui lòng kiểm tra lại server hoặc mạng của bạn');
+              reject(new Error('Kết nối API quá hạn, vui lòng kiểm tra lại server hoặc mạng của bạn'));
             } else if (fetchError.message.includes('Failed to fetch')) {
-              throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra xem server API đã được khởi động chưa.');
+              reject(new Error('Không thể kết nối đến server. Vui lòng kiểm tra xem server API đã được khởi động chưa.'));
             } else {
-              throw fetchError;
+              reject(fetchError);
             }
+          } finally {
+            setLoading(false);
+            // Reset trạng thái fetch
+            setTimeout(() => {
+              isFetchingRef.current = false;
+            }, 300);
           }
-        } catch (error: any) {
-          console.error('Lỗi trong fetchProducts:', error);
-          handleError(error);
-          
-          // Đặt giá trị mặc định để tránh crash UI
-          setProducts([]);
-          setTotalProducts(0);
-          setCurrentPage(1);
-          setTotalPages(1);
-          reject(error);
-        } finally {
-          setLoading(false);
-          // Reset trạng thái fetch sau một khoảng thời gian
-          setTimeout(() => {
-            isFetchingRef.current = false;
-          }, 1000); // Tăng khoảng thời gian trước khi reset trạng thái
         }
-      }, debounceTime);
+      } catch (error: any) {
+        console.error('Lỗi trong fetchProducts:', error);
+        handleError(error);
+        
+        // Đặt giá trị mặc định để tránh crash UI
+        setProducts([]);
+        setTotalProducts(0);
+        setCurrentPage(1);
+        setTotalPages(1);
+        setLoading(false);
+        isFetchingRef.current = false;
+        reject(error);
+      }
     });
   }, [getAuthHeader, handleError, checkApiHealth, apiHealthStatus]);
 

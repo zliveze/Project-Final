@@ -463,16 +463,11 @@ export function useProductTable(): UseProductTableResult {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
       console.log('Initial fetch in useProductTable - Khởi động');
-      const timer = setTimeout(() => {
-        if (!initialFetchDoneRef.current) {
-          console.log('Initial fetch in useProductTable - Thực thi fetch đầu tiên');
-          setLastFetchTime(Date.now());
-          fetchProducts();
-          initialFetchDoneRef.current = true;
-        }
-      }, 800);
       
-      return () => clearTimeout(timer);
+      // Thực hiện fetch ngay lập tức thay vì đợi timeout
+      initialFetchDoneRef.current = true;
+      setLastFetchTime(Date.now());
+      fetchProducts();
     }
   }, []);
 
@@ -484,10 +479,10 @@ export function useProductTable(): UseProductTableResult {
                     { prevPage: prevPageRef.current, currentPage, 
                       prevLimit: prevItemsPerPageRef.current, itemsPerPage });
                       
-        // Sử dụng timeout để tránh nhiều lần fetch
+        // Giảm timeout để tải dữ liệu nhanh hơn
         const timer = setTimeout(() => {
           fetchProducts();
-        }, 300);
+        }, 100);
         
         prevPageRef.current = currentPage;
         prevItemsPerPageRef.current = itemsPerPage;
@@ -504,10 +499,10 @@ export function useProductTable(): UseProductTableResult {
       if (prevFilterRef.current !== currentFilterString) {
         console.log('Filter thay đổi, đang fetch products');
         
-        // Sử dụng timeout để tránh nhiều lần fetch
+        // Giảm timeout để tải dữ liệu nhanh hơn
         const timer = setTimeout(() => {
           fetchProducts();
-        }, 300);
+        }, 100);
         
         prevFilterRef.current = currentFilterString;
         

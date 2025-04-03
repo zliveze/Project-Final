@@ -33,7 +33,7 @@ export class ProductVariant {
   @Prop({ type: MongooseSchema.Types.ObjectId, auto: true })
   variantId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: true, unique: true, sparse: true })
   sku: string;
 
   @Prop({ type: VariantOptions })

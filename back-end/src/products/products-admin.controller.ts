@@ -191,24 +191,24 @@ export class ProductsAdminController {
 
   @Post(':id/upload-image')
   @AdminRoles('admin', 'superadmin')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('image'))
   @ApiOperation({ summary: 'Upload a product image' })
   @ApiResponse({ status: 200, description: 'Image uploaded successfully' })
   async uploadImage(
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() image: Express.Multer.File,
     @Body('isPrimary') isPrimary: boolean | string
   ) {
     try {
       // Upload image to Cloudinary
-      const result = await this.cloudinaryService.uploadImageFile(file.path, {
+      const result = await this.cloudinaryService.uploadImageFile(image.path, {
         folder: 'products',
       });
 
       // Create image object
-      const image = {
+      const imageObj = {
         url: result.url,
-        alt: file.originalname,
+        alt: image.originalname,
         publicId: result.publicId,
         isPrimary: isPrimary === true || isPrimary === 'true',
       };
@@ -218,12 +218,12 @@ export class ProductsAdminController {
 
       // If this is the primary image, set all other images to non-primary
       const images = product.images || [];
-      if (image.isPrimary) {
+      if (imageObj.isPrimary) {
         images.forEach(img => (img.isPrimary = false));
       }
 
       // Add the new image
-      images.push(image);
+      images.push(imageObj);
 
       // Update the product
       return this.productsService.update(id, { images });

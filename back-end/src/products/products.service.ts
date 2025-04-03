@@ -38,8 +38,89 @@ export class ProductsService {
         );
       }
 
+      // Tạo một bản sao để tránh thay đổi đối tượng gốc
+      const productData = { ...createProductDto };
+      
+      // Kiểm tra tính hợp lệ của MongoDB ObjectId
+      const isValidObjectId = (id: string) => {
+        try {
+          return Types.ObjectId.isValid(id) && (new Types.ObjectId(id)).toString() === id;
+        } catch {
+          return false;
+        }
+      };
+      
+      // Chuyển đổi categoryIds từ string[] sang ObjectId[]
+      if (productData.categoryIds && productData.categoryIds.length > 0) {
+        // Lọc ra các ID hợp lệ
+        const validCategoryIds = productData.categoryIds.filter(isValidObjectId);
+        if (validCategoryIds.length > 0) {
+          const categoryObjectIds = validCategoryIds.map(id => new Types.ObjectId(id));
+          productData.categoryIds = categoryObjectIds as any;
+        } else {
+          // Nếu không có ID hợp lệ, gán mảng rỗng
+          productData.categoryIds = [] as any;
+        }
+      }
+
+      // Chuyển đổi brandId từ string sang ObjectId
+      if (productData.brandId && isValidObjectId(productData.brandId)) {
+        productData.brandId = new Types.ObjectId(productData.brandId) as any;
+      } else if (productData.brandId) {
+        delete productData.brandId; // Xóa brandId không hợp lệ
+      }
+
+      // Chuyển đổi relatedProducts từ string[] sang ObjectId[]
+      if (productData.relatedProducts && productData.relatedProducts.length > 0) {
+        const validProductIds = productData.relatedProducts.filter(isValidObjectId);
+        if (validProductIds.length > 0) {
+          const relatedProductsIds = validProductIds.map(id => new Types.ObjectId(id));
+          productData.relatedProducts = relatedProductsIds as any;
+        } else {
+          productData.relatedProducts = [] as any;
+        }
+      }
+
+      // Chuyển đổi relatedEvents từ string[] sang ObjectId[]
+      if (productData.relatedEvents && productData.relatedEvents.length > 0) {
+        const validEventIds = productData.relatedEvents.filter(isValidObjectId);
+        if (validEventIds.length > 0) {
+          const relatedEventsIds = validEventIds.map(id => new Types.ObjectId(id));
+          productData.relatedEvents = relatedEventsIds as any;
+        } else {
+          productData.relatedEvents = [] as any;
+        }
+      }
+
+      // Chuyển đổi relatedCampaigns từ string[] sang ObjectId[]
+      if (productData.relatedCampaigns && productData.relatedCampaigns.length > 0) {
+        const validCampaignIds = productData.relatedCampaigns.filter(isValidObjectId);
+        if (validCampaignIds.length > 0) {
+          const relatedCampaignsIds = validCampaignIds.map(id => new Types.ObjectId(id));
+          productData.relatedCampaigns = relatedCampaignsIds as any;
+        } else {
+          productData.relatedCampaigns = [] as any;
+        }
+      }
+
+      // Chuyển đổi branchId trong inventory
+      if (productData.inventory && productData.inventory.length > 0) {
+        productData.inventory = productData.inventory.map(inv => {
+          if (inv.branchId && isValidObjectId(inv.branchId)) {
+            return {
+              ...inv,
+              branchId: new Types.ObjectId(inv.branchId) as any
+            };
+          }
+          return {
+            ...inv,
+            branchId: undefined
+          };
+        }).filter(inv => inv.branchId !== undefined);
+      }
+
       // Create new product
-      const createdProduct = new this.productModel(createProductDto);
+      const createdProduct = new this.productModel(productData);
       const savedProduct = await createdProduct.save();
       
       return this.mapProductToResponseDto(savedProduct);

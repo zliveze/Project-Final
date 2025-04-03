@@ -70,26 +70,42 @@ export default function AdminProducts() {
   const categories = getCategories();
   const brands = getBrands();
 
-  // Component did mount - không gọi fetchProducts từ đây nữa
+  // Component did mount - gọi fetchProducts để đảm bảo sản phẩm được tải
   useEffect(() => {
     console.log('Admin Products page mounted');
-    // Không cần gọi fetchProducts vì useProductTable đã tự động gọi khi mount
     
-    // Tạo một hàm kiểm tra tình trạng backend
-    const checkBackendStatus = async () => {
+    // Tạo một hàm kiểm tra tình trạng backend và tải dữ liệu sản phẩm
+    const initializeData = async () => {
       try {
+        // Kiểm tra trạng thái API
         const isOnline = await productContext.checkApiHealth();
+        
         if (!isOnline) {
           toast.error('Không thể kết nối đến server API. Vui lòng kiểm tra lại kết nối hoặc khởi động lại server.', {
             duration: 5000,
           });
+          return;
         }
+        
+        // Đảm bảo dữ liệu được tải khi vào trang
+        fetchProducts();
+        
       } catch (error) {
         console.error('Lỗi kiểm tra kết nối API:', error);
       }
     };
     
-    checkBackendStatus();
+    initializeData();
+    
+    // Thiết lập polling định kỳ để đảm bảo dữ liệu luôn được cập nhật
+    const intervalId = setInterval(() => {
+      fetchProducts();
+    }, 60000); // Cập nhật mỗi 60 giây
+    
+    // Cleanup khi component bị unmount
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []); // Empty dependency array để chỉ chạy một lần khi component mount
 
   // Hàm lấy thông tin sản phẩm theo ID đã được thay thế bằng ProductContext.fetchProductById
