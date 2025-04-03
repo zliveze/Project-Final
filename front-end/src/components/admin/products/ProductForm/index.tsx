@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Tab } from '@headlessui/react';
 import { FiSave, FiX } from 'react-icons/fi';
 
@@ -18,6 +18,8 @@ import useProductImages from './hooks/useProductImages';
 import useProductVariants from './hooks/useProductVariants';
 import useProductInventory from './hooks/useProductInventory';
 import useProductGifts from './hooks/useProductGifts';
+import { useBrands } from '@/contexts/BrandContext';
+import { useCategory } from '@/contexts/CategoryContext';
 
 // Import các tab components
 import BasicInfoTab from './tabs/BasicInfoTab';
@@ -110,29 +112,79 @@ const ProductForm: React.FC<ProductFormProps> = ({
     getValidGiftsCount
   } = useProductGifts(formData, setFormData);
 
-  // Sample data cho các dropdown
-  const [brands, setBrands] = useState<BrandItem[]>([
-    { id: '1', name: 'Yumin' },
-    { id: '2', name: 'The Face Shop' },
-    { id: '3', name: 'Innisfree' },
-    { id: '4', name: 'Laneige' }
-  ]);
+  // Sử dụng BrandContext để lấy danh sách thương hiệu thực
+  const { brands: backendBrands, loading: brandsLoading, fetchBrands } = useBrands();
+  
+  // Sử dụng CategoryContext để lấy danh sách danh mục thực
+  const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
+  
+  // Chuyển đổi định dạng cho phù hợp với component
+  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  
+  // Sử dụng ref để theo dõi xem đã gọi API chưa
+  const hasCalledAPI = useRef(false);
+  
+  // Memoize hàm fetch data để tránh gọi lại nhiều lần
+  const fetchData = useCallback(() => {
+    // Chỉ gọi API khi chưa gọi trước đó và cần thiết
+    if (!hasCalledAPI.current) {
+      fetchBrands(1, 100); // Lấy tối đa 100 thương hiệu
+      fetchCategories(1, 100); // Lấy tối đa 100 danh mục
+      hasCalledAPI.current = true;
+    }
+  }, [fetchBrands, fetchCategories]);
+  
+  // Fetch brands và categories khi component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  
+  // Khi brands từ backend thay đổi, cập nhật state
+  useEffect(() => {
+    if (backendBrands && backendBrands.length > 0) {
+      // Chuyển đổi từ định dạng backend sang định dạng component
+      const formattedBrands = backendBrands.map(brand => ({
+        id: brand.id,
+        name: brand.name
+      }));
+      setBrands(formattedBrands);
+    }
+  }, [backendBrands]);
+  
+  // Khi categories từ backend thay đổi, cập nhật state
+  useEffect(() => {
+    if (backendCategories && backendCategories.length > 0) {
+      // Chuyển đổi từ định dạng backend sang định dạng component
+      const formattedCategories = backendCategories.map(category => ({
+        id: category._id || '',
+        name: category.name
+      }));
+      setCategories(formattedCategories);
+    }
+  }, [backendCategories]);
 
-  const [categories, setCategories] = useState<CategoryItem[]>([
-    { id: '1', name: 'Chăm sóc da' },
-    { id: '2', name: 'Trang điểm' },
-    { id: '3', name: 'Chăm sóc tóc' },
-    { id: '4', name: 'Nước hoa' },
-    { id: '5', name: 'Phụ kiện' }
-  ]);
+  // Kiểm tra một lần nữa khi formData thay đổi và chưa có dữ liệu
+  useEffect(() => {
+    // Nếu đã có dữ liệu sản phẩm và đã chọn brandId hoặc categoryIds
+    if (initialData && 
+        ((formData.brandId && brands.length === 0) || 
+        (formData.categoryIds.length > 0 && categories.length === 0))) {
+      // Gọi lại API nếu chưa có dữ liệu và chưa gọi API
+      if (!hasCalledAPI.current) {
+        fetchData();
+      }
+    }
+  }, [initialData, formData, brands.length, categories.length, fetchData]);
 
-  const [branches, setBranches] = useState<BranchItem[]>([
-    { id: '1', name: 'Chi nhánh Hà Nội' },
-    { id: '2', name: 'Chi nhánh Hồ Chí Minh' },
-    { id: '3', name: 'Chi nhánh Đà Nẵng' },
-    { id: '4', name: 'Chi nhánh Cần Thơ' },
-    { id: '5', name: 'Chi nhánh Hải Phòng' }
-  ]);
+  // Xóa bỏ dữ liệu mẫu cho branches và sử dụng availableBranches từ custom hook
+  // const [branches, setBranches] = useState<BranchItem[]>([
+  //   { id: '1', name: 'Chi nhánh Hà Nội' },
+  //   { id: '2', name: 'Chi nhánh Hồ Chí Minh' },
+  //   { id: '3', name: 'Chi nhánh Đà Nẵng' },
+  //   { id: '4', name: 'Chi nhánh Cần Thơ' },
+  //   { id: '5', name: 'Chi nhánh Hải Phòng' }
+  // ]);
 
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
@@ -296,7 +348,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               getTotalInventory={getTotalInventory}
               getInStockBranchesCount={getInStockBranchesCount}
               getLowStockBranchesCount={getLowStockBranchesCount}
-              branches={branches}
+              branches={availableBranches}
             />
           </Tab.Panel>
 

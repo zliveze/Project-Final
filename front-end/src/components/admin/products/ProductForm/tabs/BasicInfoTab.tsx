@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FiTag } from 'react-icons/fi';
 import { ProductFormData } from '../types';
 
@@ -28,6 +28,33 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
   brands,
   categories
 }) => {
+  // Kiểm tra và xác thực dữ liệu form
+  useEffect(() => {
+    // Bỏ qua kiểm tra nếu không có dữ liệu brands hoặc categories
+    if (!brands || brands.length === 0) return;
+    
+    // Kiểm tra thương hiệu và danh mục hợp lệ một cách im lặng (không log)
+    if (formData.brandId) {
+      const brandExists = brands.some(brand => brand.id === formData.brandId);
+      // Không log cảnh báo, chỉ kiểm tra cho giao diện
+    }
+    
+    if (formData.categoryIds && formData.categoryIds.length > 0) {
+      formData.categoryIds.forEach(catId => {
+        const categoryExists = categories.some(cat => cat.id === catId);
+        // Không log cảnh báo, chỉ kiểm tra cho giao diện
+      });
+    }
+  }, [formData.brandId, brands, formData.categoryIds, categories]);
+
+  // Tìm thương hiệu hiện tại dựa trên brandId
+  const currentBrand = brands.find(brand => brand.id === formData.brandId);
+  
+  // Tìm các danh mục hiện tại không tồn tại trong danh sách danh mục
+  const missingCategories = formData.categoryIds
+    .filter(catId => !categories.some(cat => cat.id === catId))
+    .map(catId => ({ id: catId, name: `ID: ${catId} (Không tìm thấy)` }));
+
   return (
     <div className="space-y-6">
       {/* Thông tin chính */}
@@ -161,7 +188,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           <select
             id="brandId"
             name="brandId"
-            value={formData.brandId}
+            value={formData.brandId || ''}
             onChange={handleInputChange}
             required
             disabled={isViewMode}
@@ -173,7 +200,18 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                 {brand.name}
               </option>
             ))}
+            {/* Thêm thương hiệu hiện tại nếu không tồn tại trong danh sách */}
+            {formData.brandId && !currentBrand && (
+              <option key={formData.brandId} value={formData.brandId}>
+                {formData.brandId} (Không tìm thấy thương hiệu)
+              </option>
+            )}
           </select>
+          {formData.brandId && !currentBrand && (
+            <p className="text-xs text-red-500">
+              Thương hiệu này không còn tồn tại trong hệ thống hoặc đã bị xóa.
+            </p>
+          )}
         </div>
 
         {/* Danh mục */}
@@ -182,28 +220,49 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             Danh mục
           </label>
           {!isViewMode ? (
-            <select
-              id="categoryIds"
-              name="categoryIds"
-              multiple
-              value={formData.categoryIds}
-              onChange={handleMultiSelectChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-              size={4}
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                id="categoryIds"
+                name="categoryIds"
+                multiple
+                value={formData.categoryIds}
+                onChange={handleMultiSelectChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+                size={4}
+              >
+                {/* Danh mục hiện tại trong hệ thống */}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+                
+                {/* Danh mục không tìm thấy trong hệ thống (nếu có) */}
+                {missingCategories.map((category) => (
+                  <option key={category.id} value={category.id} className="text-red-500">
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Hiển thị cảnh báo nếu có danh mục không tồn tại */}
+              {missingCategories.length > 0 && (
+                <p className="text-xs text-red-500 mt-1">
+                  Có {missingCategories.length} danh mục không còn tồn tại trong hệ thống.
+                </p>
+              )}
+            </>
           ) : (
             <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
               {formData.categoryIds.length > 0 ? (
                 <ul className="list-disc pl-5">
                   {formData.categoryIds.map((id) => {
                     const category = categories.find((c) => c.id === id);
-                    return <li key={id}>{category ? category.name : id}</li>;
+                    return (
+                      <li key={id} className={!category ? "text-red-500" : ""}>
+                        {category ? category.name : `ID: ${id} (Không tìm thấy)`}
+                      </li>
+                    );
                   })}
                 </ul>
               ) : (
