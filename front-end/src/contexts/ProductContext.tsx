@@ -217,6 +217,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastRequestParamsRef = useRef<string>(''); // Lưu trữ tham số request cuối cùng
   const isFetchingRef = useRef<boolean>(false); // Trạng thái đang fetch
+  const productsCache = useRef<{[key: string]: {data: any, timestamp: number}}>({});
+  const CACHE_TTL = 5 * 60 * 1000; // 5 phút
 
   // Get auth header
   const getAuthHeader = useCallback(() => {
@@ -230,7 +232,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Kiểm tra sức khỏe API
   const checkApiHealth = useCallback(async () => {
     try {
-      setApiHealthStatus('checking');
+      // Không thay đổi trạng thái loading toàn cục khi kiểm tra sức khỏe API
+      // setApiHealthStatus('checking');
+      const prevStatus = apiHealthStatus;
+      
       // Sử dụng timeout để tránh chờ quá lâu
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 giây timeout
@@ -242,7 +247,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       clearTimeout(timeoutId);
       
       if (response.ok) {
-        console.log('API đang hoạt động bình thường');
+        // Chỉ log khi trạng thái thay đổi từ offline sang online
+        if (prevStatus !== 'online') {
+          console.log('API đang hoạt động bình thường');
+        }
         setApiHealthStatus('online');
         setError(null);
         return true;
@@ -262,12 +270,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       return false;
     }
-  }, [API_URL]);
+  }, [API_URL, apiHealthStatus]);
 
-  // Kiểm tra sức khỏe API khi component được mount
+  // Kiểm tra sức khỏe API khi component được mount, sử dụng useEffect riêng biệt
   useEffect(() => {
-    checkApiHealth();
-  }, [checkApiHealth]);
+    // Chỉ kiểm tra khi khởi động trang/component, tránh gây ra các side effects
+    const checkInitialApiHealth = async () => {
+      await checkApiHealth();
+    };
+    
+    checkInitialApiHealth();
+    // Không thêm checkApiHealth vào dependency để tránh gọi lại khi checkApiHealth thay đổi
+  }, []);
 
   // Error handling
   const handleError = useCallback((error: any) => {
@@ -375,42 +389,79 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const currentQueryString = queryParams.toString();
     const url = `${PRODUCT_API.ADMIN}?${currentQueryString}`;
+    const cacheKey = currentQueryString;
 
-    // Implement debounce to prevent frequent API calls
-    const currentTime = Date.now();
-    const debounceTime = 500; // Giảm thời gian debounce xuống 500ms để tải dữ liệu nhanh hơn
-
-    // Kiểm tra trong quá trình fetch
+    // Kiểm tra xem đang có một request đang thực hiện hay không
     if (isFetchingRef.current) {
       console.log('Bỏ qua fetchProducts - Đang trong quá trình fetch');
       return Promise.resolve();
     }
 
-    // Nếu request giống hệt request trước đó và chưa quá thời gian debounce
+    const currentTime = Date.now();
+    
+    // Kiểm tra cache trước
+    if (cacheKey in productsCache.current) {
+      const cacheEntry = productsCache.current[cacheKey];
+      
+      // Nếu cache còn hiệu lực
+      if (currentTime - cacheEntry.timestamp < CACHE_TTL) {
+        console.log('Sử dụng dữ liệu cache cho request:', url.substring(0, 100) + '...');
+        
+        const cachedData = cacheEntry.data;
+        
+        // Chỉ cập nhật state nếu dữ liệu thực sự thay đổi để tránh re-render không cần thiết
+        const currentProductIds = products.map(p => p._id).join(',');
+        const cachedProductIds = cachedData.items.map((p: Product) => p._id).join(',');
+        
+        // So sánh ID sản phẩm để xác định xem có cần cập nhật UI hay không
+        if (currentProductIds !== cachedProductIds || 
+            totalProducts !== cachedData.total || 
+            currentPage !== cachedData.page || 
+            totalPages !== cachedData.totalPages || 
+            itemsPerPage !== cachedData.limit) {
+            
+          // Cập nhật state từ cache
+          setProducts(cachedData.items || []);
+          setTotalProducts(cachedData.total || 0);
+          setCurrentPage(cachedData.page || 1);
+          setTotalPages(cachedData.totalPages || 1);
+          setItemsPerPage(cachedData.limit || limit);
+          
+          console.log('Đã cập nhật UI từ cache');
+        } else {
+          console.log('Dữ liệu không thay đổi, giữ nguyên UI');
+        }
+        
+        return Promise.resolve();
+      }
+    }
+
+    // Kiểm tra cooldown: nếu request giống hệt request trước đó và chưa quá thời gian cooldown
+    const REQUEST_COOLDOWN = 3000; // 3 giây
     if (currentQueryString === lastRequestParamsRef.current && 
-       currentTime - lastFetchTimestampRef.current < debounceTime) {
-      console.log('Bỏ qua fetchProducts - Request trùng lặp trong thời gian debounce');
+       currentTime - lastFetchTimestampRef.current < REQUEST_COOLDOWN) {
+      console.log('Bỏ qua fetchProducts - Request trùng lặp trong thời gian cooldown');
+      // Không thay đổi state để tránh re-render không cần thiết
+      setLoading(false);
       return Promise.resolve();
     }
 
-    // Clear any existing timeout
+    // Xóa timeout trước đó nếu có
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = null;
     }
 
-    // Đánh dấu đang bắt đầu fetch để hiển thị loading
-    setLoading(true);
-    
-    // Đặt flag đang fetch và lưu thông tin request
+    // Bắt đầu quá trình fetch
     isFetchingRef.current = true;
+    setLoading(true);
     lastRequestParamsRef.current = currentQueryString;
-    lastFetchTimestampRef.current = Date.now();
+    lastFetchTimestampRef.current = currentTime;
     
-    // Return a promise that will be resolved when the API call is made
+    // Return promise để caller có thể await
     return new Promise<void>((resolve, reject) => {
       try {
-        // Kiểm tra sức khỏe API nếu trong trạng thái offline
+        // Kiểm tra sức khỏe API nếu bị offline
         if (apiHealthStatus === 'offline') {
           checkApiHealth().then(isApiHealthy => {
             if (!isApiHealthy) {
@@ -424,15 +475,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         } else {
           executeRequest();
         }
-        
+
         async function executeRequest() {
           try {
-            console.log('Đang lấy danh sách sản phẩm từ URL:', url);
+            // Log URL request (rút gọn nếu quá dài)
+            const shortUrl = url.length > 100 ? url.substring(0, 100) + '...' : url;
+            console.log('Đang lấy danh sách sản phẩm từ URL:', shortUrl);
             
-            // Thiết lập timeout để tránh chờ đợi quá lâu
+            // Thiết lập timeout 10 giây cho request
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 giây timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
+            // Thực hiện request API
             const response = await fetch(url, {
               headers: getAuthHeader(),
               signal: controller.signal
@@ -440,6 +494,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             
             clearTimeout(timeoutId);
 
+            // Xử lý lỗi HTTP
             if (!response.ok) {
               let errorMessage = `Lỗi khi lấy danh sách sản phẩm: ${response.status}`;
               try {
@@ -451,16 +506,31 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
               throw new Error(errorMessage);
             }
 
+            // Parse JSON response
             const data = await response.json();
             
+            // Lưu vào cache cho các request tương tự sau này
+            productsCache.current[cacheKey] = {
+              data,
+              timestamp: Date.now()
+            };
+            
+            // Cập nhật state với dữ liệu mới
             setProducts(data.items || []);
             setTotalProducts(data.total || 0);
             setCurrentPage(data.page || 1);
             setTotalPages(data.totalPages || 1);
             setItemsPerPage(data.limit || limit);
             setError(null);
+            
+            // Log thành công (chỉ trong development)
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`API đang hoạt động bình thường`);
+            }
+            
             resolve();
           } catch (fetchError: any) {
+            // Xử lý các loại lỗi
             if (fetchError.name === 'AbortError') {
               reject(new Error('Kết nối API quá hạn, vui lòng kiểm tra lại server hoặc mạng của bạn'));
             } else if (fetchError.message.includes('Failed to fetch')) {
@@ -469,18 +539,20 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
               reject(fetchError);
             }
           } finally {
+            // Luôn reset trạng thái loading khi hoàn thành
             setLoading(false);
-            // Reset trạng thái fetch
+            // Reset trạng thái fetch sau một khoảng thời gian ngắn
             setTimeout(() => {
               isFetchingRef.current = false;
             }, 300);
           }
         }
       } catch (error: any) {
+        // Xử lý lỗi tổng quát
         console.error('Lỗi trong fetchProducts:', error);
         handleError(error);
         
-        // Đặt giá trị mặc định để tránh crash UI
+        // Reset về giá trị mặc định khi có lỗi
         setProducts([]);
         setTotalProducts(0);
         setCurrentPage(1);
@@ -490,7 +562,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         reject(error);
       }
     });
-  }, [getAuthHeader, handleError, checkApiHealth, apiHealthStatus]);
+  }, [getAuthHeader, handleError, checkApiHealth, apiHealthStatus, products, totalProducts, currentPage, totalPages, itemsPerPage]);
 
   // Fetch featured products for public pages
   const fetchFeaturedProducts = useCallback(async () => {

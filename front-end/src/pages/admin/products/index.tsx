@@ -74,33 +74,47 @@ export default function AdminProducts() {
   useEffect(() => {
     console.log('Admin Products page mounted');
     
-    // Tạo một hàm kiểm tra tình trạng backend và tải dữ liệu sản phẩm
-    const initializeData = async () => {
-      try {
-        // Kiểm tra trạng thái API
-        const isOnline = await productContext.checkApiHealth();
-        
-        if (!isOnline) {
-          toast.error('Không thể kết nối đến server API. Vui lòng kiểm tra lại kết nối hoặc khởi động lại server.', {
-            duration: 5000,
-          });
-          return;
+    // Đánh dấu trang đang được xem để cải thiện trải nghiệm
+    const PRODUCTS_PAGE_VIEWED = 'admin_products_page_viewed';
+    const wasViewedRecently = localStorage.getItem(PRODUCTS_PAGE_VIEWED);
+    const currentTime = Date.now();
+    
+    // Chỉ kiểm tra API và không fetchProducts nếu đã xem trang gần đây (trong 5 phút)
+    if (wasViewedRecently && currentTime - parseInt(wasViewedRecently) < 5 * 60 * 1000) {
+      console.log('Trang sản phẩm đã được xem gần đây, chỉ kiểm tra kết nối API');
+      productContext.checkApiHealth();
+    } else {
+      // Tạo một hàm kiểm tra tình trạng backend
+      const initializeData = async () => {
+        try {
+          // Kiểm tra trạng thái API - chỉ kiểm tra, không tải dữ liệu
+          const isOnline = await productContext.checkApiHealth();
+          
+          if (!isOnline) {
+            toast.error('Không thể kết nối đến server API. Vui lòng kiểm tra lại kết nối hoặc khởi động lại server.', {
+              duration: 5000,
+            });
+            return;
+          }
+          
+          // Để useProductTable xử lý việc tải dữ liệu ban đầu
+          console.log('Kết nối API thành công, đang để useProductTable xử lý tải dữ liệu sản phẩm');
+          
+        } catch (error) {
+          console.error('Lỗi kiểm tra kết nối API:', error);
         }
-        
-        // Đảm bảo dữ liệu được tải khi vào trang
-        fetchProducts();
-        
-      } catch (error) {
-        console.error('Lỗi kiểm tra kết nối API:', error);
-      }
-    };
+      };
+      
+      initializeData();
+    }
     
-    initializeData();
+    // Cập nhật thời gian xem trang
+    localStorage.setItem(PRODUCTS_PAGE_VIEWED, currentTime.toString());
     
-    // Thiết lập polling định kỳ để đảm bảo dữ liệu luôn được cập nhật
+    // Không cần polling liên tục, chỉ cần kiểm tra kết nối API định kỳ
     const intervalId = setInterval(() => {
-      fetchProducts();
-    }, 60000); // Cập nhật mỗi 60 giây
+      productContext.checkApiHealth();
+    }, 300000); // Kiểm tra kết nối API mỗi 5 phút
     
     // Cleanup khi component bị unmount
     return () => {

@@ -346,10 +346,24 @@ export function useProductTable(): UseProductTableResult {
     }
   }, [contextProducts, convertContextProducts]);
 
-  // Sync with API pagination
+  // Sync with API pagination - tối ưu để tránh gọi API không cần thiết
   useEffect(() => {
-    if (apiCurrentPage) setCurrentPage(apiCurrentPage);
-    if (apiItemsPerPage) setItemsPerPage(apiItemsPerPage);
+    // Chỉ cập nhật state nội bộ nếu giá trị thực sự thay đổi và khi component đã mount
+    if (isMountedRef.current) {
+      // Chỉ cập nhật khi giá trị thực sự khác nhau để tránh re-render
+      const shouldUpdatePage = apiCurrentPage && apiCurrentPage !== currentPage;
+      const shouldUpdateLimit = apiItemsPerPage && apiItemsPerPage !== itemsPerPage;
+      
+      if (shouldUpdatePage) {
+        console.log(`Đồng bộ currentPage từ API: ${apiCurrentPage}`);
+        setCurrentPage(apiCurrentPage);
+      }
+      
+      if (shouldUpdateLimit) {
+        console.log(`Đồng bộ itemsPerPage từ API: ${apiItemsPerPage}`);
+        setItemsPerPage(apiItemsPerPage);
+      }
+    }
   }, [apiCurrentPage, apiItemsPerPage]);
 
   // Thống kê sản phẩm theo trạng thái
@@ -368,6 +382,16 @@ export function useProductTable(): UseProductTableResult {
       clearTimeout(fetchTimeout);
     }
     
+    // Cache key cho request hiện tại
+    const requestCacheKey = JSON.stringify({
+      page: currentPage,
+      limit: itemsPerPage,
+      filter: filter
+    });
+    
+    // Lưu request hiện tại để so sánh sau này
+    const currentRequestKey = requestCacheKey;
+    
     // Đặt một timeout mới để đảm bảo debounce
     const newTimeout = setTimeout(() => {
       // Lưu thời gian gọi fetch hiện tại
@@ -377,6 +401,13 @@ export function useProductTable(): UseProductTableResult {
       if (currentTime - lastFetchTime < 1500) {
         console.log('Bỏ qua yêu cầu fetchProducts trong useProductTable do đã gọi gần đây');
         setIsLoading(false); // Đảm bảo tắt loading ngay cả khi bỏ qua request
+        return;
+      }
+      
+      // Nếu đang trong quá trình loading, bỏ qua request mới
+      if (loading) {
+        console.log('Bỏ qua yêu cầu fetchProducts do ProductContext đang trong quá trình fetch');
+        setIsLoading(false);
         return;
       }
       
@@ -448,7 +479,8 @@ export function useProductTable(): UseProductTableResult {
     itemsPerPage, 
     filter, 
     fetchContextProducts, 
-    fetchStatistics
+    fetchStatistics,
+    loading // Thêm loading vào dependencies để theo dõi trạng thái loading của ProductContext
   ]);
 
   // Sử dụng refs để theo dõi thay đổi thực sự
@@ -464,52 +496,157 @@ export function useProductTable(): UseProductTableResult {
       isMountedRef.current = true;
       console.log('Initial fetch in useProductTable - Khởi động');
       
-      // Thực hiện fetch ngay lập tức thay vì đợi timeout
+      // Đánh dấu đã thực hiện fetch ban đầu
       initialFetchDoneRef.current = true;
       setLastFetchTime(Date.now());
-      fetchProducts();
+      
+      // Kiểm tra xem API có đang fetch không trước khi tiếp tục
+      if (loading) {
+        console.log('Bỏ qua initial fetch do đang trong quá trình loading từ ProductContext');
+        return;
+      }
+      
+      // Không gọi fetchProducts() ở đây vì nó sẽ gây ra fetch lặp lại
+      // Thay vào đó, trực tiếp fetch dữ liệu ban đầu
+      setIsLoading(true);
+      
+      // Prepare filters for API
+      const apiFilters: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: filter.searchTerm || undefined,
+        categoryId: filter.categories.length ? filter.categories.join(',') : undefined,
+        brandId: filter.brands.length ? filter.brands.join(',') : undefined,
+        status: filter.status || undefined,
+        isBestSeller: filter.flags.isBestSeller,
+        isNew: filter.flags.isNew,
+        isOnSale: filter.flags.isOnSale,
+        hasGifts: filter.flags.hasGifts
+      };
+      
+      // Filter out undefined values
+      Object.keys(apiFilters).forEach(key => {
+        if (apiFilters[key] === undefined) delete apiFilters[key];
+      });
+      
+      console.log('Initial useProductTable mount - gọi fetchProducts với:', apiFilters);
+      
+      // Thực hiện fetch dữ liệu ban đầu nhưng với một timeout để tránh race condition
+      setTimeout(() => {
+        fetchContextProducts(
+          apiFilters.page,
+          apiFilters.limit,
+          apiFilters.search,
+          apiFilters.brandId,
+          apiFilters.categoryId,
+          apiFilters.status,
+          undefined, // minPrice
+          undefined, // maxPrice
+          undefined, // tags
+          undefined, // skinTypes
+          undefined, // concerns
+          apiFilters.isBestSeller,
+          apiFilters.isNew,
+          apiFilters.isOnSale,
+          apiFilters.hasGifts
+        )
+        .then(() => {
+          // Only fetch statistics if products were successfully fetched
+          return fetchStatistics().catch(error => {
+            console.error("Lỗi khi lấy thống kê:", error);
+          });
+        })
+        .catch(error => {
+          console.error("Lỗi khi lấy sản phẩm:", error);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+      }, 100); // Delay nhỏ để tránh race condition với các initialization khác
+      
+      // Cập nhật các refs để theo dõi thay đổi
+      prevPageRef.current = currentPage;
+      prevItemsPerPageRef.current = itemsPerPage;
+      prevFilterRef.current = JSON.stringify(filter);
     }
   }, []);
 
-  // Xử lý thay đổi trang và itemsPerPage
+  // Xử lý thay đổi trang và itemsPerPage với debounce tốt hơn
   useEffect(() => {
+    // Chỉ xử lý sau khi đã fetch lần đầu và component đã mount
     if (initialFetchDoneRef.current && isMountedRef.current) {
-      if (prevPageRef.current !== currentPage || prevItemsPerPageRef.current !== itemsPerPage) {
-        console.log('Page hoặc limit thay đổi, đang fetch products:', 
+      const isPageChanged = prevPageRef.current !== currentPage;
+      const isLimitChanged = prevItemsPerPageRef.current !== itemsPerPage;
+      
+      if (isPageChanged || isLimitChanged) {
+        // Log chi tiết về sự thay đổi để dễ debug
+        console.log('Page hoặc limit thay đổi, đang chuẩn bị fetch products:', 
                     { prevPage: prevPageRef.current, currentPage, 
                       prevLimit: prevItemsPerPageRef.current, itemsPerPage });
-                      
-        // Giảm timeout để tải dữ liệu nhanh hơn
-        const timer = setTimeout(() => {
-          fetchProducts();
-        }, 100);
         
+        // Cập nhật refs ngay để tránh việc xử lý lặp lại
         prevPageRef.current = currentPage;
         prevItemsPerPageRef.current = itemsPerPage;
         
-        return () => clearTimeout(timer);
+        // Kiểm tra trạng thái loading từ ProductContext
+        if (loading) {
+          console.log('Bỏ qua fetch do ProductContext đang loading');
+          return;
+        }
+        
+        // Sử dụng clearTimeout để đảm bảo chỉ có một fetch được gọi
+        if (fetchTimeout) {
+          clearTimeout(fetchTimeout);
+        }
+        
+        // Thiết lập một khoảng delay ngắn để tránh các lần gọi liên tiếp
+        const newTimeout = setTimeout(() => {
+          // Kiểm tra lại xem có đang trong quá trình loading không
+          if (!loading) {
+            fetchProducts();
+          }
+        }, 300);
+        
+        setFetchTimeout(newTimeout);
       }
     }
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, loading, fetchProducts]);
 
-  // Xử lý thay đổi filter
+  // Xử lý thay đổi filter với debounce tốt hơn
   useEffect(() => {
+    // Chỉ xử lý sau khi đã fetch lần đầu và component đã mount
     if (initialFetchDoneRef.current && isMountedRef.current) {
       const currentFilterString = JSON.stringify(filter);
+      
       if (prevFilterRef.current !== currentFilterString) {
-        console.log('Filter thay đổi, đang fetch products');
+        console.log('Filter thay đổi, đang chuẩn bị fetch products');
         
-        // Giảm timeout để tải dữ liệu nhanh hơn
-        const timer = setTimeout(() => {
-          fetchProducts();
-        }, 100);
-        
+        // Cập nhật ref ngay để tránh việc xử lý lặp lại
         prevFilterRef.current = currentFilterString;
         
-        return () => clearTimeout(timer);
+        // Kiểm tra trạng thái loading từ ProductContext
+        if (loading) {
+          console.log('Bỏ qua fetch filter do ProductContext đang loading');
+          return;
+        }
+        
+        // Sử dụng clearTimeout để đảm bảo chỉ có một fetch được gọi
+        if (fetchTimeout) {
+          clearTimeout(fetchTimeout);
+        }
+        
+        // Thiết lập timeout dài hơn cho filter để người dùng có thời gian điều chỉnh xong
+        const newTimeout = setTimeout(() => {
+          // Kiểm tra lại trạng thái loading trước khi fetch
+          if (!loading) {
+            fetchProducts();
+          }
+        }, 500);
+        
+        setFetchTimeout(newTimeout);
       }
     }
-  }, [filter]);
+  }, [filter, loading, fetchProducts]);
 
   // Hàm chọn/bỏ chọn một sản phẩm
   const toggleProductSelection = useCallback((id: string) => {
