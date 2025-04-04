@@ -1,4 +1,4 @@
-import { useState, useRef, DragEvent, ChangeEvent, useCallback } from 'react';
+import { useState, useRef, DragEvent, ChangeEvent, useCallback, useEffect } from 'react';
 import { ProductFormData, ProductImage } from '../types';
 import { useProduct } from '@/contexts/ProductContext';
 
@@ -11,6 +11,7 @@ export const useProductImages = (
 ) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Access the ProductContext for image uploads
   const { uploadProductImage } = useProduct();
@@ -20,27 +21,39 @@ export const useProductImages = (
    */
   const handleImageUpload = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      setIsUploading(true);
       const newImages: ProductImage[] = [];
-
-      // First, create previews for all images
+      
+      // Tạo object từ file
       for (const file of Array.from(e.target.files)) {
-        const reader = new FileReader();
-        await new Promise<void>((resolve) => {
-          reader.onload = () => {
-            const newImage: ProductImage = {
-              url: '',
-              alt: file.name.split('.')[0],
-              isPrimary: (!formData.images || !Array.isArray(formData.images) || formData.images.length === 0) && newImages.length === 0,
-              file: file,
-              preview: reader.result as string,
-              id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`
-            };
+        // Kiểm tra định dạng file
+        if (!file.type.match(/^image\/(jpeg|png|gif|jpg)$/)) {
+          console.error(`File không được hỗ trợ: ${file.name}. Chỉ hỗ trợ PNG, JPG, GIF.`);
+          continue;
+        }
 
-            newImages.push(newImage);
-            resolve();
-          };
-          reader.readAsDataURL(file);
-        });
+        // Kiểm tra kích thước file (tối đa 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          console.error(`File quá lớn: ${file.name}. Kích thước tối đa 5MB.`);
+          continue;
+        }
+        
+        // Chỉ tạo URL tạm thời để preview mà không lưu base64
+        const tempURL = URL.createObjectURL(file);
+        
+        // Tạo một ID tạm thời cho hình ảnh
+        const tempId = `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        
+        const newImage: ProductImage = {
+          url: '', // Không lưu URL nào cho đến khi upload thành công
+          alt: file.name.split('.')[0],
+          isPrimary: (!formData.images || !Array.isArray(formData.images) || formData.images.length === 0) && newImages.length === 0,
+          file: file, // Lưu file để upload sau
+          preview: tempURL, // Dùng URL tạm thời để hiển thị preview
+          id: tempId
+        };
+
+        newImages.push(newImage);
       }
 
       // Update the form data with the new images
@@ -49,22 +62,26 @@ export const useProductImages = (
         images: [...(prev.images || []), ...newImages]
       }));
 
-      // If we have a product ID, upload the images immediately
+      // Chỉ upload ảnh lên Cloudinary khi đã có ID sản phẩm
       if (formData.id) {
         try {
-          // Upload each image
+          // Upload each image to Cloudinary
           for (const image of newImages) {
             if (image.file) {
               try {
+                console.log(`Đang tải lên hình ảnh cho sản phẩm ${formData.id}...`);
                 const uploadResult = await uploadProductImage(image.file, formData.id, image.isPrimary);
+                console.log(`Tải lên thành công, nhận được URL: ${uploadResult.url}`);
 
-                // Update the image with the uploaded URL
+                // Update the image with the uploaded URL from Cloudinary
                 setFormData(prev => {
                   const updatedImages = prev.images?.map(img =>
                     img.id === image.id ? {
                       ...img,
-                      url: uploadResult.url,
-                      publicId: uploadResult.publicId
+                      url: uploadResult.url, // Cập nhật URL từ Cloudinary
+                      publicId: uploadResult.publicId,
+                      file: undefined, // Xóa file gốc sau khi đã upload xong
+                      preview: uploadResult.url // Cập nhật lại preview với URL thật từ Cloudinary
                     } : img
                   ) || [];
 
@@ -75,16 +92,34 @@ export const useProductImages = (
                 });
               } catch (uploadError) {
                 console.error('Error uploading image:', uploadError);
-                // Keep the image in the list with the preview URL
               }
             }
           }
         } catch (error) {
           console.error('Error uploading images:', error);
         }
+      } else {
+        console.log('Sản phẩm chưa có ID, các hình ảnh sẽ được tải lên sau khi lưu sản phẩm');
       }
+      setIsUploading(false);
     }
   }, [formData.id, formData.images, setFormData, uploadProductImage]);
+
+  /**
+   * Clean up khi component unmount
+   */
+  useEffect(() => {
+    return () => {
+      // Dọn dẹp các URL object đã tạo
+      if (formData.images) {
+        formData.images.forEach(image => {
+          if (image.preview && !image.preview.startsWith('http')) {
+            URL.revokeObjectURL(image.preview);
+          }
+        });
+      }
+    };
+  }, [formData.images]);
 
   /**
    * Xử lý khi kéo file vào khu vực upload
@@ -122,10 +157,16 @@ export const useProductImages = (
    */
   const handleRemoveImage = (imageId: string) => {
     // Xử lý xóa ảnh
-    let updatedImages = [...(formData.images || [])];
+    const updatedImages = [...(formData.images || [])];
     const removeIndex = updatedImages.findIndex(img => img.id === imageId);
 
     if (removeIndex !== -1) {
+      // Nếu có preview URL cần thu hồi
+      const image = updatedImages[removeIndex];
+      if (image.preview && !image.preview.startsWith('http')) {
+        URL.revokeObjectURL(image.preview);
+      }
+
       // Nếu xóa ảnh chính, chọn ảnh đầu tiên còn lại làm ảnh chính
       if (updatedImages[removeIndex].isPrimary && updatedImages.length > 1) {
         const nextIndex = removeIndex === updatedImages.length - 1 ? 0 : removeIndex + 1;
@@ -178,6 +219,7 @@ export const useProductImages = (
   return {
     fileInputRef,
     dragOver,
+    isUploading,
     handleImageUpload,
     handleDragOver,
     handleDragLeave,

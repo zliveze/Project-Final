@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import Cookies from 'js-cookie';
 
 // Định nghĩa interface cho AdminProduct
 export interface AdminProduct {
@@ -79,10 +80,20 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [itemsPerPage, setItemsPerPage] = useState<number>(initialLimit);
+  const [hasTriedFetch, setHasTriedFetch] = useState<boolean>(false);
 
   // Lấy token xác thực từ localStorage
-  const getAuthHeader = useCallback(() => {
-    const token = localStorage.getItem('adminToken');
+  const getAuthHeader = useCallback((): HeadersInit => {
+    // Kiểm tra nếu đã đăng xuất
+    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+      console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API');
+      return {
+        'Content-Type': 'application/json'
+      };
+    }
+    
+    // Lấy token từ localStorage hoặc từ cookie nếu không có trong localStorage
+    const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
     return {
       'Authorization': token ? `Bearer ${token}` : '',
       'Content-Type': 'application/json'
@@ -92,8 +103,15 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
   // Fetch sản phẩm
   const fetchProducts = useCallback(async (newFilters?: Partial<ProductAdminFilter>) => {
     try {
+      // Kiểm tra nếu đã đăng xuất
+      if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+        console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API');
+        return null;
+      }
+      
       setLoading(true);
       setError(null);
+      setHasTriedFetch(true);
 
       // Cập nhật filters nếu có
       const currentFilters = newFilters 
@@ -128,6 +146,13 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401) {
+          // Xóa token và chuyển hướng đến trang đăng nhập admin
+          localStorage.removeItem('adminToken');
+          Cookies.remove('adminToken');
+          window.location.href = '/admin/auth/login?error=session_expired';
+          return null;
+        }
         throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
@@ -329,6 +354,17 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
   // Phương thức kiểm tra API health
   const checkApiHealth = useCallback(async (): Promise<boolean> => {
     try {
+      // Kiểm tra nếu đã đăng xuất hoặc đang ở trang login
+      const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+      const isLoginPage = window.location.pathname.includes('/admin/auth/login');
+      const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      
+      if (isLoggedOut || isLoginPage || !adminToken) {
+        console.log('Người dùng đã đăng xuất hoặc đang ở trang đăng nhập, không kiểm tra kết nối API');
+        return true; // Trả về true để không hiển thị lỗi
+      }
+      
+      setHasTriedFetch(true);
       const response = await fetch(`${API_URL}/health`);
       return response.ok;
     } catch (error) {
@@ -339,8 +375,19 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
 
   // Load sản phẩm khi component mount
   useEffect(() => {
+    // Kiểm tra token trước khi tải dữ liệu
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+    const isLoginPage = window.location.pathname.includes('/admin/auth/login');
+    
+    if (!adminToken || hasTriedFetch || isLoggedOut || isLoginPage) {
+      console.log('Không có token admin hoặc đã thử gọi API hoặc đã đăng xuất, bỏ qua việc tải dữ liệu sản phẩm');
+      return;
+    }
+    
+    console.log('Đã tìm thấy token admin, đang tải dữ liệu sản phẩm');
     fetchProducts();
-  }, [fetchProducts]);
+  }, [fetchProducts, hasTriedFetch]);
 
   return {
     products,

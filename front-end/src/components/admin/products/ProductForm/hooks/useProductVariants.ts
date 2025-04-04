@@ -1,5 +1,5 @@
-import { useState, ChangeEvent } from 'react';
-import { ProductFormData, ProductVariant } from '../types';
+import { useState, useCallback } from 'react';
+import { ProductFormData, ProductVariant, ProductImage } from '../types';
 
 /**
  * Hook quản lý biến thể sản phẩm
@@ -8,216 +8,155 @@ export const useProductVariants = (
   formData: ProductFormData,
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
 ) => {
-  // State quản lý form biến thể
-  const [showVariantForm, setShowVariantForm] = useState(false);
-  
-  // State lưu trữ biến thể đang chỉnh sửa
-  const [currentVariant, setCurrentVariant] = useState<ProductVariant>({
-    name: '',
-    sku: '',
-    options: {
-      color: '',
-      shade: '',
-      size: ''
-    },
-    price: 0,
-    images: []
-  });
-  
-  // State index của biến thể đang được chỉnh sửa
-  const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(null);
+  // State và hàm xử lý cho modal thêm biến thể
+  const [showAddVariantModal, setShowAddVariantModal] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
+  const [isVariantProcessing, setIsVariantProcessing] = useState(false);
 
-  /**
-   * Khởi tạo và hiển thị form thêm biến thể mới
-   */
-  const handleAddVariant = () => {
-    // Khởi tạo variant mới
-    setCurrentVariant({
-      variantId: '',
-      name: `${formData.name} - Biến thể ${(formData.variants && Array.isArray(formData.variants) ? formData.variants.length : 0) + 1}`,
-      sku: `${formData.sku}-${(formData.variants && Array.isArray(formData.variants) ? formData.variants.length : 0) + 1}`,
-      options: {
-        color: '',
-        shade: '',
-        size: ''
-      },
-      price: formData.price,
-      images: []
-    });
-    setShowVariantForm(true);
-  };
+  // Mở modal thêm biến thể
+  const handleOpenAddVariant = useCallback(() => {
+    setEditingVariant(null);
+    setShowAddVariantModal(true);
+  }, []);
 
-  /**
-   * Hiển thị form chỉnh sửa biến thể
-   */
-  const handleEditVariant = (index: number) => {
-    if (!formData.variants || !Array.isArray(formData.variants)) return;
+  // Mở modal chỉnh sửa biến thể
+  const handleOpenEditVariant = useCallback((variant: ProductVariant) => {
+    setEditingVariant({ ...variant });
+    setShowAddVariantModal(true);
+  }, []);
+
+  // Đóng modal
+  const handleCloseVariantModal = useCallback(() => {
+    setShowAddVariantModal(false);
+    setEditingVariant(null);
+  }, []);
+
+  // Thêm hoặc cập nhật biến thể
+  const handleSaveVariant = useCallback((variant: ProductVariant) => {
+    setIsVariantProcessing(true);
     
-    setCurrentVariant({ ...formData.variants[index] });
-    setEditingVariantIndex(index);
-    setShowVariantForm(true);
-  };
-
-  /**
-   * Xóa một biến thể
-   */
-  const handleRemoveVariant = (index: number) => {
-    if (!formData.variants || !Array.isArray(formData.variants)) return;
-    
-    const updatedVariants = [...formData.variants];
-    updatedVariants.splice(index, 1);
-    setFormData(prev => ({
-      ...prev,
-      variants: updatedVariants
-    }));
-  };
-
-  /**
-   * Xử lý thay đổi trong form biến thể
-   */
-  const handleVariantChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === 'options.color') {
-      setCurrentVariant(prev => ({
-        ...prev,
-        options: {
-          ...prev.options,
-          color: value
-        }
-      }));
-    } else if (name === 'options.shade') {
-      setCurrentVariant(prev => ({
-        ...prev,
-        options: {
-          ...prev.options,
-          shade: value
-        }
-      }));
-    } else if (name === 'options.size') {
-      setCurrentVariant(prev => ({
-        ...prev,
-        options: {
-          ...prev.options,
-          size: value
-        }
-      }));
-    } else {
-      // For non-nested properties like sku, price
-      setCurrentVariant(prev => ({
-        ...prev,
-        [name]: name === 'price' ? parseFloat(value) : value
-      }));
+    // Đảm bảo chỉ lưu URL Cloudinary trong images, không lưu base64
+    const sanitizedVariant = { ...variant };
+    if (sanitizedVariant.images && sanitizedVariant.images.length > 0) {
+      sanitizedVariant.images = sanitizedVariant.images.map(image => {
+        // Nếu image có URL hợp lệ (http/https), giữ nguyên
+        // Nếu không, đảm bảo url là rỗng để có thể upload sau
+        return {
+          ...image,
+          url: image.url && image.url.startsWith('http') ? image.url : '',
+        };
+      });
     }
-  };
-
-  /**
-   * Xử lý chọn hình ảnh cho biến thể
-   */
-  const handleVariantImageSelect = (imageId: string) => {
-    if (!formData.images || !Array.isArray(formData.images)) return;
     
-    const image = formData.images.find(img => img.id === imageId);
-    if (image) {
-      let updatedImages = [...currentVariant.images];
-      
-      if (updatedImages.includes(imageId)) {
-        updatedImages = updatedImages.filter(id => id !== imageId);
+    try {
+      if (editingVariant) {
+        // Đang chỉnh sửa biến thể đã tồn tại
+        const updatedVariants = [...(formData.variants || [])].map(v => 
+          v.variantId === editingVariant.variantId ? sanitizedVariant : v
+        );
+        
+        setFormData(prev => ({
+          ...prev,
+          variants: updatedVariants
+        }));
       } else {
-        updatedImages.push(imageId);
+        // Thêm biến thể mới với ID tạm thời
+        const newVariant = {
+          ...sanitizedVariant,
+          variantId: `temp-${Date.now()}`
+        };
+        
+        setFormData(prev => ({
+          ...prev,
+          variants: [...(prev.variants || []), newVariant]
+        }));
       }
       
-      setCurrentVariant(prev => ({
-        ...prev,
-        images: updatedImages
-      }));
+      // Đóng modal sau khi lưu
+      handleCloseVariantModal();
+    } catch (error) {
+      console.error('Error saving variant:', error);
+    } finally {
+      setIsVariantProcessing(false);
     }
-  };
+  }, [formData.variants, editingVariant, handleCloseVariantModal, setFormData]);
 
-  /**
-   * Lưu biến thể (thêm mới hoặc cập nhật)
-   */
-  const handleSaveVariant = () => {
-    if (!formData.variants || !Array.isArray(formData.variants)) {
-      setFormData(prev => ({
-        ...prev,
-        variants: [currentVariant]
-      }));
-      setShowVariantForm(false);
-      setCurrentVariant({
-        name: '',
-        sku: '',
-        options: { color: '', shade: '', size: '' },
-        price: 0,
-        images: []
-      });
-      return;
+  // Xóa biến thể
+  const handleDeleteVariant = useCallback((variantId: string) => {
+    // Nếu đang chỉnh sửa biến thể này, đóng modal
+    if (editingVariant && editingVariant.variantId === variantId) {
+      handleCloseVariantModal();
     }
     
-    let updatedVariants = [...formData.variants];
-    
-    if (editingVariantIndex !== null) {
-      // Editing existing variant
-      updatedVariants[editingVariantIndex] = currentVariant;
-    } else {
-      // Adding new variant
-      updatedVariants.push({
-        ...currentVariant,
-        variantId: `var-${Date.now()}`
-      });
-    }
+    const updatedVariants = (formData.variants || []).filter(
+      variant => variant.variantId !== variantId
+    );
     
     setFormData(prev => ({
       ...prev,
       variants: updatedVariants
     }));
-    
-    // Reset and close form
-    setShowVariantForm(false);
-    setCurrentVariant({
-      name: '',
-      sku: '',
-      options: {
-        color: '',
-        shade: '',
-        size: ''
-      },
-      price: 0,
-      images: []
-    });
-    setEditingVariantIndex(null);
-  };
+  }, [editingVariant, formData.variants, handleCloseVariantModal, setFormData]);
 
-  /**
-   * Hủy form biến thể
-   */
-  const handleCancelVariant = () => {
-    setShowVariantForm(false);
-    setEditingVariantIndex(null);
-    setCurrentVariant({
-      name: '',
-      sku: '',
-      options: {
-        color: '',
-        shade: '',
-        size: ''
-      },
-      price: 0,
-      images: []
+  // Thêm hình ảnh cho biến thể
+  const handleAddVariantImage = useCallback((variantId: string, image: ProductImage) => {
+    const updatedVariants = [...(formData.variants || [])].map(variant => {
+      if (variant.variantId === variantId) {
+        // Đảm bảo ảnh mới không chứa URL base64
+        const newImage = { 
+          ...image,
+          url: image.url && image.url.startsWith('http') ? image.url : '' 
+        };
+        
+        return {
+          ...variant,
+          images: [...(variant.images || []), newImage]
+        };
+      }
+      return variant;
     });
-  };
+    
+    setFormData(prev => ({
+      ...prev,
+      variants: updatedVariants
+    }));
+  }, [formData.variants, setFormData]);
+
+  // Xóa hình ảnh của biến thể
+  const handleRemoveVariantImage = useCallback((variantId: string, imageId: string) => {
+    const updatedVariants = [...(formData.variants || [])].map(variant => {
+      if (variant.variantId === variantId) {
+        // Thu hồi URL Object nếu cần thiết
+        const imageToRemove = variant.images?.find(img => img.id === imageId);
+        if (imageToRemove?.preview && !imageToRemove.preview.startsWith('http')) {
+          URL.revokeObjectURL(imageToRemove.preview);
+        }
+        
+        return {
+          ...variant,
+          images: (variant.images || []).filter(img => img.id !== imageId)
+        };
+      }
+      return variant;
+    });
+    
+    setFormData(prev => ({
+      ...prev,
+      variants: updatedVariants
+    }));
+  }, [formData.variants, setFormData]);
 
   return {
-    showVariantForm,
-    currentVariant,
-    editingVariantIndex,
-    handleAddVariant,
-    handleEditVariant,
-    handleRemoveVariant,
-    handleVariantChange,
-    handleVariantImageSelect,
+    showAddVariantModal,
+    editingVariant,
+    isVariantProcessing,
+    handleOpenAddVariant,
+    handleOpenEditVariant,
+    handleCloseVariantModal,
     handleSaveVariant,
-    handleCancelVariant
+    handleDeleteVariant,
+    handleAddVariantImage,
+    handleRemoveVariantImage
   };
 };
 

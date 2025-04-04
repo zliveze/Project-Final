@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,6 +12,18 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAdminAuth();
+
+  // Xóa flag đánh dấu đã đăng xuất khi load trang đăng nhập
+  useEffect(() => {
+    sessionStorage.removeItem('adminLoggedOut');
+  }, []);
+
+  // Kiểm tra lỗi từ query param
+  useEffect(() => {
+    if (router.query.error === 'session_expired') {
+      setError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    }
+  }, [router.query]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

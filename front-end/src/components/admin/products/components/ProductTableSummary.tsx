@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { FiPackage, FiCheck, FiAlertCircle, FiXCircle } from 'react-icons/fi';
 import { useApiStats } from '@/hooks/useApiStats';
+import Cookies from 'js-cookie';
 
 interface ProductTableSummaryProps {
   totalItems: number;
@@ -24,6 +25,12 @@ const ProductTableSummary: React.FC<ProductTableSummaryProps> = ({
 
   // Fetch statistics when component mounts
   useEffect(() => {
+    // Kiểm tra token trước khi gọi API
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken'); 
+    if (!adminToken || sessionStorage.getItem('adminLoggedOut') === 'true') {
+      return;
+    }
+    
     if (!statistics) {
       fetchStatistics();
     }

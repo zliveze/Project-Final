@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import Cookies from 'js-cookie';
 
 interface ProductStatistics {
   total: number;
@@ -21,10 +22,20 @@ export const useApiStats = () => {
   const [statistics, setStatistics] = useState<ProductStatistics | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasTriedFetch, setHasTriedFetch] = useState<boolean>(false);
 
-  // Lấy token xác thực từ localStorage
-  const getAuthHeader = useCallback(() => {
-    const token = localStorage.getItem('adminToken');
+  // Lấy token xác thực từ localStorage và cookie
+  const getAuthHeader = useCallback((): HeadersInit => {
+    // Kiểm tra nếu đã đăng xuất
+    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+      console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API statistics');
+      return {
+        'Content-Type': 'application/json'
+      };
+    }
+    
+    // Lấy token từ localStorage hoặc từ cookie nếu không có trong localStorage
+    const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
     return {
       'Authorization': token ? `Bearer ${token}` : '',
       'Content-Type': 'application/json'
@@ -45,8 +56,22 @@ export const useApiStats = () => {
   // Fetch thống kê sản phẩm
   const fetchStatistics = useCallback(async (): Promise<ProductStatistics | null> => {
     try {
+      // Kiểm tra nếu đã đăng xuất
+      if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+        console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API statistics');
+        return null;
+      }
+      
+      // Kiểm tra token trước khi gọi API
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      if (!token) {
+        console.log('Không có token admin, bỏ qua việc tải dữ liệu thống kê');
+        return null;
+      }
+      
       setLoading(true);
       setError(null);
+      setHasTriedFetch(true);
 
       // Kiểm tra sức khỏe API trước
       const isApiHealthy = await checkApiHealth();
@@ -61,6 +86,20 @@ export const useApiStats = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401) {
+          // Xóa token và chuyển hướng đến trang đăng nhập admin
+          localStorage.removeItem('adminToken');
+          Cookies.remove('adminToken');
+          sessionStorage.setItem('adminLoggedOut', 'true');
+          console.log('Token đã hết hạn, chuyển hướng đến trang đăng nhập');
+          
+          // Đặt timeout để tránh chuyển hướng lặp lại
+          setTimeout(() => {
+            window.location.href = '/admin/auth/login?error=session_expired';
+          }, 100);
+          
+          return null;
+        }
         throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
@@ -81,8 +120,22 @@ export const useApiStats = () => {
 
   // Load thống kê khi component mount
   useEffect(() => {
+    // Kiểm tra token trước khi tải dữ liệu
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    if (!adminToken || hasTriedFetch) {
+      console.log('Không có token admin hoặc đã thử gọi API, bỏ qua việc tải dữ liệu thống kê');
+      return;
+    }
+    
+    // Nếu đã đăng xuất, không gọi API
+    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+      console.log('Người dùng đã đăng xuất, không gọi API thống kê');
+      return;
+    }
+    
+    console.log('Đã tìm thấy token admin, đang tải dữ liệu thống kê');
     fetchStatistics();
-  }, [fetchStatistics]);
+  }, [fetchStatistics, hasTriedFetch]);
 
   return {
     statistics,

@@ -16,11 +16,30 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
+  private hasTextIndex = false; // Flag để kiểm tra xem có text index hay không
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly cloudinaryService: CloudinaryService
-  ) {}
+  ) {
+    // Kiểm tra xem collection có text index hay không
+    this.checkTextIndex();
+  }
+
+  // Phương thức để kiểm tra text index
+  private async checkTextIndex() {
+    try {
+      const indexes = await this.productModel.collection.indexes();
+      this.hasTextIndex = indexes.some(index => 
+        index.name === 'name_text_description.full_text_description.short_text_tags_text'
+        || index.textIndexVersion !== undefined
+      );
+      this.logger.log(`Text index for products ${this.hasTextIndex ? 'found' : 'not found'}`);
+    } catch (error) {
+      this.logger.error('Error checking text index', error.stack);
+      this.hasTextIndex = false; // Mặc định false nếu có lỗi
+    }
+  }
 
   async create(createProductDto: CreateProductDto): Promise<ProductResponseDto> {
     try {
@@ -42,6 +61,45 @@ export class ProductsService {
 
       // Tạo một bản sao để tránh thay đổi đối tượng gốc
       const productData = { ...createProductDto };
+
+      // Kiểm tra và lọc bỏ các URL base64 trong images
+      if (productData.images && Array.isArray(productData.images)) {
+        this.logger.log(`Kiểm tra ${productData.images.length} hình ảnh để loại bỏ dữ liệu base64 trong quá trình tạo sản phẩm`);
+        
+        // Lọc bỏ các hình ảnh có URL dạng base64
+        const filteredImages = productData.images.filter(img => {
+          if (!img || !img.url) return true; // Giữ lại nếu không có URL
+          
+          const isBase64 = img.url.startsWith('data:image');
+          if (isBase64) {
+            this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh khi tạo sản phẩm`);
+          }
+          return !isBase64;
+        });
+        
+        if (filteredImages.length !== productData.images.length) {
+          this.logger.log(`Đã loại bỏ ${productData.images.length - filteredImages.length} hình ảnh có URL base64`);
+        }
+        
+        productData.images = filteredImages;
+      }
+      
+      // Kiểm tra và lọc bỏ các URL base64 trong variants
+      if (productData.variants && Array.isArray(productData.variants)) {
+        productData.variants = productData.variants.map(variant => {
+          if (variant.images && Array.isArray(variant.images)) {
+            variant.images = variant.images.filter(img => {
+              if (!img || !img.url) return true;
+              const isBase64 = img.url.startsWith('data:image');
+              if (isBase64) {
+                this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh biến thể khi tạo sản phẩm`);
+              }
+              return !isBase64;
+            });
+          }
+          return variant;
+        });
+      }
 
       // Kiểm tra tính hợp lệ của MongoDB ObjectId
       const isValidObjectId = (id: string) => {
@@ -382,6 +440,45 @@ export class ProductsService {
         }
       }
 
+      // Kiểm tra và lọc bỏ các URL base64 trong images
+      if (updateProductDto.images && Array.isArray(updateProductDto.images)) {
+        this.logger.log(`Kiểm tra ${updateProductDto.images.length} hình ảnh để loại bỏ dữ liệu base64`);
+        
+        // Lọc bỏ các hình ảnh có URL dạng base64
+        const filteredImages = updateProductDto.images.filter(img => {
+          if (!img || !img.url) return true; // Giữ lại nếu không có URL
+          
+          const isBase64 = img.url.startsWith('data:image');
+          if (isBase64) {
+            this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh sản phẩm ID: ${id}`);
+          }
+          return !isBase64;
+        });
+        
+        if (filteredImages.length !== updateProductDto.images.length) {
+          this.logger.log(`Đã loại bỏ ${updateProductDto.images.length - filteredImages.length} hình ảnh có URL base64`);
+        }
+        
+        updateProductDto.images = filteredImages;
+      }
+      
+      // Kiểm tra và lọc bỏ các URL base64 trong variants
+      if (updateProductDto.variants && Array.isArray(updateProductDto.variants)) {
+        updateProductDto.variants = updateProductDto.variants.map(variant => {
+          if (variant.images && Array.isArray(variant.images)) {
+            variant.images = variant.images.filter(img => {
+              if (!img || !img.url) return true;
+              const isBase64 = img.url.startsWith('data:image');
+              if (isBase64) {
+                this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh biến thể của sản phẩm ID: ${id}`);
+              }
+              return !isBase64;
+            });
+          }
+          return variant;
+        });
+      }
+
       // Update product
       const updatedProduct = await this.productModel
         .findByIdAndUpdate(id, updateProductDto, { new: true })
@@ -634,122 +731,179 @@ export class ProductsService {
   }
 
   async findAllLight(queryDto: QueryProductDto) {
-    const {
-      page = 1,
-      limit = 10,
-      search,
-      brandId,
-      categoryId,
-      status,
-      minPrice,
-      maxPrice,
-      tags,
-      skinTypes,
-      concerns,
-      isBestSeller,
-      isNew,
-      isOnSale,
-      hasGifts,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = queryDto;
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        search,
+        brandId,
+        categoryId,
+        status,
+        minPrice,
+        maxPrice,
+        tags,
+        skinTypes,
+        concerns,
+        isBestSeller,
+        isNew,
+        isOnSale,
+        hasGifts,
+        sortBy = 'createdAt',
+        sortOrder = 'desc',
+      } = queryDto;
 
-    // Build filter conditions
-    const filter: any = {};
+      // Build filter conditions
+      const filter: any = {};
 
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    if (brandId) filter.brandId = brandId;
-
-    if (categoryId) filter.categoryIds = categoryId;
-
-    if (status) filter.status = status;
-
-    const priceFilter: any = {};
-    if (minPrice !== undefined) priceFilter.$gte = minPrice;
-    if (maxPrice !== undefined) priceFilter.$lte = maxPrice;
-    if (Object.keys(priceFilter).length > 0) filter.price = priceFilter;
-
-    if (tags) {
-      const tagsArray = tags.split(',').map(tag => tag.trim());
-      filter.tags = { $in: tagsArray };
-    }
-
-    if (skinTypes) {
-      const skinTypesArray = skinTypes.split(',').map(type => type.trim());
-      filter['cosmetic_info.skinType'] = { $in: skinTypesArray };
-    }
-
-    if (concerns) {
-      const concernsArray = concerns.split(',').map(concern => concern.trim());
-      filter['cosmetic_info.concerns'] = { $in: concernsArray };
-    }
-
-    if (isBestSeller !== undefined) filter['flags.isBestSeller'] = isBestSeller;
-    if (isNew !== undefined) filter['flags.isNew'] = isNew;
-    if (isOnSale !== undefined) filter['flags.isOnSale'] = isOnSale;
-    if (hasGifts !== undefined) filter['flags.hasGifts'] = hasGifts;
-
-    // Build sorting
-    const sort: any = {};
-    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-
-    // Execute query with optimized projection to include only necessary fields
-    const products = await this.productModel
-      .find(filter)
-      .select('_id name slug sku price currentPrice status images brandId flags reviews')
-      .populate('brandId', 'name')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    // Count total products matching the filters
-    const total = await this.productModel.countDocuments(filter);
-
-    // Calculate total pages
-    const totalPages = Math.ceil(total / limit);
-
-    // Transform products to include only required information
-    const lightProducts = products.map(product => {
-      // Find primary image or use first available
-      let imageUrl = '';
-      if (product.images && product.images.length > 0) {
-        const primaryImage = product.images.find(img => img.isPrimary);
-        imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
+      // Sử dụng text search nếu có index text thay vì regex cho hiệu suất tốt hơn
+      if (search) {
+        if (this.hasTextIndex) {
+          // Sử dụng text search nếu có text index
+          filter.$text = { $search: search };
+        } else {
+          // Fallback vào regex nếu không có text index
+          filter.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { sku: { $regex: search, $options: 'i' } },
+          ];
+        }
       }
 
-      return {
-        _id: product._id.toString(),
-        name: product.name,
-        slug: product.slug,
-        sku: product.sku,
-        price: product.price,
-        currentPrice: product.currentPrice || product.price,
-        status: product.status,
-        imageUrl,
-        brandId: product.brandId ? (product.brandId as any)._id?.toString() : undefined,
-        brandName: product.brandId ? (product.brandId as any).name : undefined,
-        flags: product.flags,
-        reviews: product.reviews,
-      };
-    });
+      // Chuyển đổi brandId sang ObjectId nếu hợp lệ
+      if (brandId) {
+        try {
+          filter.brandId = new Types.ObjectId(brandId);
+        } catch (e) {
+          this.logger.warn(`Invalid brandId format: ${brandId}`);
+        }
+      }
 
-    return {
-      products: lightProducts,
-      total,
-      page: +page,
-      limit: +limit,
-      totalPages,
-    };
+      // Chuyển đổi categoryId sang ObjectId nếu hợp lệ
+      if (categoryId) {
+        try {
+          filter.categoryIds = new Types.ObjectId(categoryId);
+        } catch (e) {
+          this.logger.warn(`Invalid categoryId format: ${categoryId}`);
+        }
+      }
+
+      if (status) filter.status = status;
+
+      // Tối ưu hóa filter price bằng cách chỉ thêm các điều kiện cần thiết
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        filter.price = {};
+        if (minPrice !== undefined) {
+          filter.price.$gte = Number(minPrice);
+        }
+        if (maxPrice !== undefined) {
+          filter.price.$lte = Number(maxPrice);
+        }
+      }
+
+      // Tối ưu hóa filters với index
+      if (tags) {
+        const tagsArray = tags.split(',').map(tag => tag.trim());
+        filter.tags = { $in: tagsArray };
+      }
+
+      if (skinTypes) {
+        const skinTypesArray = skinTypes.split(',').map(type => type.trim());
+        filter['cosmetic_info.skinType'] = { $in: skinTypesArray };
+      }
+
+      if (concerns) {
+        const concernsArray = concerns.split(',').map(concern => concern.trim());
+        filter['cosmetic_info.concerns'] = { $in: concernsArray };
+      }
+
+      // Xử lý các trường boolean một cách chính xác
+      if (isBestSeller !== undefined) {
+        const isBestSellerBool = typeof isBestSeller === 'string' 
+          ? isBestSeller === 'true' 
+          : Boolean(isBestSeller);
+        filter['flags.isBestSeller'] = isBestSellerBool;
+      }
+      
+      if (isNew !== undefined) {
+        const isNewBool = typeof isNew === 'string' 
+          ? isNew === 'true' 
+          : Boolean(isNew);
+        filter['flags.isNew'] = isNewBool;
+      }
+      
+      if (isOnSale !== undefined) {
+        const isOnSaleBool = typeof isOnSale === 'string' 
+          ? isOnSale === 'true' 
+          : Boolean(isOnSale);
+        filter['flags.isOnSale'] = isOnSaleBool;
+      }
+      
+      if (hasGifts !== undefined) {
+        const hasGiftsBool = typeof hasGifts === 'string' 
+          ? hasGifts === 'true' 
+          : Boolean(hasGifts);
+        filter['flags.hasGifts'] = hasGiftsBool;
+      }
+
+      // Build sorting
+      const sort: any = {};
+      sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+      // Calculate pagination
+      const skip = (page - 1) * limit;
+
+      // Thực hiện truy vấn đếm và lấy dữ liệu song song để tối ưu hiệu suất
+      const [total, products] = await Promise.all([
+        this.productModel.countDocuments(filter),
+        this.productModel
+          .find(filter)
+          .select('_id name slug sku price currentPrice status images brandId flags reviews')
+          .populate('brandId', 'name')
+          .sort(sort)
+          .skip(skip)
+          .limit(+limit)
+          .lean()
+      ]);
+
+      // Calculate total pages
+      const totalPages = Math.ceil(total / limit);
+
+      // Transform products to include only required information
+      const lightProducts = products.map(product => {
+        // Find primary image or use first available
+        let imageUrl = '';
+        if (product.images && product.images.length > 0) {
+          const primaryImage = product.images.find(img => img.isPrimary);
+          imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
+        }
+
+        return {
+          _id: product._id.toString(),
+          name: product.name,
+          slug: product.slug,
+          sku: product.sku,
+          price: product.price,
+          currentPrice: product.currentPrice || product.price,
+          status: product.status,
+          imageUrl,
+          brandId: product.brandId ? (product.brandId as any)._id?.toString() : undefined,
+          brandName: product.brandId ? (product.brandId as any).name : undefined,
+          flags: product.flags,
+          reviews: product.reviews,
+        };
+      });
+
+      return {
+        products: lightProducts,
+        total,
+        page: +page,
+        limit: +limit,
+        totalPages,
+      };
+    } catch (error) {
+      this.logger.error(`Error in findAllLight: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async findAllForAdmin(queryDto: QueryProductDto): Promise<AdminListProductResponseDto> {
@@ -777,147 +931,183 @@ export class ProductsService {
       // Tính toán skip
       const skip = (page - 1) * limit;
 
-      // Xây dựng query
-      const query: any = {};
+      // Xây dựng pipeline cho aggregation
+      const pipeline: any[] = [];
+      
+      // Match stage - điều kiện lọc
+      const matchStage: any = {};
 
       // Thêm filter tìm kiếm
       if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { sku: { $regex: search, $options: 'i' } },
-        ];
+        if (this.hasTextIndex) {
+          // Sử dụng text search nếu có text index
+          matchStage.$text = { $search: search };
+        } else {
+          // Fallback vào regex nếu không có text index
+          matchStage.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { sku: { $regex: search, $options: 'i' } },
+          ];
+        }
       }
 
       // Thêm filter thương hiệu
       if (brandId) {
-        query.brandId = brandId;
+        try {
+          matchStage.brandId = new Types.ObjectId(brandId);
+        } catch (e) {
+          this.logger.warn(`Invalid brandId format: ${brandId}`);
+        }
       }
 
       // Thêm filter danh mục
       if (categoryId) {
-        query.categoryIds = categoryId;
+        try {
+          matchStage.categoryIds = new Types.ObjectId(categoryId);
+        } catch (e) {
+          this.logger.warn(`Invalid categoryId format: ${categoryId}`);
+        }
       }
 
       // Thêm filter trạng thái
       if (status) {
-        query.status = status;
+        matchStage.status = status;
       }
 
       // Thêm filter giá
       if (minPrice !== undefined || maxPrice !== undefined) {
-        query.price = {};
+        matchStage.price = {};
         if (minPrice !== undefined) {
-          query.price.$gte = minPrice;
+          matchStage.price.$gte = Number(minPrice);
         }
         if (maxPrice !== undefined) {
-          query.price.$lte = maxPrice;
+          matchStage.price.$lte = Number(maxPrice);
         }
       }
 
       // Thêm filter tags
       if (tags) {
-        query.tags = { $in: tags.split(',') };
+        matchStage.tags = { $in: tags.split(',').map(tag => tag.trim()) };
       }
 
       // Thêm filter loại da
       if (skinTypes) {
-        query['cosmetic_info.skinType'] = { $in: skinTypes.split(',') };
+        matchStage['cosmetic_info.skinType'] = { $in: skinTypes.split(',').map(type => type.trim()) };
       }
 
       // Thêm filter vấn đề da
       if (concerns) {
-        query['cosmetic_info.concerns'] = { $in: concerns.split(',') };
+        matchStage['cosmetic_info.concerns'] = { $in: concerns.split(',').map(concern => concern.trim()) };
       }
 
       // Thêm filter flags
       if (isBestSeller !== undefined) {
-        query['flags.isBestSeller'] = typeof isBestSeller === 'string' 
+        const isBestSellerBool = typeof isBestSeller === 'string' 
           ? isBestSeller === 'true' 
           : Boolean(isBestSeller);
+        matchStage['flags.isBestSeller'] = isBestSellerBool;
       }
+      
       if (isNew !== undefined) {
-        query['flags.isNew'] = typeof isNew === 'string' 
+        const isNewBool = typeof isNew === 'string' 
           ? isNew === 'true' 
           : Boolean(isNew);
+        matchStage['flags.isNew'] = isNewBool;
       }
+      
       if (isOnSale !== undefined) {
-        query['flags.isOnSale'] = typeof isOnSale === 'string' 
+        const isOnSaleBool = typeof isOnSale === 'string' 
           ? isOnSale === 'true' 
           : Boolean(isOnSale);
+        matchStage['flags.isOnSale'] = isOnSaleBool;
       }
+      
       if (hasGifts !== undefined) {
-        query['flags.hasGifts'] = typeof hasGifts === 'string' 
+        const hasGiftsBool = typeof hasGifts === 'string' 
           ? hasGifts === 'true' 
           : Boolean(hasGifts);
+        matchStage['flags.hasGifts'] = hasGiftsBool;
       }
 
-      // Đánh chỉ mục hint để sử dụng chỉ mục phù hợp
-      const sortOptions: any = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+      // Thêm match stage vào pipeline nếu có ít nhất một điều kiện
+      if (Object.keys(matchStage).length > 0) {
+        pipeline.push({ $match: matchStage });
+      }
 
-      // Tính toán tổng số sản phẩm
-      const total = await this.productModel.countDocuments(query);
-      const totalPages = Math.ceil(total / limit);
-
-      // Truy vấn sản phẩm với aggregation pipeline
-      const products = await this.productModel.aggregate([
-        { $match: query },
-        {
-          $lookup: {
-            from: 'brands',
-            localField: 'brandId',
-            foreignField: '_id',
-            as: 'brandInfo'
-          }
-        },
-        {
-          $lookup: {
-            from: 'categories',
-            localField: 'categoryIds',
-            foreignField: '_id',
-            as: 'categoryInfo'
-          }
-        },
-        {
-          $addFields: {
-            totalStock: {
-              $sum: '$inventory.quantity'
+      // Facet stage để thực hiện đồng thời đếm tổng và phân trang
+      pipeline.push({
+        $facet: {
+          totalCount: [{ $count: 'count' }],
+          paginatedResults: [
+            { $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } },
+            { $skip: skip },
+            { $limit: +limit },
+            // Lookup với brands
+            {
+              $lookup: {
+                from: 'brands',
+                localField: 'brandId',
+                foreignField: '_id',
+                as: 'brandInfo'
+              }
             },
-            primaryImage: {
-              $ifNull: [
-                { $arrayElemAt: [{ $filter: { input: '$images', as: 'img', cond: { $eq: ['$$img.isPrimary', true] } } }, 0] },
-                { $arrayElemAt: ['$images', 0] },
-                { url: '' }
-              ]
+            // Lookup với categories
+            {
+              $lookup: {
+                from: 'categories',
+                localField: 'categoryIds',
+                foreignField: '_id',
+                as: 'categoryInfo'
+              }
             },
-          }
-        },
-        {
-          $project: {
-            _id: 1,
-            name: 1,
-            slug: 1,
-            sku: 1,
-            price: 1,
-            currentPrice: 1,
-            status: 1,
-            brandId: 1,
-            categoryIds: 1,
-            brandName: { $ifNull: [{ $arrayElemAt: ['$brandInfo.name', 0] }, ''] },
-            categoryNames: '$categoryInfo.name',
-            image: '$primaryImage.url',
-            stock: '$totalStock',
-            flags: 1,
-            createdAt: 1,
-            updatedAt: 1,
-          }
-        },
-        { $sort: sortOptions },
-        { $skip: skip },
-        { $limit: +limit },
-      ]);
+            // Tính toán các trường bổ sung
+            {
+              $addFields: {
+                totalStock: { $sum: '$inventory.quantity' },
+                brandName: { $ifNull: [{ $arrayElemAt: ['$brandInfo.name', 0] }, ''] },
+                categoryNames: '$categoryInfo.name',
+                mainImage: {
+                  $cond: {
+                    if: { $gt: [{ $size: '$images' }, 0] },
+                    then: {
+                      $let: {
+                        vars: {
+                          primaryImage: { 
+                            $filter: { 
+                              input: '$images', 
+                              as: 'img', 
+                              cond: { $eq: ['$$img.isPrimary', true] } 
+                            } 
+                          }
+                        },
+                        in: {
+                          $cond: {
+                            if: { $gt: [{ $size: '$$primaryImage' }, 0] },
+                            then: { $arrayElemAt: ['$$primaryImage.url', 0] },
+                            else: { $arrayElemAt: ['$images.url', 0] }
+                          }
+                        }
+                      }
+                    },
+                    else: ''
+                  }
+                }
+              }
+            }
+          ]
+        }
+      });
 
-      // Format result theo đúng cấu trúc cho giao diện admin
-      const formattedProducts: AdminListProductItemDto[] = products.map(product => {
+      // Thực hiện truy vấn aggregation
+      const result = await this.productModel.aggregate(pipeline);
+      
+      // Xử lý kết quả từ aggregation
+      const totalItems = result[0].totalCount.length > 0 ? result[0].totalCount[0].count : 0;
+      const totalPages = Math.ceil(totalItems / limit);
+      const products = result[0].paginatedResults;
+      
+      // Chuyển đổi kết quả sang định dạng phù hợp cho frontend
+      const formattedProducts = products.map(product => {
         // Định dạng giá thành chuỗi
         const priceString = new Intl.NumberFormat('vi-VN').format(product.price) + 'đ';
         
@@ -925,8 +1115,7 @@ export class ProductsService {
         const category = product.categoryNames && product.categoryNames.length > 0 
           ? product.categoryNames[0] 
           : '';
-
-        // Chuyển _id thành id để phù hợp với giao diện
+        
         return {
           id: product._id.toString(),
           name: product.name,
@@ -939,8 +1128,8 @@ export class ProductsService {
           categoryIds: product.categoryIds?.map(id => id.toString()) || [],
           brand: product.brandName || '',
           brandId: product.brandId?.toString() || '',
-          image: product.image || '',
-          stock: product.stock || 0,
+          image: product.mainImage || '',
+          stock: product.totalStock || 0,
           status: product.status,
           flags: product.flags || {
             isBestSeller: false,
@@ -952,10 +1141,10 @@ export class ProductsService {
           updatedAt: product.updatedAt ? new Date(product.updatedAt).toISOString() : '',
         };
       });
-
+      
       return {
         items: formattedProducts,
-        total,
+        total: totalItems,
         page: +page,
         limit: +limit,
         totalPages,
@@ -985,5 +1174,77 @@ export class ProductsService {
       relatedEvents: product.relatedEvents ? product.relatedEvents.map(id => id.toString()) : [],
       relatedCampaigns: product.relatedCampaigns ? product.relatedCampaigns.map(id => id.toString()) : [],
     };
+  }
+
+  // Phương thức dọn dẹp dữ liệu base64 trong database
+  async cleanupBase64Images(): Promise<{ success: boolean; message: string; count: number }> {
+    try {
+      this.logger.log('Bắt đầu quá trình dọn dẹp dữ liệu base64 trong database');
+      
+      // Tìm tất cả sản phẩm có hình ảnh dạng base64
+      const products = await this.productModel.find({
+        $or: [
+          { 'images.url': { $regex: '^data:image' } },
+          { 'variants.images.url': { $regex: '^data:image' } }
+        ]
+      }).exec();
+      
+      if (!products || products.length === 0) {
+        this.logger.log('Không tìm thấy sản phẩm nào có hình ảnh dạng base64');
+        return {
+          success: true,
+          message: 'Không tìm thấy sản phẩm nào có hình ảnh dạng base64',
+          count: 0
+        };
+      }
+      
+      this.logger.log(`Tìm thấy ${products.length} sản phẩm có hình ảnh dạng base64. Tiến hành dọn dẹp...`);
+      let processedCount = 0;
+      
+      for (const product of products) {
+        let needsUpdate = false;
+        
+        // Dọn dẹp hình ảnh sản phẩm
+        if (product.images && product.images.length > 0) {
+          const originalImageCount = product.images.length;
+          product.images = product.images.filter(img => !img.url || !img.url.startsWith('data:image'));
+          
+          if (originalImageCount !== product.images.length) {
+            this.logger.log(`Đã loại bỏ ${originalImageCount - product.images.length} hình ảnh base64 từ sản phẩm ID: ${product._id}`);
+            needsUpdate = true;
+          }
+        }
+        
+        // Dọn dẹp hình ảnh biến thể
+        if (product.variants && product.variants.length > 0) {
+          for (let i = 0; i < product.variants.length; i++) {
+            if (product.variants[i].images && product.variants[i].images.length > 0) {
+              const originalVariantImageCount = product.variants[i].images.length;
+              product.variants[i].images = product.variants[i].images.filter(img => !img.url || !img.url.startsWith('data:image'));
+              
+              if (originalVariantImageCount !== product.variants[i].images.length) {
+                this.logger.log(`Đã loại bỏ ${originalVariantImageCount - product.variants[i].images.length} hình ảnh base64 từ biến thể của sản phẩm ID: ${product._id}`);
+                needsUpdate = true;
+              }
+            }
+          }
+        }
+        
+        // Lưu lại sản phẩm nếu có thay đổi
+        if (needsUpdate) {
+          await product.save();
+          processedCount++;
+        }
+      }
+      
+      return {
+        success: true,
+        message: `Đã dọn dẹp thành công dữ liệu base64 trong ${processedCount} sản phẩm`,
+        count: processedCount
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`, error.stack);
+      throw new Error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`);
+    }
   }
 }

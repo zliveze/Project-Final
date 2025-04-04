@@ -9,6 +9,15 @@ import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAdminLoginPage, setIsAdminLoginPage] = React.useState(false);
+  
+  // Kiểm tra xem người dùng có đang ở trang đăng nhập admin không
+  React.useEffect(() => {
+    const currentPath = window.location.pathname;
+    setIsAdminLoginPage(currentPath === '/admin/auth/login');
+  }, []);
+  
+  // ProductProvider có điều kiện, các provider khác giữ nguyên
   return (
     <AuthProvider>
       <AdminAuthProvider>
@@ -17,9 +26,15 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
             <BrandProvider>
               <CategoryProvider>
                 <BranchProvider>
-                  <ProductProvider>
-                    {children}
-                  </ProductProvider>
+                  {isAdminLoginPage ? (
+                    // Nếu ở trang đăng nhập admin, không sử dụng ProductProvider
+                    children
+                  ) : (
+                    // Ngược lại, sử dụng ProductProvider
+                    <ProductProvider>
+                      {children}
+                    </ProductProvider>
+                  )}
                 </BranchProvider>
               </CategoryProvider>
             </BrandProvider>

@@ -76,4 +76,16 @@ export class Review {
   metadata: Record<string, any>;
 }
 
-export const ReviewSchema = SchemaFactory.createForClass(Review); 
+export const ReviewSchema = SchemaFactory.createForClass(Review);
+
+// Thêm các indexes để tối ưu hóa truy vấn
+ReviewSchema.index({ userId: 1 }); // Index cho truy vấn tìm reviews theo người dùng
+ReviewSchema.index({ productId: 1 }); // Index cho truy vấn tìm reviews theo sản phẩm
+ReviewSchema.index({ status: 1 }); // Index cho truy vấn lọc theo trạng thái
+ReviewSchema.index({ rating: 1 }); // Index cho truy vấn lọc theo rating
+ReviewSchema.index({ createdAt: -1 }); // Index cho sắp xếp theo thời gian tạo
+ReviewSchema.index({ isDeleted: 1 }); // Index cho lọc những review đã xóa
+ReviewSchema.index({ productId: 1, status: 1 }); // Compound index cho truy vấn phổ biến
+ReviewSchema.index({ productId: 1, status: 1, isDeleted: 1 }); // Compound index toàn diện
+ReviewSchema.index({ userId: 1, isDeleted: 1 }); // Compound index cho truy vấn người dùng
+ReviewSchema.index({ productId: 1, rating: 1, status: 1 }); // Compound index cho phân tích rating 

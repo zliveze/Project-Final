@@ -14,7 +14,11 @@ export class ReviewsService {
     return this.reviewModel.find({ 
       userId: new Types.ObjectId(userId),
       isDeleted: false 
-    }).sort({ createdAt: -1 }).exec();
+    })
+    .select('productId productName productImage rating content images likes status createdAt')
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
   }
 
   // Tìm tất cả đánh giá của một sản phẩm cụ thể
@@ -29,7 +33,9 @@ export class ReviewsService {
     }
     
     return this.reviewModel.find(query)
+      .select('userId productName rating content images likes status createdAt verified')
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
   }
 
@@ -62,7 +68,9 @@ export class ReviewsService {
       .find(query)
       .skip((page - 1) * limit)
       .limit(limit)
+      .select('userId productId productName productImage rating content images likes status createdAt verified')
       .sort({ createdAt: -1 })
+      .lean()
       .exec();
     
     return { reviews, totalItems, totalPages };
@@ -153,13 +161,38 @@ export class ReviewsService {
       query.rating = rating;
     }
     
+    // Sử dụng aggregation để giảm số lượng truy vấn từ 4 xuống 1
+    const result = await this.reviewModel.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]).exec();
+    
+    // Khởi tạo kết quả mặc định
     const counts = {
-      total: await this.reviewModel.countDocuments({ ...query }),
-      pending: await this.reviewModel.countDocuments({ ...query, status: 'pending' }),
-      approved: await this.reviewModel.countDocuments({ ...query, status: 'approved' }),
-      rejected: await this.reviewModel.countDocuments({ ...query, status: 'rejected' })
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0
     };
     
+    // Xử lý kết quả từ aggregation
+    let total = 0;
+    result.forEach(item => {
+      const status = item._id;
+      const count = item.count;
+      total += count;
+      
+      if (status === 'pending' || status === 'approved' || status === 'rejected') {
+        counts[status] = count;
+      }
+    });
+    
+    counts.total = total;
     return counts;
   }
 
@@ -176,7 +209,8 @@ export class ReviewsService {
       { 
         $group: { 
           _id: null, 
-          averageRating: { $avg: '$rating' } 
+          averageRating: { $avg: '$rating' },
+          count: { $sum: 1 }
         } 
       }
     ]).exec();
@@ -201,14 +235,20 @@ export class ReviewsService {
         } 
       },
       {
-        $sort: { _id: -1 }
+        $sort: { _id: 1 }
       }
     ]).exec();
     
-    const distribution: Record<string, number> = {
-      '1': 0, '2': 0, '3': 0, '4': 0, '5': 0
+    // Khởi tạo đối tượng phân phối
+    const distribution = {
+      '1': 0,
+      '2': 0,
+      '3': 0,
+      '4': 0,
+      '5': 0
     };
     
+    // Điền vào kết quả từ aggregation
     result.forEach(item => {
       distribution[item._id.toString()] = item.count;
     });

@@ -235,15 +235,27 @@ export class ProductsAdminController {
         folder: 'products',
       });
 
+      // Kiểm tra xem kết quả từ Cloudinary có chứa URL và publicId hợp lệ không
+      if (!result || !result.url || !result.publicId) {
+        this.logger.error('Invalid response from Cloudinary upload');
+        throw new Error('Không nhận được URL hợp lệ từ Cloudinary');
+      }
+
+      // Kiểm tra URL có phải dạng base64 không
+      if (result.url.startsWith('data:image')) {
+        this.logger.error('Received base64 URL from Cloudinary instead of a proper URL');
+        throw new Error('Nhận được URL không hợp lệ từ Cloudinary');
+      }
+
       // Create image object
       const imageObj = {
         url: result.url,
-        alt: image.originalname,
+        alt: image.originalname || 'Product image',
         publicId: result.publicId,
         isPrimary: isPrimary === true || isPrimary === 'true',
       };
 
-      this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`);
+      this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`); // Log 1: Confirms imageObj creation
 
       // Get the product
       this.logger.log(`Getting product with ID: ${id}`);
@@ -255,14 +267,33 @@ export class ProductsAdminController {
         images.forEach(img => (img.isPrimary = false));
       }
 
+      // Lọc bỏ các ảnh có URL base64 còn sót lại trong mảng images
+      const filteredImages = images.filter(img => !img.url || !img.url.startsWith('data:image'));
+      
       // Add the new image
-      images.push(imageObj);
+      filteredImages.push(imageObj);
 
       // Update the product
-      this.logger.log(`Updating product with new image, total images: ${images.length}`);
-      return this.productsService.update(id, { images });
+      this.logger.log(`Updating product with new image, total images: ${filteredImages.length}`);
+      this.logger.debug(`[Controller uploadImage] Images array prepared for service update: ${JSON.stringify(filteredImages, null, 2)}`); // Log 2: Check array before service call
+      return this.productsService.update(id, { images: filteredImages });
     } catch (error) {
       this.logger.error(`Error uploading product image: ${error.message}`, error.stack);
+      // Rethrow the error so the frontend knows the upload failed
+      throw error;
+    }
+  }
+
+  @Post('cleanup-base64')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Dọn dẹp dữ liệu base64 trong database của sản phẩm' })
+  @ApiResponse({ status: 200, description: 'Dọn dẹp dữ liệu base64 thành công' })
+  async cleanupBase64Images() {
+    try {
+      this.logger.log('Nhận yêu cầu dọn dẹp dữ liệu base64 từ admin');
+      return this.productsService.cleanupBase64Images();
+    } catch (error) {
+      this.logger.error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`, error.stack);
       throw error;
     }
   }

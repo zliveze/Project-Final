@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Toaster, toast } from 'react-hot-toast';
 import { FiAlertCircle, FiUpload, FiDownload, FiX, FiCheck, FiEdit, FiEye, FiPlus } from 'react-icons/fi';
+import Cookies from 'js-cookie';
 // import { useProduct } from '@/contexts/ProductContext';
 
 // Import các components mới
@@ -19,10 +20,10 @@ import { ProductFilterState } from '@/components/admin/products/components/Produ
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
 import { useProductAdmin } from '@/hooks/useProductAdmin';
 import { useApiStats } from '@/hooks/useApiStats';
+import { useProduct } from '@/contexts/ProductContext'; // Already imported, good.
 
 export default function AdminProducts() {
-  // Get the product context
-  // const productContext = useProduct();
+
   
   // Sử dụng hook mới tối ưu hóa hiệu năng
   const {
@@ -103,9 +104,19 @@ export default function AdminProducts() {
   const categories = getCategories();
   const brands = getBrands();
 
+  // Get productContext from useProduct hook
+  const { cleanupBase64Images, uploadProductImage } = useProduct(); // Add uploadProductImage
+
   // Component did mount - kiểm tra kết nối API
   useEffect(() => {
     console.log('Admin Products page mounted');
+    
+    // Kiểm tra xem người dùng đã đăng nhập chưa trước khi thực hiện bất kỳ yêu cầu API nào
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    if (!adminToken) {
+      console.log('Người dùng chưa đăng nhập, không gọi API');
+      return; // Thoát sớm nếu không có token
+    }
     
     // Đánh dấu trang đang được xem để cải thiện trải nghiệm
     const PRODUCTS_PAGE_VIEWED = 'admin_products_page_viewed';
@@ -143,14 +154,26 @@ export default function AdminProducts() {
     // Cập nhật thời gian xem trang
     localStorage.setItem(PRODUCTS_PAGE_VIEWED, currentTime.toString());
     
-    // Không cần polling liên tục, chỉ cần kiểm tra kết nối API định kỳ
-    const intervalId = setInterval(() => {
-      checkApiHealth();
-    }, 300000); // Kiểm tra kết nối API mỗi 5 phút
+    // Kiểm tra token trước khi thiết lập interval
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (adminToken) {
+      // Không cần polling liên tục, chỉ cần kiểm tra kết nối API định kỳ
+      intervalId = setInterval(() => {
+        // Kiểm tra lại token trước mỗi lần gọi API
+        const currentToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+        if (currentToken) {
+          checkApiHealth();
+        } else {
+          // Nếu token không còn, xóa interval
+          if (intervalId) clearInterval(intervalId);
+        }
+      }, 300000); // Kiểm tra kết nối API mỗi 5 phút
+    }
     
     // Cleanup khi component bị unmount
     return () => {
-      clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId);
     };
   }, []); // Empty dependency array để chỉ chạy một lần khi component mount
 
@@ -481,52 +504,87 @@ export default function AdminProducts() {
   };
 
   const handleUpdateProduct = async (updatedProduct: any) => {
-    console.log('Cập nhật sản phẩm:', updatedProduct);
+    console.log('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
 
-    try {
-      // Process the product data before sending it to the API
-      const productToUpdate = { ...updatedProduct };
+    // Keep the original images array to check for files later
+    const originalImages = updatedProduct.images || [];
 
-      // Remove file objects from images to avoid circular references
-      if (productToUpdate.images && Array.isArray(productToUpdate.images)) {
-        productToUpdate.images = productToUpdate.images.map((img: any) => ({
-          url: img.url || img.preview || '',
-          alt: img.alt || '',
-          isPrimary: img.isPrimary || false,
-          publicId: img.publicId || ''
-        }));
+    try {
+      // Process the product data for the main PATCH request
+      // Filter out images that have a 'file' property (new uploads)
+      // Only send images that already have a valid URL
+      const productDataForPatch = { ...updatedProduct };
+      if (productDataForPatch.images && Array.isArray(productDataForPatch.images)) {
+        productDataForPatch.images = productDataForPatch.images
+          .filter((img: any) => img.url && !img.file && !img.url.startsWith('blob:')) // Keep only existing images with valid URLs
+          .map((img: any) => ({ // Clean up unnecessary client-side props
+            url: img.url,
+            alt: img.alt,
+            isPrimary: img.isPrimary,
+            publicId: img.publicId,
+          }));
       }
+      console.log('Dữ liệu gửi đi cho PATCH request:', productDataForPatch);
+
 
       // Xác định ID sản phẩm, ưu tiên id trước, sau đó mới dùng _id
-      const productId = productToUpdate.id || productToUpdate._id;
+      const productId = productDataForPatch.id || productDataForPatch._id;
       
       if (!productId) {
         throw new Error('Không tìm thấy ID sản phẩm');
       }
       
       // Xóa id và _id khỏi dữ liệu gửi đi để tránh lỗi
-      delete productToUpdate.id;
-      delete productToUpdate._id;
+      delete productDataForPatch.id;
+      delete productDataForPatch._id;
 
-      // Sử dụng API trực tiếp thay vì productContext
+      // 1. Send the main PATCH request with filtered data
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${productId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(productToUpdate)
+        body: JSON.stringify(productDataForPatch)
       });
 
       if (!response.ok) {
-        throw new Error(`Lỗi khi cập nhật sản phẩm: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Lỗi khi cập nhật sản phẩm: ${response.status} - ${errorText}`);
       }
 
-      const updatedProductResult = await response.json();
+      const updatedProductResult = await response.json(); // Get the result of the main update
 
-      // Thông báo thành công
+      // 2. Upload any new images that have a 'file' property
+      const imagesToUpload = originalImages.filter((img: any) => img.file);
+      if (imagesToUpload.length > 0) {
+        console.log(`Tìm thấy ${imagesToUpload.length} hình ảnh mới cần tải lên.`);
+        toast.loading(`Đang tải lên ${imagesToUpload.length} hình ảnh mới...`, { id: 'image-upload-toast' });
+
+        let uploadSuccessCount = 0;
+        for (const image of imagesToUpload) {
+          try {
+            console.log(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${productId}`);
+            await uploadProductImage(image.file, productId, image.isPrimary);
+            uploadSuccessCount++;
+            console.log(`Tải lên thành công: ${image.file.name}`);
+          } catch (uploadError: any) {
+            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
+            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${uploadError.message}`, { duration: 5000 });
+            // Optionally continue uploading other images or stop
+          }
+        }
+         toast.dismiss('image-upload-toast');
+         if (uploadSuccessCount === imagesToUpload.length) {
+           toast.success(`Đã tải lên ${uploadSuccessCount} hình ảnh mới thành công!`);
+         } else {
+           toast.error(`Chỉ tải lên được ${uploadSuccessCount}/${imagesToUpload.length} hình ảnh mới.`); // Changed warning to error
+         }
+       }
+
+      // Thông báo thành công chung
       toast.dismiss(loadingToast);
       toast.success('Cập nhật sản phẩm thành công!', {
         duration: 3000,
@@ -536,13 +594,14 @@ export default function AdminProducts() {
       // Đóng modal
       setShowEditProductModal(false);
 
-      // Refresh the product list
+      // Refresh the product list to show updated data including new images
       fetchProducts();
 
-      return updatedProductResult;
+      return updatedProductResult; // Return the result from the main PATCH
     } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
+      toast.dismiss('image-upload-toast'); // Ensure upload toast is dismissed on error
       toast.error(`Có lỗi xảy ra khi cập nhật sản phẩm: ${error.message}`, {
         duration: 3000
       });
@@ -714,6 +773,23 @@ export default function AdminProducts() {
   // Xử lý chọn tất cả sản phẩm trên trang hiện tại
   const handleToggleSelectAll = () => {
     toggleSelectAll();
+  };
+
+  // Thêm state và handler cho cleanupBase64
+  const [isCleaningBase64, setIsCleaningBase64] = useState(false);
+  
+  // Handler để dọn dẹp dữ liệu base64
+  const handleCleanupBase64 = async () => {
+    try {
+      setIsCleaningBase64(true);
+      const result = await cleanupBase64Images();
+      toast.success(`${result.message} (${result.count} sản phẩm đã được xử lý)`);
+    } catch (error) {
+      console.error('Lỗi khi dọn dẹp base64:', error);
+      toast.error('Lỗi khi dọn dẹp dữ liệu base64');
+    } finally {
+      setIsCleaningBase64(false);
+    }
   };
 
   return (

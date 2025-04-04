@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useProductAdmin } from '@/hooks/useProductAdmin';
 import { useApiStats } from '@/hooks/useApiStats';
 import { AdminProduct } from '@/hooks/useProductAdmin';
+import Cookies from 'js-cookie';
 
 // Tạo interface cho sản phẩm từ Admin API
 export interface Product {
@@ -57,13 +58,15 @@ export interface Product {
     }>;
   }>;
   images?: Array<{
-    url: string;
-    alt?: string;
-    publicId?: string;
-    isPrimary?: boolean;
-    file?: File;       // For file uploads
-    preview?: string;  // For image previews
-    id?: string;       // Temporary ID for new images
+    url: string;        // URL đến hình ảnh từ Cloudinary
+    alt?: string;       // Mô tả hình ảnh
+    publicId?: string;  // ID công khai của Cloudinary
+    isPrimary?: boolean; // Có phải hình ảnh chính hay không
+    
+    // Các trường dưới đây chỉ được sử dụng ở client, KHÔNG được gửi đến server
+    file?: File;         // File hình ảnh được tải lên, chỉ tồn tại ở client
+    preview?: string;    // URL tạm thời để hiển thị xem trước, chỉ tồn tại ở client
+    id?: string;         // ID tạm thời để quản lý ở client, chỉ tồn tại ở client
   }>;
   inventory?: Array<{
     branchId: string;
@@ -177,6 +180,7 @@ interface ProductContextType {
   removeVariant: (id: string, variantId: string) => Promise<Product>;
   fetchStatistics: () => Promise<void>;
   clearProductCache: (id?: string) => void;
+  cleanupBase64Images: () => Promise<{ success: boolean; message: string; count: number }>;
 }
 
 // Create context
@@ -197,7 +201,20 @@ const ApiStatusAlert: React.FC<{
   status: 'online' | 'offline' | 'checking';
   onRetry: () => void;
 }> = ({ status, onRetry }) => {
-  if (status === 'online') return null;
+  const [isVisible, setIsVisible] = useState(true);
+
+  // Kiểm tra nếu đang ở trang login hoặc đã đăng xuất
+  useEffect(() => {
+    const isLoginPage = window.location.pathname.includes('/admin/auth/login');
+    const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    
+    // Nếu đang ở trang login hoặc đã đăng xuất hoặc không có token, ẩn thông báo
+    setIsVisible(!isLoginPage && !isLoggedOut && !!adminToken);
+  }, []);
+  
+  // Nếu đang ở trạng thái online hoặc không hiển thị, không render gì cả
+  if (status === 'online' || !isVisible) return null;
 
   const alertStyle = {
     position: 'fixed' as const,
@@ -291,6 +308,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Chuyển đổi lại API health check
   const handleCheckApiHealth = useCallback(async (): Promise<boolean> => {
+    // Kiểm tra nếu đã đăng xuất hoặc không có token
+    const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    const isLoginPage = window.location.pathname.includes('/admin/auth/login');
+    
+    if (isLoggedOut || !adminToken || isLoginPage) {
+      console.log('Người dùng đã đăng xuất hoặc đang ở trang đăng nhập, không kiểm tra kết nối API');
+      setApiHealthStatus('online'); // Đặt status thành online để ẩn thông báo
+      return true; // Trả về true để không hiển thị lỗi
+    }
+    
     setApiHealthStatus('checking');
     try {
       const isHealthy = await checkApiHealth();
@@ -380,16 +408,98 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
+  // Phương thức tải lên ảnh sản phẩm
+  const uploadProductImage = useCallback(async (
+    file: File,
+    productId: string,
+    isPrimary: boolean = false
+  ) => {
+    try {
+      console.log(`Đang chuẩn bị tải lên ảnh cho sản phẩm ID: ${productId}, tên file: ${file.name}, kích thước: ${file.size} bytes, isPrimary: ${isPrimary}`);
+      
+      // Kiểm tra xem file có hợp lệ không
+      if (!file || !(file instanceof File)) {
+        throw new Error('Không phải là file hợp lệ');
+      }
+
+      // Kiểm tra định dạng file
+      if (!file.type.match(/^image\/(jpeg|png|gif|jpg)$/)) {
+        throw new Error(`File ${file.name} không được hỗ trợ. Chỉ hỗ trợ PNG, JPG, GIF.`);
+      }
+
+      // Kiểm tra kích thước file (tối đa 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error(`File ${file.name} quá lớn. Kích thước tối đa 5MB.`);
+      }
+
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('isPrimary', isPrimary.toString());
+
+      console.log(`Đang gửi yêu cầu đến ${API_URL}/admin/products/${productId}/upload-image`);
+      
+      const response = await fetch(`${API_URL}/admin/products/${productId}/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: formData
+      });
+
+      console.log(`Đã nhận phản hồi với status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lỗi phản hồi API:', errorText);
+        throw new Error(`Failed to upload image: ${response.status}. Details: ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      // Kiểm tra kết quả xem có phải URL base64 không
+      if (result.url && result.url.startsWith('data:image')) {
+        console.error('Lỗi: API trả về URL dạng base64');
+        throw new Error('API trả về URL dạng base64');
+      }
+      
+      console.log('Tải lên thành công với kết quả:', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error uploading product image:', error);
+      console.error('Chi tiết lỗi:', error.message);
+      throw error;
+    }
+  }, []);
+
   // Phương thức POST để tạo sản phẩm mới
   const createProduct = useCallback(async (productData: Partial<Product>): Promise<Product> => {
     try {
+      // Tách hình ảnh ra khỏi dữ liệu ban đầu
+      const { images, ...dataToSend } = productData;
+      
+      // Loại bỏ hoàn toàn các hình ảnh, chỉ giữ lại các hình ảnh đã có URL từ Cloudinary
+      const validImages = images?.filter(img => img.url && !img.url.startsWith('data:') && img.url.startsWith('http')) || [];
+      
+      // Loại bỏ các thuộc tính không cần thiết của ảnh như file, preview
+      const cleanedImages = validImages.map(({url, alt, publicId, isPrimary}) => ({
+        url, alt, publicId, isPrimary
+      }));
+      
+      // Chuẩn bị dữ liệu để gửi lên server
+      const dataWithCleanedImages = {
+        ...dataToSend,
+        images: cleanedImages
+      };
+      
+      console.log('Đang tạo sản phẩm mới...');
+      
       const response = await fetch(`${API_URL}/admin/products`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(productData)
+        body: JSON.stringify(dataWithCleanedImages)
       });
 
       if (!response.ok) {
@@ -397,27 +507,69 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const newProduct = await response.json();
+      console.log('Sản phẩm mới đã được tạo với ID:', newProduct.id);
+      
+      // Tải lên các hình ảnh có file nhưng chưa có URL
+      const imagesWithFile = images?.filter(img => img.file) || [];
+      if (imagesWithFile.length > 0) {
+        console.log(`Tìm thấy ${imagesWithFile.length} hình ảnh cần tải lên Cloudinary`);
+        
+        // Upload các hình ảnh lên Cloudinary
+        for (const image of imagesWithFile) {
+          if (image.file) {
+            try {
+              console.log(`Đang tải lên hình ảnh cho sản phẩm mới (ID: ${newProduct.id})`);
+              await uploadProductImage(image.file, newProduct.id, image.isPrimary);
+              console.log('Tải lên hình ảnh thành công');
+            } catch (uploadError) {
+              console.error('Lỗi khi tải lên hình ảnh:', uploadError);
+            }
+          }
+        }
+      }
+      
+      // Fetch lại sản phẩm để có dữ liệu mới nhất với URL hình ảnh
+      const updatedProduct = await fetchProductById(newProduct.id);
       
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
       
-      return newProduct;
+      return updatedProduct;
     } catch (error: any) {
       console.error('Error creating product:', error);
       throw error;
     }
-  }, [fetchAdminProducts]);
+  }, [fetchAdminProducts, uploadProductImage, fetchProductById]);
 
   // Phương thức PATCH để cập nhật sản phẩm
   const updateProduct = useCallback(async (id: string, productData: Partial<Product>): Promise<Product> => {
     try {
+      // Tách hình ảnh ra khỏi dữ liệu ban đầu
+      const { images, ...dataToSend } = productData;
+      
+      // Loại bỏ hoàn toàn các hình ảnh, chỉ giữ lại các hình ảnh đã có URL từ Cloudinary
+      const validImages = images?.filter(img => img.url && !img.url.startsWith('data:') && img.url.startsWith('http')) || [];
+      
+      // Loại bỏ các thuộc tính không cần thiết của ảnh như file, preview
+      const cleanedImages = validImages.map(({url, alt, publicId, isPrimary}) => ({
+        url, alt, publicId, isPrimary
+      }));
+      
+      // Chuẩn bị dữ liệu để gửi lên server
+      const dataWithCleanedImages = {
+        ...dataToSend,
+        images: cleanedImages
+      };
+      
+      console.log(`Đang cập nhật sản phẩm ID: ${id}...`);
+      
       const response = await fetch(`${API_URL}/admin/products/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(productData)
+        body: JSON.stringify(dataWithCleanedImages)
       });
 
       if (!response.ok) {
@@ -425,16 +577,39 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const updatedProduct = await response.json();
+      console.log('Sản phẩm đã được cập nhật thành công');
+      
+      // Tải lên các hình ảnh có file nhưng chưa có URL
+      const imagesWithFile = images?.filter(img => img.file) || [];
+      if (imagesWithFile.length > 0) {
+        console.log(`Tìm thấy ${imagesWithFile.length} hình ảnh cần tải lên Cloudinary`);
+        
+        // Upload các hình ảnh lên Cloudinary
+        for (const image of imagesWithFile) {
+          if (image.file) {
+            try {
+              console.log(`Đang tải lên hình ảnh cho sản phẩm ID: ${id}`);
+              await uploadProductImage(image.file, id, image.isPrimary);
+              console.log('Tải lên hình ảnh thành công');
+            } catch (uploadError) {
+              console.error('Lỗi khi tải lên hình ảnh:', uploadError);
+            }
+          }
+        }
+      }
+      
+      // Fetch lại sản phẩm để có dữ liệu mới nhất với URL hình ảnh
+      const freshProduct = await fetchProductById(id);
       
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
       
-      return updatedProduct;
+      return freshProduct;
     } catch (error: any) {
       console.error('Error updating product:', error);
       throw error;
     }
-  }, [fetchAdminProducts]);
+  }, [fetchAdminProducts, uploadProductImage, fetchProductById]);
 
   // Phương thức DELETE để xóa sản phẩm
   const deleteProduct = useCallback(async (id: string): Promise<void> => {
@@ -515,47 +690,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [fetchAdminProducts]);
 
-  // Phương thức tải lên ảnh sản phẩm
-  const uploadProductImage = useCallback(async (
-    file: File,
-    productId: string,
-    isPrimary: boolean = false
-  ) => {
-    try {
-      console.log(`Đang chuẩn bị tải lên ảnh cho sản phẩm ID: ${productId}, tên file: ${file.name}, kích thước: ${file.size} bytes, isPrimary: ${isPrimary}`);
-      
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('isPrimary', isPrimary.toString());
-
-      console.log(`Đang gửi yêu cầu đến ${API_URL}/admin/products/${productId}/upload-image`);
-      
-      const response = await fetch(`${API_URL}/admin/products/${productId}/upload-image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: formData
-      });
-
-      console.log(`Đã nhận phản hồi với status: ${response.status}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Lỗi phản hồi API:', errorText);
-        throw new Error(`Failed to upload image: ${response.status}. Details: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('Tải lên thành công với kết quả:', result);
-      return result;
-    } catch (error: any) {
-      console.error('Error uploading product image:', error);
-      console.error('Chi tiết lỗi:', error.message);
-      throw error;
-    }
-  }, []);
-
   // Phương thức POST để thêm biến thể sản phẩm
   const addVariant = useCallback(async (id: string, variantData: any): Promise<Product> => {
     try {
@@ -635,6 +769,70 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     console.log('Cache clearing not needed, using direct API with hooks');
   }, []);
 
+  // Phương thức để dọn dẹp dữ liệu base64 trong database
+  const cleanupBase64Images = useCallback(async (): Promise<{ success: boolean; message: string; count: number }> => {
+    try {
+      console.log('Đang gửi yêu cầu dọn dẹp dữ liệu base64...');
+      
+      const response = await fetch(`${API_URL}/admin/products/cleanup-base64`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lỗi khi dọn dẹp base64:', errorText);
+        throw new Error(`Failed to cleanup base64 data: ${response.status}. Details: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Dọn dẹp dữ liệu base64 thành công:', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error cleaning up base64 data:', error);
+      console.error('Chi tiết lỗi:', error.message);
+      throw error;
+    }
+  }, []);
+
+  // Hàm kiểm tra và dọn dẹp dữ liệu base64 tự động
+  const autoCleanupBase64 = useCallback(async (): Promise<void> => {
+    try {
+      // Kiểm tra nếu có base64 trong hình ảnh sản phẩm
+      const hasBase64Images = products.some(product => {
+        // Kiểm tra trong mảng images
+        if (product.images && product.images.some(img => img.url && img.url.startsWith('data:'))) {
+          return true;
+        }
+        
+        // Kiểm tra trong variants
+        if (product.variants) {
+          return product.variants.some(variant => 
+            variant.images && variant.images.some(img => img.url && img.url.startsWith('data:'))
+          );
+        }
+        
+        return false;
+      });
+      
+      // Nếu có dữ liệu base64, thực hiện dọn dẹp
+      if (hasBase64Images) {
+        console.log('Phát hiện dữ liệu base64 trong sản phẩm, tiến hành dọn dẹp tự động...');
+        await cleanupBase64Images();
+      }
+    } catch (error) {
+      console.error('Error during auto cleanup of base64 data:', error);
+    }
+  }, [products, cleanupBase64Images]);
+  
+  // Gọi hàm dọn dẹp tự động khi products thay đổi
+  useEffect(() => {
+    autoCleanupBase64();
+  }, [autoCleanupBase64]);
+
   // Context value
   const value: ProductContextType = {
     products,
@@ -662,7 +860,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateVariant,
     removeVariant,
     fetchStatistics: fetchStatsData,
-    clearProductCache
+    clearProductCache,
+    cleanupBase64Images
   };
 
   return (

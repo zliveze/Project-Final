@@ -142,6 +142,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (!refreshToken) {
               // Không có refresh token, logout
               await logout();
+              router.push('/admin/auth/login?error=session_expired');
               return Promise.reject(error);
             }
             
@@ -163,6 +164,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           } catch (refreshError) {
             // Nếu làm mới token thất bại, logout
             await logout();
+            router.push('/admin/auth/login?error=session_expired');
             return Promise.reject(refreshError);
           }
         }
@@ -175,7 +177,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Xóa interceptor khi unmount
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, []);
+  }, [router.pathname]);
 
   useEffect(() => {
     // Kiểm tra xem admin đã đăng nhập chưa (từ localStorage)
@@ -257,6 +259,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return false;
       }
 
+      // Xóa flag đánh dấu đã đăng xuất nếu có
+      sessionStorage.removeItem('adminLoggedOut');
+
       // Thay thế console.log bằng safeLog an toàn hơn
       safeLog('Đăng nhập thành công', { 
         user: { 
@@ -303,6 +308,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           safeLog('Lỗi khi gọi API đăng xuất', error, 'error');
         }
       }
+      
+      // Lưu trạng thái đã đăng xuất để ngăn các yêu cầu API
+      sessionStorage.setItem('adminLoggedOut', 'true');
       
       // Xóa token và thông tin admin khỏi localStorage và cookie
       removeToken('adminToken');
