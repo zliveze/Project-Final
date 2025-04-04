@@ -62,48 +62,13 @@ export const useProductImages = (
         images: [...(prev.images || []), ...newImages]
       }));
 
-      // Chỉ upload ảnh lên Cloudinary khi đã có ID sản phẩm
-      if (formData.id) {
-        try {
-          // Upload each image to Cloudinary
-          for (const image of newImages) {
-            if (image.file) {
-              try {
-                console.log(`Đang tải lên hình ảnh cho sản phẩm ${formData.id}...`);
-                const uploadResult = await uploadProductImage(image.file, formData.id, image.isPrimary);
-                console.log(`Tải lên thành công, nhận được URL: ${uploadResult.url}`);
-
-                // Update the image with the uploaded URL from Cloudinary
-                setFormData(prev => {
-                  const updatedImages = prev.images?.map(img =>
-                    img.id === image.id ? {
-                      ...img,
-                      url: uploadResult.url, // Cập nhật URL từ Cloudinary
-                      publicId: uploadResult.publicId,
-                      file: undefined, // Xóa file gốc sau khi đã upload xong
-                      preview: uploadResult.url // Cập nhật lại preview với URL thật từ Cloudinary
-                    } : img
-                  ) || [];
-
-                  return {
-                    ...prev,
-                    images: updatedImages
-                  };
-                });
-              } catch (uploadError) {
-                console.error('Error uploading image:', uploadError);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error uploading images:', error);
-        }
-      } else {
-        console.log('Sản phẩm chưa có ID, các hình ảnh sẽ được tải lên sau khi lưu sản phẩm');
-      }
+      // Upload logic is now handled in the page component (index.tsx)
+      // after form submission (handleSaveNewProduct / handleUpdateProduct).
+      // This hook only manages the local state (adding files and previews).
+      console.log('Added new images with previews to local state. Upload will occur on form save.');
       setIsUploading(false);
     }
-  }, [formData.id, formData.images, setFormData, uploadProductImage]);
+  }, [setFormData]); // Removed dependencies related to immediate upload
 
   /**
    * Clean up khi component unmount
@@ -119,7 +84,8 @@ export const useProductImages = (
         });
       }
     };
-  }, [formData.images]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures cleanup only runs on unmount
 
   /**
    * Xử lý khi kéo file vào khu vực upload

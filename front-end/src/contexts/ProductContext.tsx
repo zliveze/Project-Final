@@ -476,30 +476,36 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       // Tách hình ảnh ra khỏi dữ liệu ban đầu
       const { images, ...dataToSend } = productData;
-      
-      // Loại bỏ hoàn toàn các hình ảnh, chỉ giữ lại các hình ảnh đã có URL từ Cloudinary
-      const validImages = images?.filter(img => img.url && !img.url.startsWith('data:') && img.url.startsWith('http')) || [];
-      
-      // Loại bỏ các thuộc tính không cần thiết của ảnh như file, preview
-      const cleanedImages = validImages.map(({url, alt, publicId, isPrimary}) => ({
+
+      // Chỉ giữ lại các hình ảnh đã có URL hợp lệ từ Cloudinary (http/https)
+      // Loại bỏ hoàn toàn các hình ảnh có file, preview, blob:, hoặc data:
+      const validCloudinaryImages = images?.filter(img =>
+        img.url &&
+        !img.url.startsWith('data:') &&
+        !img.url.startsWith('blob:') && // Explicitly filter blob URLs
+        (img.url.startsWith('http://') || img.url.startsWith('https://')) // Ensure it's a real URL
+      ) || [];
+
+      // Loại bỏ các thuộc tính không cần thiết của ảnh như file, preview, id
+      const cleanedImages = validCloudinaryImages.map(({ url, alt, publicId, isPrimary }) => ({
         url, alt, publicId, isPrimary
       }));
-      
+
       // Chuẩn bị dữ liệu để gửi lên server
       const dataWithCleanedImages = {
         ...dataToSend,
-        images: cleanedImages
+        images: cleanedImages // Use the strictly filtered array
       };
-      
-      console.log('Đang tạo sản phẩm mới...');
-      
+
+      console.log('Đang tạo sản phẩm mới với dữ liệu (hình ảnh đã lọc):', dataWithCleanedImages); // Add logging
+
       const response = await fetch(`${API_URL}/admin/products`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(dataWithCleanedImages)
+        body: JSON.stringify(dataWithCleanedImages) // Send the strictly filtered data
       });
 
       if (!response.ok) {
@@ -514,27 +520,41 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (imagesWithFile.length > 0) {
         console.log(`Tìm thấy ${imagesWithFile.length} hình ảnh cần tải lên Cloudinary`);
         
-        // Upload các hình ảnh lên Cloudinary
-        for (const image of imagesWithFile) {
-          if (image.file) {
-            try {
-              console.log(`Đang tải lên hình ảnh cho sản phẩm mới (ID: ${newProduct.id})`);
-              await uploadProductImage(image.file, newProduct.id, image.isPrimary);
-              console.log('Tải lên hình ảnh thành công');
-            } catch (uploadError) {
-              console.error('Lỗi khi tải lên hình ảnh:', uploadError);
+        // Upload các hình ảnh lên Cloudinary using Promise.allSettled
+        const uploadPromises = imagesWithFile
+          .filter(image => image.file)
+          .map(image => {
+            console.log(`Chuẩn bị tải lên hình ảnh cho sản phẩm mới (ID: ${newProduct.id})`);
+            // Return the promise from uploadProductImage
+            return uploadProductImage(image.file!, newProduct.id, image.isPrimary)
+              .then(result => ({ status: 'fulfilled', value: result, imageName: image.file?.name }))
+              .catch(error => ({ status: 'rejected', reason: error, imageName: image.file?.name }));
+          });
+
+        if (uploadPromises.length > 0) {
+          console.log(`Đang chờ ${uploadPromises.length} hình ảnh tải lên...`);
+          const results = await Promise.allSettled(uploadPromises);
+          results.forEach(result => {
+            if (result.status === 'fulfilled') {
+              // Access imageName from the wrapped result
+              console.log(`Tải lên thành công cho hình ảnh: ${result.value.imageName}`);
+            } else {
+              // Access imageName from the wrapped result
+              console.error(`Lỗi khi tải lên hình ảnh ${result.reason.imageName}:`, result.reason.reason);
             }
-          }
+          });
+          console.log('Tất cả các lần tải lên đã hoàn tất (thành công hoặc thất bại).');
         }
       }
-      
-      // Fetch lại sản phẩm để có dữ liệu mới nhất với URL hình ảnh
-      const updatedProduct = await fetchProductById(newProduct.id);
-      
+
+      // Fetch lại sản phẩm để có dữ liệu mới nhất với URL hình ảnh *sau khi* tất cả upload đã xong
+      console.log(`Đang fetch lại dữ liệu sản phẩm ID: ${newProduct.id} sau khi upload ảnh.`);
+      const finalProduct = await fetchProductById(newProduct.id);
+
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
-      
-      return updatedProduct;
+
+      return finalProduct;
     } catch (error: any) {
       console.error('Error creating product:', error);
       throw error;
@@ -874,4 +894,4 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       />
     </ProductContext.Provider>
   );
-}; 
+};

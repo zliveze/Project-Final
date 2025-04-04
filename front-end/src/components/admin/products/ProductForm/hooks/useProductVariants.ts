@@ -1,93 +1,142 @@
 import { useState, useCallback } from 'react';
 import { ProductFormData, ProductVariant, ProductImage } from '../types';
 
+// Helper to create a default empty variant structure
+const createDefaultVariant = (): ProductVariant => ({
+  variantId: `new-${Date.now()}`, // Temporary ID for new variant
+  name: '',
+  sku: '',
+  price: 0,
+  options: { color: '', shade: '', size: '' },
+  images: [] // Initialize as empty string array
+});
+
 /**
- * Hook quản lý biến thể sản phẩm
+ * Hook quản lý biến thể sản phẩm (Refactored for inline form)
  */
 export const useProductVariants = (
   formData: ProductFormData,
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
 ) => {
-  // State và hàm xử lý cho modal thêm biến thể
-  const [showAddVariantModal, setShowAddVariantModal] = useState(false);
-  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
+  const [showVariantForm, setShowVariantForm] = useState(false); // Renamed state
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null); // Stores the original variant being edited
+  const [currentVariantData, setCurrentVariantData] = useState<ProductVariant | null>(null); // Holds data for the inline form
   const [isVariantProcessing, setIsVariantProcessing] = useState(false);
 
-  // Mở modal thêm biến thể
+  // Mở form để thêm biến thể mới
   const handleOpenAddVariant = useCallback(() => {
-    setEditingVariant(null);
-    setShowAddVariantModal(true);
+    setCurrentVariantData(createDefaultVariant());
+    setEditingVariant(null); // Indicate it's a new variant
+    setShowVariantForm(true);
   }, []);
 
-  // Mở modal chỉnh sửa biến thể
+  // Mở form để chỉnh sửa biến thể
   const handleOpenEditVariant = useCallback((variant: ProductVariant) => {
-    setEditingVariant({ ...variant });
-    setShowAddVariantModal(true);
+    setCurrentVariantData({ ...variant }); // Load existing data into the form state
+    setEditingVariant(variant); // Store the original variant being edited
+    setShowVariantForm(true);
   }, []);
 
-  // Đóng modal
-  const handleCloseVariantModal = useCallback(() => {
-    setShowAddVariantModal(false);
+  // Đóng form và reset state
+  const handleCancelVariant = useCallback(() => { // Renamed to match VariantForm prop expectation
+    setShowVariantForm(false);
     setEditingVariant(null);
+    setCurrentVariantData(null); // Clear the form data
   }, []);
 
-  // Thêm hoặc cập nhật biến thể
-  const handleSaveVariant = useCallback((variant: ProductVariant) => {
-    setIsVariantProcessing(true);
-    
-    // Đảm bảo chỉ lưu URL Cloudinary trong images, không lưu base64
-    const sanitizedVariant = { ...variant };
-    if (sanitizedVariant.images && sanitizedVariant.images.length > 0) {
-      sanitizedVariant.images = sanitizedVariant.images.map(image => {
-        // Nếu image có URL hợp lệ (http/https), giữ nguyên
-        // Nếu không, đảm bảo url là rỗng để có thể upload sau
+  // Handler for input changes within the VariantForm
+  const handleVariantChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    // Handle potential number conversion, default to 0 if parsing fails
+    const parsedValue = type === 'number' ? (parseFloat(value) || 0) : value;
+
+    setCurrentVariantData(prev => {
+      if (!prev) return null;
+
+      // Handle nested options
+      if (name.startsWith('options.')) {
+        const optionKey = name.split('.')[1] as keyof ProductVariant['options'];
+        // Ensure options object exists
+        const currentOptions = prev.options || { color: '', shade: '', size: '' };
         return {
-          ...image,
-          url: image.url && image.url.startsWith('http') ? image.url : '',
-        };
-      });
-    }
-    
-    try {
-      if (editingVariant) {
-        // Đang chỉnh sửa biến thể đã tồn tại
-        const updatedVariants = [...(formData.variants || [])].map(v => 
-          v.variantId === editingVariant.variantId ? sanitizedVariant : v
-        );
-        
-        setFormData(prev => ({
           ...prev,
-          variants: updatedVariants
-        }));
+          options: {
+            ...currentOptions,
+            [optionKey]: parsedValue
+          }
+        };
+      }
+      // Handle top-level properties
+      return { ...prev, [name]: parsedValue };
+    });
+  }, []);
+
+  // Handler for selecting/deselecting images in VariantForm (stores only IDs)
+  const handleVariantImageSelect = useCallback((imageId: string) => {
+    setCurrentVariantData(prev => {
+      if (!prev) return null;
+      
+      const currentImageIds = prev.images || []; // Already string[]
+      const imageIndex = currentImageIds.indexOf(imageId);
+      let updatedImageIds: string[];
+
+      if (imageIndex > -1) {
+        // Image ID exists, remove it
+        updatedImageIds = currentImageIds.filter(id => id !== imageId);
       } else {
-        // Thêm biến thể mới với ID tạm thời
-        const newVariant = {
-          ...sanitizedVariant,
-          variantId: `temp-${Date.now()}`
-        };
-        
+        // Image ID doesn't exist, add it
+        updatedImageIds = [...currentImageIds, imageId];
+      }
+      return { ...prev, images: updatedImageIds };
+    });
+  }, []); // No dependency needed now
+
+  // Lưu biến thể (sử dụng currentVariantData)
+  const handleSaveVariant = useCallback(() => { // No argument needed now
+    if (!currentVariantData) return; // Should not happen if form is visible
+
+    setIsVariantProcessing(true);
+
+    // Basic validation (example: ensure name exists)
+    if (!currentVariantData.name?.trim()) {
+        alert('Vui lòng nhập tên biến thể.');
+        setIsVariantProcessing(false);
+        return; // Add missing return statement
+    }
+
+    // No need to sanitize images, currentVariantData.images is already string[]
+    const finalVariantData = { ...currentVariantData };
+
+    try { // Ensure try block is correctly structured
+      if (editingVariant) {
+        // Editing existing: Replace in formData.variants
+        const updatedVariants = formData.variants.map(v =>
+          v.variantId === editingVariant.variantId ? finalVariantData : v
+        );
+        setFormData(prev => ({ ...prev, variants: updatedVariants }));
+      } else {
+        // Adding new: Append to formData.variants
         setFormData(prev => ({
           ...prev,
-          variants: [...(prev.variants || []), newVariant]
+          variants: [...(prev.variants || []), finalVariantData]
         }));
       }
-      
-      // Đóng modal sau khi lưu
-      handleCloseVariantModal();
+      handleCancelVariant(); // Close form on success
     } catch (error) {
       console.error('Error saving variant:', error);
+      alert('Đã xảy ra lỗi khi lưu biến thể.'); // Inform user
     } finally {
       setIsVariantProcessing(false);
     }
-  }, [formData.variants, editingVariant, handleCloseVariantModal, setFormData]);
+  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant]);
 
   // Xóa biến thể
   const handleDeleteVariant = useCallback((variantId: string) => {
-    // Nếu đang chỉnh sửa biến thể này, đóng modal
+    // Nếu đang chỉnh sửa biến thể này, đóng form
     if (editingVariant && editingVariant.variantId === variantId) {
-      handleCloseVariantModal();
+      handleCancelVariant(); // Use the correct cancel handler
     }
-    
+
     const updatedVariants = (formData.variants || []).filter(
       variant => variant.variantId !== variantId
     );
@@ -96,68 +145,25 @@ export const useProductVariants = (
       ...prev,
       variants: updatedVariants
     }));
-  }, [editingVariant, formData.variants, handleCloseVariantModal, setFormData]);
+  }, [editingVariant, formData.variants, handleCancelVariant, setFormData]); // Use handleCancelVariant here
 
-  // Thêm hình ảnh cho biến thể
-  const handleAddVariantImage = useCallback((variantId: string, image: ProductImage) => {
-    const updatedVariants = [...(formData.variants || [])].map(variant => {
-      if (variant.variantId === variantId) {
-        // Đảm bảo ảnh mới không chứa URL base64
-        const newImage = { 
-          ...image,
-          url: image.url && image.url.startsWith('http') ? image.url : '' 
-        };
-        
-        return {
-          ...variant,
-          images: [...(variant.images || []), newImage]
-        };
-      }
-      return variant;
-    });
-    
-    setFormData(prev => ({
-      ...prev,
-      variants: updatedVariants
-    }));
-  }, [formData.variants, setFormData]);
-
-  // Xóa hình ảnh của biến thể
-  const handleRemoveVariantImage = useCallback((variantId: string, imageId: string) => {
-    const updatedVariants = [...(formData.variants || [])].map(variant => {
-      if (variant.variantId === variantId) {
-        // Thu hồi URL Object nếu cần thiết
-        const imageToRemove = variant.images?.find(img => img.id === imageId);
-        if (imageToRemove?.preview && !imageToRemove.preview.startsWith('http')) {
-          URL.revokeObjectURL(imageToRemove.preview);
-        }
-        
-        return {
-          ...variant,
-          images: (variant.images || []).filter(img => img.id !== imageId)
-        };
-      }
-      return variant;
-    });
-    
-    setFormData(prev => ({
-      ...prev,
-      variants: updatedVariants
-    }));
-  }, [formData.variants, setFormData]);
+  // Note: handleAddVariantImage and handleRemoveVariantImage are no longer needed
+  // as image selection is handled directly by handleVariantImageSelect updating currentVariantData
 
   return {
-    showAddVariantModal,
-    editingVariant,
+    showVariantForm, // Renamed state
+    editingVariant, // Still useful to know if editing vs adding
+    currentVariantData, // The data for the form
     isVariantProcessing,
     handleOpenAddVariant,
     handleOpenEditVariant,
-    handleCloseVariantModal,
-    handleSaveVariant,
+    handleCancelVariant, // Renamed close handler
+    handleSaveVariant, // Updated save handler
     handleDeleteVariant,
-    handleAddVariantImage,
-    handleRemoveVariantImage
+    // Add the new handlers needed by VariantForm:
+    handleVariantChange,
+    handleVariantImageSelect,
   };
 };
 
-export default useProductVariants; 
+export default useProductVariants;

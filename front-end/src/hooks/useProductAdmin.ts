@@ -29,12 +29,16 @@ export interface AdminProduct {
 
 // API configuration
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+// Ensure API_URL does not duplicate /api if BASE_URL already ends with it
+const API_URL = BASE_URL.replace(/\/api$/, '') + '/api';
 const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;
 
 interface UseProductAdminProps {
   initialPage?: number;
   initialLimit?: number;
+  initialProducts?: AdminProduct[];
+  initialTotalItems?: number;
+  initialTotalPages?: number;
 }
 
 export interface ProductAdminFilter {
@@ -65,9 +69,15 @@ interface ProductAdminResponse {
   totalPages: number;
 }
 
-export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProductAdminProps = {}) => {
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+export const useProductAdmin = ({
+  initialPage = 1,
+  initialLimit = 10,
+  initialProducts,
+  initialTotalItems,
+  initialTotalPages,
+}: UseProductAdminProps = {}) => {
+  const [products, setProducts] = useState<AdminProduct[]>(initialProducts || []);
+  const [loading, setLoading] = useState<boolean>(!initialProducts); // Start loading only if no initial data
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ProductAdminFilter>({
     page: initialPage,
@@ -75,14 +85,15 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
     sortBy: 'createdAt',
     sortOrder: 'desc'
   });
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(0);
+  const [totalItems, setTotalItems] = useState<number>(initialTotalItems || 0);
+  const [totalPages, setTotalPages] = useState<number>(initialTotalPages || 0);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [itemsPerPage, setItemsPerPage] = useState<number>(initialLimit);
-  const [hasTriedFetch, setHasTriedFetch] = useState<boolean>(false);
+  // Track if initial data was provided via SSR
+  const hasInitialData = !!initialProducts;
 
-  // Lấy token xác thực từ localStorage
+  // Lấy token xác thực từ localStorage hoặc Cookies
   const getAuthHeader = useCallback((): HeadersInit => {
     // Kiểm tra nếu đã đăng xuất
     if (sessionStorage.getItem('adminLoggedOut') === 'true') {
@@ -91,12 +102,12 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
         'Content-Type': 'application/json'
       };
     }
-    
+
     // Lấy token từ localStorage hoặc từ cookie nếu không có trong localStorage
-    const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('adminToken') || Cookies.get('adminToken') : null;
     return {
       'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
   }, []);
 
@@ -111,7 +122,7 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
       
       setLoading(true);
       setError(null);
-      setHasTriedFetch(true);
+      // setHasTriedFetch(true); // Removed as part of SSR optimization
 
       // Cập nhật filters nếu có
       const currentFilters = newFilters 
@@ -173,7 +184,7 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
     } finally {
       setLoading(false);
     }
-  }, [filters, getAuthHeader]);
+  }, [filters, getAuthHeader]); // Removed hasTriedFetch dependency
 
   // Thay đổi trang
   const changePage = useCallback((page: number) => {
@@ -364,7 +375,7 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
         return true; // Trả về true để không hiển thị lỗi
       }
       
-      setHasTriedFetch(true);
+      // setHasTriedFetch(true); // Removed as part of SSR optimization
       const response = await fetch(`${API_URL}/health`);
       return response.ok;
     } catch (error) {
@@ -373,21 +384,28 @@ export const useProductAdmin = ({ initialPage = 1, initialLimit = 10 }: UseProdu
     }
   }, []);
 
-  // Load sản phẩm khi component mount
+  // Load sản phẩm khi component mount only if no initial data was provided
   useEffect(() => {
+    // If initial data was provided via SSR, don't fetch again on mount
+    if (hasInitialData) {
+      console.log('Dữ liệu ban đầu được cung cấp qua SSR, bỏ qua fetch ban đầu.');
+      return;
+    }
+
     // Kiểm tra token trước khi tải dữ liệu
     const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
     const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
     const isLoginPage = window.location.pathname.includes('/admin/auth/login');
-    
-    if (!adminToken || hasTriedFetch || isLoggedOut || isLoginPage) {
-      console.log('Không có token admin hoặc đã thử gọi API hoặc đã đăng xuất, bỏ qua việc tải dữ liệu sản phẩm');
+
+    if (!adminToken || isLoggedOut || isLoginPage) {
+      console.log('Không có token admin hoặc đã đăng xuất/ở trang login, bỏ qua việc tải dữ liệu sản phẩm');
       return;
     }
-    
-    console.log('Đã tìm thấy token admin, đang tải dữ liệu sản phẩm');
+
+    console.log('Không có dữ liệu ban đầu, đang tải dữ liệu sản phẩm phía client...');
     fetchProducts();
-  }, [fetchProducts, hasTriedFetch]);
+    // fetchProducts is stable due to useCallback, but adding it ensures correctness if it changes
+  }, [fetchProducts, hasInitialData]);
 
   return {
     products,

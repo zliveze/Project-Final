@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
+import { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Toaster, toast } from 'react-hot-toast';
 import { FiAlertCircle, FiUpload, FiDownload, FiX, FiCheck, FiEdit, FiEye, FiPlus } from 'react-icons/fi';
-import Cookies from 'js-cookie';
+import Cookies from 'js-cookie'; // Keep for client-side token checks if needed
 // import { useProduct } from '@/contexts/ProductContext';
 
 // Import các components mới
@@ -10,6 +11,7 @@ import ProductTable from '@/components/admin/products/components/ProductTable';
 import ProductTableSummary from '@/components/admin/products/components/ProductTableSummary';
 import ProductFilter from '@/components/admin/products/components/ProductFilter';
 import BulkActionBar from '@/components/admin/products/components/BulkActionBar';
+import ProductStatusBadge from '@/components/admin/products/components/ProductStatusBadge'; // Added import
 
 import ProductForm from '@/components/admin/products/ProductForm/index';
 import { Pagination } from '@/components/admin/common';
@@ -18,18 +20,27 @@ import { Pagination } from '@/components/admin/common';
 import { getCategories, getBrands } from '@/components/admin/products/hooks/useProductTable';
 import { ProductFilterState } from '@/components/admin/products/components/ProductFilter';
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
-import { useProductAdmin } from '@/hooks/useProductAdmin';
+import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/useProductAdmin'; // Import types
 import { useApiStats } from '@/hooks/useApiStats';
 import { useProduct } from '@/contexts/ProductContext'; // Already imported, good.
 
-export default function AdminProducts() {
+// Define props type including SSR data
+type AdminProductsProps = InferGetServerSidePropsType<typeof getServerSideProps>;
 
-  
-  // Sử dụng hook mới tối ưu hóa hiệu năng
+export default function AdminProducts({
+  initialProducts,
+  initialTotalItems,
+  initialTotalPages,
+  initialCurrentPage,
+  initialItemsPerPage,
+  apiError
+}: AdminProductsProps) {
+
+  // Sử dụng hook mới tối ưu hóa hiệu năng, truyền dữ liệu ban đầu từ SSR
   const {
     products,
     loading: isLoading,
-    error,
+    error: productAdminError, // Rename to avoid conflict with apiError prop
     totalItems,
     totalPages,
     selectedProductIds: selectedProducts,
@@ -47,12 +58,26 @@ export default function AdminProducts() {
     isAllSelected,
     hasSelection,
     filters,
-    checkApiHealth,
+    checkApiHealth, // Keep for periodic checks if needed
     currentPage,
     itemsPerPage
-  } = useProductAdmin();
+  } = useProductAdmin({
+    initialProducts,
+    initialTotalItems,
+    initialTotalPages,
+    initialPage: initialCurrentPage,
+    initialLimit: initialItemsPerPage,
+  });
 
-  // Sử dụng hook API stats
+  // State for combined error handling
+  const [combinedError, setCombinedError] = useState<string | null>(apiError || productAdminError);
+
+  useEffect(() => {
+    setCombinedError(apiError || productAdminError);
+  }, [apiError, productAdminError]);
+
+
+  // Sử dụng hook API stats - can potentially be moved to SSR too if needed
   const { statistics, loading: statsLoading } = useApiStats();
 
   // Dữ liệu thống kê
@@ -105,77 +130,46 @@ export default function AdminProducts() {
   const brands = getBrands();
 
   // Get productContext from useProduct hook
-  const { cleanupBase64Images, uploadProductImage } = useProduct(); // Add uploadProductImage
+  const { cleanupBase64Images, uploadProductImage, fetchProductById } = useProduct(); // Add fetchProductById
 
-  // Component did mount - kiểm tra kết nối API
+  // Removed the initial data fetching useEffect as it's handled by SSR and useProductAdmin
+  // Keep periodic health check if desired
   useEffect(() => {
-    console.log('Admin Products page mounted');
-    
-    // Kiểm tra xem người dùng đã đăng nhập chưa trước khi thực hiện bất kỳ yêu cầu API nào
     const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-    if (!adminToken) {
-      console.log('Người dùng chưa đăng nhập, không gọi API');
-      return; // Thoát sớm nếu không có token
-    }
-    
-    // Đánh dấu trang đang được xem để cải thiện trải nghiệm
-    const PRODUCTS_PAGE_VIEWED = 'admin_products_page_viewed';
-    const wasViewedRecently = localStorage.getItem(PRODUCTS_PAGE_VIEWED);
-    const currentTime = Date.now();
-    
-    // Chỉ kiểm tra API và không fetchProducts nếu đã xem trang gần đây (trong 5 phút)
-    if (wasViewedRecently && currentTime - parseInt(wasViewedRecently) < 5 * 60 * 1000) {
-      console.log('Trang sản phẩm đã được xem gần đây, chỉ kiểm tra kết nối API');
-      checkApiHealth();
-    } else {
-      // Tạo một hàm kiểm tra tình trạng backend
-      const initializeData = async () => {
-        try {
-          // Kiểm tra trạng thái API - chỉ kiểm tra, không tải dữ liệu
-          const isOnline = await checkApiHealth();
-          
-          if (!isOnline) {
-            toast.error('Không thể kết nối đến server API. Vui lòng kiểm tra lại kết nối hoặc khởi động lại server.', {
-              duration: 5000,
-            });
-            return;
-          }
-          
-          console.log('Kết nối API thành công, đang để useProductAdmin xử lý tải dữ liệu sản phẩm');
-          
-        } catch (error) {
-          console.error('Lỗi kiểm tra kết nối API:', error);
-        }
-      };
-      
-      initializeData();
-    }
-    
-    // Cập nhật thời gian xem trang
-    localStorage.setItem(PRODUCTS_PAGE_VIEWED, currentTime.toString());
-    
-    // Kiểm tra token trước khi thiết lập interval
     let intervalId: NodeJS.Timeout | null = null;
-    
+
     if (adminToken) {
-      // Không cần polling liên tục, chỉ cần kiểm tra kết nối API định kỳ
+      // Initial check on mount (optional, SSR handles initial load)
+      // checkApiHealth();
+
+      // Periodic health check
       intervalId = setInterval(() => {
-        // Kiểm tra lại token trước mỗi lần gọi API
         const currentToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
         if (currentToken) {
-          checkApiHealth();
+          checkApiHealth().then(isOnline => {
+            const toastId = 'api-offline-toast'; // Define the toast ID
+            if (!isOnline) { // Remove the !toast.isActive check
+               toast.error('Mất kết nối đến server API.', { id: toastId, duration: 5000 });
+            }
+          });
         } else {
-          // Nếu token không còn, xóa interval
           if (intervalId) clearInterval(intervalId);
         }
-      }, 300000); // Kiểm tra kết nối API mỗi 5 phút
+      }, 300000); // Check every 5 minutes
     }
-    
-    // Cleanup khi component bị unmount
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, []); // Empty dependency array để chỉ chạy một lần khi component mount
+  }, [checkApiHealth]); // Dependency on checkApiHealth
+
+  // Display SSR error if present
+  useEffect(() => {
+    if (apiError) {
+      toast.error(`Lỗi tải dữ liệu ban đầu: ${apiError}`, { duration: 5000 });
+    }
+  }, [apiError]);
+
 
   const handleEdit = async (id: string): Promise<boolean> => {
     try {
@@ -321,42 +315,51 @@ export default function AdminProducts() {
   };
 
   const confirmDelete = async () => {
-    // Xử lý xóa sản phẩm
+    if (!productToDelete) return;
+
     console.log(`Đang xóa sản phẩm ${productToDelete}`);
-    // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang xóa sản phẩm...');
 
     try {
-      if (productToDelete) {
-        // Xóa sản phẩm bằng các sản phẩm được chọn
-        const success = await bulkDelete();
-        
-        if (success) {
-          // Thông báo thành công
-          toast.dismiss(loadingToast);
-          toast.success('Đã xóa sản phẩm thành công!', {
-            duration: 3000,
-            icon: <FiCheck className="text-green-500" />
-          });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${productToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-          // Đóng modal
-          setShowDeleteModal(false);
-          setProductToDelete(null);
-          
-          // Refresh the product list
-          fetchProducts();
-        } else {
-          toast.dismiss(loadingToast);
-          toast.error('Có lỗi xảy ra khi xóa sản phẩm!', {
-            duration: 3000
-          });
+      if (!response.ok) {
+        let errorMessage = `Lỗi khi xóa sản phẩm: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Ignore if response is not JSON
         }
+        throw new Error(errorMessage);
       }
+
+      // Thông báo thành công
+      toast.dismiss(loadingToast);
+      toast.success('Đã xóa sản phẩm thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Đóng modal và reset state
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+      setSelectedProduct(null); // Clear selected product as well
+
+      // Refresh the product list
+      fetchProducts();
+
     } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
       toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${error.message}`, {
-        duration: 3000
+        duration: 4000
       });
     }
   };
@@ -430,6 +433,14 @@ export default function AdminProducts() {
           icon: <FiCheck className="text-green-500" />
         });
       }, 1500);
+      setTimeout(() => {
+        // Thông báo thành công
+        toast.dismiss(loadingToast);
+        toast.success('Xuất dữ liệu thành công!', {
+          duration: 3000,
+          icon: <FiCheck className="text-green-500" />
+        });
+      }, 1500);
     } catch (error) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
@@ -449,21 +460,20 @@ export default function AdminProducts() {
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang thêm sản phẩm mới...');
 
+    // 1. Extract image files to upload separately
+    const imagesToUpload = newProduct.images?.filter((img: any) => img.file) || [];
+    console.log(`Tìm thấy ${imagesToUpload.length} hình ảnh cần tải lên sau khi tạo sản phẩm.`);
+
     try {
-      // Process the product data before sending it to the API
+      // 2. Prepare product data *without* images for the initial creation
       const productToCreate = { ...newProduct };
+      delete productToCreate.images; // Remove images array for the initial create request
+      delete productToCreate.id;     // Ensure no ID is sent for creation
+      delete productToCreate._id;    // Ensure no _id is sent for creation
+      console.log('Dữ liệu gửi đi cho POST request (tạo sản phẩm):', productToCreate);
 
-      // Remove file objects from images to avoid circular references
-      if (productToCreate.images && Array.isArray(productToCreate.images)) {
-        productToCreate.images = productToCreate.images.map((img: any) => ({
-          url: img.url || img.preview || '',
-          alt: img.alt || '',
-          isPrimary: img.isPrimary || false,
-          publicId: img.publicId || ''
-        }));
-      }
 
-      // Sử dụng API trực tiếp thay vì productContext
+      // 3. Send the create request
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`, {
         method: 'POST',
         headers: {
@@ -474,12 +484,82 @@ export default function AdminProducts() {
       });
 
       if (!response.ok) {
-        throw new Error(`Lỗi khi tạo sản phẩm: ${response.status}`);
+        let errorMessage = `Lỗi khi tạo sản phẩm: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          // Check if the error data has a message property (common in NestJS)
+          if (errorData && errorData.message) {
+            // Handle potential array of messages
+            errorMessage = Array.isArray(errorData.message) ? errorData.message.join(', ') : errorData.message;
+          } else {
+             // Fallback if no specific message found
+             const textResponse = await response.text(); // Try getting raw text
+             if (textResponse) {
+               errorMessage = textResponse.substring(0, 200); // Limit length
+             }
+          }
+        } catch (parseError) {
+          // If parsing fails, use the status text or default message
+          errorMessage = response.statusText || `Lỗi không xác định (${response.status})`;
+          console.error('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const createdProduct = await response.json();
+      console.log('Sản phẩm đã được tạo thành công:', createdProduct);
 
-      // Thông báo thành công
+      // 4. Upload images if creation was successful and there are images
+      if (imagesToUpload.length > 0 && createdProduct.id) {
+        toast.loading(`Đang tải lên ${imagesToUpload.length} hình ảnh...`, { id: 'image-upload-toast' });
+        let uploadSuccessCount = 0;
+        for (const image of imagesToUpload) {
+          try {
+            console.log(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${createdProduct.id}`);
+            // Use the uploadProductImage function from the context
+            await uploadProductImage(image.file, createdProduct.id, image.isPrimary);
+            uploadSuccessCount++;
+            console.log(`Tải lên thành công: ${image.file.name}`);
+          } catch (uploadError: any) {
+            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
+            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${uploadError.message}`, { duration: 5000 });
+            // Optionally continue uploading other images or stop
+          }
+        }
+        toast.dismiss('image-upload-toast');
+        if (uploadSuccessCount === imagesToUpload.length) {
+          toast.success(`Đã tải lên ${uploadSuccessCount} hình ảnh mới thành công!`);
+        } else {
+          toast.error(`Chỉ tải lên được ${uploadSuccessCount}/${imagesToUpload.length} hình ảnh mới.`);
+        }
+      }
+
+      // Thông báo thành công chung
+      toast.dismiss(loadingToast);
+      toast.success('Thêm sản phẩm mới thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Đóng modal
+      setShowAddProductModal(false);
+
+      // 5. Fetch final product data *after* uploads to get correct image URLs
+      let finalProduct = createdProduct;
+      if (imagesToUpload.length > 0 && createdProduct.id) {
+        try {
+          console.log(`Fetching final product data for ID: ${createdProduct.id} after image uploads.`);
+          // Assuming fetchProductById exists in the scope or context
+          finalProduct = await fetchProductById(createdProduct.id);
+          console.log('Fetched final product data:', finalProduct);
+        } catch (fetchError: any) {
+          console.error(`Failed to fetch final product data after upload: ${fetchError.message}`);
+          // Proceed with the product data we have, but log the error
+        }
+      }
+
+
+      // Thông báo thành công chung
       toast.dismiss(loadingToast);
       toast.success('Thêm sản phẩm mới thành công!', {
         duration: 3000,
@@ -492,10 +572,11 @@ export default function AdminProducts() {
       // Refresh the product list
       fetchProducts();
 
-      return createdProduct;
+      return finalProduct; // Return the potentially updated product data
     } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
+      toast.dismiss('image-upload-toast'); // Ensure upload toast is dismissed on error
       toast.error(`Có lỗi xảy ra khi thêm sản phẩm: ${error.message}`, {
         duration: 3000
       });
@@ -594,10 +675,36 @@ export default function AdminProducts() {
       // Đóng modal
       setShowEditProductModal(false);
 
+      // 3. Fetch final product data *after* uploads
+      let finalProduct = updatedProductResult;
+      if (imagesToUpload.length > 0 && productId) {
+         try {
+           console.log(`Fetching final product data for ID: ${productId} after image uploads.`);
+           // Assuming fetchProductById exists in the scope or context
+           finalProduct = await fetchProductById(productId);
+           console.log('Fetched final product data:', finalProduct);
+           // Optionally update the selectedProduct state if the modal might stay open
+           // setSelectedProduct(finalProduct);
+         } catch (fetchError: any) {
+           console.error(`Failed to fetch final product data after upload: ${fetchError.message}`);
+           // Proceed with the product data we have
+         }
+       }
+
+      // Thông báo thành công chung
+      toast.dismiss(loadingToast);
+      toast.success('Cập nhật sản phẩm thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Đóng modal
+      setShowEditProductModal(false);
+
       // Refresh the product list to show updated data including new images
       fetchProducts();
 
-      return updatedProductResult; // Return the result from the main PATCH
+      return finalProduct; // Return the potentially updated product data
     } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
@@ -892,28 +999,85 @@ export default function AdminProducts() {
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <FiAlertCircle className="h-6 w-6 text-red-600" />
+            {/* Updated Delete Confirmation Modal */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              {/* Header */}
+              <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Xóa sản phẩm
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                >
+                  <FiX className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="bg-white px-6 py-5">
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0 mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <FiAlertCircle className="h-6 w-6 text-red-600" aria-hidden="true" />
                   </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Xóa sản phẩm
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Bạn có chắc chắn muốn xóa sản phẩm {selectedProduct?.name ? <strong>"{selectedProduct.name}"</strong> : ''}? Hành động này không thể hoàn tác.
-                      </p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      Xác nhận xóa sản phẩm
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Bạn có chắc chắn muốn xóa sản phẩm {selectedProduct?.name ? <strong className="text-gray-700">"{selectedProduct.name}"</strong> : 'này'}? Hành động này không thể hoàn tác.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Product Info Box */}
+                {selectedProduct && (
+                  <div className="mt-5 p-4 border border-gray-200 rounded-md bg-gray-50">
+                    <div className="flex items-start space-x-4">
+                      {selectedProduct.image && (
+                        <img
+                          src={selectedProduct.image}
+                          alt={selectedProduct.name}
+                          className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{selectedProduct.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">SKU: {selectedProduct.sku || 'N/A'}</p>
+                        {/* Add other relevant details if needed and available */}
+                        {/* <p className="text-xs text-gray-500 mt-1">Tạo lúc: {selectedProduct.createdAt ? new Date(selectedProduct.createdAt).toLocaleString('vi-VN') : 'N/A'}</p> */}
+                        <div className="mt-2">
+                          <ProductStatusBadge status={selectedProduct.status as 'active' | 'out_of_stock' | 'discontinued'} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Important Notes */}
+                <div className="mt-5 p-4 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <FiAlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-red-800">Lưu ý quan trọng</h4>
+                      <ul className="mt-2 list-disc list-inside text-sm text-red-700 space-y-1">
+                        <li>Sản phẩm sẽ bị xóa vĩnh viễn khỏi hệ thống.</li>
+                        <li>Các hình ảnh liên quan (nếu có) sẽ bị xóa khỏi storage.</li>
+                        <li>Không thể khôi phục lại sau khi xóa.</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+
+              {/* Footer Buttons */}
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                   onClick={confirmDelete}
                 >
                   Xóa
@@ -1160,3 +1324,88 @@ export default function AdminProducts() {
     </AdminLayout>
   );
 }
+
+// --- Server-Side Rendering ---
+
+const ITEMS_PER_PAGE = 10; // Default items per page for initial load
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { req } = context;
+  const token = req.cookies.adminToken; // Get token from cookies
+
+  if (!token) {
+    // Redirect to login if no token
+    return {
+      redirect: {
+        destination: '/admin/auth/login?error=session_expired',
+        permanent: false,
+      },
+    };
+  }
+
+  // Construct API URL for initial fetch
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  // Ensure API_URL does not duplicate /api if BASE_URL already ends with it
+  const API_URL = BASE_URL.replace(/\/api$/, '') + '/api';
+  const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;
+
+  const params = new URLSearchParams({
+    page: '1',
+    limit: String(ITEMS_PER_PAGE),
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+
+  let initialProducts: AdminProduct[] = [];
+  let initialTotalItems = 0;
+  let initialTotalPages = 0;
+  let initialCurrentPage = 1;
+  let initialItemsPerPage = ITEMS_PER_PAGE;
+  let apiError: string | null = null;
+
+  try {
+    const response = await fetch(`${ADMIN_PRODUCTS_API}?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // Handle API errors (e.g., unauthorized, server error)
+      if (response.status === 401) {
+        // Redirect to login on authorization error
+        return {
+          redirect: {
+            destination: '/admin/auth/login?error=unauthorized',
+            permanent: false,
+          },
+        };
+      }
+      // For other errors, pass an error message to the page
+      const errorData = await response.json().catch(() => ({ message: `API Error: ${response.status}` }));
+      apiError = errorData.message || `API Error: ${response.status}`;
+    } else {
+      const data = await response.json();
+      initialProducts = data.items;
+      initialTotalItems = data.total;
+      initialTotalPages = data.totalPages;
+      initialCurrentPage = data.page;
+      initialItemsPerPage = data.limit;
+    }
+  } catch (error: any) {
+    console.error('SSR Error fetching products:', error);
+    apiError = error.message || 'Failed to connect to API during SSR';
+  }
+
+  return {
+    props: {
+      initialProducts,
+      initialTotalItems,
+      initialTotalPages,
+      initialCurrentPage,
+      initialItemsPerPage,
+      apiError, // Pass error to the component
+    },
+  };
+};

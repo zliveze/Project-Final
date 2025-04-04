@@ -76,18 +76,19 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleImageAltChange
   } = useProductImages(formData, setFormData);
 
-  // Sử dụng custom hook để quản lý biến thể
+  // Sử dụng custom hook để quản lý biến thể (refactored)
   const {
-    showVariantForm,
-    currentVariant,
-    editingVariantIndex,
-    handleAddVariant,
-    handleEditVariant,
-    handleRemoveVariant,
-    handleVariantChange,
-    handleVariantImageSelect,
-    handleSaveVariant,
-    handleCancelVariant
+    showVariantForm,      // Renamed state
+    editingVariant,       // Still useful to know if editing vs adding
+    currentVariantData,   // The data for the form
+    isVariantProcessing,  // Loading state for save
+    handleOpenAddVariant,
+    handleOpenEditVariant,
+    handleCancelVariant,  // Renamed close handler
+    handleSaveVariant,    // Updated save handler
+    handleDeleteVariant,
+    handleVariantChange,  // New handler for form input
+    handleVariantImageSelect // New handler for image selection
   } = useProductVariants(formData, setFormData);
 
   // Sử dụng custom hook để quản lý tồn kho
@@ -232,7 +233,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tab.Group onChange={handleTabChange}>
-        <Tab.List className="flex p-1 space-x-1 bg-gray-100 rounded-lg">
+          <Tab.List className="flex p-1 space-x-1 bg-gray-100 rounded-lg">
           <Tab 
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
@@ -327,16 +328,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
               handleRemoveImage={handleRemoveImage}
               handleSetPrimaryImage={handleSetPrimaryImage}
               handleImageAltChange={handleImageAltChange}
+              // Pass all necessary props from the refactored hook to the tab
+              handleOpenAddVariant={handleOpenAddVariant}
+              handleOpenEditVariant={handleOpenEditVariant}
+              handleDeleteVariant={handleDeleteVariant}
               showVariantForm={showVariantForm}
-              currentVariant={currentVariant}
-              editingVariantIndex={editingVariantIndex}
-              handleAddVariant={handleAddVariant}
-              handleEditVariant={handleEditVariant}
-              handleRemoveVariant={handleRemoveVariant}
+              editingVariant={editingVariant} // Pass the original variant being edited
+              currentVariantData={currentVariantData} // Pass the form data
               handleVariantChange={handleVariantChange}
               handleVariantImageSelect={handleVariantImageSelect}
               handleSaveVariant={handleSaveVariant}
               handleCancelVariant={handleCancelVariant}
+              isVariantProcessing={isVariantProcessing} // Pass loading state if needed by VariantForm
               isViewMode={isViewMode}
             />
           </Tab.Panel>
@@ -420,4 +423,4 @@ const ProductForm: React.FC<ProductFormProps> = ({
   );
 };
 
-export default ProductForm; 
+export default ProductForm;

@@ -10,12 +10,17 @@ import {
   UseGuards, 
   Logger,
   UploadedFile,
-  UseInterceptors
+  UseInterceptors,
+  Inject,
+  NotFoundException // Import NotFoundException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose'; // Import Model
+import { Product, ProductDocument } from './schemas/product.schema'; // Import Product schema/document
 import { ProductsService } from './products.service';
-import { 
+import {
   CreateProductDto, 
   UpdateProductDto, 
   QueryProductDto,
@@ -36,6 +41,7 @@ export class ProductsAdminController {
   private readonly logger = new Logger(ProductsAdminController.name);
 
   constructor(
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>, // Inject Model
     private readonly productsService: ProductsService,
     private readonly cloudinaryService: CloudinaryService
   ) {}
@@ -257,28 +263,17 @@ export class ProductsAdminController {
 
       this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`); // Log 1: Confirms imageObj creation
 
-      // Get the product
-      this.logger.log(`Getting product with ID: ${id}`);
-      const product = await this.productsService.findOne(id);
+      this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`);
 
-      // If this is the primary image, set all other images to non-primary
-      const images = product.images || [];
-      if (imageObj.isPrimary) {
-        images.forEach(img => (img.isPrimary = false));
-      }
+      // Call the service method to add the image and update the product
+      this.logger.log(`Calling service to add image to product ID: ${id}`);
+      const updatedProductDto = await this.productsService.addImageToProduct(id, imageObj);
+      this.logger.log(`Service successfully added image to product ID: ${id}`);
 
-      // Lọc bỏ các ảnh có URL base64 còn sót lại trong mảng images
-      const filteredImages = images.filter(img => !img.url || !img.url.startsWith('data:image'));
-      
-      // Add the new image
-      filteredImages.push(imageObj);
+      return updatedProductDto; // Return the DTO from the service
 
-      // Update the product
-      this.logger.log(`Updating product with new image, total images: ${filteredImages.length}`);
-      this.logger.debug(`[Controller uploadImage] Images array prepared for service update: ${JSON.stringify(filteredImages, null, 2)}`); // Log 2: Check array before service call
-      return this.productsService.update(id, { images: filteredImages });
     } catch (error) {
-      this.logger.error(`Error uploading product image: ${error.message}`, error.stack);
+      this.logger.error(`Error uploading product image for ID ${id}: ${error.message}`, error.stack);
       // Rethrow the error so the frontend knows the upload failed
       throw error;
     }

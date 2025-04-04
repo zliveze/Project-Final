@@ -179,6 +179,13 @@ export class ProductsService {
         }).filter(inv => inv.branchId !== undefined);
       }
 
+      // Explicitly remove variants array if it's empty before saving
+      // This helps avoid potential issues with sparse unique indexes on empty arrays
+      if (Array.isArray(productData.variants) && productData.variants.length === 0) {
+        this.logger.log('Variants array is empty, removing it from data before saving.');
+        delete productData.variants;
+      }
+
       // Create new product
       const createdProduct = new this.productModel(productData);
       const savedProduct = await createdProduct.save();
@@ -1155,11 +1162,42 @@ export class ProductsService {
     }
   }
 
+  // Public method to add an image and return updated DTO
+  async addImageToProduct(productId: string, imageObj: { url: string; alt: string; publicId: string; isPrimary: boolean }): Promise<ProductResponseDto> {
+    try {
+      const productDoc = await this.productModel.findById(productId);
+      if (!productDoc) {
+        throw new NotFoundException(`Product not found with ID: ${productId} when trying to add image`);
+      }
+
+      const images = productDoc.images || [];
+      if (imageObj.isPrimary) {
+        images.forEach(img => { img.isPrimary = false; });
+      }
+      images.push(imageObj);
+      productDoc.images = images; // Assign the updated array back
+
+      const savedProduct = await productDoc.save();
+      this.logger.log(`Image added and product saved successfully for ID: ${productId}`);
+      // Use the private mapper method within the service
+      return this.mapProductToResponseDto(savedProduct.toObject());
+    } catch (error) {
+      this.logger.error(`Error adding image to product ID ${productId}: ${error.message}`, error.stack);
+      throw error; // Rethrow the error to be handled by the controller
+    }
+  }
+
   // Helper method to map a product document to a response DTO
+  // Keep this private as it's an internal helper
   private mapProductToResponseDto(product: any): ProductResponseDto {
+    // Ensure _id exists before trying to convert it
+    const idString = product._id ? product._id.toString() : undefined;
+
     return {
       ...product,
-      _id: product._id.toString(),
+      _id: idString, // Use the converted string ID
+      id: idString, // Also add 'id' field for consistency if needed by frontend
+      // Removed duplicate _id: product._id.toString()
       brandId: product.brandId ? product.brandId.toString() : undefined,
       categoryIds: product.categoryIds ? product.categoryIds.map(id => id.toString()) : [],
       variants: product.variants ? product.variants.map(variant => ({
