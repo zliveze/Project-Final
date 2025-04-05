@@ -17,7 +17,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Hàm kiểm tra đường dẫn
     const checkPath = (path: string) => {
-      return path.startsWith('/admin/products') || path.startsWith('/shop');
+      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product');
     };
     
     // Kiểm tra ngay lập tức dựa trên window.location
@@ -46,17 +46,21 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [router]);
   
-  // Xác định sẽ dùng ProductProvider cho trang admin/products và shop
+  // Xác định sẽ dùng ProductProvider cho trang admin/products, shop và trang chi tiết sản phẩm
   const isAdminProductsPage = typeof window !== 'undefined' && 
     (window.location.pathname.startsWith('/admin/products') || 
-     (router.pathname && router.pathname.startsWith('/admin/products')));
+      (router.pathname && router.pathname.startsWith('/admin/products')));
   
   const isShopPage = typeof window !== 'undefined' && 
     (window.location.pathname.startsWith('/shop') || 
-     (router.pathname && router.pathname.startsWith('/shop')));
+      (router.pathname && router.pathname.startsWith('/shop')));
   
-  // Sử dụng ProductProvider nếu ở trang admin/products hoặc shop
-  const useProductProvider = isAdminProductsPage || isShopPage || shouldUseProductProvider;
+  const isProductDetailPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/product') || 
+      (router.pathname && router.pathname.startsWith('/product')));
+  
+  // Sử dụng ProductProvider nếu ở trang admin/products, shop hoặc trang chi tiết sản phẩm
+  const useProductProvider = isAdminProductsPage || isShopPage || isProductDetailPage || shouldUseProductProvider;
   
   // ProductProvider có điều kiện, các provider khác giữ nguyên
   return (

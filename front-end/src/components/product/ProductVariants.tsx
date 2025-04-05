@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { RadioGroup } from '@headlessui/react';
 
 interface VariantOption {
@@ -22,22 +22,41 @@ interface ProductVariantsProps {
 }
 
 const ProductVariants: React.FC<ProductVariantsProps> = ({
-  variants,
+  variants = [],
   selectedVariant,
   onSelectVariant,
 }) => {
+  // Kiểm tra xem có variant nào không
+  if (!variants || variants.length === 0) {
+    return null;
+  }
+
+  // Nếu chưa có variant được chọn, tự động chọn variant đầu tiên
+  useEffect(() => {
+    if (!selectedVariant && variants.length > 0) {
+      onSelectVariant(variants[0]);
+    }
+  }, [variants, selectedVariant, onSelectVariant]);
+
   // Lấy danh sách các loại biến thể có sẵn
-  const availableColors = [...new Set(variants.filter(v => v.options.color).map(v => v.options.color))];
-  const availableSizes = [...new Set(variants.filter(v => v.options.size).map(v => v.options.size))];
-  const availableShades = [...new Set(variants.filter(v => v.options.shade).map(v => v.options.shade))];
+  const availableColors = [...new Set(variants.filter(v => v.options?.color).map(v => v.options.color))];
+  const availableSizes = [...new Set(variants.filter(v => v.options?.size).map(v => v.options.size))];
+  const availableShades = [...new Set(variants.filter(v => v.options?.shade).map(v => v.options.shade))];
+
+  // Kiểm tra xem có biến thể nào để hiển thị không
+  const hasOptions = availableColors.length > 0 || availableSizes.length > 0 || availableShades.length > 0;
+  
+  if (!hasOptions) {
+    return null;
+  }
 
   // Tìm biến thể dựa trên các tùy chọn đã chọn
   const findVariantByOptions = (color?: string, size?: string, shade?: string) => {
     return variants.find(
       v => 
-        (!color || v.options.color === color) && 
-        (!size || v.options.size === size) && 
-        (!shade || v.options.shade === shade)
+        (!color || v.options?.color === color) && 
+        (!size || v.options?.size === size) && 
+        (!shade || v.options?.shade === shade)
     );
   };
 
@@ -45,8 +64,8 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   const handleColorSelect = (color: string) => {
     const newVariant = findVariantByOptions(
       color, 
-      selectedVariant?.options.size, 
-      selectedVariant?.options.shade
+      selectedVariant?.options?.size, 
+      selectedVariant?.options?.shade
     );
     if (newVariant) {
       onSelectVariant(newVariant);
@@ -56,9 +75,9 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   // Xử lý khi chọn kích thước
   const handleSizeSelect = (size: string) => {
     const newVariant = findVariantByOptions(
-      selectedVariant?.options.color, 
+      selectedVariant?.options?.color, 
       size, 
-      selectedVariant?.options.shade
+      selectedVariant?.options?.shade
     );
     if (newVariant) {
       onSelectVariant(newVariant);
@@ -68,8 +87,8 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   // Xử lý khi chọn tone màu
   const handleShadeSelect = (shade: string) => {
     const newVariant = findVariantByOptions(
-      selectedVariant?.options.color, 
-      selectedVariant?.options.size, 
+      selectedVariant?.options?.color, 
+      selectedVariant?.options?.size, 
       shade
     );
     if (newVariant) {
@@ -87,10 +106,10 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             {availableColors.map((color) => (
               <button
                 key={color}
-                onClick={() => handleColorSelect(color!)}
+                onClick={() => color && handleColorSelect(color)}
                 className={`
                   h-8 w-8 rounded-full border-2 flex items-center justify-center
-                  ${selectedVariant?.options.color === color 
+                  ${selectedVariant?.options?.color === color 
                     ? 'border-[#d53f8c] ring-2 ring-[#d53f8c] ring-opacity-30' 
                     : 'border-gray-300'
                   }
@@ -115,10 +134,10 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             {availableSizes.map((size) => (
               <button
                 key={size}
-                onClick={() => handleSizeSelect(size!)}
+                onClick={() => size && handleSizeSelect(size)}
                 className={`
                   px-3 py-1 border rounded-md text-sm
-                  ${selectedVariant?.options.size === size
+                  ${selectedVariant?.options?.size === size
                     ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]'
                     : 'border-gray-300 text-gray-700 hover:border-gray-400'
                   }
@@ -139,10 +158,10 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             {availableShades.map((shade) => (
               <button
                 key={shade}
-                onClick={() => handleShadeSelect(shade!)}
+                onClick={() => shade && handleShadeSelect(shade)}
                 className={`
                   px-3 py-1 border rounded-md text-sm
-                  ${selectedVariant?.options.shade === shade
+                  ${selectedVariant?.options?.shade === shade
                     ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]'
                     : 'border-gray-300 text-gray-700 hover:border-gray-400'
                   }

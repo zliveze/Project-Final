@@ -14,6 +14,10 @@ interface ProductCategoriesProps {
 }
 
 const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags }) => {
+  if (!categories?.length && !tags?.length) {
+    return null;
+  }
+
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
@@ -23,7 +27,7 @@ const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags 
 
       <div className="space-y-4">
         {/* Danh mục sản phẩm */}
-        {categories.length > 0 && (
+        {categories?.length > 0 && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
               <FiTag className="mr-1 text-[#d53f8c]" />
@@ -44,7 +48,7 @@ const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags 
         )}
 
         {/* Tags sản phẩm */}
-        {tags.length > 0 && (
+        {tags?.length > 0 && (
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
               <FiHash className="mr-1 text-[#d53f8c]" />
@@ -65,10 +69,12 @@ const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags 
         )}
       </div>
       
-      <div className="mt-3 text-xs text-gray-500 flex items-center">
-        <FiTag className="mr-1 text-gray-400" />
-        <span>Xem thêm sản phẩm tương tự trong cùng danh mục</span>
-      </div>
+      {categories?.length > 0 && (
+        <div className="mt-3 text-xs text-gray-500 flex items-center">
+          <FiTag className="mr-1 text-gray-400" />
+          <span>Xem thêm sản phẩm tương tự trong cùng danh mục</span>
+        </div>
+      )}
     </div>
   );
 };

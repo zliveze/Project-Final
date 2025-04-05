@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import ProductVariants, { Variant } from './ProductVariants';
 import Link from 'next/link';
 import Image from 'next/image';
+import { checkAuth } from '@/utils/auth';
 
 interface Gift {
   giftId: string;
@@ -98,7 +99,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   };
 
   // Xử lý thêm vào giỏ hàng
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!inStock) {
       toast.error('Sản phẩm hiện đang hết hàng', {
         position: "bottom-right",
@@ -109,22 +110,154 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       return;
     }
     
-    toast.success('Đã thêm sản phẩm vào giỏ hàng', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#d53f8c', borderLeft: '4px solid #d53f8c' }
-    });
+    // Kiểm tra đăng nhập trước khi thực hiện
+    const isLoggedIn = checkAuth(
+      undefined, 
+      true, 
+      'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng'
+    );
+    
+    if (!isLoggedIn) {
+      return;
+    }
+    
+    try {
+      // Định nghĩa API_URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      
+      // Lấy token từ cookie
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+      
+      // Chuẩn bị data để gửi lên server
+      const cartItem = {
+        productId: _id,
+        quantity: quantity,
+        variantId: selectedVariant?.variantId || null
+      };
+      
+      // Gọi API để thêm vào giỏ hàng
+      const response = await fetch(`${API_URL}/cart/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(cartItem)
+      });
+      
+      if (response.ok) {
+        // Thêm thành công
+        toast.success('Đã thêm sản phẩm vào giỏ hàng', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light",
+          style: { backgroundColor: '#fdf2f8', color: '#d53f8c', borderLeft: '4px solid #d53f8c' }
+        });
+        
+        // Cập nhật số lượng trong giỏ hàng (nếu đang sử dụng context hoặc state toàn cục)
+        // Dispatch một event để header cập nhật số lượng trong giỏ hàng
+        const event = new CustomEvent('cart:updated');
+        window.dispatchEvent(event);
+      } else {
+        // Xử lý lỗi
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể thêm vào giỏ hàng', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light",
+          style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
+        });
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Đã xảy ra lỗi khi thêm vào giỏ hàng', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light",
+        style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
+      });
+    }
   };
 
   // Xử lý thêm vào danh sách yêu thích
-  const handleAddToWishlist = () => {
-    toast.success('Đã thêm sản phẩm vào danh sách yêu thích', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#d53f8c', borderLeft: '4px solid #d53f8c' }
-    });
+  const handleAddToWishlist = async () => {
+    // Kiểm tra đăng nhập trước khi thực hiện
+    const isLoggedIn = checkAuth(
+      undefined, 
+      true, 
+      'Vui lòng đăng nhập để thêm sản phẩm vào danh sách yêu thích'
+    );
+    
+    if (!isLoggedIn) {
+      return;
+    }
+    
+    try {
+      // Định nghĩa API_URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      
+      // Lấy token từ cookie
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+      
+      // Gọi API để thêm vào danh sách yêu thích
+      const response = await fetch(`${API_URL}/wishlist/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ productId: _id })
+      });
+      
+      if (response.ok) {
+        // Thêm thành công
+        toast.success('Đã thêm sản phẩm vào danh sách yêu thích', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light",
+          style: { backgroundColor: '#fdf2f8', color: '#d53f8c', borderLeft: '4px solid #d53f8c' }
+        });
+        
+        // Dispatch một event để cập nhật UI nếu cần
+        const event = new CustomEvent('wishlist:updated');
+        window.dispatchEvent(event);
+      } else {
+        // Kiểm tra xem sản phẩm đã có trong wishlist chưa
+        const errorData = await response.json();
+        
+        if (response.status === 409) {
+          // Sản phẩm đã tồn tại trong wishlist
+          toast.info('Sản phẩm đã có trong danh sách yêu thích của bạn', {
+            position: "bottom-right",
+            autoClose: 3000,
+            theme: "light",
+            style: { backgroundColor: '#e3f2fd', color: '#0d47a1', borderLeft: '4px solid #0d47a1' }
+          });
+        } else {
+          // Lỗi khác
+          toast.error(errorData.message || 'Không thể thêm vào danh sách yêu thích', {
+            position: "bottom-right",
+            autoClose: 3000,
+            theme: "light",
+            style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      toast.error('Đã xảy ra lỗi khi thêm vào danh sách yêu thích', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light",
+        style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
+      });
+    }
   };
 
   // Xử lý chia sẻ sản phẩm

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiUpload, FiX } from 'react-icons/fi';
+import { FiUpload, FiX, FiAlertCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 
@@ -19,40 +19,43 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Xử lý khi chọn ảnh
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      
-      // Giới hạn số lượng ảnh tối đa là 5
-      if (images.length + filesArray.length > 5) {
-        toast.error('Bạn chỉ có thể tải lên tối đa 5 ảnh', {
-          position: "bottom-right",
-          autoClose: 3000,
-        });
-        return;
-      }
-      
-      // Kiểm tra kích thước file (tối đa 5MB mỗi ảnh)
-      const validFiles = filesArray.filter(file => file.size <= 5 * 1024 * 1024);
-      if (validFiles.length !== filesArray.length) {
-        toast.error('Một số ảnh vượt quá kích thước tối đa 5MB', {
-          position: "bottom-right",
-          autoClose: 3000,
-        });
-      }
-      
-      // Tạo URL preview cho ảnh
-      const newImagePreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-      
-      setImages([...images, ...validFiles]);
-      setImagePreviewUrls([...imagePreviewUrls, ...newImagePreviewUrls]);
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const filesArray = Array.from(e.target.files);
+    
+    // Giới hạn số lượng ảnh tối đa là 5
+    if (images.length + filesArray.length > 5) {
+      toast.error('Bạn chỉ có thể tải lên tối đa 5 ảnh', {
+        position: "bottom-right",
+        autoClose: 3000,
+      });
+      return;
     }
+    
+    // Kiểm tra kích thước file (tối đa 5MB mỗi ảnh)
+    const validFiles = filesArray.filter(file => file.size <= 5 * 1024 * 1024);
+    if (validFiles.length !== filesArray.length) {
+      toast.error('Một số ảnh vượt quá kích thước tối đa 5MB', {
+        position: "bottom-right",
+        autoClose: 3000,
+      });
+    }
+    
+    // Tạo URL preview cho ảnh
+    const newImagePreviewUrls = validFiles.map(file => URL.createObjectURL(file));
+    
+    setImages([...images, ...validFiles]);
+    setImagePreviewUrls([...imagePreviewUrls, ...newImagePreviewUrls]);
   };
 
   // Xử lý khi xóa ảnh
   const handleRemoveImage = (index: number) => {
+    if (index < 0 || index >= images.length) return;
+    
     const newImages = [...images];
     const newImagePreviewUrls = [...imagePreviewUrls];
     
@@ -66,36 +69,89 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     setImagePreviewUrls(newImagePreviewUrls);
   };
 
+  // Kiểm tra đăng nhập
+  const checkAuthentication = () => {
+    // Kiểm tra bằng cookie hoặc local storage
+    const token = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
+      
+    return !!token;
+  };
+
   // Xử lý khi gửi đánh giá
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (content.trim().length < 10) {
-      toast.error('Nội dung đánh giá phải có ít nhất 10 ký tự', {
-        position: "bottom-right",
-        autoClose: 3000,
-      });
+      setError('Nội dung đánh giá phải có ít nhất 10 ký tự');
+      return;
+    }
+    
+    // Kiểm tra đăng nhập trước khi thực hiện
+    const isLoggedIn = checkAuthentication();
+    
+    if (!isLoggedIn) {
+      setError('Bạn cần đăng nhập để gửi đánh giá');
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // Mô phỏng gửi đánh giá thành công
-      // Trong thực tế, bạn sẽ gửi dữ liệu lên server ở đây
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Định nghĩa API_URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
-      toast.success('Đánh giá của bạn đã được gửi thành công', {
-        position: "bottom-right",
-        autoClose: 3000,
+      // Lấy token từ cookie
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+      
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+      
+      // Chuẩn bị dữ liệu đánh giá
+      const formData = new FormData();
+      formData.append('productId', productId);
+      formData.append('rating', rating.toString());
+      formData.append('content', content);
+      
+      // Thêm các ảnh vào formData nếu có
+      images.forEach((image) => {
+        formData.append('reviewImages', image);
       });
       
-      // Giải phóng tất cả URL objects
-      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+      // Gửi đánh giá
+      const response = await fetch(`${API_URL}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
       
-      onSubmitSuccess();
+      if (response.ok) {
+        toast.success('Đánh giá của bạn đã được gửi thành công', {
+          position: "bottom-right",
+          autoClose: 3000,
+        });
+        
+        // Giải phóng tất cả URL objects
+        imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        
+        onSubmitSuccess();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Có lỗi xảy ra khi gửi đánh giá');
+      }
     } catch (error) {
-      toast.error('Có lỗi xảy ra khi gửi đánh giá', {
+      console.error('Error submitting review:', error);
+      setError(error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi đánh giá');
+      toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi đánh giá', {
         position: "bottom-right",
         autoClose: 3000,
       });
@@ -107,6 +163,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200">
       <h3 className="text-lg font-medium text-gray-800 mb-4">Viết đánh giá của bạn</h3>
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
+          <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit}>
         {/* Đánh giá sao */}
@@ -157,7 +220,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#306E51] focus:border-[#306E51]"
             required
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className={`mt-1 text-xs ${content.length < 10 ? 'text-red-500' : 'text-gray-500'}`}>
             Tối thiểu 10 ký tự. Hiện tại: {content.length} ký tự
           </p>
         </div>

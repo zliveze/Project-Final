@@ -4,6 +4,7 @@ import { useApiStats } from '@/hooks/useApiStats';
 import { AdminProduct } from '@/hooks/useProductAdmin';
 import Cookies from 'js-cookie';
 import { ApiStatusAlert } from '@/components/common';
+import { toast } from 'react-toastify';
 
 // Tạo interface cho sản phẩm từ Admin API
 export interface Product {
@@ -203,6 +204,26 @@ interface ProductContextType {
   clearProductCache: (id?: string) => void;
   cleanupBase64Images: () => Promise<{ success: boolean; message: string; count: number }>;
   cloneProduct: (id: string) => Promise<Product>;
+  
+  // Phương thức tương tác với giỏ hàng
+  addToCart: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
+  removeFromCart: (cartItemId: string) => Promise<boolean>;
+  updateCartQuantity: (cartItemId: string, quantity: number) => Promise<boolean>;
+  getCartItems: () => Promise<any[]>;
+  
+  // Phương thức tương tác với wishlist
+  addToWishlist: (productId: string) => Promise<boolean>;
+  removeFromWishlist: (productId: string) => Promise<boolean>;
+  getWishlistItems: () => Promise<any[]>;
+  
+  // Phương thức tương tác với đánh giá
+  addReview: (
+    productId: string, 
+    rating: number, 
+    content: string, 
+    images?: File[]
+  ) => Promise<boolean>;
+  getProductReviews: (productId: string, page?: number, limit?: number) => Promise<any>;
 }
 
 // Create context
@@ -281,7 +302,43 @@ export const useProduct = () => {
       cloneProduct: async () => {
         console.warn('ProductProvider không khả dụng trên trang này');
         return {} as Product;
-      }
+      },
+      addToCart: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      removeFromCart: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      updateCartQuantity: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      getCartItems: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return [];
+      },
+      addToWishlist: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      removeFromWishlist: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      getWishlistItems: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return [];
+      },
+      addReview: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return false;
+      },
+      getProductReviews: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return { data: [], total: 0, totalPages: 0 };
+      },
     } as ProductContextType;
   }
   
@@ -1032,6 +1089,320 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [handleCheckApiHealth, clearProductCache]);
 
+  // Phương thức tương tác với giỏ hàng
+  const addToCart = useCallback(async (productId: string, quantity: number, variantId?: string) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng');
+        return false;
+      }
+      
+      const response = await fetch(`${API_URL}/cart/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          productId,
+          quantity,
+          variantId: variantId || null,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể thêm vào giỏ hàng');
+        return false;
+      }
+      
+      toast.success('Đã thêm sản phẩm vào giỏ hàng');
+      
+      // Dispatch event để cập nhật UI
+      const event = new CustomEvent('cart:updated');
+      window.dispatchEvent(event);
+      
+      return true;
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Đã xảy ra lỗi khi thêm vào giỏ hàng');
+      return false;
+    }
+  }, []);
+  
+  const removeFromCart = useCallback(async (cartItemId: string) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
+        return false;
+      }
+      
+      const response = await fetch(`${API_URL}/cart/remove/${cartItemId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể xóa sản phẩm khỏi giỏ hàng');
+        return false;
+      }
+      
+      toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
+      
+      // Dispatch event để cập nhật UI
+      const event = new CustomEvent('cart:updated');
+      window.dispatchEvent(event);
+      
+      return true;
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+      toast.error('Đã xảy ra lỗi khi xóa sản phẩm khỏi giỏ hàng');
+      return false;
+    }
+  }, []);
+  
+  const updateCartQuantity = useCallback(async (cartItemId: string, quantity: number) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
+        return false;
+      }
+      
+      const response = await fetch(`${API_URL}/cart/update-quantity/${cartItemId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể cập nhật số lượng sản phẩm');
+        return false;
+      }
+      
+      // Dispatch event để cập nhật UI
+      const event = new CustomEvent('cart:updated');
+      window.dispatchEvent(event);
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating cart quantity:', error);
+      toast.error('Đã xảy ra lỗi khi cập nhật số lượng sản phẩm');
+      return false;
+    }
+  }, []);
+  
+  const getCartItems = useCallback(async () => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        return [];
+      }
+      
+      const response = await fetch(`${API_URL}/cart`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        return [];
+      }
+      
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      console.error('Error fetching cart items:', error);
+      return [];
+    }
+  }, []);
+  
+  // Phương thức tương tác với wishlist
+  const addToWishlist = useCallback(async (productId: string) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để thêm sản phẩm vào danh sách yêu thích');
+        return false;
+      }
+      
+      const response = await fetch(`${API_URL}/wishlist/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productId }),
+      });
+      
+      if (!response.ok) {
+        // Kiểm tra nếu sản phẩm đã có trong wishlist
+        if (response.status === 409) {
+          toast.info('Sản phẩm đã có trong danh sách yêu thích của bạn');
+          return true;
+        }
+        
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể thêm vào danh sách yêu thích');
+        return false;
+      }
+      
+      toast.success('Đã thêm sản phẩm vào danh sách yêu thích');
+      
+      // Dispatch event để cập nhật UI
+      const event = new CustomEvent('wishlist:updated');
+      window.dispatchEvent(event);
+      
+      return true;
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      toast.error('Đã xảy ra lỗi khi thêm vào danh sách yêu thích');
+      return false;
+    }
+  }, []);
+  
+  const removeFromWishlist = useCallback(async (productId: string) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
+        return false;
+      }
+      
+      const response = await fetch(`${API_URL}/wishlist/remove/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể xóa sản phẩm khỏi danh sách yêu thích');
+        return false;
+      }
+      
+      toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích');
+      
+      // Dispatch event để cập nhật UI
+      const event = new CustomEvent('wishlist:updated');
+      window.dispatchEvent(event);
+      
+      return true;
+    } catch (error) {
+      console.error('Error removing from wishlist:', error);
+      toast.error('Đã xảy ra lỗi khi xóa sản phẩm khỏi danh sách yêu thích');
+      return false;
+    }
+  }, []);
+  
+  const getWishlistItems = useCallback(async () => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        return [];
+      }
+      
+      const response = await fetch(`${API_URL}/wishlist`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        return [];
+      }
+      
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      console.error('Error fetching wishlist items:', error);
+      return [];
+    }
+  }, []);
+  
+  // Phương thức tương tác với đánh giá
+  const addReview = useCallback(async (
+    productId: string, 
+    rating: number, 
+    content: string, 
+    images?: File[]
+  ) => {
+    try {
+      const token = Cookies.get('token');
+      
+      if (!token) {
+        toast.error('Bạn cần đăng nhập để gửi đánh giá');
+        return false;
+      }
+      
+      const formData = new FormData();
+      formData.append('productId', productId);
+      formData.append('rating', rating.toString());
+      formData.append('content', content);
+      
+      if (images && images.length > 0) {
+        images.forEach(image => {
+          formData.append('reviewImages', image);
+        });
+      }
+      
+      const response = await fetch(`${API_URL}/reviews`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Không thể gửi đánh giá');
+        return false;
+      }
+      
+      toast.success('Đánh giá của bạn đã được gửi thành công');
+      return true;
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast.error('Đã xảy ra lỗi khi gửi đánh giá');
+      return false;
+    }
+  }, []);
+  
+  const getProductReviews = useCallback(async (productId: string, page = 1, limit = 10) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/reviews/product/${productId}?page=${page}&limit=${limit}`
+      );
+      
+      if (!response.ok) {
+        return { data: [], total: 0, totalPages: 0 };
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching product reviews:', error);
+      return { data: [], total: 0, totalPages: 0 };
+    }
+  }, []);
+
   // Context value
   const value: ProductContextType = {
     products,
@@ -1063,6 +1434,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearProductCache,
     cleanupBase64Images,
     cloneProduct,
+    // Phương thức tương tác với giỏ hàng
+    addToCart,
+    removeFromCart,
+    updateCartQuantity,
+    getCartItems,
+    // Phương thức tương tác với wishlist
+    addToWishlist,
+    removeFromWishlist,
+    getWishlistItems,
+    // Phương thức tương tác với đánh giá
+    addReview,
+    getProductReviews,
   };
 
   return (
@@ -1094,15 +1477,26 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         fetchStatistics,
         clearProductCache,
         cleanupBase64Images,
-        cloneProduct
+        cloneProduct,
+        addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        getCartItems,
+        addToWishlist,
+        removeFromWishlist,
+        getWishlistItems,
+        addReview,
+        getProductReviews,
       }}
     >
       {children}
-      <ApiStatusAlert
-        status={apiHealthStatus}
-        onRetry={handleCheckApiHealth}
-        hasLoadedData={products && products.length > 0}
-      />
+      {apiHealthStatus === 'offline' && (
+        <ApiStatusAlert 
+          status="offline"
+          onRetry={handleCheckApiHealth}
+          hasLoadedData={products && products.length > 0}
+        />
+      )}
     </ProductContext.Provider>
   );
 };

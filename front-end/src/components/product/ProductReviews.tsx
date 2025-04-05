@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { FiThumbsUp, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser } from 'react-icons/fi';
 import ReviewForm from './ReviewForm';
 
 interface ReviewImage {
   url: string;
-  alt: string;
+  alt?: string;
 }
 
 interface ReviewReply {
@@ -14,25 +15,27 @@ interface ReviewReply {
   createdAt: string;
 }
 
+interface ReviewUser {
+  name: string;
+  avatar?: string;
+}
+
 interface Review {
   _id: string;
   productId: string;
   variantId?: string;
   userId: string;
-  orderId: string;
+  orderId?: string;
   rating: number;
   content: string;
-  images: ReviewImage[];
+  images?: ReviewImage[];
   likes: number;
   verified: boolean;
   status: string;
-  reply: ReviewReply[];
+  reply?: ReviewReply[];
   createdAt: string;
-  updatedAt: string;
-  user: {
-    name: string;
-    avatar?: string;
-  };
+  updatedAt?: string;
+  user: ReviewUser;
 }
 
 interface ProductReviewsProps {
@@ -47,32 +50,37 @@ interface ProductReviewsProps {
 
 const ProductReviews: React.FC<ProductReviewsProps> = ({
   productId,
-  reviews,
-  averageRating,
-  reviewCount,
-  isAuthenticated,
-  hasPurchased,
-  hasReviewed,
+  reviews = [],
+  averageRating = 0,
+  reviewCount = 0,
+  isAuthenticated = false,
+  hasPurchased = false,
+  hasReviewed = false,
 }) => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [expandedReviews, setExpandedReviews] = useState<string[]>([]);
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
 
+  // Đảm bảo reviews là một mảng
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
+
   // Lọc đánh giá theo số sao
   const filteredReviews = filterRating
-    ? reviews.filter((review) => review.rating === filterRating)
-    : reviews;
+    ? safeReviews.filter((review) => review.rating === filterRating)
+    : safeReviews;
 
   // Đếm số lượng đánh giá theo số sao
   const ratingCounts = [5, 4, 3, 2, 1].map((rating) => {
-    const count = reviews.filter((review) => review.rating === rating).length;
+    const count = safeReviews.filter((review) => review.rating === rating).length;
     const percentage = reviewCount > 0 ? Math.round((count / reviewCount) * 100) : 0;
     return { rating, count, percentage };
   });
 
   // Lấy tất cả hình ảnh từ đánh giá
-  const allReviewImages = reviews.flatMap((review) => review.images);
+  const allReviewImages = safeReviews
+    .flatMap((review) => review.images || [])
+    .filter(image => image && image.url);
 
   // Xử lý mở rộng/thu gọn đánh giá
   const toggleExpandReview = (reviewId: string) => {
@@ -89,7 +97,40 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       alert('Vui lòng đăng nhập để thích đánh giá');
       return;
     }
-    // Xử lý thích đánh giá ở đây
+    // Xử lý thích đánh giá ở đây (sẽ được kết nối API)
+  };
+
+  // Render avatar cho user
+  const renderUserAvatar = (user: ReviewUser) => {
+    if (user.avatar) {
+      return (
+        <div className="relative h-10 w-10 rounded-full overflow-hidden">
+          <Image
+            src={user.avatar}
+            alt={user.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+      );
+    }
+    
+    return (
+      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+        <span className="text-gray-600 font-medium">
+          {user.name ? user.name.charAt(0).toUpperCase() : <FiUser />}
+        </span>
+      </div>
+    );
+  };
+
+  // Format date to local date string
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('vi-VN');
+    } catch (error) {
+      return 'Không xác định';
+    }
   };
 
   return (
@@ -160,7 +201,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
             </div>
           ) : !isAuthenticated ? (
             <div className="mt-6 text-sm text-gray-600 text-center">
-              Vui lòng <a href="/auth/login" className="text-[#d53f8c] hover:underline">đăng nhập</a> để đánh giá
+              Vui lòng <Link href="/auth/login" className="text-[#d53f8c] hover:underline">đăng nhập</Link> để đánh giá
             </div>
           ) : null}
         </div>
@@ -203,6 +244,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                 onSubmitSuccess={() => {
                   setShowReviewForm(false);
                   // Refresh đánh giá sau khi gửi thành công
+                  window.location.reload();
                 }}
               />
             </div>
@@ -212,35 +254,22 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           {filteredReviews.length > 0 ? (
             <div className="space-y-6">
               {filteredReviews.map((review) => {
+                if (!review) return null;
+                
                 const isExpanded = expandedReviews.includes(review._id);
-                const hasLongContent = review.content.length > 300;
+                const hasLongContent = review.content && review.content.length > 300;
 
                 return (
                   <div key={review._id} className="border-b border-gray-200 pb-6">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 mr-4">
-                        {review.user.avatar ? (
-                          <div className="relative h-10 w-10 rounded-full overflow-hidden">
-                            <Image
-                              src={review.user.avatar}
-                              alt={review.user.name}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-600 font-medium">
-                              {review.user.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
+                        {renderUserAvatar(review.user)}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium text-gray-800">{review.user.name}</h4>
                           <span className="text-sm text-gray-500">
-                            {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                            {formatDate(review.createdAt)}
                           </span>
                         </div>
                         <div className="flex items-center mt-1">
@@ -292,7 +321,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                     </div>
 
                     {/* Hình ảnh đánh giá */}
-                    {review.images.length > 0 && (
+                    {review.images && review.images.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {review.images.map((image, index) => (
                           <div key={index} className="relative h-20 w-20 rounded-md overflow-hidden">
@@ -319,14 +348,14 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                     </div>
 
                     {/* Phản hồi từ shop */}
-                    {review.reply.length > 0 && (
+                    {review.reply && review.reply.length > 0 && (
                       <div className="mt-4 pl-4 border-l-2 border-[#d53f8c]">
                         {review.reply.map((reply, index) => (
                           <div key={index} className="mb-2">
                             <div className="flex items-center">
                               <span className="font-medium text-[#d53f8c]">Phản hồi từ Shop</span>
                               <span className="ml-2 text-xs text-gray-500">
-                                {new Date(reply.createdAt).toLocaleDateString('vi-VN')}
+                                {formatDate(reply.createdAt)}
                               </span>
                             </div>
                             <p className="mt-1 text-gray-700">{reply.content}</p>

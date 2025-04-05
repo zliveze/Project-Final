@@ -2,18 +2,18 @@ import React, { useState } from 'react';
 import { FiChevronDown, FiChevronUp, FiInfo, FiDroplet, FiList, FiAlertCircle, FiMapPin } from 'react-icons/fi';
 
 interface CosmeticInfo {
-  skinType: string[];
-  concerns: string[];
-  ingredients: string[];
-  volume: {
-    value: number;
-    unit: string;
+  skinType?: string[];
+  concerns?: string[];
+  ingredients?: string[];
+  volume?: {
+    value?: number;
+    unit?: string;
   };
-  usage: string;
-  madeIn: string;
-  expiry: {
-    shelf: number;
-    afterOpening: number;
+  usage?: string;
+  madeIn?: string;
+  expiry?: {
+    shelf?: number;
+    afterOpening?: number;
   };
 }
 
@@ -27,9 +27,10 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
   const [showAllIngredients, setShowAllIngredients] = useState(false);
 
   // Hiển thị danh sách thành phần với giới hạn số lượng
+  const ingredients = cosmeticInfo?.ingredients || [];
   const displayedIngredients = showAllIngredients 
-    ? cosmeticInfo.ingredients 
-    : cosmeticInfo.ingredients.slice(0, 5);
+    ? ingredients 
+    : ingredients.slice(0, 5);
 
   return (
     <div className="py-4">
@@ -99,7 +100,11 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
         {/* Mô tả sản phẩm */}
         {activeTab === 'description' && (
           <div className="prose prose-green max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: fullDescription }} />
+            {fullDescription ? (
+              <div dangerouslySetInnerHTML={{ __html: fullDescription }} />
+            ) : (
+              <p className="text-gray-500">Chưa có mô tả chi tiết cho sản phẩm này.</p>
+            )}
           </div>
         )}
         
@@ -110,36 +115,42 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
               Sản phẩm được chiết xuất từ các thành phần tự nhiên, an toàn cho da và đã được kiểm nghiệm lâm sàng.
             </p>
             
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-800 mb-3">Thành phần chính:</h3>
-              <ul className="space-y-2">
-                {displayedIngredients.map((ingredient, index) => (
-                  <li key={index} className="flex items-center">
-                    <span className="w-2 h-2 bg-[#d53f8c] rounded-full mr-2"></span>
-                    <span className="text-gray-700">{ingredient}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              {cosmeticInfo.ingredients.length > 5 && (
-                <button
-                  onClick={() => setShowAllIngredients(!showAllIngredients)}
-                  className="text-[#d53f8c] hover:underline text-sm mt-2 flex items-center"
-                >
-                  {showAllIngredients ? (
-                    <>
-                      <span>Thu gọn</span>
-                      <FiChevronUp className="ml-1" />
-                    </>
-                  ) : (
-                    <>
-                      <span>Xem tất cả ({cosmeticInfo.ingredients.length} thành phần)</span>
-                      <FiChevronDown className="ml-1" />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+            {ingredients.length > 0 ? (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-800 mb-3">Thành phần chính:</h3>
+                <ul className="space-y-2">
+                  {displayedIngredients.map((ingredient, index) => (
+                    <li key={index} className="flex items-center">
+                      <span className="w-2 h-2 bg-[#d53f8c] rounded-full mr-2"></span>
+                      <span className="text-gray-700">{ingredient}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                {ingredients.length > 5 && (
+                  <button
+                    onClick={() => setShowAllIngredients(!showAllIngredients)}
+                    className="text-[#d53f8c] hover:underline text-sm mt-2 flex items-center"
+                  >
+                    {showAllIngredients ? (
+                      <>
+                        <span>Thu gọn</span>
+                        <FiChevronUp className="ml-1" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Xem tất cả ({ingredients.length} thành phần)</span>
+                        <FiChevronDown className="ml-1" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-500">Chưa có thông tin về thành phần sản phẩm.</p>
+              </div>
+            )}
             
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-blue-800 text-sm">
@@ -154,7 +165,11 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
           <div className="space-y-4">
             <div className="bg-[#f0f7f4] p-5 rounded-lg">
               <h3 className="font-medium text-gray-800 mb-3">Cách sử dụng:</h3>
-              <p className="text-gray-700 leading-relaxed">{cosmeticInfo.usage}</p>
+              {cosmeticInfo?.usage ? (
+                <p className="text-gray-700 leading-relaxed">{cosmeticInfo.usage}</p>
+              ) : (
+                <p className="text-gray-500">Chưa có hướng dẫn sử dụng cho sản phẩm này.</p>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -186,7 +201,7 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
                   <FiMapPin className="text-[#d53f8c] mr-2" />
                   <h3 className="font-medium text-gray-800">Xuất xứ</h3>
                 </div>
-                <p className="text-gray-700">{cosmeticInfo.madeIn}</p>
+                <p className="text-gray-700">{cosmeticInfo?.madeIn || 'Chưa có thông tin'}</p>
               </div>
               
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -197,7 +212,8 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ fullDescription
                   <h3 className="font-medium text-gray-800">Hạn sử dụng</h3>
                 </div>
                 <p className="text-gray-700">
-                  {cosmeticInfo.expiry.shelf} tháng kể từ ngày sản xuất. {cosmeticInfo.expiry.afterOpening} tháng sau khi mở.
+                  {cosmeticInfo?.expiry?.shelf ? `${cosmeticInfo.expiry.shelf} tháng kể từ ngày sản xuất.` : 'Chưa có thông tin'} 
+                  {cosmeticInfo?.expiry?.afterOpening ? ` ${cosmeticInfo.expiry.afterOpening} tháng sau khi mở.` : ''}
                 </p>
               </div>
             </div>
