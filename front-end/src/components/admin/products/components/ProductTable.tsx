@@ -50,34 +50,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const { loading: statsLoading } = useApiStats();
   // Access the ProductContext for additional functionality if needed
   const { loading: contextLoading } = useProduct();
-  // Xử lý menu hành động cho từng sản phẩm
-  const [openActionMenu, setOpenActionMenu] = React.useState<string | null>(null);
+  // Xử lý trạng thái khi đang thực hiện hành động
   const [processingAction, setProcessingAction] = React.useState<{ id: string, action: string } | null>(null);
-
-  // Đóng tất cả menu khi click bên ngoài
-  React.useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenActionMenu(null);
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const toggleActionMenu = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setOpenActionMenu(openActionMenu === id ? null : id);
-  };
-
-  const closeActionMenus = () => {
-    setOpenActionMenu(null);
-  };
 
   const handleAction = async (action: 'view' | 'edit' | 'delete' | 'duplicate', id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    closeActionMenus();
 
     // Đánh dấu đang xử lý hành động
     setProcessingAction({ id, action });
@@ -108,7 +85,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const combinedLoading = isLoading || contextLoading || statsLoading;
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden" onClick={closeActionMenus}>
+    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -126,28 +103,28 @@ const ProductTable: React.FC<ProductTableProps> = ({
                 </div>
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Sản phẩm
+                SẢN PHẨM
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Danh mục
+                DANH MỤC
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Thương hiệu
+                THƯƠNG HIỆU
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Giá
+                GIÁ
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tồn kho
+                TỒN KHO
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Trạng thái
+                TRẠNG THÁI
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nhãn
+                NHÃN
               </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Thao tác
+              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                THAO TÁC
               </th>
             </tr>
           </thead>
@@ -257,37 +234,45 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         </div>
                       ) : (
                         <span>
-                          {product.price}
+                          {product.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price)) : '0đ'}
                         </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.stock}
+                      {product.stock || 0}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <ProductStatusBadge status={product.status as 'active' | 'out_of_stock' | 'discontinued'} />
+                      <div className="inline-flex">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          product.status === 'active' ? 'bg-green-100 text-green-800' :
+                          product.status === 'out_of_stock' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {product.status === 'active' ? 'Đang bán' :
+                           product.status === 'out_of_stock' ? 'Hết hàng' :
+                           product.status === 'discontinued' ? 'Ngừng kinh doanh' : 'Chưa xác định'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {product.flags?.isBestSeller && (
-                          <ProductFlagBadge type="bestSeller" />
-                        )}
+                      <div className="inline-flex">
                         {product.flags?.isNew && (
-                          <ProductFlagBadge type="new" />
+                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 mr-1">
+                            Mới
+                          </span>
                         )}
                         {product.flags?.isOnSale && (
-                          <ProductFlagBadge type="sale" />
-                        )}
-                        {product.flags?.hasGifts && (
-                          <ProductFlagBadge type="gift" />
+                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-800 mr-1">
+                            Giảm giá
+                          </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center space-x-2">
                         <button
                           onClick={(e) => handleAction('view', product.id, e)}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="p-1.5 text-gray-600 hover:text-gray-900"
                           title="Xem chi tiết"
                           disabled={!!processingAction}
                         >
@@ -295,92 +280,40 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         </button>
                         <button
                           onClick={(e) => handleAction('edit', product.id, e)}
-                          className="text-blue-500 hover:text-blue-700"
+                          className="p-1.5 text-blue-600 hover:text-blue-800"
                           title="Chỉnh sửa"
                           disabled={!!processingAction}
                         >
                           <FiEdit className="h-5 w-5" />
                         </button>
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => toggleActionMenu(product.id, e)}
-                            className="text-gray-500 hover:text-gray-700"
-                            title="Thêm hành động"
-                            disabled={!!processingAction}
-                          >
-                            <FiMoreVertical className="h-5 w-5" />
-                          </button>
-
-                          {openActionMenu === product.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
-                              <div className="py-1">
-                                <button
-                                  onClick={(e) => handleAction('duplicate', product.id, e)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                                  disabled={processingAction?.id === product.id && processingAction?.action === 'duplicate'}
-                                >
-                                  <span className="flex items-center">
-                                    <FiCopy className="mr-2 text-gray-500" />
-                                    {processingAction?.id === product.id && processingAction?.action === 'duplicate'
-                                      ? 'Đang nhân bản...'
-                                      : 'Nhân bản sản phẩm'
-                                    }
-                                  </span>
-                                </button>
-                                <a
-                                  href={`/product/${product.slug}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <span className="flex items-center">
-                                    <FiExternalLink className="mr-2 text-gray-500" />
-                                    Xem trang sản phẩm
-                                  </span>
-                                </a>
-                                <button
-                                  onClick={(e) => handleAction('delete', product.id, e)}
-                                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 disabled:opacity-50"
-                                  disabled={processingAction?.id === product.id && processingAction?.action === 'delete'}
-                                >
-                                  <span className="flex items-center">
-                                    <FiTrash2 className="mr-2 text-red-500" />
-                                    {processingAction?.id === product.id && processingAction?.action === 'delete'
-                                      ? 'Đang xóa...'
-                                      : 'Xóa sản phẩm'
-                                    }
-                                  </span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={(e) => handleAction('duplicate', product.id, e)}
+                          className="p-1.5 text-green-600 hover:text-green-800"
+                          title="Nhân bản sản phẩm"
+                          disabled={!!processingAction}
+                        >
+                          <FiCopy className="h-5 w-5" />
+                        </button>
+                        <a
+                          href={`/product/${product.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-gray-600 hover:text-gray-900"
+                          title="Xem trang sản phẩm"
+                        >
+                          <FiExternalLink className="h-5 w-5" />
+                        </a>
+                        <button
+                          onClick={(e) => handleAction('delete', product.id, e)}
+                          className="p-1.5 text-red-600 hover:text-red-800"
+                          title="Xóa sản phẩm"
+                          disabled={!!processingAction}
+                        >
+                          <FiTrash2 className="h-5 w-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
-
-                  {/* Chi tiết tồn kho theo chi nhánh - Temporarily commented out due to missing 'inventory' property */}
-                  {/* {expandedProduct === product.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={9} className="px-6 py-3">
-                        <div className="py-2">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Tồn kho theo chi nhánh:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {product.inventory.map((inv: any) => ( // Added ': any' temporarily if uncommented
-                              <div key={inv.branchId} className="p-2 border border-gray-200 rounded-md">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium">{inv.branchName}</span>
-                                  <span className={`text-sm ${inv.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {inv.quantity} sản phẩm
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )} */}
                 </React.Fragment>
               ))
             )}

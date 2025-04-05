@@ -79,8 +79,11 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
         wishlist: userData.wishlist || user.wishlist || [],
       };
       
-      // Gọi hàm xử lý cập nhật từ props cho các thông tin khác
-      onSubmit(updatedUserData);
+      // Gọi hàm xử lý cập nhật từ props
+      await onSubmit(updatedUserData);
+      
+      // Đóng modal chỉnh sửa sau khi hoàn thành
+      onClose();
       
       toast.dismiss(toastId);
       toast.success('Cập nhật thông tin người dùng thành công!');

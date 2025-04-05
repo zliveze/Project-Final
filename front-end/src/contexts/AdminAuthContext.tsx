@@ -138,9 +138,18 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           originalRequest._retry = true;
           
           try {
-            const refreshToken = localStorage.getItem('adminRefreshToken');
+            // Kiểm tra xem đã đăng xuất hay chưa
+            if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+              safeLog('Người dùng đã đăng xuất, không làm mới token', {}, 'warn');
+              await logout();
+              router.push('/admin/auth/login?error=session_expired');
+              return Promise.reject(error);
+            }
+            
+            const refreshToken = localStorage.getItem('adminRefreshToken') || Cookies.get('adminRefreshToken');
             if (!refreshToken) {
               // Không có refresh token, logout
+              safeLog('Không tìm thấy refresh token', {}, 'warn');
               await logout();
               router.push('/admin/auth/login?error=session_expired');
               return Promise.reject(error);
@@ -154,7 +163,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (response.data.accessToken) {
               // Lưu token mới
               const newToken = response.data.accessToken;
-              saveToken('adminToken', newToken);
+              saveToken('adminToken', newToken, 0.042); // 60 phút (0.042 ngày)
               setAccessToken(newToken);
               
               // Cập nhật token trong request gốc và thử lại
@@ -163,6 +172,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
           } catch (refreshError) {
             // Nếu làm mới token thất bại, logout
+            safeLog('Làm mới token thất bại', refreshError, 'error');
             await logout();
             router.push('/admin/auth/login?error=session_expired');
             return Promise.reject(refreshError);
@@ -183,17 +193,32 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Kiểm tra xem admin đã đăng nhập chưa (từ localStorage)
     const loadAdminFromStorage = async () => {
       try {
-        const token = localStorage.getItem('adminToken');
+        // Đã đăng xuất thì bỏ qua
+        if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+          safeLog('Đã đăng xuất từ trước, bỏ qua việc tải thông tin admin');
+          setIsLoading(false);
+          return;
+        }
+        
+        const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
         const storedAdmin = localStorage.getItem('adminUser');
 
         if (token && storedAdmin) {
-          setAdmin(JSON.parse(storedAdmin));
-          setAccessToken(token);
-          setIsAuthenticated(true);
-          
-          // Nếu đang ở trang đăng nhập mà đã có token, chuyển về dashboard
-          if (router.pathname === '/admin/auth/login') {
-            router.push('/admin/dashboard');
+          try {
+            const adminData = JSON.parse(storedAdmin);
+            setAdmin(adminData);
+            setAccessToken(token);
+            setIsAuthenticated(true);
+            
+            // Nếu đang ở trang đăng nhập mà đã có token, chuyển về dashboard
+            if (router.pathname === '/admin/auth/login') {
+              router.push('/admin/dashboard');
+            }
+          } catch (parseError) {
+            safeLog('Lỗi khi phân tích dữ liệu admin từ localStorage', parseError, 'error');
+            // Xóa dữ liệu không hợp lệ
+            localStorage.removeItem('adminUser');
+            setIsAuthenticated(false);
           }
         } else if (router.pathname.startsWith('/admin') && router.pathname !== '/admin/auth/login') {
           // Nếu chưa đăng nhập và đang ở trang admin (không phải trang login), chuyển về trang đăng nhập
@@ -212,11 +237,17 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Kiểm tra xem người dùng có quyền admin không
   const checkAuth = async (): Promise<boolean> => {
     try {
+      // Đã đăng xuất thì bỏ qua
+      if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+        safeLog('Đã đăng xuất từ trước, bỏ qua việc kiểm tra xác thực');
+        return false;
+      }
+      
       if (isAuthenticated && admin) {
         return true;
       }
       
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
       
       if (!token) {
         return false;
@@ -234,6 +265,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAdmin(response.data);
         setAccessToken(token);
         setIsAuthenticated(true);
+        
+        // Lưu thông tin admin trở lại localStorage để đảm bảo nhất quán
+        localStorage.setItem('adminUser', JSON.stringify(response.data));
+        
         return true;
       }
       
@@ -243,6 +278,14 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsAuthenticated(false);
       setAdmin(null);
       setAccessToken(null);
+      
+      // Nếu có lỗi 401 hoặc 403, xóa token
+      if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+        removeToken('adminToken');
+        removeToken('adminRefreshToken');
+        localStorage.removeItem('adminUser');
+      }
+      
       return false;
     }
   };
@@ -294,8 +337,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setIsLoading(true);
       
+      // Đánh dấu đã đăng xuất trước để ngăn các yêu cầu API khác
+      sessionStorage.setItem('adminLoggedOut', 'true');
+      
       // Gọi API đăng xuất admin
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
       
       if (token) {
         try {
@@ -304,13 +350,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               Authorization: `Bearer ${token}`,
             },
           });
+          safeLog('Đã gọi API đăng xuất thành công');
         } catch (error) {
           safeLog('Lỗi khi gọi API đăng xuất', error, 'error');
         }
       }
-      
-      // Lưu trạng thái đã đăng xuất để ngăn các yêu cầu API
-      sessionStorage.setItem('adminLoggedOut', 'true');
       
       // Xóa token và thông tin admin khỏi localStorage và cookie
       removeToken('adminToken');

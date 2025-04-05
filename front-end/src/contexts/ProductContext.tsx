@@ -3,6 +3,7 @@ import { useProductAdmin } from '@/hooks/useProductAdmin';
 import { useApiStats } from '@/hooks/useApiStats';
 import { AdminProduct } from '@/hooks/useProductAdmin';
 import Cookies from 'js-cookie';
+import { ApiStatusAlert } from '@/components/common';
 
 // Tạo interface cho sản phẩm từ Admin API
 export interface Product {
@@ -168,6 +169,26 @@ interface ProductContextType {
     sortBy?: string,
     sortOrder?: 'asc' | 'desc'
   ) => Promise<void>;
+  // Phương thức chuyên biệt cho shop
+  fetchLightProducts: (
+    page?: number,
+    limit?: number,
+    search?: string,
+    brandId?: string,
+    categoryId?: string,
+    status?: string,
+    minPrice?: number,
+    maxPrice?: number,
+    tags?: string,
+    skinTypes?: string,
+    concerns?: string,
+    isBestSeller?: boolean,
+    isNew?: boolean,
+    isOnSale?: boolean,
+    hasGifts?: boolean,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc'
+  ) => Promise<void>;
   fetchProductById: (id: string) => Promise<Product>;
   fetchProductBySlug: (slug: string) => Promise<Product>;
   createProduct: (productData: Partial<Product>) => Promise<Product>;
@@ -190,74 +211,78 @@ export { ProductContext };
 // Hook to use the context
 export const useProduct = () => {
   const context = useContext(ProductContext);
+  
+  // Nếu context không tồn tại, trả về một mock context thay vì ném lỗi
   if (!context) {
-    throw new Error('useProduct must be used within a ProductProvider');
+    console.warn('useProduct được gọi bên ngoài ProductProvider. Trả về mock context.');
+    
+    // Tạo một mock context với các phương thức không có chức năng
+    return {
+      products: [],
+      loading: false,
+      error: null,
+      totalProducts: 0,
+      currentPage: 1,
+      totalPages: 1,
+      itemsPerPage: 10,
+      apiHealthStatus: 'online' as const,
+      checkApiHealth: async () => true,
+      statistics: null,
+      uploadProductImage: async () => { 
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return { url: '', publicId: '', width: 0, height: 0, format: '' }; 
+      },
+      fetchProducts: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
+      fetchLightProducts: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
+      fetchProductById: async () => { 
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      fetchProductBySlug: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      createProduct: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      updateProduct: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      deleteProduct: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
+      updateInventory: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      updateProductFlags: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      addVariant: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      updateVariant: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      removeVariant: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      fetchStatistics: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
+      clearProductCache: () => { console.warn('ProductProvider không khả dụng trên trang này'); },
+      cleanupBase64Images: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return { success: false, message: 'ProductProvider không khả dụng', count: 0 };
+      }
+    } as ProductContextType;
   }
+  
   return context;
 };
 
-// Component to display API status
-const ApiStatusAlert: React.FC<{
-  status: 'online' | 'offline' | 'checking';
-  onRetry: () => void;
-}> = ({ status, onRetry }) => {
-  const [isVisible, setIsVisible] = useState(true);
-
-  // Kiểm tra nếu đang ở trang login hoặc đã đăng xuất
-  useEffect(() => {
-    const isLoginPage = window.location.pathname.includes('/admin/auth/login');
-    const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
-    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-    
-    // Nếu đang ở trang login hoặc đã đăng xuất hoặc không có token, ẩn thông báo
-    setIsVisible(!isLoginPage && !isLoggedOut && !!adminToken);
-  }, []);
-  
-  // Nếu đang ở trạng thái online hoặc không hiển thị, không render gì cả
-  if (status === 'online' || !isVisible) return null;
-
-  const alertStyle = {
-    position: 'fixed' as const,
-    bottom: '20px',
-    right: '20px',
-    padding: '12px 20px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    zIndex: 9999,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    fontSize: '14px',
-    backgroundColor: status === 'checking' ? '#FEF3C7' : '#FEE2E2',
-    color: status === 'checking' ? '#92400E' : '#B91C1C',
-    border: `1px solid ${status === 'checking' ? '#F59E0B' : '#EF4444'}`
-  };
-
-  const buttonStyle = {
-    padding: '6px 12px',
-    borderRadius: '4px',
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: status === 'checking' ? '#F59E0B' : '#EF4444',
-    color: 'white',
-    fontWeight: 500 as const,
-    fontSize: '12px'
-  };
-
-  const statusMessage = status === 'checking'
-    ? 'Đang kiểm tra kết nối đến API...'
-    : 'Không thể kết nối đến API. Vui lòng kiểm tra server backend.';
-
-  return (
-    <div style={alertStyle}>
-      <span>{statusMessage}</span>
-      <button onClick={onRetry} style={buttonStyle}>
-        {status === 'checking' ? 'Đang thử lại...' : 'Kiểm tra lại'}
-      </button>
-    </div>
-  );
-};
 
 // Provider component
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -319,7 +344,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return true; // Trả về true để không hiển thị lỗi
     }
     
-    setApiHealthStatus('checking');
+    // Đặt trạng thái thành 'online' trước khi kiểm tra để tránh hiển thị thông báo không cần thiết
+    // nếu sản phẩm đã tải thành công
+    if (products && products.length > 0) {
+      setApiHealthStatus('online');
+    } else {
+      setApiHealthStatus('checking');
+    }
+    
     try {
       const isHealthy = await checkApiHealth();
       setApiHealthStatus(isHealthy ? 'online' : 'offline');
@@ -328,7 +360,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       setApiHealthStatus('offline');
       return false;
     }
-  }, [checkApiHealth]);
+  }, [checkApiHealth, products]);
 
   // Các phương thức tương tác với API tương tự như cũ nhưng sử dụng hooks mới
   const fetchProducts = useCallback(async (
@@ -370,6 +402,96 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       sortOrder
     });
   }, [fetchAdminProducts]);
+
+  // Fetch light products method for shop
+  const fetchLightProducts = useCallback(async (
+    page = 1,
+    limit = 10,
+    search = '',
+    brandId = '',
+    categoryId = '',
+    status = '',
+    minPrice?: number,
+    maxPrice?: number,
+    tags = '',
+    skinTypes = '',
+    concerns = '',
+    isBestSeller?: boolean,
+    isNew?: boolean,
+    isOnSale?: boolean,
+    hasGifts?: boolean,
+    sortBy = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ) => {
+    try {
+      // Check if the backend is online
+      await handleCheckApiHealth();
+
+      // Construct query params
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      if (search) params.append('search', search);
+      if (brandId) params.append('brandId', brandId);
+      if (categoryId) params.append('categoryId', categoryId);
+      if (status) params.append('status', status);
+      if (minPrice !== undefined) params.append('minPrice', minPrice.toString());
+      if (maxPrice !== undefined) params.append('maxPrice', maxPrice.toString());
+      if (tags) params.append('tags', tags);
+      if (skinTypes) params.append('skinTypes', skinTypes);
+      if (concerns) params.append('concerns', concerns);
+      if (isBestSeller !== undefined) params.append('isBestSeller', isBestSeller.toString());
+      if (isNew !== undefined) params.append('isNew', isNew.toString());
+      if (isOnSale !== undefined) params.append('isOnSale', isOnSale.toString());
+      if (hasGifts !== undefined) params.append('hasGifts', hasGifts.toString());
+      params.append('sortBy', sortBy);
+      params.append('sortOrder', sortOrder);
+      params.append('fields', 'light'); // Request lightweight format
+
+      // Get token
+      const token = localStorage.getItem('token') || Cookies.get('token');
+
+      // Make API call
+      const response = await fetch(`${API_URL}/products/light?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Sử dụng cách fetch giống với fetchAdminProducts
+      // kết quả sẽ cập nhật qua hook useProductAdmin
+      await fetchAdminProducts({
+        page: data.page,
+        limit: data.limit,
+        search,
+        brandId,
+        categoryId,
+        status,
+        minPrice,
+        maxPrice,
+        tags,
+        skinTypes,
+        concerns,
+        isBestSeller,
+        isNew,
+        isOnSale,
+        hasGifts,
+        sortBy,
+        sortOrder
+      });
+      
+    } catch (error: any) {
+      console.error('Error fetching light products:', error);
+    }
+  }, [handleCheckApiHealth, fetchAdminProducts]);
 
   // Phương thức GET để fetch sản phẩm theo ID
   const fetchProductById = useCallback(async (id: string): Promise<Product> => {
@@ -869,6 +991,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     uploadProductImage,
     // CRUD methods
     fetchProducts,
+    fetchLightProducts,
     fetchProductById,
     fetchProductBySlug,
     createProduct,
@@ -881,7 +1004,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     removeVariant,
     fetchStatistics: fetchStatsData,
     clearProductCache,
-    cleanupBase64Images
+    cleanupBase64Images,
   };
 
   return (
@@ -891,6 +1014,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       <ApiStatusAlert
         status={apiHealthStatus}
         onRetry={handleCheckApiHealth}
+        hasLoadedData={products && products.length > 0}
       />
     </ProductContext.Provider>
   );

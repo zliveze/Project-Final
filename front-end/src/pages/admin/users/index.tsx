@@ -390,11 +390,16 @@ export default function AdminUsers() {
             isOpen={showEditModal}
             onClose={() => setShowEditModal(false)}
             user={selectedUser}
-            onSubmit={(userData: any) => {
-              updateUser(userData._id, userData).then(() => {
-                setShowEditModal(false);
+            onSubmit={async (userData: any) => {
+              try {
+                await updateUser(userData._id, userData);
+                // Tải lại dữ liệu sau khi cập nhật thành công
                 handleRefresh();
-              });
+                return true; // Báo cho component con biết đã xử lý thành công
+              } catch (error) {
+                console.error('Lỗi khi cập nhật người dùng:', error);
+                throw error; // Ném lỗi để component con xử lý
+              }
             }}
           />
         </Suspense>

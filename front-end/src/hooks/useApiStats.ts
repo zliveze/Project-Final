@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAdminAuth } from '../contexts/AdminAuthContext';
 import Cookies from 'js-cookie';
 
 interface ProductStatistics {
@@ -14,33 +15,26 @@ interface ProductStatistics {
 }
 
 // API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = BASE_URL;
 const ADMIN_STATS_API = `${API_URL}/admin/products/statistics`;
 
 export const useApiStats = () => {
+  const { accessToken, isAuthenticated, logout } = useAdminAuth();
   const [statistics, setStatistics] = useState<ProductStatistics | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [hasTriedFetch, setHasTriedFetch] = useState<boolean>(false);
 
-  // Lấy token xác thực từ localStorage và cookie
+  // Lấy header xác thực sử dụng AdminAuthContext
   const getAuthHeader = useCallback((): HeadersInit => {
-    // Kiểm tra nếu đã đăng xuất
-    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
-      console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API statistics');
-      return {
-        'Content-Type': 'application/json'
-      };
-    }
-    
-    // Lấy token từ localStorage hoặc từ cookie nếu không có trong localStorage
-    const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    // Lấy token từ context trước, nếu không có thì lấy từ localStorage
+    const token = accessToken || localStorage.getItem('adminToken') || Cookies.get('adminToken');
     return {
       'Authorization': token ? `Bearer ${token}` : '',
       'Content-Type': 'application/json'
     };
-  }, []);
+  }, [accessToken]);
 
   // Phương thức kiểm tra API health
   const checkApiHealth = useCallback(async (): Promise<boolean> => {
@@ -56,16 +50,17 @@ export const useApiStats = () => {
   // Fetch thống kê sản phẩm
   const fetchStatistics = useCallback(async (): Promise<ProductStatistics | null> => {
     try {
-      // Kiểm tra nếu đã đăng xuất
-      if (sessionStorage.getItem('adminLoggedOut') === 'true') {
-        console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API statistics');
-        return null;
-      }
+      // Kiểm tra đầy đủ về xác thực
+      const token = accessToken || localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+      const isLoginPage = window.location.pathname.includes('/admin/auth/login');
       
-      // Kiểm tra token trước khi gọi API
-      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-      if (!token) {
-        console.log('Không có token admin, bỏ qua việc tải dữ liệu thống kê');
+      if (!token || isLoggedOut || isLoginPage) {
+        console.log('Không đủ điều kiện để tải dữ liệu thống kê:', {
+          hasToken: !!token,
+          isLoggedOut,
+          isLoginPage
+        });
         return null;
       }
       
@@ -85,21 +80,14 @@ export const useApiStats = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
         if (response.status === 401) {
-          // Xóa token và chuyển hướng đến trang đăng nhập admin
-          localStorage.removeItem('adminToken');
-          Cookies.remove('adminToken');
-          sessionStorage.setItem('adminLoggedOut', 'true');
-          console.log('Token đã hết hạn, chuyển hướng đến trang đăng nhập');
-          
-          // Đặt timeout để tránh chuyển hướng lặp lại
-          setTimeout(() => {
-            window.location.href = '/admin/auth/login?error=session_expired';
-          }, 100);
-          
+          // Sử dụng hàm logout từ context
+          console.log('Token hết hạn, đăng xuất người dùng');
+          await logout();
           return null;
         }
+        
+        const errorData = await response.json();
         throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
@@ -116,32 +104,48 @@ export const useApiStats = () => {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, checkApiHealth]);
+  }, [accessToken, isAuthenticated, getAuthHeader, checkApiHealth, logout]);
 
   // Load thống kê khi component mount
   useEffect(() => {
-    // Kiểm tra token trước khi tải dữ liệu
-    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-    if (!adminToken || hasTriedFetch) {
-      console.log('Không có token admin hoặc đã thử gọi API, bỏ qua việc tải dữ liệu thống kê');
+    // Sử dụng bộ đếm để giới hạn số lần gọi để tránh vòng lặp vô hạn
+    const fetchTriedCount = parseInt(sessionStorage.getItem('stats_fetch_tried') || '0');
+    
+    if (fetchTriedCount > 3) {
+      console.log('Đã thử gọi API thống kê 3 lần, tạm dừng để tránh vòng lặp');
       return;
     }
     
-    // Nếu đã đăng xuất, không gọi API
-    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
-      console.log('Người dùng đã đăng xuất, không gọi API thống kê');
+    // Kiểm tra đầy đủ về xác thực
+    const token = accessToken || localStorage.getItem('adminToken') || Cookies.get('adminToken');
+    const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
+    const isLoginPage = window.location.pathname.includes('/admin/auth/login');
+
+    if (!token || isLoggedOut || isLoginPage || hasTriedFetch) {
+      console.log('Không đủ điều kiện để tải dữ liệu thống kê, bỏ qua');
       return;
     }
-    
-    console.log('Đã tìm thấy token admin, đang tải dữ liệu thống kê');
-    fetchStatistics();
-  }, [fetchStatistics, hasTriedFetch]);
+
+    console.log('Đã xác thực admin, đang tải dữ liệu thống kê');
+    sessionStorage.setItem('stats_fetch_tried', String(fetchTriedCount + 1));
+    fetchStatistics().then(() => {
+      // Xóa bộ đếm fetch sau khi hoàn thành
+      setTimeout(() => sessionStorage.removeItem('stats_fetch_tried'), 5000);
+    });
+  }, [fetchStatistics, hasTriedFetch, isAuthenticated, accessToken]);
+
+  // Hàm để reset trạng thái đã thử fetch
+  const resetFetchState = useCallback(() => {
+    setHasTriedFetch(false);
+    sessionStorage.removeItem('stats_fetch_tried');
+  }, []);
 
   return {
     statistics,
     loading,
     error,
     fetchStatistics,
-    checkApiHealth
+    checkApiHealth,
+    resetFetchState
   };
 };

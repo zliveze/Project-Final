@@ -220,12 +220,10 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
         }
       });
       
-      console.log('Gọi API lấy thông báo:', `/admin/notifications?${queryParams.toString()}`);
-      
+      // Gọi API
       const response = await apiClient.get(`/admin/notifications?${queryParams.toString()}`);
       
       const data = response.data;
-      console.log('Dữ liệu nhận được:', data);
       
       // Format dữ liệu thông báo
       const formattedItems = Array.isArray(data.items) 
@@ -255,12 +253,10 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
     resetError();
     
     try {
-      console.log('Gọi API lấy thống kê thông báo');
-      
+      // Gọi API thống kê
       const response = await apiClient.get('/admin/notifications/statistics');
       
       const data = response.data;
-      console.log('Dữ liệu thống kê nhận được:', data);
       setStats(data);
     } catch (error: any) {
       console.error('Chi tiết lỗi getStatistics:', error);

@@ -1,6 +1,78 @@
-import React, { useState } from 'react';
-import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import React, { useState, useEffect } from 'react';
+import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { ProductFormData, BranchItem } from '../types';
+
+// Thêm style cho animation
+const notificationAnimation = `
+@keyframes slideInTop {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutTop {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.animate-slideInTop {
+  animation: slideInTop 0.3s ease-out forwards;
+}
+
+.animate-slideOutTop {
+  animation: slideOutTop 0.3s ease-in forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-slideOutRight {
+  animation: slideOutRight 0.3s ease-in forwards;
+}
+`;
+
+// Mở rộng kiểu dữ liệu cho inventory item
+interface InventoryItemExtended {
+  branchId: string;
+  branchName: string;
+  quantity: number;
+  lowStockThreshold?: number;
+  isNew?: boolean; // Thêm trường để đánh dấu chi nhánh mới thêm vào
+}
 
 interface InventoryTabProps {
   formData: ProductFormData;
@@ -63,8 +135,155 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     }
   };
 
+  // State để theo dõi chi nhánh đang được chọn
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  
+  // State để theo dõi chi nhánh mới được thêm vào
+  const [newlyAddedBranch, setNewlyAddedBranch] = useState<string | null>(null);
+
+  // Thêm state cho thông báo
+  const [notification, setNotification] = useState<{show: boolean, message: string, branchName: string, isLeaving: boolean}>({
+    show: false,
+    message: '',
+    branchName: '',
+    isLeaving: false
+  });
+
+  // Sửa kiểu ref cho các hàng trong bảng
+  const tableRowsRef = React.useRef<{[key: string]: HTMLTableRowElement | null}>({});
+  
+  // Hàm callback để lưu ref
+  const setRowRef = (element: HTMLTableRowElement | null, id: string) => {
+    if (element) {
+      tableRowsRef.current[id] = element;
+    }
+  };
+  
+  // Effect để cuộn đến chi nhánh mới khi được thêm vào
+  useEffect(() => {
+    if (newlyAddedBranch && tableRowsRef.current[newlyAddedBranch]) {
+      // Cuộn đến chi nhánh mới thêm vào
+      setTimeout(() => {
+        tableRowsRef.current[newlyAddedBranch]?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 300);
+    }
+  }, [newlyAddedBranch, formData.inventory]);
+
+  // Cập nhật hàm xử lý khi chọn chi nhánh
+  const handleSelectBranch = (branchId: string, branchName: string) => {
+    setSelectedBranch(branchId);
+    
+    // Thêm chi nhánh và ghi nhớ chi nhánh mới thêm
+    setTimeout(() => {
+      handleAddBranch(branchId, branchName);
+      setSelectedBranch(null);
+      setNewlyAddedBranch(branchId);
+      
+      // Hiển thị thông báo
+      setNotification({
+        show: true,
+        message: 'Đã thêm chi nhánh thành công',
+        branchName: branchName,
+        isLeaving: false
+      });
+      
+      // Tự động ẩn thông báo
+      setTimeout(() => {
+        // Bắt đầu animation ẩn
+        setNotification(prev => ({...prev, isLeaving: true}));
+        
+        // Ẩn thông báo hoàn toàn sau khi animation kết thúc
+        setTimeout(() => {
+          setNotification({
+            show: false,
+            message: '',
+            branchName: '',
+            isLeaving: false
+          });
+        }, 300); // Thời gian của animation
+      }, 3000);
+      
+      // Tăng thời gian hiệu ứng từ 3000ms lên 5000ms (5 giây)
+      setTimeout(() => {
+        setNewlyAddedBranch(null);
+      }, 5000);
+    }, 800);
+  };
+
+  // Sử dụng useEffect để theo dõi khi có thay đổi trong danh sách inventory
+  useEffect(() => {
+    // Nếu có chi nhánh mới được thêm vào, kiểm tra xem nó có thực sự tồn tại trong inventory không
+    if (newlyAddedBranch && formData.inventory) {
+      const exists = formData.inventory.some(item => item.branchId === newlyAddedBranch);
+      if (!exists) {
+        setNewlyAddedBranch(null); // Nếu không tồn tại, xóa trạng thái hiệu ứng
+      }
+    }
+  }, [formData.inventory, newlyAddedBranch]);
+
+  // Chuyển đổi kiểu dữ liệu để TypeScript hiểu đúng
+  const getInventoryWithNames = (): InventoryItemExtended[] => {
+    if (!formData.inventory || !Array.isArray(formData.inventory)) {
+      return [];
+    }
+    
+    return formData.inventory.map(item => {
+      // Kiểm tra xem đây có phải là chi nhánh mới được thêm vào hay không
+      const isNew = item.branchId === newlyAddedBranch;
+      return {
+        branchId: item.branchId,
+        branchName: (item as any).branchName || 'Chi nhánh không xác định',
+        quantity: item.quantity,
+        lowStockThreshold: item.lowStockThreshold || 5,
+        isNew
+      };
+    });
+  };
+
+  // Thêm hàm đóng thông báo thủ công
+  const handleCloseNotification = () => {
+    // Bắt đầu animation ẩn
+    setNotification(prev => ({...prev, isLeaving: true}));
+    
+    // Ẩn thông báo hoàn toàn sau khi animation kết thúc
+    setTimeout(() => {
+      setNotification({
+        show: false,
+        message: '',
+        branchName: '',
+        isLeaving: false
+      });
+    }, 300); // Thời gian của animation
+  };
+
   return (
     <div className="space-y-6">
+      {/* Thêm style cho animation */}
+      <style>{notificationAnimation}</style>
+      
+      {/* Thông báo thành công */}
+      {notification.show && (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] bg-green-50 border-l-4 border-green-500 border-t border-r border-b border-green-200 text-green-700 px-4 py-3 rounded-md shadow-2xl flex items-center justify-between max-w-md animate-pulse ${notification.isLeaving ? 'animate-slideOutTop' : 'animate-slideInTop'}`}>
+          <div className="flex items-center mr-4">
+            <FiCheck className="text-green-500 mr-2 flex-shrink-0" size={24} />
+            <div>
+              <p className="font-semibold text-green-800">{notification.message}</p>
+              <p className="text-sm font-medium text-green-700">{notification.branchName}</p>
+            </div>
+          </div>
+          <button 
+            type="button" 
+            className="text-green-500 hover:text-green-700 transition-colors"
+            onClick={handleCloseNotification}
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+      )}
+      
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Quản lý tồn kho</h3>
         {!isViewMode && (
@@ -125,10 +344,23 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {formData.inventory.map((item, index) => (
-                <tr key={item.branchId}>
+              {getInventoryWithNames().map((item, index) => (
+                <tr 
+                  key={item.branchId}
+                  ref={(el) => setRowRef(el, item.branchId)}
+                  className={item.isNew ? "bg-pink-100 transition-all duration-1000 animate-pulse" : ""}
+                >
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                    {item.branchName}
+                    <div className="flex items-center">
+                      <span className={item.isNew ? "font-medium text-pink-600" : ""}>{item.branchName}</span>
+                      {item.isNew && (
+                        <span className="flex items-center ml-2 text-pink-600">
+                          <span className="flex items-center bg-pink-100 text-pink-600 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
+                            Mới thêm <FiCheck size={14} className="ml-1" />
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {!isViewMode ? (
@@ -161,7 +393,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
                         Hết hàng
                       </span>
-                    ) : item.quantity <= item.lowStockThreshold ? (
+                    ) : item.quantity <= (item.lowStockThreshold || 5) ? (
                       <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
                         Sắp hết
                       </span>
@@ -193,99 +425,120 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
         </div>
       )}
 
-      {/* Modal thêm chi nhánh */}
+      {/* Modal thêm chi nhánh kiểu popup đơn giản */}
       {showBranchModal && !isViewMode && (
-        <div className="fixed inset-0 z-10" style={{ overflow: 'hidden' }}>
-          <div className="flex items-center justify-center min-h-screen px-4 text-center" style={{ overflow: 'hidden' }}>
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center">
+          {/* Backdrop mờ */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px]" onClick={handleCloseBranchModal} />
+          
+          {/* Modal content */}
+          <div 
+            className="relative bg-white rounded-lg shadow-lg max-w-md w-full p-0 z-[1001]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Thêm chi nhánh</h3>
+              <button 
+                onClick={handleCloseBranchModal}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FiX size={20} />
+              </button>
             </div>
 
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            <div className="inline-block bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" style={{ maxHeight: '80vh', overflow: 'hidden' }}>
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Thêm chi nhánh
-                    </h3>
-                    <div className="mt-4">
-                      <p className="text-sm text-gray-500 mb-4">
-                        Chọn chi nhánh để thêm vào danh sách tồn kho:
-                      </p>
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-sm text-gray-500 mb-4">Chọn chi nhánh để thêm vào danh sách tồn kho:</p>
+              
+              {availableBranches.length > 0 ? (
+                <>
+                  <ul className="mb-4 max-h-[300px] overflow-y-auto">
+                    {getCurrentPageBranches().map((branch) => {
+                      // Kiểm tra xem chi nhánh này đã được thêm vào inventory chưa
+                      const isAlreadyAdded = formData.inventory?.some(item => item.branchId === branch.id);
                       
-                      {availableBranches.length > 0 ? (
-                        <>
-                          <div className="branch-list-container">
-                            <ul className="divide-y divide-gray-200">
-                              {getCurrentPageBranches().map((branch) => (
-                                <li key={branch.id} className="py-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddBranch(branch.id, branch.name)}
-                                    className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
-                                  >
-                                    {branch.name}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          
-                          {/* Điều khiển phân trang */}
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-between mt-4 border-t pt-2">
-                              <button
-                                onClick={handlePrevPage}
-                                disabled={currentPage === 1}
-                                className={`inline-flex items-center px-2 py-1 text-sm rounded ${
-                                  currentPage === 1 
-                                    ? 'text-gray-400 cursor-not-allowed' 
-                                    : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                <FiChevronLeft className="mr-1" />
-                                Trước
-                              </button>
-                              
-                              <span className="text-sm text-gray-600">
-                                Trang {currentPage}/{totalPages}
+                      return (
+                        <li key={branch.id} className="py-2 border-b border-gray-100 last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => !isAlreadyAdded && handleSelectBranch(branch.id, branch.name)}
+                            disabled={isAlreadyAdded}
+                            className={`w-full text-left py-2 px-3 rounded-md flex items-center justify-between transition-colors duration-200 ${
+                              isAlreadyAdded 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                : selectedBranch === branch.id 
+                                  ? 'bg-pink-50 text-pink-600 ring-2 ring-pink-300' 
+                                  : 'hover:bg-gray-50 hover:text-pink-600'
+                            }`}
+                          >
+                            <span>{branch.name}</span>
+                            {selectedBranch === branch.id ? (
+                              <span className="flex items-center text-pink-600 animate-pulse">
+                                <FiCheck className="ml-2" />
                               </span>
-                              
-                              <button
-                                onClick={handleNextPage}
-                                disabled={currentPage === totalPages}
-                                className={`inline-flex items-center px-2 py-1 text-sm rounded ${
-                                  currentPage === totalPages 
-                                    ? 'text-gray-400 cursor-not-allowed' 
-                                    : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                Tiếp
-                                <FiChevronRight className="ml-1" />
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <p className="py-4 text-center text-gray-500">
-                          Tất cả chi nhánh đã được thêm vào danh sách
-                        </p>
-                      )}
+                            ) : isAlreadyAdded ? (
+                              <span className="flex items-center text-green-600">
+                                <span className="text-xs text-green-600 px-2 py-0.5 rounded-full border border-green-200 bg-green-50">Đã thêm</span>
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  
+                  {/* Bộ điều hướng phân trang */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                      <button
+                        type="button"
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1}
+                        className={`flex items-center text-sm font-medium ${
+                          currentPage === 1 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-pink-600 hover:text-pink-700'
+                        }`}
+                      >
+                        <FiChevronLeft className="mr-1" /> Trước
+                      </button>
+                      
+                      <span className="text-sm text-gray-600">
+                        Trang {currentPage} / {totalPages}
+                      </span>
+                      
+                      <button
+                        type="button"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        className={`flex items-center text-sm font-medium ${
+                          currentPage === totalPages 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-pink-600 hover:text-pink-700'
+                        }`}
+                      >
+                        Tiếp <FiChevronRight className="ml-1" />
+                      </button>
                     </div>
-                  </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500 border border-dashed border-gray-300 rounded-md">
+                  Tất cả chi nhánh đã được thêm vào danh sách
                 </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={handleCloseBranchModal}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Đóng
-                </button>
-              </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-md">
+              <button
+                type="button"
+                onClick={handleCloseBranchModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

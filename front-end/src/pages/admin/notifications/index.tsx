@@ -49,12 +49,23 @@ export default function AdminNotifications() {
 
   // Fetch dữ liệu
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchData = async () => {
-      await getNotifications(queryParams);
-      await getStatistics();
+      if (isMounted) {
+        await getNotifications(queryParams);
+        // Chỉ gọi getStatistics khi tải lần đầu hoặc khi thay đổi số lượng item hiển thị
+        if (queryParams.page === 1) {
+          await getStatistics();
+        }
+      }
     };
     
     fetchData();
+    
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryParams.page, queryParams.limit]);
 
@@ -62,11 +73,7 @@ export default function AdminNotifications() {
   const handleParamsChange = (newParams: Partial<typeof queryParams>) => {
     const updatedParams = { ...queryParams, ...newParams, page: 1 };
     setQueryParams(updatedParams); // Reset về trang 1 khi lọc
-    
-    // Đảm bảo gọi getNotifications đồng bộ với state mới cập nhật
-    setTimeout(() => {
-      getNotifications(updatedParams);
-    }, 0);
+    // Không cần gọi getNotifications riêng ở đây vì useEffect sẽ bắt sự thay đổi của queryParams
   };
 
   // Xử lý xem chi tiết thông báo

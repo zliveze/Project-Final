@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { AuthProvider } from './AuthContext';
 import { AdminAuthProvider } from './AdminAuthContext';
 import { NotificationProvider } from './NotificationContext';
@@ -9,13 +10,53 @@ import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAdminLoginPage, setIsAdminLoginPage] = React.useState(false);
+  const router = useRouter();
+  const [shouldUseProductProvider, setShouldUseProductProvider] = useState(false);
   
-  // Kiểm tra xem người dùng có đang ở trang đăng nhập admin không
-  React.useEffect(() => {
-    const currentPath = window.location.pathname;
-    setIsAdminLoginPage(currentPath === '/admin/auth/login');
-  }, []);
+  // Kiểm tra ban đầu dựa vào URL hiện tại của trình duyệt
+  useEffect(() => {
+    // Hàm kiểm tra đường dẫn
+    const checkPath = (path: string) => {
+      return path.startsWith('/admin/products') || path.startsWith('/shop');
+    };
+    
+    // Kiểm tra ngay lập tức dựa trên window.location
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      setShouldUseProductProvider(checkPath(currentPath));
+    }
+    
+    // Đồng thời kiểm tra dựa trên router.pathname
+    if (router.pathname) {
+      setShouldUseProductProvider(checkPath(router.pathname));
+    }
+    
+    // Lắng nghe các sự kiện thay đổi route của Next.js
+    const handleRouteChange = (url: string) => {
+      setShouldUseProductProvider(checkPath(url));
+    };
+    
+    router.events.on('routeChangeComplete', handleRouteChange);
+    router.events.on('routeChangeStart', handleRouteChange);
+    
+    // Cleanup function
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+      router.events.off('routeChangeStart', handleRouteChange);
+    };
+  }, [router]);
+  
+  // Xác định sẽ dùng ProductProvider cho trang admin/products và shop
+  const isAdminProductsPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/admin/products') || 
+     (router.pathname && router.pathname.startsWith('/admin/products')));
+  
+  const isShopPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/shop') || 
+     (router.pathname && router.pathname.startsWith('/shop')));
+  
+  // Sử dụng ProductProvider nếu ở trang admin/products hoặc shop
+  const useProductProvider = isAdminProductsPage || isShopPage || shouldUseProductProvider;
   
   // ProductProvider có điều kiện, các provider khác giữ nguyên
   return (
@@ -26,14 +67,14 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
             <BrandProvider>
               <CategoryProvider>
                 <BranchProvider>
-                  {isAdminLoginPage ? (
-                    // Nếu ở trang đăng nhập admin, không sử dụng ProductProvider
-                    children
-                  ) : (
-                    // Ngược lại, sử dụng ProductProvider
+                  {useProductProvider ? (
+                    // Sử dụng ProductProvider khi ở trang admin/products hoặc shop
                     <ProductProvider>
                       {children}
                     </ProductProvider>
+                  ) : (
+                    // Ở các trang khác không sử dụng ProductProvider
+                    children
                   )}
                 </BranchProvider>
               </CategoryProvider>

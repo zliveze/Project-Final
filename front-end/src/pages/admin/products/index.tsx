@@ -22,12 +22,12 @@ import { ProductFilterState } from '@/components/admin/products/components/Produ
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
 import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/useProductAdmin'; // Import types
 import { useApiStats } from '@/hooks/useApiStats';
-import { useProduct } from '@/contexts/ProductContext'; // Already imported, good.
+import { useProduct, ProductProvider } from '@/contexts/ProductContext'; // Import ProductProvider
 
 // Define props type including SSR data
 type AdminProductsProps = InferGetServerSidePropsType<typeof getServerSideProps>;
 
-export default function AdminProducts({
+function AdminProducts({
   initialProducts,
   initialTotalItems,
   initialTotalPages,
@@ -130,7 +130,7 @@ export default function AdminProducts({
   const brands = getBrands();
 
   // Get productContext from useProduct hook
-  const { cleanupBase64Images, uploadProductImage, fetchProductById } = useProduct(); // Add fetchProductById
+  const { cleanupBase64Images, uploadProductImage, fetchProductById } = useProduct();
 
   // Removed the initial data fetching useEffect as it's handled by SSR and useProductAdmin
   // Keep periodic health check if desired
@@ -280,38 +280,20 @@ export default function AdminProducts({
     }
   };
 
-  const handleDelete = async (id: string): Promise<boolean> => {
-    try {
-      // Kiểm tra xem sản phẩm có tồn tại không
-      console.log('Đang yêu cầu xóa sản phẩm với ID:', id);
-
-      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
-
-      // Tìm sản phẩm trong danh sách hiện tại
-      const productInList = products.find(p => p.id === id);
-      
-      if (!productInList) {
-        toast.dismiss(loadingToast);
-        toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-        return false;
-      }
-      
-      toast.dismiss(loadingToast);
-      console.log('Đã tìm thấy sản phẩm sẽ xóa:', productInList);
-
-      // Hiển thị modal xác nhận xóa
-      setProductToDelete(id);
-      setSelectedProduct(productInList);
+  const handleDelete = (id: string): Promise<boolean> => {
+    // Tìm sản phẩm trong danh sách để hiển thị thông tin xác nhận
+    const product = products.find(p => p.id === id);
+    
+    if (product) {
+      setSelectedProduct(product);
+      setProductToDelete(id); // Thiết lập ID sản phẩm cần xóa
       setShowDeleteModal(true);
-      
-      return true;
-    } catch (error: any) {
-      toast.error(`Không tìm thấy thông tin sản phẩm để xóa: ${error.message}`, {
-        duration: 3000
-      });
-      console.error('Không tìm thấy sản phẩm với ID:', id, error);
-      return false;
+    } else {
+      toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
     }
+    
+    // Trả về Promise để tương thích với interface
+    return Promise.resolve(true);
   };
 
   const confirmDelete = async () => {
@@ -838,41 +820,88 @@ export default function AdminProducts({
   // Xử lý nhân bản sản phẩm
   const handleDuplicate = async (id: string): Promise<boolean> => {
     try {
-      // Lấy thông tin sản phẩm
-      console.log('Đang nhân bản sản phẩm với ID:', id);
-
-      // Tìm sản phẩm trong danh sách hiện tại
-      const productInList = products.find(p => p.id === id);
+      // Hiển thị toast loading trước
+      const loadingToast = toast.loading('Đang tải thông tin sản phẩm để nhân bản...');
       
-      if (!productInList) {
-        toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-        return false;
+      try {
+        // Gọi API để lấy thông tin chi tiết sản phẩm
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch product details: ${response.status}`);
+        }
+        
+        const productDetails = await response.json();
+        
+        // Ngừng hiển thị toast loading
+        toast.dismiss(loadingToast);
+        console.log('Đã tải thông tin chi tiết sản phẩm để nhân bản:', productDetails);
+        
+        // Tạo phiên bản copy của sản phẩm
+        const duplicatedProduct = {
+          ...productDetails,
+          id: undefined, // Remove ID so a new one will be generated
+          name: `Bản sao - ${productDetails.name}`,
+          sku: `COPY-${productDetails.sku}`
+        };
+
+        console.log('Sản phẩm sau khi nhân bản:', duplicatedProduct);
+
+        // Cập nhật dữ liệu và hiển thị modal
+        setSelectedProduct(duplicatedProduct);
+        setShowAddProductModal(true);
+        
+        toast.success(`Đang tạo bản sao của sản phẩm: ${productDetails.name}`, {
+          duration: 2000,
+          icon: <FiCheck className="text-blue-500" />
+        });
+        
+        return true;
+      } catch (fetchError) {
+        console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
+        
+        // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
+        const productInList = products.find(p => p.id === id);
+        
+        if (!productInList) {
+          toast.dismiss(loadingToast);
+          toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
+          return false;
+        }
+        
+        // Ngừng hiển thị toast loading
+        toast.dismiss(loadingToast);
+        console.log('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách để nhân bản:', productInList);
+
+        // Tạo phiên bản copy của sản phẩm
+        const duplicatedProduct = {
+          ...productInList,
+          id: undefined, // Remove ID so a new one will be generated
+          name: `Bản sao - ${productInList.name}`,
+          sku: `COPY-${productInList.sku}`
+        };
+
+        // Cập nhật dữ liệu và hiển thị modal
+        setSelectedProduct(duplicatedProduct);
+        setShowAddProductModal(true);
+        
+        toast.success(`Đang tạo bản sao của sản phẩm: ${productInList.name}`, {
+          duration: 2000,
+          icon: <FiCheck className="text-blue-500" />
+        });
+        
+        return true;
       }
-
-      // Tạo phiên bản copy của sản phẩm
-      const duplicatedProduct = {
-        ...productInList,
-        id: undefined, // Remove ID so a new one will be generated
-        name: `Bản sao - ${productInList.name}`,
-        sku: `COPY-${productInList.sku}`
-      };
-
-      console.log('Sản phẩm sau khi nhân bản:', duplicatedProduct);
-
-      setSelectedProduct(duplicatedProduct);
-      setShowAddProductModal(true);
-
-      toast.success(`Đang tạo bản sao của sản phẩm: ${productInList.name}`, {
-        duration: 2000,
-        icon: <FiCheck className="text-blue-500" />
-      });
-      
-      return true;
     } catch (error: any) {
-      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
+      toast.error(`Không thể nhân bản sản phẩm: ${error.message}`, {
         duration: 3000
       });
-      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      console.error('Lỗi khi nhân bản sản phẩm với ID:', id, error);
       return false;
     }
   };
@@ -1324,6 +1353,18 @@ export default function AdminProducts({
     </AdminLayout>
   );
 }
+
+// Create a wrapped component with ProductProvider
+const AdminProductsWithProvider = (props: AdminProductsProps) => {
+  return (
+    <ProductProvider>
+      <AdminProducts {...props} />
+    </ProductProvider>
+  );
+};
+
+// Export the wrapped component as the default export
+export default AdminProductsWithProvider;
 
 // --- Server-Side Rendering ---
 

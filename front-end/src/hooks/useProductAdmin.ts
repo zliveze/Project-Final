@@ -28,9 +28,9 @@ export interface AdminProduct {
 }
 
 // API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-// Ensure API_URL does not duplicate /api if BASE_URL already ends with it
-const API_URL = BASE_URL.replace(/\/api$/, '') + '/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Không cần thêm /api nếu đã có trong BASE_URL
+const API_URL = BASE_URL;
 const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;
 
 interface UseProductAdminProps {

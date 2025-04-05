@@ -1,5 +1,15 @@
 import { Product } from '@/contexts/ProductContext';
 
+// Định nghĩa interface cho chi nhánh
+export interface BranchItem {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  status?: 'active' | 'inactive';
+}
+
 // Định nghĩa interface cho hình ảnh sản phẩm
 export interface ProductImage {
   id?: string;

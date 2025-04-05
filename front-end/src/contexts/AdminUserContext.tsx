@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { useAdminAuth } from './AdminAuthContext';
 
 // Biến môi trường kiểm soát logging (cho phép sử dụng biến môi trường từ .env hoặc mặc định là 'false' trong production)
-const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'true' || process.env.NODE_ENV === 'development';
+const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'true' || false;
 
 /**
  * Hàm logging an toàn - chỉ hiển thị trong môi trường development hoặc khi được cấu hình
@@ -15,6 +15,13 @@ const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'tru
 const safeLog = (message: string, data?: any, level: 'info' | 'warn' | 'error' = 'info') => {
   // Chỉ log khi được bật trong môi trường development hoặc cấu hình rõ ràng
   if (!enableDetailedLogs) return;
+  
+  // Lọc bỏ một số message không cần thiết
+  if (message.includes('Calling API URL') || 
+      message.includes('API Response status') ||
+      message.includes('Processed user data')) {
+    return;
+  }
   
   const prefix = '[AdminUserContext]';
   
@@ -84,7 +91,7 @@ const sanitizeData = (data: any): any => {
 };
 
 // Định nghĩa kiểu dữ liệu
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -94,7 +101,7 @@ interface User {
   createdAt: string;
 }
 
-interface DetailedUser {
+export interface DetailedUser {
   _id: string;
   name: string;
   email: string;
@@ -119,7 +126,7 @@ interface PageCache {
   }
 }
 
-interface UserStats {
+export interface UserStats {
   totalUsers: number;
   activeUsers: number;
   inactiveUsers: number;
@@ -131,7 +138,7 @@ interface UserStats {
   blockedGrowth?: number;
 }
 
-interface AdminUserContextType {
+export interface AdminUserContextType {
   users: User[];
   userDetail: DetailedUser | null;
   stats: UserStats;
@@ -140,7 +147,7 @@ interface AdminUserContextType {
   totalPages: number;
   currentPage: number;
   
-  fetchUsers: (page?: number, limit?: number, search?: string, status?: string, role?: string, startDate?: string, endDate?: string) => Promise<void>;
+  fetchUsers: (page?: number, limit?: number, search?: string, status?: string, role?: string, startDate?: string, endDate?: string, forceReload?: boolean) => Promise<void>;
   getUserDetail: (id: string) => Promise<DetailedUser | null>;
   updateUser: (id: string, userData: any) => Promise<User | null>;
   deleteUser: (id: string) => Promise<boolean>;
@@ -666,7 +673,8 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     status: string = 'all', 
     role: string = 'all',
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    forceReload: boolean = false // Thêm tham số để bỏ qua cache
   ) => {
     try {
       // Kiểm tra nếu đang ở trang login hoặc dashboard thì không cần gọi API đầy đủ
@@ -690,13 +698,12 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       const cacheKey = createCacheKey(page, limit, cleanedSearch, status, role, startDate, endDate);
       safeLog(`Kiểm tra cache cho key: ${cacheKey}`);
       
-      // Trước tiên, đặt loading = true để luôn hiển thị trạng thái loading khi bắt đầu fetchUsers
-      // Sẽ được reset thành false ngay lập tức nếu dữ liệu đã có trong cache
+      // Đặt loading = true
       setLoading(true);
       setError(null);
       
-      // Kiểm tra cache và sử dụng nếu hợp lệ
-      if (isPageCacheValid(cacheKey)) {
+      // Kiểm tra cache và sử dụng nếu hợp lệ VÀ không yêu cầu forceReload
+      if (!forceReload && isPageCacheValid(cacheKey)) {
         safeLog(`Đã tìm thấy dữ liệu hợp lệ trong cache cho trang ${page}`);
         const cachedData = pageCache[cacheKey];
         
@@ -731,9 +738,8 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         };
       }
 
-      // Nếu không có trong cache, tiến hành gọi API
-      safeLog(`Không tìm thấy cache hợp lệ cho trang ${page}, đang gọi API...`);
-      // Giữ loading = true vì đã đặt ở trên rồi
+      // Nếu không có trong cache hoặc forceReload=true, tiến hành gọi API
+      safeLog(`${forceReload ? 'Force reload được yêu cầu' : 'Không tìm thấy cache hợp lệ'} cho trang ${page}, đang gọi API...`);
       
       // Xây dựng query params để gọi API
       const queryParams = new URLSearchParams();
@@ -957,7 +963,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
   );
 };
 
-export const useAdminUser = () => {
+export const useAdminUser = (): AdminUserContextType => {
   const context = useContext(AdminUserContext);
   if (context === undefined) {
     throw new Error('useAdminUser must be used within an AdminUserProvider');
