@@ -21,11 +21,11 @@ export class VariantOptions {
   @Prop()
   color: string;
 
-  @Prop()
-  shade: string;
+  @Prop({ type: [String], default: [] }) // Changed to array
+  shades: string[];
 
-  @Prop()
-  size: string;
+  @Prop({ type: [String], default: [] }) // Changed to array
+  sizes: string[];
 }
 
 // Schema for product variant

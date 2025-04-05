@@ -1,14 +1,20 @@
 import { useState, useCallback } from 'react';
 import { ProductFormData, ProductVariant, ProductImage } from '../types';
 
-// Helper to create a default empty variant structure
-const createDefaultVariant = (): ProductVariant => ({
+// Define the extended type within the hook or import if defined elsewhere
+type ExtendedProductVariant = ProductVariant & { name?: string };
+
+// Helper to create a default empty variant structure using the extended type
+const createDefaultVariant = (): ExtendedProductVariant => ({
   variantId: `new-${Date.now()}`, // Temporary ID for new variant
-  name: '',
   sku: '',
   price: 0,
-  options: { color: '', shade: '', size: '' },
-  images: [] // Initialize as empty string array
+  options: { 
+    color: '',
+    shades: [],
+    sizes: []
+  },
+  images: []
 });
 
 /**
@@ -16,11 +22,13 @@ const createDefaultVariant = (): ProductVariant => ({
  */
 export const useProductVariants = (
   formData: ProductFormData,
-  setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
+  setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>,
+  allProductImages: ProductImage[] // Add all product images as an argument
 ) => {
   const [showVariantForm, setShowVariantForm] = useState(false); // Renamed state
-  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null); // Stores the original variant being edited
-  const [currentVariantData, setCurrentVariantData] = useState<ProductVariant | null>(null); // Holds data for the inline form
+  // Use ExtendedProductVariant for state that includes the name
+  const [editingVariant, setEditingVariant] = useState<ExtendedProductVariant | null>(null); // Stores the original variant being edited
+  const [currentVariantData, setCurrentVariantData] = useState<ExtendedProductVariant | null>(null); // Holds data for the inline form
   const [isVariantProcessing, setIsVariantProcessing] = useState(false);
 
   // Mở form để thêm biến thể mới
@@ -31,7 +39,7 @@ export const useProductVariants = (
   }, []);
 
   // Mở form để chỉnh sửa biến thể
-  const handleOpenEditVariant = useCallback((variant: ProductVariant) => {
+  const handleOpenEditVariant = useCallback((variant: ExtendedProductVariant) => { // Expect ExtendedProductVariant
     setCurrentVariantData({ ...variant }); // Load existing data into the form state
     setEditingVariant(variant); // Store the original variant being edited
     setShowVariantForm(true);
@@ -55,9 +63,25 @@ export const useProductVariants = (
 
       // Handle nested options
       if (name.startsWith('options.')) {
-        const optionKey = name.split('.')[1] as keyof ProductVariant['options'];
+        const optionKey = name.split('.')[1];
         // Ensure options object exists
-        const currentOptions = prev.options || { color: '', shade: '', size: '' };
+        const currentOptions = prev.options || { color: '', shades: [], sizes: [] };
+        
+        // Handle arrays for shades and sizes (convert comma-separated string to array)
+        if (optionKey === 'shades' || optionKey === 'sizes') {
+          const arrayValue = typeof parsedValue === 'string' 
+            ? parsedValue.split(',').map(item => item.trim()).filter(item => item !== '')
+            : parsedValue;
+            
+          return {
+            ...prev,
+            options: {
+              ...currentOptions,
+              [optionKey]: arrayValue
+            }
+          };
+        }
+        
         return {
           ...prev,
           options: {
@@ -71,25 +95,58 @@ export const useProductVariants = (
     });
   }, []);
 
-  // Handler for selecting/deselecting images in VariantForm (stores only IDs)
-  const handleVariantImageSelect = useCallback((imageId: string) => {
+  // Handler for selecting/deselecting images in VariantForm (stores full image objects)
+  // Now accepts either publicId or id
+  const handleVariantImageSelect = useCallback((identifier: string) => {
+    // Find the full image object using either publicId or id
+    const imageObject = allProductImages.find(img => img.publicId === identifier || img.id === identifier);
+    
+    if (!imageObject) {
+      console.warn(`[useProductVariants] Image with identifier ${identifier} not found in allProductImages.`);
+      return; 
+    }
+    
+    // Use a reliable identifier from the found object for comparisons (prefer publicId)
+    const reliableIdentifier = imageObject.publicId || imageObject.id;
+    if (!reliableIdentifier) {
+        console.warn(`[useProductVariants] Found image object for ${identifier} lacks both publicId and id.`);
+        return;
+    }
+
     setCurrentVariantData(prev => {
       if (!prev) return null;
       
-      const currentImageIds = prev.images || []; // Already string[]
-      const imageIndex = currentImageIds.indexOf(imageId);
-      let updatedImageIds: string[];
+      // Ensure prev.images is always an array of ProductImage objects
+      const currentImageObjects = (Array.isArray(prev.images) ? prev.images : [])
+        .map(imgOrId => {
+          // If it's an ID/publicId string, find the corresponding object
+          if (typeof imgOrId === 'string') { 
+            return allProductImages.find(img => img.publicId === imgOrId || img.id === imgOrId);
+          }
+          // If it's already an object (potentially missing id/publicId if old data), keep it
+          if (typeof imgOrId === 'object' && imgOrId !== null) {
+            return imgOrId;
+          }
+          return undefined; // Invalid data
+        })
+        .filter((img): img is ProductImage => img !== null && img !== undefined); // Filter out invalid entries
 
-      if (imageIndex > -1) {
-        // Image ID exists, remove it
-        updatedImageIds = currentImageIds.filter(id => id !== imageId);
+      // Check if the image object already exists using the reliable identifier
+      const exists = currentImageObjects.some(img => (img.publicId || img.id) === reliableIdentifier);
+      
+      if (exists) {
+        // Remove the image object by filtering based on the reliable identifier
+        const updatedImages = currentImageObjects.filter(img => (img.publicId || img.id) !== reliableIdentifier);
+        // console.log(`[useProductVariants] Removing image ${reliableIdentifier}. New images:`, updatedImages);
+        return { ...prev, images: updatedImages };
       } else {
-        // Image ID doesn't exist, add it
-        updatedImageIds = [...currentImageIds, imageId];
+        // Add the full image object
+        const updatedImages = [...currentImageObjects, imageObject];
+        // console.log(`[useProductVariants] Adding image ${reliableIdentifier}. New images:`, updatedImages);
+        return { ...prev, images: updatedImages };
       }
-      return { ...prev, images: updatedImageIds };
     });
-  }, []); // No dependency needed now
+  }, [allProductImages]); // Add allProductImages as a dependency
 
   // Lưu biến thể (sử dụng currentVariantData)
   const handleSaveVariant = useCallback(() => { // No argument needed now
@@ -97,20 +154,20 @@ export const useProductVariants = (
 
     setIsVariantProcessing(true);
 
-    // Basic validation (example: ensure name exists)
-    if (!currentVariantData.name?.trim()) {
+    // Basic validation (ensure name exists)
+    if (!currentVariantData.name) {
         alert('Vui lòng nhập tên biến thể.');
         setIsVariantProcessing(false);
-        return; // Add missing return statement
+        return;
     }
 
-    // No need to sanitize images, currentVariantData.images is already string[]
+    // Make a clean copy of currentVariantData
     const finalVariantData = { ...currentVariantData };
 
-    try { // Ensure try block is correctly structured
+    try {
       if (editingVariant) {
         // Editing existing: Replace in formData.variants
-        const updatedVariants = formData.variants.map(v =>
+        const updatedVariants = (formData.variants || []).map(v =>
           v.variantId === editingVariant.variantId ? finalVariantData : v
         );
         setFormData(prev => ({ ...prev, variants: updatedVariants }));
@@ -128,7 +185,7 @@ export const useProductVariants = (
     } finally {
       setIsVariantProcessing(false);
     }
-  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant]);
+  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant]); // Keep dependencies as they were
 
   // Xóa biến thể
   const handleDeleteVariant = useCallback((variantId: string) => {
@@ -146,9 +203,6 @@ export const useProductVariants = (
       variants: updatedVariants
     }));
   }, [editingVariant, formData.variants, handleCancelVariant, setFormData]); // Use handleCancelVariant here
-
-  // Note: handleAddVariantImage and handleRemoveVariantImage are no longer needed
-  // as image selection is handled directly by handleVariantImageSelect updating currentVariantData
 
   return {
     showVariantForm, // Renamed state

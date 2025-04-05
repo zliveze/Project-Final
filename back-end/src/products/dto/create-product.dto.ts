@@ -45,15 +45,17 @@ export class VariantOptionsDto {
   @IsOptional()
   color?: string;
 
-  @ApiPropertyOptional({ description: 'Shade option' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Shade options', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  shade?: string;
+  shades?: string[]; // Renamed and changed to array
 
-  @ApiPropertyOptional({ description: 'Size option' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Size options', type: [String] })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  size?: string;
+  sizes?: string[]; // Renamed and changed to array
 }
 
 // Product Variant DTO

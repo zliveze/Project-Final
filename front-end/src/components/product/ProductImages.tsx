@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
 
-interface ImageType {
+// Export ImageType
+export interface ImageType { 
   url: string;
   alt: string;
   isPrimary?: boolean;
@@ -170,4 +171,4 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName 
   );
 };
 
-export default ProductImages; 
+export default ProductImages;

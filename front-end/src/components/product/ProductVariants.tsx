@@ -3,8 +3,8 @@ import { RadioGroup } from '@headlessui/react';
 
 interface VariantOption {
   color?: string;
-  shade?: string;
-  size?: string;
+  shades?: string[]; // Changed from shade?: string
+  sizes?: string[];  // Changed from size?: string
 }
 
 export interface Variant {
@@ -21,107 +21,204 @@ interface ProductVariantsProps {
   onSelectVariant: (variant: Variant) => void;
 }
 
+// Hàm phân tích chuỗi màu thành tên và mã màu
+const parseColorString = (colorString?: string): { name: string, code: string } => {
+  if (!colorString) return { name: '', code: '' };
+  
+  // Màu có định dạng "Tên màu "#mã-màu""
+  const regex = /^(.*?)\s*"(#[0-9a-fA-F]{6})"$/;
+  const match = colorString.match(regex);
+  
+  if (match && match.length === 3) {
+    return { name: match[1].trim(), code: match[2] };
+  }
+  
+  return { name: colorString, code: '' };
+};
+
 const ProductVariants: React.FC<ProductVariantsProps> = ({
   variants = [],
   selectedVariant,
   onSelectVariant,
 }) => {
+  const [selectedOptions, setSelectedOptions] = useState<{ color?: string; size?: string; shade?: string }>({});
+
+  // Initialize/Update selectedOptions based on selectedVariant prop or first variant
+  useEffect(() => {
+    if (selectedVariant) {
+      // If a variant is selected externally, try to populate options
+      setSelectedOptions({
+        color: selectedVariant.options?.color,
+        size: selectedVariant.options?.sizes?.[0], // Default to first size/shade of the variant
+        shade: selectedVariant.options?.shades?.[0],
+      });
+    } else if (!selectedOptions.color && variants.length > 0) {
+      // If no color is selected yet, default to the first variant's options
+      const firstVariant = variants[0];
+      setSelectedOptions({
+        color: firstVariant.options?.color,
+        size: firstVariant.options?.sizes?.[0],
+        shade: firstVariant.options?.shades?.[0],
+      });
+    }
+  }, [selectedVariant, variants]); // Rerun if selectedVariant changes externally
+
+
+  // Find and select the corresponding variant when options change
+  useEffect(() => {
+    const { color, size, shade } = selectedOptions;
+    
+    // Only attempt to find a variant if all necessary options are selected
+    // Adjust this condition based on which options actually define a unique variant
+    if (color && size && shade) {
+       const matchingVariant = variants.find(v => 
+         v.options?.color === color &&
+         v.options?.sizes?.includes(size) &&
+         v.options?.shades?.includes(shade)
+       );
+
+       if (matchingVariant && matchingVariant.variantId !== selectedVariant?.variantId) {
+         onSelectVariant(matchingVariant);
+       }
+       // Optional: Handle case where the combination is invalid (no matchingVariant)
+       // else if (!matchingVariant && selectedVariant) {
+       //   // Maybe revert selection or show an error?
+       // }
+    } else if (color && (size || shade)) { 
+        // Handle cases where only color+size or color+shade might be enough
+        // Or if only color defines the variant (if sizes/shades are just attributes)
+        // This part depends heavily on how variants are uniquely identified
+        const partiallyMatchingVariant = variants.find(v => 
+            v.options?.color === color &&
+            (!size || v.options?.sizes?.includes(size)) &&
+            (!shade || v.options?.shades?.includes(shade))
+        );
+         if (partiallyMatchingVariant && partiallyMatchingVariant.variantId !== selectedVariant?.variantId) {
+             onSelectVariant(partiallyMatchingVariant);
+         }
+    }
+
+  }, [selectedOptions, variants, onSelectVariant, selectedVariant]);
+
+
+  // --- Available Options Calculation ---
+
+  // All unique colors available across all variants
+  const availableColors = [...new Set(variants.flatMap(v => v.options?.color ? [v.options.color] : []))];
+
+  // Variants matching the currently selected color
+  const variantsForSelectedColor = selectedOptions.color
+    ? variants.filter(v => v.options?.color === selectedOptions.color)
+    : [];
+
+  // Available sizes for the selected color
+  const availableSizes = [...new Set(variantsForSelectedColor.flatMap(v => v.options?.sizes || []))];
+
+  // Available shades for the selected color
+  const availableShades = [...new Set(variantsForSelectedColor.flatMap(v => v.options?.shades || []))];
+
+
+  // --- Check Option Validity ---
+
+  // Check if a specific size is part of *any* variant matching the selected color and shade
+  const isSizeValid = (size: string): boolean => {
+    if (!selectedOptions.color) return false; // Need color selected
+    return variants.some(v => 
+      v.options?.color === selectedOptions.color &&
+      v.options?.sizes?.includes(size) &&
+      (!selectedOptions.shade || v.options?.shades?.includes(selectedOptions.shade)) // Check against selected shade if present
+    );
+  };
+
+  // Check if a specific shade is part of *any* variant matching the selected color and size
+  const isShadeValid = (shade: string): boolean => {
+     if (!selectedOptions.color) return false; // Need color selected
+     return variants.some(v => 
+       v.options?.color === selectedOptions.color &&
+       v.options?.shades?.includes(shade) &&
+       (!selectedOptions.size || v.options?.sizes?.includes(selectedOptions.size)) // Check against selected size if present
+     );
+  };
+
+
+  // --- Selection Handlers ---
+
+  const handleColorSelect = (color: string) => {
+    // Reset size and shade when color changes
+    setSelectedOptions({ color: color, size: undefined, shade: undefined });
+    // Auto-select first valid size/shade for the new color?
+    const firstVariantOfColor = variants.find(v => v.options?.color === color);
+    if (firstVariantOfColor) {
+        setSelectedOptions({
+            color: color,
+            size: firstVariantOfColor.options?.sizes?.[0],
+            shade: firstVariantOfColor.options?.shades?.[0]
+        });
+    }
+  };
+
+  const handleSizeSelect = (size: string) => {
+     setSelectedOptions(prev => ({ ...prev, size: size }));
+     // Optional: Check if current shade is still valid with new size, reset if not
+     if (selectedOptions.shade && !isShadeValid(selectedOptions.shade)) {
+        // This check needs refinement based on the exact logic desired
+        // For now, we let the useEffect handle finding the variant
+     }
+  };
+
+  const handleShadeSelect = (shade: string) => {
+    setSelectedOptions(prev => ({ ...prev, shade: shade }));
+     // Optional: Check if current size is still valid with new shade, reset if not
+     if (selectedOptions.size && !isSizeValid(selectedOptions.size)) {
+        // This check needs refinement
+     }
+  };
+
+
+  // --- Component Render ---
+
   // Kiểm tra xem có variant nào không
   if (!variants || variants.length === 0) {
     return null;
   }
 
-  // Nếu chưa có variant được chọn, tự động chọn variant đầu tiên
-  useEffect(() => {
-    if (!selectedVariant && variants.length > 0) {
-      onSelectVariant(variants[0]);
-    }
-  }, [variants, selectedVariant, onSelectVariant]);
-
-  // Lấy danh sách các loại biến thể có sẵn
-  const availableColors = [...new Set(variants.filter(v => v.options?.color).map(v => v.options.color))];
-  const availableSizes = [...new Set(variants.filter(v => v.options?.size).map(v => v.options.size))];
-  const availableShades = [...new Set(variants.filter(v => v.options?.shade).map(v => v.options.shade))];
-
-  // Kiểm tra xem có biến thể nào để hiển thị không
-  const hasOptions = availableColors.length > 0 || availableSizes.length > 0 || availableShades.length > 0;
-  
-  if (!hasOptions) {
-    return null;
+  // Determine if any options exist at all
+  const hasAnyOptions = availableColors.length > 0 || availableSizes.length > 0 || availableShades.length > 0;
+  if (!hasAnyOptions) {
+    return null; // Render nothing if no variants have any options
   }
-
-  // Tìm biến thể dựa trên các tùy chọn đã chọn
-  const findVariantByOptions = (color?: string, size?: string, shade?: string) => {
-    return variants.find(
-      v => 
-        (!color || v.options?.color === color) && 
-        (!size || v.options?.size === size) && 
-        (!shade || v.options?.shade === shade)
-    );
-  };
-
-  // Xử lý khi chọn màu sắc
-  const handleColorSelect = (color: string) => {
-    const newVariant = findVariantByOptions(
-      color, 
-      selectedVariant?.options?.size, 
-      selectedVariant?.options?.shade
-    );
-    if (newVariant) {
-      onSelectVariant(newVariant);
-    }
-  };
-
-  // Xử lý khi chọn kích thước
-  const handleSizeSelect = (size: string) => {
-    const newVariant = findVariantByOptions(
-      selectedVariant?.options?.color, 
-      size, 
-      selectedVariant?.options?.shade
-    );
-    if (newVariant) {
-      onSelectVariant(newVariant);
-    }
-  };
-
-  // Xử lý khi chọn tone màu
-  const handleShadeSelect = (shade: string) => {
-    const newVariant = findVariantByOptions(
-      selectedVariant?.options?.color, 
-      selectedVariant?.options?.size, 
-      shade
-    );
-    if (newVariant) {
-      onSelectVariant(newVariant);
-    }
-  };
 
   return (
     <div className="space-y-6">
+
       {/* Màu sắc */}
       {availableColors.length > 0 && (
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-3">Màu sắc</h3>
           <div className="flex flex-wrap gap-2">
-            {availableColors.map((color) => (
-              <button
-                key={color}
-                onClick={() => color && handleColorSelect(color)}
-                className={`
-                  h-8 w-8 rounded-full border-2 flex items-center justify-center
-                  ${selectedVariant?.options?.color === color 
-                    ? 'border-[#d53f8c] ring-2 ring-[#d53f8c] ring-opacity-30' 
-                    : 'border-gray-300'
-                  }
-                `}
-                title={color}
-              >
-                <span 
-                  className="h-6 w-6 rounded-full" 
-                  style={{ backgroundColor: color?.toLowerCase() }}
-                />
-              </button>
-            ))}
+            {availableColors.map((color) => {
+              const { name, code } = parseColorString(color);
+              return (
+                <button
+                  key={color}
+                  onClick={() => color && handleColorSelect(color)}
+                  className={`
+                    h-10 rounded-md border-2 flex items-center px-2
+                    ${selectedOptions.color === color 
+                      ? 'border-[#d53f8c] ring-2 ring-[#d53f8c] ring-opacity-30' 
+                      : 'border-gray-300'
+                    }
+                  `}
+                  title={color}
+                >
+                  <span 
+                    className="h-6 w-6 rounded-full mr-2" 
+                    style={{ backgroundColor: code || '#cccccc' }}
+                  />
+                  <span className="text-xs font-medium">{name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -134,12 +231,15 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             {availableSizes.map((size) => (
               <button
                 key={size}
-                onClick={() => size && handleSizeSelect(size)}
+                onClick={() => handleSizeSelect(size)}
+                disabled={!isSizeValid(size)} // Disable if not valid for current color/shade selection
                 className={`
-                  px-3 py-1 border rounded-md text-sm
-                  ${selectedVariant?.options?.size === size
-                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]'
-                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                  px-3 py-1 border rounded-md text-sm transition-colors duration-150
+                  ${selectedOptions.size === size
+                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]' // Selected style
+                    : isSizeValid(size)
+                      ? 'border-gray-300 text-gray-700 hover:border-gray-400' // Available style
+                      : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed' // Disabled style
                   }
                 `}
               >
@@ -158,12 +258,15 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             {availableShades.map((shade) => (
               <button
                 key={shade}
-                onClick={() => shade && handleShadeSelect(shade)}
+                onClick={() => handleShadeSelect(shade)}
+                disabled={!isShadeValid(shade)} // Disable if not valid for current color/size selection
                 className={`
-                  px-3 py-1 border rounded-md text-sm
-                  ${selectedVariant?.options?.shade === shade
-                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]'
-                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                  px-3 py-1 border rounded-md text-sm transition-colors duration-150
+                  ${selectedOptions.shade === shade
+                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]' // Selected style
+                    : isShadeValid(shade)
+                      ? 'border-gray-300 text-gray-700 hover:border-gray-400' // Available style
+                      : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed' // Disabled style
                   }
                 `}
               >
@@ -177,4 +280,4 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   );
 };
 
-export default ProductVariants; 
+export default ProductVariants;

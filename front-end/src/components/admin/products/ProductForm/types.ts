@@ -42,8 +42,8 @@ export interface ProductVariant {
   stock?: number;
   options?: {
     color?: string;
-    shade?: string;
-    size?: string;
+    shades?: string[]; // Renamed and changed to array
+    sizes?: string[];  // Renamed and changed to array
   };
   images?: ProductImage[];
 }

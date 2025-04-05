@@ -7,8 +7,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Components
 import ProductSEO from '@/components/product/ProductSEO';
-import ProductImages from '@/components/product/ProductImages';
-import ProductInfo from '@/components/product/ProductInfo';
+import ProductImages, { ImageType } from '@/components/product/ProductImages'; // Import ImageType
+import ProductInfo, { Variant } from '@/components/product/ProductInfo'; // Import Variant type
 import ProductDescription from '@/components/product/ProductDescription';
 import ProductReviews from '@/components/product/ProductReviews';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
@@ -45,6 +45,48 @@ const ProductPage: React.FC<ProductPageProps> = ({
 }) => {
   const router = useRouter();
   const productContext = useContext(ProductContext);
+
+  // State for the currently selected variant
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(() => {
+    // Initialize with the first variant if available
+    return product?.variants?.length > 0 ? product.variants[0] : null;
+  });
+
+  // Handler to update the selected variant state
+  const handleSelectVariant = (variant: Variant | null) => {
+    setSelectedVariant(variant);
+  };
+  
+  // Determine which images to display based on the selected variant
+  const displayImages: ImageType[] = React.useMemo(() => {
+    const variantImages = selectedVariant?.images
+      ?.map((img: any): ImageType | null => { // Explicitly type 'img' as any here, or define a broader type if possible
+        // Handle both object and string formats in variant images array
+        if (typeof img === 'object' && img !== null && img.url) {
+          // Ensure the returned object matches ImageType structure
+          return { url: img.url, alt: img.alt || product.name, isPrimary: img.isPrimary ?? false }; // Provide default for optional isPrimary
+        }
+        // If it's just a string (like an ID), we might need more logic to fetch the URL,
+        // but for now, we'll filter them out or return a placeholder structure.
+        // Returning null/undefined and filtering later might be safer.
+        return null; 
+      })
+      .filter((img): img is ImageType => img !== null) || []; // Filter out nulls and ensure type
+
+    // If the selected variant has images, use them. Otherwise, use the main product images.
+    if (variantImages.length > 0) {
+      return variantImages;
+    }
+    
+    // Ensure main product images also conform to ImageType[]
+    // Simplify the filter: just check if it's a valid object with a URL
+    return product?.images?.filter((img: any): img is { url: string, alt: string, isPrimary?: boolean } => 
+      typeof img === 'object' && img !== null && typeof img.url === 'string'
+    ) || [];
+
+  }, [selectedVariant, product?.images, product?.name]);
+
+
   const addToWishlist = productContext?.addToWishlist || ((productId: string) => {
     console.warn('ProductContext không được tìm thấy. Không thể thêm vào danh sách yêu thích.');
     return Promise.resolve(false);
@@ -80,7 +122,8 @@ const ProductPage: React.FC<ProductPageProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10 bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-6 shadow-sm">
           {/* Ảnh sản phẩm */}
           <div className="space-y-6">
-            <ProductImages images={product.images || []} productName={product.name} />
+            {/* Pass the dynamically determined images */}
+            <ProductImages images={displayImages} productName={product.name} /> 
             
             {/* Thông tin nhanh về sản phẩm */}
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -132,6 +175,9 @@ const ProductPage: React.FC<ProductPageProps> = ({
               flags={product.flags || {}}
               gifts={product.gifts || []}
               reviews={product.reviews || { averageRating: 0, reviewCount: 0 }}
+              // Pass state and handler down
+              selectedVariant={selectedVariant} 
+              onSelectVariant={handleSelectVariant} 
             />
           </div>
         </div>
@@ -311,4 +357,4 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 };
 
-export default ProductPage; 
+export default ProductPage;

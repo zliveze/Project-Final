@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar } from 'react-icons/fi';
 import { toast } from 'react-toastify';
-import ProductVariants, { Variant } from './ProductVariants';
+import ProductVariants, { Variant } from './ProductVariants'; // Variant is already imported
 import Link from 'next/link';
 import Image from 'next/image';
 import { checkAuth } from '@/utils/auth';
@@ -66,7 +66,13 @@ interface ProductInfoProps {
     averageRating: number;
     reviewCount: number;
   };
+  // Add props for selected variant state management
+  selectedVariant: Variant | null;
+  onSelectVariant: (variant: Variant | null) => void; 
 }
+
+// Re-export Variant type for use in [slug].tsx
+export type { Variant }; 
 
 const ProductInfo: React.FC<ProductInfoProps> = ({
   _id,
@@ -82,11 +88,15 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   flags,
   gifts,
   reviews,
+  // Destructure the new props
+  selectedVariant, 
+  onSelectVariant, 
 }) => {
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(
-    variants.length > 0 ? variants[0] : null
-  );
+  // Remove local state for selectedVariant, use the prop instead
+  // const [selectedVariant, setSelectedVariant] = useState<Variant | null>(
+  //   variants.length > 0 ? variants[0] : null
+  // ); 
   const [showGifts, setShowGifts] = useState(false);
 
   const inStock = status === 'active';
@@ -348,8 +358,8 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         <div className="pt-4">
           <ProductVariants
             variants={variants}
-            selectedVariant={selectedVariant}
-            onSelectVariant={setSelectedVariant}
+            selectedVariant={selectedVariant} // Pass down the prop
+            onSelectVariant={onSelectVariant} // Pass down the handler prop
           />
         </div>
       )}
@@ -491,4 +501,4 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   );
 };
 
-export default ProductInfo; 
+export default ProductInfo;

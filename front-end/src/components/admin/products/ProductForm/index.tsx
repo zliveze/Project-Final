@@ -106,7 +106,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleDeleteVariant,
     handleVariantChange,  // New handler for form input
     handleVariantImageSelect // New handler for image selection
-  } = useProductVariants(formData, setFormData);
+  } = useProductVariants(formData, setFormData, formData.images || []); // Pass formData.images here
 
   // Sử dụng custom hook để quản lý tồn kho
   const {
