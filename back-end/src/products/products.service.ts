@@ -1202,11 +1202,11 @@ export class ProductsService {
       categoryIds: product.categoryIds ? product.categoryIds.map(id => id.toString()) : [],
       variants: product.variants ? product.variants.map(variant => ({
         ...variant,
-        variantId: variant.variantId.toString()
+        variantId: variant.variantId ? variant.variantId.toString() : undefined
       })) : [],
       inventory: product.inventory ? product.inventory.map(inv => ({
         ...inv,
-        branchId: inv.branchId.toString()
+        branchId: inv.branchId ? inv.branchId.toString() : undefined
       })) : [],
       relatedProducts: product.relatedProducts ? product.relatedProducts.map(id => id.toString()) : [],
       relatedEvents: product.relatedEvents ? product.relatedEvents.map(id => id.toString()) : [],
@@ -1283,6 +1283,72 @@ export class ProductsService {
     } catch (error) {
       this.logger.error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`, error.stack);
       throw new Error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`);
+    }
+  }
+
+  /**
+   * Tạo bản sao của sản phẩm
+   * @param id ID của sản phẩm cần nhân bản
+   * @returns Bản sao sản phẩm đã được tạo
+   */
+  async cloneProduct(id: string): Promise<ProductResponseDto> {
+    try {
+      // Tìm sản phẩm gốc
+      const originalProduct = await this.productModel.findById(id);
+      if (!originalProduct) {
+        throw new NotFoundException(`Không tìm thấy sản phẩm với ID ${id}`);
+      }
+
+      // Tạo bản sao của sản phẩm
+      const productObj = originalProduct.toObject();
+      
+      // Tạo đối tượng mới, bỏ qua các trường không cần thiết/không thể sao chép
+      const productToClone: any = {
+        name: `${productObj.name} (Bản sao)`,
+        sku: `${productObj.sku}_copy_${Date.now().toString().slice(-4)}`,
+        slug: `${productObj.slug}-copy-${Date.now().toString().slice(-4)}`,
+        price: productObj.price,
+        currentPrice: productObj.currentPrice,
+        status: productObj.status,
+        brandId: productObj.brandId,
+        categoryIds: productObj.categoryIds,
+        tags: productObj.tags,
+        description: productObj.description,
+        seo: productObj.seo,
+        cosmetic_info: productObj.cosmetic_info,
+        flags: productObj.flags,
+        inventory: productObj.inventory,
+        images: productObj.images,
+        gifts: productObj.gifts,
+        relatedProducts: productObj.relatedProducts,
+        relatedEvents: productObj.relatedEvents,
+        relatedCampaigns: productObj.relatedCampaigns,
+      };
+      
+      // Xử lý các biến thể (nếu có)
+      if (productObj.variants && productObj.variants.length > 0) {
+        productToClone.variants = productObj.variants.map(variant => {
+          // Tạo biến thể mới mà không có variantId
+          const { variantId, ...variantWithoutId } = variant;
+          
+          // Tạo SKU mới cho biến thể và tạo variantId mới
+          return {
+            ...variantWithoutId,
+            variantId: new Types.ObjectId(), // Tạo ID mới cho biến thể
+            sku: `${variant.sku}_copy_${Date.now().toString().slice(-4)}`
+          };
+        });
+      }
+
+      // Tạo sản phẩm mới từ bản sao
+      const newProduct = new this.productModel(productToClone);
+      const savedProduct = await newProduct.save();
+
+      this.logger.log(`Sản phẩm đã được nhân bản thành công: ${savedProduct.id}`);
+      return this.mapProductToResponseDto(savedProduct);
+    } catch (error) {
+      this.logger.error(`Lỗi khi nhân bản sản phẩm: ${error.message}`, error.stack);
+      throw error;
     }
   }
 }

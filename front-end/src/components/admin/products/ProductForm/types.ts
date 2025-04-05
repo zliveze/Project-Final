@@ -1,6 +1,18 @@
 import { Product } from '@/contexts/ProductContext';
 
-// Định nghĩa interface cho chi nhánh
+// Định nghĩa interface cho thương hiệu (sử dụng trong form)
+export interface BrandItem {
+  id: string;
+  name: string;
+}
+
+// Định nghĩa interface cho danh mục (sử dụng trong form)
+export interface CategoryItem {
+  id: string;
+  name: string;
+}
+
+// Định nghĩa interface cho chi nhánh (sử dụng trong form)
 export interface BranchItem {
   id: string;
   name: string;
@@ -106,4 +118,12 @@ export interface ProductFormData {
     status?: 'active' | 'inactive' | 'out_of_stock';
   }>;
   relatedProducts?: string[];
-} 
+}
+
+// Định nghĩa props cho ProductForm component
+export interface ProductFormProps {
+  initialData?: Partial<ProductFormData>; // Dữ liệu ban đầu (có thể không đầy đủ)
+  onSubmit: (data: ProductFormData) => Promise<any>; // Hàm xử lý khi submit
+  onCancel: () => void; // Hàm xử lý khi hủy
+  isViewMode?: boolean; // Chế độ chỉ xem
+}

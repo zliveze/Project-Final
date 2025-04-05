@@ -202,6 +202,7 @@ interface ProductContextType {
   fetchStatistics: () => Promise<void>;
   clearProductCache: (id?: string) => void;
   cleanupBase64Images: () => Promise<{ success: boolean; message: string; count: number }>;
+  cloneProduct: (id: string) => Promise<Product>;
 }
 
 // Create context
@@ -276,6 +277,10 @@ export const useProduct = () => {
       cleanupBase64Images: async () => {
         console.warn('ProductProvider không khả dụng trên trang này');
         return { success: false, message: 'ProductProvider không khả dụng', count: 0 };
+      },
+      cloneProduct: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
       }
     } as ProductContextType;
   }
@@ -832,6 +837,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [fetchAdminProducts]);
 
+  // Hàm fetch thống kê
+  const fetchStatistics = useCallback(async (): Promise<void> => {
+    try {
+      await fetchApiStatistics();
+    } catch (error: any) {
+      console.error('Error fetching statistics:', error);
+    }
+  }, [fetchApiStatistics]);
+
   // Phương thức POST để thêm biến thể sản phẩm
   const addVariant = useCallback(async (id: string, variantData: any): Promise<Product> => {
     try {
@@ -899,11 +913,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       throw error;
     }
   }, []);
-
-  // Cập nhật phương thức fetchStatistics để sử dụng useApiStats
-  const fetchStatsData = useCallback(async (): Promise<void> => {
-    await fetchApiStatistics();
-  }, [fetchApiStatistics]);
 
   // Phương thức cache (giữ lại để tương thích)
   const clearProductCache = useCallback((id?: string): void => {
@@ -975,6 +984,54 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     autoCleanupBase64();
   }, [autoCleanupBase64]);
 
+  // Clone a product
+  const cloneProduct = useCallback(async (id: string): Promise<Product> => {
+    try {
+      // Kiểm tra sức khỏe API
+      await handleCheckApiHealth();
+      
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      if (!token) {
+        throw new Error('Bạn cần đăng nhập để thực hiện thao tác này');
+      }
+      
+      const response = await fetch(`${API_URL}/admin/products/${id}/clone`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Lưu trữ dữ liệu phản hồi
+      let responseData;
+      const responseText = await response.text();
+      
+      try {
+        // Cố gắng phân tích dữ liệu JSON nếu có
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
+        responseData = { message: responseText || 'Phản hồi không phải JSON hợp lệ' };
+      }
+      
+      if (!response.ok) {
+        console.error('Lỗi khi nhân bản sản phẩm:', responseData);
+        throw new Error(responseData?.message || `Lỗi khi nhân bản sản phẩm: ${response.status}`);
+      }
+      
+      // Cập nhật cache nếu cần
+      clearProductCache();
+      
+      // Lưu ý: Không cần phải gọi response.json() nữa vì đã đọc và phân tích văn bản phản hồi
+      // Chuyển đổi dữ liệu thành cấu trúc Product
+      return responseData;
+    } catch (error: any) {
+      console.error('Lỗi khi nhân bản sản phẩm:', error);
+      throw error;
+    }
+  }, [handleCheckApiHealth, clearProductCache]);
+
   // Context value
   const value: ProductContextType = {
     products,
@@ -1002,15 +1059,45 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     addVariant,
     updateVariant,
     removeVariant,
-    fetchStatistics: fetchStatsData,
+    fetchStatistics,
     clearProductCache,
     cleanupBase64Images,
+    cloneProduct,
   };
 
   return (
-    <ProductContext.Provider value={value}>
+    <ProductContext.Provider
+      value={{
+        products,
+        loading,
+        error,
+        totalProducts,
+        currentPage,
+        totalPages,
+        itemsPerPage,
+        apiHealthStatus,
+        checkApiHealth,
+        statistics,
+        uploadProductImage,
+        fetchProducts,
+        fetchLightProducts,
+        fetchProductById,
+        fetchProductBySlug,
+        createProduct,
+        updateProduct,
+        deleteProduct,
+        updateInventory,
+        updateProductFlags,
+        addVariant,
+        updateVariant,
+        removeVariant,
+        fetchStatistics,
+        clearProductCache,
+        cleanupBase64Images,
+        cloneProduct
+      }}
+    >
       {children}
-      {/* Hiển thị thông báo trạng thái API nếu đang offline hoặc checking */}
       <ApiStatusAlert
         status={apiHealthStatus}
         onRetry={handleCheckApiHealth}

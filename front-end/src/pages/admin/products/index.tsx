@@ -130,7 +130,7 @@ function AdminProducts({
   const brands = getBrands();
 
   // Get productContext from useProduct hook
-  const { cleanupBase64Images, uploadProductImage, fetchProductById } = useProduct();
+  const { cleanupBase64Images, uploadProductImage, fetchProductById, cloneProduct } = useProduct();
 
   // Removed the initial data fetching useEffect as it's handled by SSR and useProductAdmin
   // Keep periodic health check if desired
@@ -484,11 +484,13 @@ function AdminProducts({
           // If parsing fails, use the status text or default message
           errorMessage = response.statusText || `Lỗi không xác định (${response.status})`;
           console.error('Failed to parse error response:', parseError);
-        }
-        throw new Error(errorMessage);
-      }
-
-      const createdProduct = await response.json();
+         }
+         // Log the specific error before throwing
+         console.error("Backend error details:", errorMessage); 
+         throw new Error(errorMessage);
+       }
+ 
+       const createdProduct = await response.json();
       console.log('Sản phẩm đã được tạo thành công:', createdProduct);
 
       // 4. Upload images if creation was successful and there are images
@@ -562,11 +564,13 @@ function AdminProducts({
       toast.error(`Có lỗi xảy ra khi thêm sản phẩm: ${error.message}`, {
         duration: 3000
       });
-      throw error;
-    }
-  };
-
-  const handleUpdateProduct = async (updatedProduct: any) => {
+       // Log the caught error object as well for more context
+       console.error("Error during product creation fetch:", error); 
+       throw error;
+     }
+   };
+ 
+   const handleUpdateProduct = async (updatedProduct: any) => {
     console.log('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
@@ -820,82 +824,34 @@ function AdminProducts({
   // Xử lý nhân bản sản phẩm
   const handleDuplicate = async (id: string): Promise<boolean> => {
     try {
-      // Hiển thị toast loading trước
-      const loadingToast = toast.loading('Đang tải thông tin sản phẩm để nhân bản...');
+      // Hiển thị toast loading
+      const loadingToast = toast.loading('Đang nhân bản sản phẩm...');
       
       try {
-        // Gọi API để lấy thông tin chi tiết sản phẩm
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch product details: ${response.status}`);
-        }
-        
-        const productDetails = await response.json();
+        // Sử dụng context API để gọi phương thức clone
+        const clonedProduct = await cloneProduct(id);
         
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
-        console.log('Đã tải thông tin chi tiết sản phẩm để nhân bản:', productDetails);
+        console.log('Sản phẩm đã được nhân bản thành công:', clonedProduct);
         
-        // Tạo phiên bản copy của sản phẩm
-        const duplicatedProduct = {
-          ...productDetails,
-          id: undefined, // Remove ID so a new one will be generated
-          name: `Bản sao - ${productDetails.name}`,
-          sku: `COPY-${productDetails.sku}`
-        };
-
-        console.log('Sản phẩm sau khi nhân bản:', duplicatedProduct);
-
-        // Cập nhật dữ liệu và hiển thị modal
-        setSelectedProduct(duplicatedProduct);
-        setShowAddProductModal(true);
+        // Làm mới danh sách để hiển thị sản phẩm mới
+        await fetchProducts();
         
-        toast.success(`Đang tạo bản sao của sản phẩm: ${productDetails.name}`, {
-          duration: 2000,
-          icon: <FiCheck className="text-blue-500" />
+        toast.success(`Đã nhân bản thành công sản phẩm: ${clonedProduct.name}`, {
+          duration: 3000,
+          icon: <FiCheck className="text-green-500" />
         });
         
         return true;
-      } catch (fetchError) {
-        console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
-        
-        // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
-        const productInList = products.find(p => p.id === id);
-        
-        if (!productInList) {
-          toast.dismiss(loadingToast);
-          toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-          return false;
-        }
-        
-        // Ngừng hiển thị toast loading
+      } catch (error: any) {
+        // Xử lý lỗi khi gọi API clone
         toast.dismiss(loadingToast);
-        console.log('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách để nhân bản:', productInList);
-
-        // Tạo phiên bản copy của sản phẩm
-        const duplicatedProduct = {
-          ...productInList,
-          id: undefined, // Remove ID so a new one will be generated
-          name: `Bản sao - ${productInList.name}`,
-          sku: `COPY-${productInList.sku}`
-        };
-
-        // Cập nhật dữ liệu và hiển thị modal
-        setSelectedProduct(duplicatedProduct);
-        setShowAddProductModal(true);
-        
-        toast.success(`Đang tạo bản sao của sản phẩm: ${productInList.name}`, {
-          duration: 2000,
-          icon: <FiCheck className="text-blue-500" />
+        toast.error(`Không thể nhân bản sản phẩm: ${error.message}`, {
+          duration: 3000
         });
-        
-        return true;
+        console.error('Lỗi khi nhân bản sản phẩm:', error);
+        return false;
       }
     } catch (error: any) {
       toast.error(`Không thể nhân bản sản phẩm: ${error.message}`, {
@@ -1255,6 +1211,7 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
+                    initialData={selectedProduct} // Pass selectedProduct (which holds duplicated data)
                     onSubmit={handleSaveNewProduct}
                     onCancel={() => setShowAddProductModal(false)}
                   />
@@ -1331,7 +1288,7 @@ function AdminProducts({
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
                     initialData={selectedProduct}
-                    onSubmit={() => {}}
+                    onSubmit={async () => {}} // Use dummy async function for view mode
                     onCancel={() => setShowProductDetailModal(false)}
                     isViewMode={true}
                   />

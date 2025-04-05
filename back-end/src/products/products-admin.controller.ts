@@ -279,6 +279,20 @@ export class ProductsAdminController {
     }
   }
 
+  @Post(':id/clone')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Nhân bản sản phẩm' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Sản phẩm đã được nhân bản thành công', 
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy sản phẩm' })
+  async cloneProduct(@Param('id') id: string): Promise<ProductResponseDto> {
+    this.logger.log(`Yêu cầu nhân bản sản phẩm ID: ${id}`);
+    return this.productsService.cloneProduct(id);
+  }
+
   @Post('cleanup-base64')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Dọn dẹp dữ liệu base64 trong database của sản phẩm' })

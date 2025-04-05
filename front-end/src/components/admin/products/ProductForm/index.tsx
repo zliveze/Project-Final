@@ -31,6 +31,23 @@ import InventoryTab from './tabs/InventoryTab';
 import GiftsTab from './tabs/GiftsTab';
 
 /**
+ * Utility function to generate a URL-friendly slug from a string.
+ */
+const slugify = (text: string): string => {
+  if (!text) return ''; // Return empty string if input is empty
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD') // Normalize diacritics
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/\s+/g, '-') // Replace spaces with -
+    .replace(/[^\w-]+/g, '') // Remove all non-word chars except -
+    .replace(/--+/g, '-') // Replace multiple - with single -
+    .replace(/^-+/, '') // Trim - from start of text
+    .replace(/-+$/, ''); // Trim - from end of text
+};
+
+/**
  * Component ProductForm chính, kết hợp các tab components và custom hooks
  */
 const ProductForm: React.FC<ProductFormProps> = ({
@@ -189,9 +206,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
   // Kiểm tra một lần nữa khi formData thay đổi và chưa có dữ liệu
   useEffect(() => {
     // Nếu đã có dữ liệu sản phẩm và đã chọn brandId hoặc categoryIds
-    if (initialData && 
-        ((formData.brandId && brands.length === 0) || 
-        (formData.categoryIds.length > 0 && categories.length === 0))) {
+    if (initialData &&
+        ((formData.brandId && brands.length === 0) ||
+        ((formData.categoryIds?.length ?? 0) > 0 && categories.length === 0))) { // Safely check categoryIds length
       // Gọi lại API nếu chưa có dữ liệu và chưa gọi API
       if (!hasCalledAPI.current) {
         fetchData();
@@ -225,9 +242,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
       alert(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
     }
+
+    // Prepare data for submission
+    const dataToSubmit = { ...formData };
+
+    // Auto-generate slug if it's empty and name is present
+    if (!dataToSubmit.slug && dataToSubmit.name) {
+      dataToSubmit.slug = slugify(dataToSubmit.name);
+      console.log(`Generated slug: ${dataToSubmit.slug}`); // Log generated slug
+    }
     
     // Submit dữ liệu form nếu hợp lệ
-    onSubmit(formData);
+    onSubmit(dataToSubmit);
   };
 
   return (
