@@ -26,6 +26,7 @@ interface EventFormProps {
   loading?: boolean;
   onAddProduct: () => void;
   onRemoveProduct: (productId: string) => void;
+  onUpdateProductPrice?: (productId: string, newPrice: number) => void;
 }
 
 const EventForm: React.FC<EventFormProps> = ({
@@ -34,7 +35,8 @@ const EventForm: React.FC<EventFormProps> = ({
   onCancel,
   loading = false,
   onAddProduct,
-  onRemoveProduct
+  onRemoveProduct,
+  onUpdateProductPrice
 }) => {
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
@@ -129,14 +131,20 @@ const EventForm: React.FC<EventFormProps> = ({
   
   // Xử lý điều chỉnh giá sản phẩm trong sự kiện
   const handleProductPriceChange = (productId: string, newPrice: number) => {
-    setFormData(prev => ({
-      ...prev,
-      products: prev.products.map(product => 
-        product.productId === productId 
-          ? { ...product, adjustedPrice: newPrice } 
-          : product
-      )
-    }));
+    // Nếu có callback, gọi callback để cập nhật qua API
+    if (onUpdateProductPrice) {
+      onUpdateProductPrice(productId, newPrice);
+    } else {
+      // Nếu không, chỉ cập nhật state local
+      setFormData(prev => ({
+        ...prev,
+        products: prev.products.map(product => 
+          product.productId === productId 
+            ? { ...product, adjustedPrice: newPrice } 
+            : product
+        )
+      }));
+    }
   };
   
   // Kiểm tra form trước khi submit

@@ -19,7 +19,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Hàm kiểm tra đường dẫn
     const checkPath = (path: string) => {
-      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product');
+      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product') || path.startsWith('/admin/events');
     };
     
     // Kiểm tra ngay lập tức dựa trên window.location
@@ -61,18 +61,18 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     (window.location.pathname.startsWith('/product') || 
       (router.pathname && router.pathname.startsWith('/product')));
   
-  // Sử dụng ProductProvider nếu ở trang admin/products, shop hoặc trang chi tiết sản phẩm
-  const useProductProvider = isAdminProductsPage || isShopPage || isProductDetailPage || shouldUseProductProvider;
+  // Kiểm tra nếu đang ở trang events
+  const isEventsPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/admin/events') || 
+      (router.pathname && router.pathname.startsWith('/admin/events')));
+  
+  // Sử dụng ProductProvider nếu ở trang admin/products, shop, trang chi tiết sản phẩm hoặc trang events
+  const useProductProvider = isAdminProductsPage || isShopPage || isProductDetailPage || isEventsPage || shouldUseProductProvider;
   
   // Kiểm tra nếu đang ở trang voucher để sử dụng VoucherProvider
   const isVoucherPage = typeof window !== 'undefined' && 
     (window.location.pathname.startsWith('/admin/vouchers') || 
       (router.pathname && router.pathname.startsWith('/admin/vouchers')));
-      
-  // Kiểm tra nếu đang ở trang events để sử dụng EventsProvider
-  const isEventsPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/admin/events') || 
-      (router.pathname && router.pathname.startsWith('/admin/events')));
   
   // Tạo hàm để quyết định bọc children bằng Provider phù hợp
   const wrapWithProviders = (children: React.ReactNode) => {
@@ -87,21 +87,21 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
       );
     }
     
-    // Bọc với EventsProvider nếu ở trang events
-    if (isEventsPage) {
-      wrappedChildren = (
-        <EventsProvider>
-          {wrappedChildren}
-        </EventsProvider>
-      );
-    }
-    
-    // Cuối cùng bọc với ProductProvider nếu cần
+    // Bọc với ProductProvider trước nếu cần
     if (useProductProvider) {
       wrappedChildren = (
         <ProductProvider>
           {wrappedChildren}
         </ProductProvider>
+      );
+    }
+    
+    // Sau đó bọc với EventsProvider nếu ở trang events
+    if (isEventsPage) {
+      wrappedChildren = (
+        <EventsProvider>
+          {wrappedChildren}
+        </EventsProvider>
       );
     }
     

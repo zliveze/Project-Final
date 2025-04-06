@@ -11,6 +11,9 @@ export interface ProductInEvent {
   productId: string;
   variantId?: string;
   adjustedPrice: number;
+  name?: string;
+  image?: string;
+  originalPrice?: number;
 }
 
 // Định nghĩa interface cho event
@@ -49,6 +52,10 @@ interface EventsContextType {
   deleteEvent: (id: string) => Promise<boolean>;
   findEventsByProductId: (productId: string) => Promise<Event[]>;
   findEventsByVariantId: (variantId: string) => Promise<Event[]>;
+  // Các phương thức mới cho quản lý sản phẩm trong event
+  addProductsToEvent: (eventId: string, products: ProductInEvent[]) => Promise<Event | null>;
+  removeProductFromEvent: (eventId: string, productId: string) => Promise<Event | null>;
+  updateProductPriceInEvent: (eventId: string, productId: string, adjustedPrice: number) => Promise<Event | null>;
 }
 
 // Tạo context
@@ -270,6 +277,135 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  // Hàm để thêm sản phẩm vào event
+  const addProductsToEvent = useCallback(async (
+    eventId: string, 
+    products: ProductInEvent[]
+  ): Promise<Event | null> => {
+    if (!isAuthenticated || !accessToken) {
+      toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/events/${eventId}/products`,
+        { products },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      const updatedEvent = formatEventData(response.data);
+      
+      // Cập nhật state events
+      setEvents(prev => prev.map(event => 
+        event._id === eventId ? updatedEvent : event
+      ));
+      
+      toast.success('Đã thêm sản phẩm vào sự kiện thành công');
+      return updatedEvent;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Không thể thêm sản phẩm vào sự kiện';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, accessToken]);
+  
+  // Hàm để xóa sản phẩm khỏi event
+  const removeProductFromEvent = useCallback(async (
+    eventId: string, 
+    productId: string
+  ): Promise<Event | null> => {
+    if (!isAuthenticated || !accessToken) {
+      toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.delete(
+        `${API_URL}/events/${eventId}/products/${productId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      const updatedEvent = formatEventData(response.data);
+      
+      // Cập nhật state events
+      setEvents(prev => prev.map(event => 
+        event._id === eventId ? updatedEvent : event
+      ));
+      
+      toast.success('Đã xóa sản phẩm khỏi sự kiện thành công');
+      return updatedEvent;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Không thể xóa sản phẩm khỏi sự kiện';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, accessToken]);
+  
+  // Hàm để cập nhật giá sản phẩm trong event
+  const updateProductPriceInEvent = useCallback(async (
+    eventId: string, 
+    productId: string, 
+    adjustedPrice: number
+  ): Promise<Event | null> => {
+    if (!isAuthenticated || !accessToken) {
+      toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.patch(
+        `${API_URL}/events/${eventId}/products/${productId}`,
+        { adjustedPrice },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      const updatedEvent = formatEventData(response.data);
+      
+      // Cập nhật state events
+      setEvents(prev => prev.map(event => 
+        event._id === eventId ? updatedEvent : event
+      ));
+      
+      toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+      return updatedEvent;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Không thể cập nhật giá sản phẩm trong sự kiện';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, accessToken]);
+
   // Load events khi component mount
   useEffect(() => {
     fetchEvents();
@@ -286,7 +422,10 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateEvent,
     deleteEvent,
     findEventsByProductId,
-    findEventsByVariantId
+    findEventsByVariantId,
+    addProductsToEvent,
+    removeProductFromEvent,
+    updateProductPriceInEvent
   };
 
   return (

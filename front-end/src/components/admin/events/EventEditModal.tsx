@@ -3,7 +3,7 @@ import { FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
-import { Event } from '@/contexts/EventsContext';
+import { Event, useEvents } from '@/contexts/EventsContext';
 
 interface EventEditModalProps {
   isOpen: boolean;
@@ -24,6 +24,9 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [formData, setFormData] = useState<EventFormData | null>(null);
+  
+  // Sử dụng context để thao tác với API
+  const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent } = useEvents();
   
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
@@ -55,7 +58,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   }, [isOpen, eventId, events]);
   
   // Xử lý thêm sản phẩm vào sự kiện
-  const handleAddProducts = (products: {
+  const handleAddProducts = async (products: {
     productId: string;
     variantId?: string;
     adjustedPrice: number;
@@ -63,47 +66,94 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     image?: string;
     originalPrice?: number;
   }[]) => {
-    if (formData) {
-      try {
-        // Giới hạn số lượng sản phẩm có thể thêm vào một lần
-        if (formData.products.length + products.length > 50) {
-          toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
-          return;
-        }
-        
-        // Kiểm tra sản phẩm trùng lặp
-        const existingProductIds = new Set(formData.products.map(p => p.productId));
-        const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
-        
-        if (uniqueProducts.length === 0) {
-          toast.error('Các sản phẩm đã tồn tại trong sự kiện');
-          return;
-        }
-        
+    if (!formData || !eventId) return;
+    
+    try {
+      // Giới hạn số lượng sản phẩm có thể thêm vào một lần
+      if (formData.products.length + products.length > 50) {
+        toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
+        return;
+      }
+      
+      // Kiểm tra sản phẩm trùng lặp
+      const existingProductIds = new Set(formData.products.map(p => p.productId));
+      const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
+      
+      if (uniqueProducts.length === 0) {
+        toast.error('Các sản phẩm đã tồn tại trong sự kiện');
+        return;
+      }
+      
+      // Gọi API thêm sản phẩm vào sự kiện
+      setIsSubmitting(true);
+      const updatedEvent = await addProductsToEvent(eventId, uniqueProducts);
+      setIsSubmitting(false);
+      
+      if (updatedEvent) {
         // Cập nhật state với sản phẩm mới
         setFormData({
           ...formData,
-          products: [...formData.products, ...uniqueProducts]
+          products: updatedEvent.products
         });
         
         setShowProductModal(false);
-        toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
-      } catch (error) {
-        console.error('Error adding products:', error);
-        toast.error('Có lỗi xảy ra khi thêm sản phẩm');
       }
+    } catch (error) {
+      console.error('Error adding products:', error);
+      toast.error('Có lỗi xảy ra khi thêm sản phẩm');
+      setIsSubmitting(false);
     }
   };
   
   // Xử lý xóa sản phẩm khỏi sự kiện
-  const handleRemoveProduct = (productId: string) => {
-    if (formData) {
-      setFormData({
-        ...formData,
-        products: formData.products.filter(product => product.productId !== productId)
-      });
+  const handleRemoveProduct = async (productId: string) => {
+    if (!formData || !eventId) return;
+    
+    try {
+      setIsSubmitting(true);
+      const updatedEvent = await removeProductFromEvent(eventId, productId);
+      setIsSubmitting(false);
       
-      toast.success('Đã xóa sản phẩm khỏi sự kiện');
+      if (updatedEvent) {
+        // Cập nhật state local
+        setFormData({
+          ...formData,
+          products: formData.products.filter(product => product.productId !== productId)
+        });
+      }
+    } catch (error) {
+      console.error('Error removing product:', error);
+      toast.error('Có lỗi xảy ra khi xóa sản phẩm');
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Xử lý cập nhật giá sản phẩm trong sự kiện
+  const handleUpdateProductPrice = async (productId: string, newPrice: number) => {
+    if (!formData || !eventId) return;
+    
+    try {
+      setIsSubmitting(true);
+      const updatedEvent = await updateProductPriceInEvent(eventId, productId, newPrice);
+      setIsSubmitting(false);
+      
+      if (updatedEvent) {
+        // Cập nhật state local
+        setFormData({
+          ...formData,
+          products: formData.products.map(product => 
+            product.productId === productId 
+              ? { ...product, adjustedPrice: newPrice }
+              : product
+          )
+        });
+        
+        toast.success('Đã cập nhật giá sản phẩm thành công');
+      }
+    } catch (error) {
+      console.error('Error updating product price:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật giá sản phẩm');
+      setIsSubmitting(false);
     }
   };
   
@@ -169,6 +219,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
                 loading={isSubmitting}
                 onAddProduct={() => setShowProductModal(true)}
                 onRemoveProduct={handleRemoveProduct}
+                onUpdateProductPrice={handleUpdateProductPrice}
               />
             </div>
           </div>
