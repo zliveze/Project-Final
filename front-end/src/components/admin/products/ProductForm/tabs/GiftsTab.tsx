@@ -1,19 +1,9 @@
-import React, { useState } from 'react';
-import { FiTrash2, FiPlus, FiGift, FiSearch, FiPackage } from 'react-icons/fi';
-import { ProductFormData, GiftItem } from '../types';
-
-// Dữ liệu mẫu sản phẩm để chọn làm quà tặng
-const sampleProducts = [
-  { id: 'PRD-001', name: 'Kem dưỡng ẩm Yumin', price: 350000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-002', name: 'Sữa rửa mặt Yumin', price: 250000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-003', name: 'Serum Vitamin C Yumin', price: 450000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-004', name: 'Mặt nạ dưỡng ẩm Yumin', price: 50000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-005', name: 'Kem chống nắng Yumin SPF50', price: 320000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-006', name: 'Son môi Yumin màu đỏ', price: 180000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-007', name: 'Nước hoa Yumin Elegance', price: 750000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-008', name: 'Phấn nước Yumin Glow', price: 420000, image: 'https://via.placeholder.com/50' },
-  { id: 'PRD-009', name: 'Set mẫu thử Yumin Mini', price: 120000, image: 'https://via.placeholder.com/50' },
-];
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiTrash2, FiPlus, FiGift, FiSearch, FiPackage, FiLoader } from 'react-icons/fi';
+import { ProductFormData, GiftItem } from '../types'; // GiftItem is now exported
+import { useProduct } from '@/contexts/ProductContext'; // Import useProduct hook
+import { AdminProduct } from '@/hooks/useProductAdmin'; // Import AdminProduct type
+import { debounce } from 'lodash'; // Import debounce for search
 
 interface GiftsTabProps {
   formData: ProductFormData;
@@ -45,24 +35,97 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
   isViewMode = false,
   handleCheckboxChange
 }) => {
+  const { fetchAdminProductList } = useProduct(); // Use the context hook
+
   // State để quản lý tìm kiếm sản phẩm
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [showProductSearch, setShowProductSearch] = useState<{index: number, show: boolean}>({index: -1, show: false});
-  
-  // Lọc sản phẩm theo từ khóa tìm kiếm
-  const filteredProducts = sampleProducts.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+  const [availableGiftProducts, setAvailableGiftProducts] = useState<AdminProduct[]>([]);
+  const [loadingGiftProducts, setLoadingGiftProducts] = useState(false);
+  const [giftProductError, setGiftProductError] = useState<string | null>(null);
+
+  // Debounce search input
+  const debouncedSetSearch = useCallback(debounce((value: string) => {
+    setDebouncedSearchTerm(value);
+  }, 300), []); // 300ms delay
+
+  useEffect(() => {
+    debouncedSetSearch(searchTerm);
+    // Cleanup debounce on unmount
+    return () => {
+      debouncedSetSearch.cancel();
+    };
+  }, [searchTerm, debouncedSetSearch]);
+
+  // Fetch products when search modal is shown or search term changes
+  useEffect(() => {
+    if (showProductSearch.show) {
+      const fetchProducts = async () => {
+        setLoadingGiftProducts(true);
+        setGiftProductError(null);
+        try {
+          const result = await fetchAdminProductList({
+            search: debouncedSearchTerm,
+            limit: 20, // Limit results for performance
+            status: 'active', // Only show active products
+          });
+          setAvailableGiftProducts(result.products);
+        } catch (error: any) {
+          console.error("Error fetching products for gifts:", error);
+          setGiftProductError("Không thể tải danh sách sản phẩm.");
+        } finally {
+          setLoadingGiftProducts(false);
+        }
+      };
+      fetchProducts();
+    }
+  }, [showProductSearch.show, debouncedSearchTerm, fetchAdminProductList]);
+
   // Hàm chọn sản phẩm làm quà tặng
-  const handleSelectProduct = (index: number, product: any) => {
-    // Cập nhật thông tin quà tặng dựa trên sản phẩm đã chọn
+  const handleSelectProduct = (index: number, product: AdminProduct) => {
+    console.log('Đã chọn sản phẩm:', product);
+    
+    // Cập nhật thông tin hình ảnh trước
+    const imageUrl = product.image || 'https://via.placeholder.com/50';
+    const imageAlt = product.name;
+    
+    // Cập nhật hình ảnh qua hàm riêng
+    handleGiftImageUrlChange(index, imageUrl);
+    handleGiftImageAltChange(index, imageAlt);
+    
+    // Sau đó cập nhật các thông tin khác
     handleGiftChange(index, 'name', product.name);
-    handleGiftChange(index, 'value', product.price);
+    handleGiftChange(index, 'value', product.currentPrice); // Use currentPrice
     handleGiftChange(index, 'productId', product.id);
-    handleGiftImageUrlChange(index, typeof product.image === 'string' ? product.image : product.image.url || '');
-    handleGiftImageAltChange(index, product.name);
+    
+    // Thêm mô tả mặc định
+    if (!formData.gifts?.[index]?.description) {
+      handleGiftChange(index, 'description', `Quà tặng kèm sản phẩm ${product.name}`);
+    }
+    
+    // Thiết lập các giá trị mặc định khác
+    if (!formData.gifts?.[index]?.quantity) {
+      handleGiftChange(index, 'quantity', 1);
+    }
+    
+    if (!formData.gifts?.[index]?.type) {
+      handleGiftChange(index, 'type', 'product');
+    }
+    
+    if (!formData.gifts?.[index]?.status) {
+      handleGiftChange(index, 'status', 'active');
+    }
+    
+    // Log để kiểm tra tất cả dữ liệu đã được cập nhật chưa
+    setTimeout(() => {
+      console.log('Gift data after update:', formData.gifts?.[index]);
+    }, 0);
+    
+    // Đóng modal tìm kiếm
     setShowProductSearch({index: -1, show: false});
+    setSearchTerm(''); // Reset search term
+    setDebouncedSearchTerm(''); // Reset debounced search term
   };
 
   return (
@@ -87,7 +150,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
             id="hasGifts"
             name="flags.hasGifts"
             type="checkbox"
-            checked={formData.flags.hasGifts}
+            checked={formData.flags?.hasGifts ?? false} // Add optional chaining and default value
             onChange={handleCheckboxChange}
             disabled={isViewMode}
             className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
@@ -108,8 +171,8 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
       {/* Danh sách quà tặng */}
       {hasGifts() ? (
         <div className="space-y-4">
-          {formData.gifts.map((gift, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm">
+          {(formData.gifts ?? []).map((gift, index) => ( // Add default empty array
+            <div key={gift.giftId || index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm"> {/* Use giftId if available */}
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center">
                   <FiGift className="text-pink-500 w-5 h-5 mr-2" />
@@ -147,9 +210,9 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                   
                   {gift.productId && (
                     <div className="flex items-center bg-white p-2 rounded border border-gray-200">
-                      <img 
-                        src={gift.image?.url || 'https://via.placeholder.com/50'} 
-                        alt={gift.name} 
+                      <img
+                        src={gift.image?.url || 'https://via.placeholder.com/50'}
+                        alt={gift.name}
                         className="w-10 h-10 object-cover rounded mr-2"
                       />
                       <div>
@@ -172,24 +235,32 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                         />
                       </div>
                       <div className="max-h-60 overflow-y-auto">
-                        {filteredProducts.map(product => (
-                          <div 
-                            key={product.id} 
-                            className="flex items-center p-2 hover:bg-gray-50 cursor-pointer"
-                            onClick={() => handleSelectProduct(index, product)}
-                          >
-                            <img 
-                              src={product.image} 
-                              alt={product.name} 
-                              className="w-8 h-8 object-cover rounded mr-2"
-                            />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{product.name}</p>
-                              <p className="text-xs text-gray-500">{product.price.toLocaleString()}₫</p>
-                            </div>
+                        {loadingGiftProducts ? (
+                          <div className="flex justify-center items-center p-4">
+                            <FiLoader className="animate-spin text-pink-500 mr-2" />
+                            <p className="text-sm text-gray-500">Đang tải sản phẩm...</p>
                           </div>
-                        ))}
-                        {filteredProducts.length === 0 && (
+                        ) : giftProductError ? (
+                          <p className="text-sm text-red-500 p-2">{giftProductError}</p>
+                        ) : availableGiftProducts.length > 0 ? (
+                          availableGiftProducts.map(product => (
+                            <div 
+                              key={product.id} 
+                              className="flex items-center p-2 hover:bg-gray-50 cursor-pointer"
+                              onClick={() => handleSelectProduct(index, product)}
+                            >
+                              <img 
+                                src={product.image || 'https://via.placeholder.com/50'} 
+                                alt={product.name} 
+                                className="w-8 h-8 object-cover rounded mr-2"
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{product.name}</p>
+                                <p className="text-xs text-gray-500">{product.currentPrice.toLocaleString()}₫</p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
                           <p className="text-sm text-gray-500 p-2">Không tìm thấy sản phẩm</p>
                         )}
                       </div>
@@ -258,7 +329,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                   <input
                     type="text"
                     id={`gift-image-url-${index}`}
-                    value={gift.image.url}
+                    value={gift.image?.url ?? ''} // Add optional chaining and default value
                     onChange={(e) => handleGiftImageUrlChange(index, e.target.value)}
                     disabled={isViewMode}
                     placeholder="URL hình ảnh quà tặng"
@@ -274,7 +345,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                   <input
                     type="text"
                     id={`gift-image-alt-${index}`}
-                    value={gift.image.alt}
+                    value={gift.image?.alt ?? ''} // Add optional chaining and default value
                     onChange={(e) => handleGiftImageAltChange(index, e.target.value)}
                     disabled={isViewMode}
                     placeholder="Mô tả hình ảnh"
@@ -344,7 +415,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                     <input
                       type="number"
                       id={`gift-min-amount-${index}`}
-                      value={gift.conditions.minPurchaseAmount}
+                      value={gift.conditions?.minPurchaseAmount ?? ''} // Add optional chaining and default value
                       onChange={(e) => handleGiftConditionChange(index, 'minPurchaseAmount', parseInt(e.target.value))}
                       disabled={isViewMode}
                       min="0"
@@ -361,7 +432,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                     <input
                       type="number"
                       id={`gift-min-quantity-${index}`}
-                      value={gift.conditions.minQuantity}
+                      value={gift.conditions?.minQuantity ?? ''} // Add optional chaining and default value
                       onChange={(e) => handleGiftConditionChange(index, 'minQuantity', parseInt(e.target.value))}
                       disabled={isViewMode}
                       min="1"
@@ -377,7 +448,8 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                     <input
                       type="date"
                       id={`gift-start-date-${index}`}
-                      value={gift.conditions.startDate}
+                      // Format date to YYYY-MM-DD for input value
+                      value={gift.conditions?.startDate ? new Date(gift.conditions.startDate).toISOString().split('T')[0] : ''}
                       onChange={(e) => handleGiftConditionChange(index, 'startDate', e.target.value)}
                       disabled={isViewMode}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
@@ -392,7 +464,8 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                     <input
                       type="date"
                       id={`gift-end-date-${index}`}
-                      value={gift.conditions.endDate}
+                      // Format date to YYYY-MM-DD for input value
+                      value={gift.conditions?.endDate ? new Date(gift.conditions.endDate).toISOString().split('T')[0] : ''}
                       onChange={(e) => handleGiftConditionChange(index, 'endDate', e.target.value)}
                       disabled={isViewMode}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
@@ -407,7 +480,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                     <input
                       type="number"
                       id={`gift-limited-quantity-${index}`}
-                      value={gift.conditions.limitedQuantity}
+                      value={gift.conditions?.limitedQuantity ?? ''} // Add optional chaining and default value
                       onChange={(e) => handleGiftConditionChange(index, 'limitedQuantity', parseInt(e.target.value))}
                       disabled={isViewMode}
                       min="0"
@@ -455,4 +528,4 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
   );
 };
 
-export default GiftsTab; 
+export default GiftsTab;

@@ -141,7 +141,10 @@ apiClient.interceptors.response.use(
         console.error('Lỗi khi làm mới token:', refreshError);
         // Chuyển hướng về trang đăng nhập nếu refresh token thất bại
         if (typeof window !== 'undefined') {
-          window.location.href = '/admin/auth/login';
+          // Chỉ chuyển hướng nếu đang ở trang admin
+          if (window.location.pathname.startsWith('/admin')) {
+            window.location.href = '/admin/auth/login';
+          }
         }
       }
     }

@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
-import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar } from 'react-icons/fi';
+import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiTag } from 'react-icons/fi'; // Added FiTag
 import { toast } from 'react-toastify';
 import ProductVariants, { Variant } from './ProductVariants'; // Variant is already imported
 import Link from 'next/link';
 import Image from 'next/image';
 import { checkAuth } from '@/utils/auth';
+
+// Define Image structure for logo
+interface ImageType {
+  url: string;
+  alt?: string;
+  publicId?: string;
+}
+
+// Define and Export BrandWithLogo
+export interface BrandWithLogo {
+  _id: string;
+  name: string;
+  slug: string;
+  logo?: ImageType; // Add optional logo
+}
 
 interface Gift {
   giftId: string;
@@ -27,11 +42,14 @@ interface Gift {
   status: string;
 }
 
-interface Brand {
-  _id: string;
-  name: string;
-  slug: string;
-}
+// Remove the old Brand interface if it's no longer needed elsewhere,
+// or keep it if other parts still use the simpler version.
+// For this component, we use BrandWithLogo.
+// interface Brand {
+//   _id: string;
+//   name: string;
+//   slug: string;
+// }
 
 interface ProductInfoProps {
   _id: string;
@@ -43,7 +61,7 @@ interface ProductInfoProps {
   price: number;
   currentPrice: number;
   status: string;
-  brand: Brand;
+  brand: BrandWithLogo; // Use the new interface
   cosmetic_info: {
     skinType: string[];
     concerns: string[];
@@ -292,10 +310,23 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   return (
     <div className="space-y-6">
       {/* Thương hiệu */}
-      <div className="flex items-center">
+      <div className="flex items-center space-x-2"> {/* Added space-x-2 */}
+        {/* Display Brand Logo if available */}
+        {brand.logo?.url && (
+          <div className="relative h-6 w-6 flex-shrink-0">
+            <Image
+              src={brand.logo.url}
+              alt={brand.logo.alt || brand.name}
+              fill
+              className="object-contain rounded-sm" // Use contain and maybe rounded
+            />
+          </div>
+        )}
+        {/* Link to Brand Page */}
         <Link href={`/brands/${brand.slug}`} className="text-[#d53f8c] text-sm font-medium hover:underline">
           {brand.name}
         </Link>
+        {/* Flags */}
         {flags.isBestSeller && (
           <div className="ml-3 flex items-center text-amber-500 bg-amber-50 px-2 py-1 rounded-full text-xs font-medium">
             <FiAward className="mr-1" />
@@ -363,42 +394,6 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           />
         </div>
       )}
-
-      {/* Thông tin cơ bản */}
-      <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-start">
-            <span className="text-gray-600 text-sm min-w-[100px]">Loại da:</span>
-            <div className="flex flex-wrap gap-1">
-              {cosmetic_info.skinType.map((type, index) => (
-                <span key={index} className="text-sm text-gray-800 bg-white px-2 py-1 rounded-full border border-gray-200">
-                  {type}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-start">
-            <span className="text-gray-600 text-sm min-w-[100px]">Vấn đề da:</span>
-            <div className="flex flex-wrap gap-1">
-              {cosmetic_info.concerns.map((concern, index) => (
-                <span key={index} className="text-sm text-gray-800 bg-white px-2 py-1 rounded-full border border-gray-200">
-                  {concern}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center">
-          <span className="text-gray-600 text-sm min-w-[100px]">Dung tích:</span>
-          <span className="text-gray-800 text-sm">
-            {cosmetic_info.volume.value} {cosmetic_info.volume.unit}
-          </span>
-        </div>
-        <div className="flex items-center">
-          <span className="text-gray-600 text-sm min-w-[100px]">Xuất xứ:</span>
-          <span className="text-gray-800 text-sm">{cosmetic_info.madeIn}</span>
-        </div>
-      </div>
 
       {/* Quà tặng */}
       {flags.hasGifts && gifts.length > 0 && (

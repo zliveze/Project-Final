@@ -13,36 +13,43 @@ import ProductDescription from '@/components/product/ProductDescription';
 import ProductReviews from '@/components/product/ProductReviews';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
 import ProductInventory from '@/components/product/ProductInventory';
-import ProductCategories from '@/components/product/ProductCategories';
+import ProductCategories, { CategoryWithImage } from '@/components/product/ProductCategories'; // Import CategoryWithImage
 import ProductPromotions from '@/components/product/ProductPromotions';
-import DefaultLayout from '@/layout/DefaultLayout'; 
+import DefaultLayout from '@/layout/DefaultLayout';
 import { ProductContext } from '@/contexts';
+import { BrandWithLogo } from '@/components/product/ProductInfo'; // Import BrandWithLogo
 
 interface ProductPageProps {
-  product: any;
-  reviews: any[];
-  recommendedProducts: any[];
-  branches: any[];
-  categories: any[];
-  events: any[];
-  campaigns: any[];
+  product: any; // Keep 'any' for now, or define a full Product type
+  fullBrand: BrandWithLogo; // Add full brand details
+  productCategories: CategoryWithImage[]; // Add specific categories for the product
+  reviews: any[]; // Define Review type if needed
+  recommendedProducts: any[]; // Define RecommendedProduct type if needed
+  branches: any[]; // Define Branch type if needed
+  categories: any[]; // Keep all categories for SEO/other uses for now
+  events: any[]; // Define Event type if needed
+  campaigns: any[]; // Define Campaign type if needed
   isAuthenticated: boolean;
   hasPurchased: boolean;
   hasReviewed: boolean;
 }
 
+
 const ProductPage: React.FC<ProductPageProps> = ({
   product,
+  fullBrand, // Destructure new prop
+  productCategories, // Destructure new prop
   reviews,
   recommendedProducts,
-  branches,
-  categories,
+  branches, // Keep for ProductInventory
+  categories, // Keep for ProductSEO
   events,
   campaigns,
   isAuthenticated,
   hasPurchased,
   hasReviewed,
 }) => {
+  // ... (rest of component logic remains the same for now)
   const router = useRouter();
   const productContext = useContext(ProductContext);
 
@@ -168,11 +175,11 @@ const ProductPage: React.FC<ProductPageProps> = ({
 
   return (
     <DefaultLayout>
-      {/* SEO */}
-      <ProductSEO 
-        seo={product.seo || {}} 
-        product={product} 
-        categories={categories}
+      {/* SEO - Pass all categories for now, might refine later */}
+      <ProductSEO
+        seo={product.seo || {}}
+        product={product}
+        categories={categories} // Pass all categories here
       />
 
       <main className="container mx-auto px-4 py-8 max-w-7xl">
@@ -242,7 +249,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
               price={product.price || 0}
               currentPrice={product.currentPrice || product.price || 0}
               status={product.status || 'active'}
-              brand={product.brand || {}}
+              brand={fullBrand} // Pass the full brand object
               cosmetic_info={product.cosmetic_info || {}}
               variants={product.variants || []}
               flags={product.flags || {}}
@@ -273,11 +280,11 @@ const ProductPage: React.FC<ProductPageProps> = ({
             />
           </div>
           
-          {/* Danh mục và tags */}
+          {/* Danh mục và tags - Pass specific product categories */}
           <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductCategories 
-              categories={categories} 
-              tags={product.tags || []} 
+            <ProductCategories
+              categories={productCategories} // Pass specific categories here
+              tags={product.tags || []}
             />
           </div>
         </div>
@@ -334,7 +341,43 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
     
     const product = await productRes.json();
-    
+
+    // --- Fetch Full Brand Details ---
+    let fullBrand = null;
+    if (product.brandId) {
+      try {
+        const brandRes = await fetch(`${API_URL}/brands/${product.brandId}`);
+        if (brandRes.ok) {
+          fullBrand = await brandRes.json();
+        } else {
+          console.error(`Failed to fetch brand ${product.brandId}: ${brandRes.status}`);
+        }
+      } catch (brandError) {
+        console.error(`Error fetching brand ${product.brandId}:`, brandError);
+      }
+    }
+
+    // --- Fetch Full Category Details for this Product ---
+    let productCategories: CategoryWithImage[] = [];
+    if (product.categoryIds && product.categoryIds.length > 0) {
+      const categoryPromises = product.categoryIds.map(async (id: string) => {
+        try {
+          const catRes = await fetch(`${API_URL}/categories/${id}`);
+          if (catRes.ok) {
+            return await catRes.json();
+          } else {
+            console.error(`Failed to fetch category ${id}: ${catRes.status}`);
+            return null;
+          }
+        } catch (catError) {
+          console.error(`Error fetching category ${id}:`, catError);
+          return null;
+        }
+      });
+      const resolvedCategories = await Promise.all(categoryPromises);
+      productCategories = resolvedCategories.filter((cat): cat is CategoryWithImage => cat !== null);
+    }
+
     // Lấy danh sách đánh giá từ API
     const reviewsRes = await fetch(`${API_URL}/reviews/product/${product._id}`);
     const reviewsData = reviewsRes.ok ? await reviewsRes.json() : { data: [], total: 0 };
@@ -353,13 +396,28 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     const recommendedData = recommendedRes.ok ? await recommendedRes.json() : { data: [] };
     
     // Lấy danh sách chi nhánh
-    const branchesRes = await fetch(`${API_URL}/branches`);
-    const branches = branchesRes.ok ? await branchesRes.json() : [];
+    const branchesRes = await fetch(`${API_URL}/branches`); // Fetch all branches for inventory
+    let branchesData = []; // Default to empty array
+    if (branchesRes.ok) {
+      const branchesResponse = await branchesRes.json();
+      // Check if the response has a 'data' property that is an array
+      if (branchesResponse && Array.isArray(branchesResponse.data)) {
+        branchesData = branchesResponse.data;
+      } else if (Array.isArray(branchesResponse)) {
+        // Handle case where it directly returns an array
+        branchesData = branchesResponse;
+      } else {
+        console.error('Unexpected branches API response structure:', branchesResponse);
+      }
+    } else {
+       console.error(`Failed to fetch branches: ${branchesRes.status}`);
+    }
 
-    // Lấy danh sách danh mục
-    const categoriesRes = await fetch(`${API_URL}/categories`);
-    const categories = categoriesRes.ok ? await categoriesRes.json() : [];
-    
+
+    // Lấy danh sách *tất cả* danh mục (e.g., for SEO breadcrumbs or filtering)
+    const allCategoriesRes = await fetch(`${API_URL}/categories`);
+    const allCategories = allCategoriesRes.ok ? await allCategoriesRes.json() : [];
+
     // Lấy danh sách sự kiện và chiến dịch đang hoạt động
     const eventsRes = await fetch(`${API_URL}/events/active`);
     const events = eventsRes.ok ? await eventsRes.json() : [];
@@ -410,10 +468,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return {
       props: {
         product,
+        fullBrand: fullBrand || {}, // Pass fetched full brand or empty object
+        productCategories: productCategories || [], // Pass fetched specific categories or empty array
         reviews: reviewsData.data || [],
         recommendedProducts: recommendedData.data || [],
-        branches: branches || [],
-        categories: categories || [],
+        branches: branchesData, // Pass the extracted array
+        categories: allCategories || [], // Pass all categories
         events: events || [],
         campaigns: campaigns || [],
         isAuthenticated,

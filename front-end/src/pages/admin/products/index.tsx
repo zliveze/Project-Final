@@ -1335,7 +1335,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // Redirect to login if no token
     return {
       redirect: {
-        destination: '/admin/auth/login?error=session_expired',
+        destination: '/admin/auth/login',
         permanent: false,
       },
     };

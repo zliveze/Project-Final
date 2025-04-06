@@ -1,15 +1,25 @@
 import React from 'react';
 import Link from 'next/link';
 import { FiFolder, FiHash, FiTag } from 'react-icons/fi';
+import Image from 'next/image'; // Import Image
 
-interface Category {
+// Define Image structure
+interface ImageType {
+  url: string;
+  alt?: string;
+  publicId?: string;
+}
+
+// Define and Export CategoryWithImage
+export interface CategoryWithImage {
   _id: string;
   name: string;
   slug: string;
+  image?: ImageType; // Add optional image
 }
 
 interface ProductCategoriesProps {
-  categories: Category[];
+  categories: CategoryWithImage[]; // Use the new interface
   tags: string[];
 }
 
@@ -33,14 +43,25 @@ const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags 
               <FiTag className="mr-1 text-[#d53f8c]" />
               <span>Danh mục</span>
             </h4>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3"> {/* Increased gap slightly */}
               {categories.map((category) => (
-                <Link 
-                  key={category._id} 
+                <Link
+                  key={category._id}
                   href={`/category/${category.slug}`}
-                  className="px-3 py-1.5 bg-white border border-gray-200 hover:border-[#d53f8c] text-gray-700 hover:text-[#d53f8c] rounded-lg text-sm transition-colors"
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-200 hover:border-[#d53f8c] hover:bg-[#fdf2f8] text-gray-700 hover:text-[#d53f8c] rounded-lg text-sm transition-colors"
                 >
-                  {category.name}
+                  {/* Display Category Image if available */}
+                  {category.image?.url && (
+                    <div className="relative h-5 w-5 flex-shrink-0">
+                      <Image
+                        src={category.image.url}
+                        alt={category.image.alt || category.name}
+                        fill
+                        className="object-contain rounded-sm"
+                      />
+                    </div>
+                  )}
+                  <span>{category.name}</span>
                 </Link>
               ))}
             </div>
@@ -79,4 +100,4 @@ const ProductCategories: React.FC<ProductCategoriesProps> = ({ categories, tags 
   );
 };
 
-export default ProductCategories; 
+export default ProductCategories;

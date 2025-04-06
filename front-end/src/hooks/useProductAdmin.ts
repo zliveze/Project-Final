@@ -161,7 +161,10 @@ export const useProductAdmin = ({
           // Xóa token và chuyển hướng đến trang đăng nhập admin
           localStorage.removeItem('adminToken');
           Cookies.remove('adminToken');
-          window.location.href = '/admin/auth/login?error=session_expired';
+          // Chỉ chuyển hướng nếu đang ở trang admin
+          if (window.location.pathname.startsWith('/admin')) {
+            window.location.href = '/admin/auth/login?error=session_expired';
+          }
           return null;
         }
         throw new Error(errorData.message || `Error: ${response.status}`);

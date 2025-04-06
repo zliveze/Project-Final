@@ -60,9 +60,10 @@ const ProductInventory: React.FC<ProductInventoryProps> = ({ inventory = [], bra
       </h3>
       
       <div className="bg-gray-50 rounded-lg p-3">
+        {/* Allow clicking to expand even if only 1 branch */}
         <div 
-          className="flex items-center justify-between cursor-pointer"
-          onClick={() => inventory.length > 1 && setIsExpanded(!isExpanded)}
+          className={`flex items-center justify-between ${inventory.length > 0 ? 'cursor-pointer' : ''}`}
+          onClick={() => inventory.length > 0 && setIsExpanded(!isExpanded)} 
         >
           <div className="flex items-center">
             <FiMapPin className="text-[#d53f8c] mr-2" />
@@ -79,27 +80,30 @@ const ProductInventory: React.FC<ProductInventoryProps> = ({ inventory = [], bra
               </span>
             )}
           </div>
-          {inventory.length > 1 && (
+          {/* Show arrow if there is inventory (even just 1 branch) */}
+          {inventory.length > 0 && ( 
             <button className="text-gray-500 hover:text-[#d53f8c] transition-colors">
               {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
             </button>
           )}
         </div>
 
-        {isExpanded && inventory.length > 1 && (
+        {/* Show expanded list if isExpanded and there's inventory */}
+        {isExpanded && inventory.length > 0 && ( 
           <div className="mt-3 space-y-2 border-t border-gray-200 pt-3">
             {inventory.map((item, index) => {
-              if (!item) return null;
+              if (!item) return null; 
               
               const branch = getBranchInfo(item.branchId);
               const isLowStock = item.quantity <= item.lowStockThreshold && item.quantity > 0;
               
               return (
-                <div key={index} className="flex items-center justify-between text-sm bg-white p-2 rounded-lg">
-                  <div>
+                <div key={index} className="flex items-start justify-between text-sm bg-white p-2 rounded-lg"> {/* Changed items-center to items-start */}
+                  <div className="flex-1 mr-2"> {/* Added flex-1 and margin */}
                     <span className="font-medium">{branch?.name || `Chi nhánh ${index + 1}`}</span>
+                    {/* Display Branch Address */}
                     {branch?.address && (
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-gray-500 mt-0.5 line-clamp-2"> {/* Added line-clamp */}
                         {branch.address}
                       </div>
                     )}
@@ -145,4 +149,4 @@ const ProductInventory: React.FC<ProductInventoryProps> = ({ inventory = [], bra
   );
 };
 
-export default ProductInventory; 
+export default ProductInventory;

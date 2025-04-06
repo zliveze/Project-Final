@@ -48,6 +48,29 @@ export interface ProductVariant {
   images?: ProductImage[];
 }
 
+// Định nghĩa interface cho quà tặng
+export interface GiftItem {
+  giftId?: string;
+  productId?: string; // Added field to link to the selected product
+  name: string;
+  description?: string;
+  image?: {
+    url?: string;
+    alt?: string;
+  };
+  quantity?: number;
+  value?: number;
+  type?: 'product' | 'sample' | 'voucher' | 'other';
+  conditions?: {
+    minPurchaseAmount?: number;
+    minQuantity?: number;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    limitedQuantity?: number;
+  };
+  status?: 'active' | 'inactive' | 'out_of_stock';
+}
+
 // Định nghĩa interface cho data của form sản phẩm
 export interface ProductFormData {
   id?: string;
@@ -97,28 +120,10 @@ export interface ProductFormData {
     isOnSale?: boolean;
     hasGifts?: boolean;
   };
-  gifts?: Array<{
-    giftId?: string;
-    name: string;
-    description?: string;
-    image?: {
-      url?: string;
-      alt?: string;
-    };
-    quantity?: number;
-    value?: number;
-    type?: 'product' | 'sample' | 'voucher' | 'other';
-    conditions?: {
-      minPurchaseAmount?: number;
-      minQuantity?: number;
-      startDate?: Date | string;
-      endDate?: Date | string;
-      limitedQuantity?: number;
-    };
-    status?: 'active' | 'inactive' | 'out_of_stock';
-  }>;
+  gifts?: GiftItem[]; // Use the extracted GiftItem interface
   relatedProducts?: string[];
 }
+
 
 // Định nghĩa props cho ProductForm component
 export interface ProductFormProps {

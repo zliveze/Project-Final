@@ -142,7 +142,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (sessionStorage.getItem('adminLoggedOut') === 'true') {
               safeLog('Người dùng đã đăng xuất, không làm mới token', {}, 'warn');
               await logout();
-              router.push('/admin/auth/login?error=session_expired');
+              // Chỉ chuyển hướng nếu đang ở trang admin
+              if (router.pathname.startsWith('/admin')) {
+                router.push('/admin/auth/login?error=session_expired');
+              }
               return Promise.reject(error);
             }
             
@@ -151,7 +154,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               // Không có refresh token, logout
               safeLog('Không tìm thấy refresh token', {}, 'warn');
               await logout();
-              router.push('/admin/auth/login?error=session_expired');
+              // Chỉ chuyển hướng nếu đang ở trang admin
+              if (router.pathname.startsWith('/admin')) {
+                router.push('/admin/auth/login?error=session_expired');
+              }
               return Promise.reject(error);
             }
             
@@ -372,8 +378,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setAccessToken(null);
       setIsAuthenticated(false);
       
-      // Chuyển về trang đăng nhập
-      router.push('/admin/auth/login');
+      // Chỉ chuyển về trang đăng nhập nếu đang ở trang admin
+      if (router.pathname.startsWith('/admin')) {
+        router.push('/admin/auth/login');
+      }
     } catch (error) {
       safeLog('Lỗi đăng xuất admin', error, 'error');
     } finally {

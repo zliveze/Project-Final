@@ -204,7 +204,15 @@ interface ProductContextType {
   clearProductCache: (id?: string) => void;
   cleanupBase64Images: () => Promise<{ success: boolean; message: string; count: number }>;
   cloneProduct: (id: string) => Promise<Product>;
-  
+  fetchAdminProductList: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) => Promise<{ products: AdminProduct[]; total: number; totalPages: number }>;
+
   // Phương thức tương tác với giỏ hàng
   addToCart: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
   removeFromCart: (cartItemId: string) => Promise<boolean>;
@@ -339,9 +347,13 @@ export const useProduct = () => {
         console.warn('ProductProvider không khả dụng trên trang này');
         return { data: [], total: 0, totalPages: 0 };
       },
+      fetchAdminProductList: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return { products: [], total: 0, totalPages: 1 };
+      },
     } as ProductContextType;
   }
-  
+
   return context;
 };
 
@@ -1035,11 +1047,72 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       console.error('Error during auto cleanup of base64 data:', error);
     }
   }, [products, cleanupBase64Images]);
-  
+
   // Gọi hàm dọn dẹp tự động khi products thay đổi
   useEffect(() => {
     autoCleanupBase64();
   }, [autoCleanupBase64]);
+
+  // Fetch admin product list (simplified for selection)
+  const fetchAdminProductList = useCallback(async (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}): Promise<{ products: AdminProduct[]; total: number; totalPages: number }> => {
+    try {
+      await handleCheckApiHealth();
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      if (!token) {
+        throw new Error('Admin authentication required');
+      }
+
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', (params.page || 1).toString());
+      queryParams.append('limit', (params.limit || 50).toString()); // Default to 50 for selection lists
+      if (params.search) queryParams.append('search', params.search);
+      if (params.status) queryParams.append('status', params.status);
+      queryParams.append('sortBy', params.sortBy || 'name'); // Default sort by name
+      queryParams.append('sortOrder', params.sortOrder || 'asc');
+
+      console.log(`Đang gọi API lấy danh sách sản phẩm: ${API_URL}/admin/products/list?${queryParams.toString()}`);
+
+      const response = await fetch(`${API_URL}/admin/products/list?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API không trả về kết quả ok, status: ${response.status}, error: ${errorText}`);
+        throw new Error(`Failed to fetch admin product list: ${response.status}. Details: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("Kết quả API trả về:", data);
+      
+      // Kiểm tra cấu trúc dữ liệu và thông báo lỗi nếu không đúng định dạng
+      if (!data.items && !data.data) {
+        console.error("API trả về dữ liệu không đúng cấu trúc:", data);
+        throw new Error("API response is missing expected data structure");
+      }
+      
+      return {
+        products: data.items || data.data || [],
+        total: data.total || 0,
+        totalPages: data.totalPages || 1,
+      };
+    } catch (error: any) {
+      console.error('Error fetching admin product list:', error);
+      toast.error(`Lỗi khi tải danh sách sản phẩm: ${error.message}`);
+      return { products: [], total: 0, totalPages: 1 }; // Return empty on error
+    }
+  }, [handleCheckApiHealth]);
 
   // Clone a product
   const cloneProduct = useCallback(async (id: string): Promise<Product> => {
@@ -1434,6 +1507,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearProductCache,
     cleanupBase64Images,
     cloneProduct,
+    fetchAdminProductList,
     // Phương thức tương tác với giỏ hàng
     addToCart,
     removeFromCart,
@@ -1478,6 +1552,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         clearProductCache,
         cleanupBase64Images,
         cloneProduct,
+        fetchAdminProductList,
         addToCart,
         removeFromCart,
         updateCartQuantity,
