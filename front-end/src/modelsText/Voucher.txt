@@ -10,8 +10,16 @@
   "usageLimit": "number", // Tổng số lần sử dụng
   "usedCount": "number", // Số lần đã sử dụng
   "usedByUsers": ["ObjectId"], // ID người dùng đã áp dụng voucher
-  "applicableProducts": ["ObjectId"],
-  "applicableCategories": ["ObjectId"],
+  "applicableProducts": ["ObjectId"], // Sản phẩm cụ thể được áp dụng voucher
+  "applicableCategories": ["ObjectId"], // Danh mục cụ thể được áp dụng voucher
+  "applicableBrands": ["ObjectId"], // Thương hiệu cụ thể được áp dụng voucher
+  "applicableEvents": ["ObjectId"], // Sự kiện được áp dụng voucher
+  "applicableCampaigns": ["ObjectId"], // Chiến dịch được áp dụng voucher
+  "applicableUserGroups": {
+    "all": "boolean", // Tất cả người dùng
+    "new": "boolean", // Người dùng mới
+    "specific": ["ObjectId"] // Danh sách ID người dùng cụ thể
+  },
   "isActive": "boolean" default: true,
   "createdAt": "date",
   "updatedAt": "date"

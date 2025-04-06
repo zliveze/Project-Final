@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { useAdminAuth } from '../../contexts';
+import { useAdminAuth } from '../../contexts/AdminAuthContext';
 
 interface AdminLayoutProps {
   children: ReactNode;

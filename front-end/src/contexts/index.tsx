@@ -8,6 +8,7 @@ import { BrandProvider } from './BrandContext';
 import { CategoryProvider } from './CategoryContext';
 import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
+import { VoucherProvider } from './VoucherContext';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -62,6 +63,11 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   // Sử dụng ProductProvider nếu ở trang admin/products, shop hoặc trang chi tiết sản phẩm
   const useProductProvider = isAdminProductsPage || isShopPage || isProductDetailPage || shouldUseProductProvider;
   
+  // Kiểm tra nếu đang ở trang voucher để sử dụng VoucherProvider
+  const isVoucherPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/admin/vouchers') || 
+      (router.pathname && router.pathname.startsWith('/admin/vouchers')));
+  
   // ProductProvider có điều kiện, các provider khác giữ nguyên
   return (
     <AuthProvider>
@@ -74,11 +80,23 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
                   {useProductProvider ? (
                     // Sử dụng ProductProvider khi ở trang admin/products hoặc shop
                     <ProductProvider>
-                      {children}
+                      {isVoucherPage ? (
+                        <VoucherProvider>
+                          {children}
+                        </VoucherProvider>
+                      ) : (
+                        children
+                      )}
                     </ProductProvider>
                   ) : (
                     // Ở các trang khác không sử dụng ProductProvider
-                    children
+                    isVoucherPage ? (
+                      <VoucherProvider>
+                        {children}
+                      </VoucherProvider>
+                    ) : (
+                      children
+                    )
                   )}
                 </BranchProvider>
               </CategoryProvider>
@@ -99,3 +117,4 @@ export { useCategory } from './CategoryContext';
 export { useBranches } from './BranchContext';
 export { useProduct } from './ProductContext';
 export { ProductContext } from './ProductContext';
+export { useVoucher } from './VoucherContext';

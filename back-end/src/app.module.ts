@@ -15,6 +15,7 @@ import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
 import { BranchesModule } from './branches/branches.module';
 import { ProductsModule } from './products/products.module';
+import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersModule
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ProductsModule } from './products/products.module';
     CategoriesModule,
     BranchesModule,
     ProductsModule,
+    VouchersModule, // Add VouchersModule here
   ],
   controllers: [AppController],
   providers: [AppService],
