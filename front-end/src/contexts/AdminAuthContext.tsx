@@ -173,8 +173,14 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           } catch (refreshError) {
             // Nếu làm mới token thất bại, logout
             safeLog('Làm mới token thất bại', refreshError, 'error');
-            await logout();
-            router.push('/admin/auth/login?error=session_expired');
+            await logout(); // Logout logic still runs to clear invalid admin state
+            // Chỉ chuyển hướng nếu đang ở trang admin
+            if (router.pathname.startsWith('/admin')) {
+              safeLog('Đang ở trang admin, chuyển hướng đến trang đăng nhập');
+              router.push('/admin/auth/login?error=session_expired');
+            } else {
+              safeLog('Không ở trang admin, không chuyển hướng');
+            }
             return Promise.reject(refreshError);
           }
         }
@@ -391,4 +397,4 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       {children}
     </AdminAuthContext.Provider>
   );
-}; 
+};

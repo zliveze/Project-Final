@@ -3,18 +3,20 @@ import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
 
 // Export ImageType
-export interface ImageType { 
+export interface ImageType {
   url: string;
   alt: string;
   isPrimary?: boolean;
+  variantName?: string; // Added to display variant info on thumbnails
 }
 
 interface ProductImagesProps {
   images: ImageType[];
   productName: string;
+  initialImageUrl?: string; // Added prop for initial image selection
 }
 
-const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName }) => {
+const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName, initialImageUrl }) => {
   // Nếu không có ảnh, hiển thị ảnh mặc định
   if (!images || images.length === 0) {
     return (
@@ -27,26 +29,34 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName 
     );
   }
 
-  const [mainImage, setMainImage] = useState<ImageType>(
-    images.find(img => img.isPrimary) || images[0]
-  );
-  const [currentIndex, setCurrentIndex] = useState(
-    images.findIndex(img => img.isPrimary) !== -1 
-      ? images.findIndex(img => img.isPrimary) 
-      : 0
-  );
+  // Find the initial image based on initialImageUrl or primary flag or first image
+  const findInitialImage = (): ImageType => {
+    if (initialImageUrl) {
+      const initial = images.find(img => img.url === initialImageUrl);
+      if (initial) return initial;
+    }
+    return images.find(img => img.isPrimary) || images[0];
+  };
+
+  const [mainImage, setMainImage] = useState<ImageType>(findInitialImage());
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const initialImg = findInitialImage();
+    const index = images.findIndex(img => img.url === initialImg.url);
+    return index >= 0 ? index : 0;
+  });
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
-  // Cập nhật mainImage nếu images thay đổi
+  // Update mainImage if initialImageUrl changes or images array changes
   useEffect(() => {
     if (images && images.length > 0) {
-      const primaryImage = images.find(img => img.isPrimary) || images[0];
-      const primaryIndex = images.findIndex(img => img === primaryImage);
-      setMainImage(primaryImage);
-      setCurrentIndex(primaryIndex >= 0 ? primaryIndex : 0);
+      const newInitialImage = findInitialImage();
+      const newIndex = images.findIndex(img => img.url === newInitialImage.url);
+      setMainImage(newInitialImage);
+      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
     }
-  }, [images]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, initialImageUrl]); // Re-run if images or initialImageUrl changes
 
   const handlePrevImage = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -163,6 +173,12 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName 
                 fill
                 className="object-cover"
               />
+              {/* Display Variant Name */}
+              {image.variantName && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-[10px] px-1 py-0.5 truncate text-center">
+                  {image.variantName}
+                </div>
+              )}
             </div>
           ))}
         </div>

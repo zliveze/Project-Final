@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Components
 import ProductSEO from '@/components/product/ProductSEO';
-import ProductImages, { ImageType } from '@/components/product/ProductImages'; // Import ImageType
+import ProductImages, { ImageType } from '@/components/product/ProductImages';
 import ProductInfo, { Variant } from '@/components/product/ProductInfo'; // Import Variant type
 import ProductDescription from '@/components/product/ProductDescription';
 import ProductReviews from '@/components/product/ProductReviews';
@@ -56,35 +56,104 @@ const ProductPage: React.FC<ProductPageProps> = ({
   const handleSelectVariant = (variant: Variant | null) => {
     setSelectedVariant(variant);
   };
-  
-  // Determine which images to display based on the selected variant
-  const displayImages: ImageType[] = React.useMemo(() => {
-    const variantImages = selectedVariant?.images
-      ?.map((img: any): ImageType | null => { // Explicitly type 'img' as any here, or define a broader type if possible
-        // Handle both object and string formats in variant images array
-        if (typeof img === 'object' && img !== null && img.url) {
-          // Ensure the returned object matches ImageType structure
-          return { url: img.url, alt: img.alt || product.name, isPrimary: img.isPrimary ?? false }; // Provide default for optional isPrimary
-        }
-        // If it's just a string (like an ID), we might need more logic to fetch the URL,
-        // but for now, we'll filter them out or return a placeholder structure.
-        // Returning null/undefined and filtering later might be safer.
-        return null; 
-      })
-      .filter((img): img is ImageType => img !== null) || []; // Filter out nulls and ensure type
 
-    // If the selected variant has images, use them. Otherwise, use the main product images.
-    if (variantImages.length > 0) {
-      return variantImages;
+  // --- Helper Functions for Variant Names ---
+  const parseColorString = (colorString?: string): { name: string, code: string } => {
+    if (!colorString) return { name: '', code: '' };
+    const regex = /^(.*?)\s*"(#[0-9a-fA-F]{6})"$/;
+    const match = colorString.match(regex);
+    if (match && match.length === 3) {
+      return { name: match[1].trim(), code: match[2] };
     }
-    
-    // Ensure main product images also conform to ImageType[]
-    // Simplify the filter: just check if it's a valid object with a URL
-    return product?.images?.filter((img: any): img is { url: string, alt: string, isPrimary?: boolean } => 
-      typeof img === 'object' && img !== null && typeof img.url === 'string'
-    ) || [];
+    return { name: colorString, code: '' };
+  };
 
-  }, [selectedVariant, product?.images, product?.name]);
+  const getVariantName = (variant: Variant): string | undefined => {
+    const parts: string[] = [];
+    if (variant.options?.color) {
+      const { name } = parseColorString(variant.options.color);
+      if (name) parts.push(`Màu: ${name}`);
+    }
+    if (variant.options?.sizes && variant.options.sizes.length > 0) {
+      parts.push(`Dung tích: ${variant.options.sizes.join(', ')}`);
+    }
+    if (variant.options?.shades && variant.options.shades.length > 0) {
+      parts.push(`Tone: ${variant.options.shades.join(', ')}`);
+    }
+    return parts.length > 0 ? parts.join(' | ') : undefined;
+  };
+
+  // --- Image Aggregation and Initial Image Logic ---
+  const { allImages, initialImageUrl } = React.useMemo(() => {
+    // 1. Get Base Product Images
+    const baseImages: ImageType[] = product?.images
+      ?.filter((img: any): img is { url: string, alt: string, isPrimary?: boolean } =>
+        typeof img === 'object' && img !== null && typeof img.url === 'string'
+      )
+      .map((img: any): ImageType => ({
+        url: img.url,
+        alt: img.alt || product.name,
+        isPrimary: img.isPrimary ?? false,
+        // No variantName for base images
+      })) || [];
+
+    // 2. Get All Variant Images with Names
+    const allVariantImages: ImageType[] = product?.variants
+      ?.flatMap((variant: Variant) => {
+        const variantName = getVariantName(variant);
+        // Assuming variant.images are URLs or objects with { url: string, alt?: string, isPrimary?: boolean }
+        return variant.images?.map((imgData: any): ImageType | null => {
+          let url: string | undefined;
+          let alt: string | undefined;
+          let isPrimary: boolean | undefined;
+
+          if (typeof imgData === 'string') {
+            url = imgData; // Assume it's a URL string
+          } else if (typeof imgData === 'object' && imgData !== null && imgData.url) {
+            url = imgData.url;
+            alt = imgData.alt;
+            isPrimary = imgData.isPrimary;
+          }
+
+          if (url) {
+            return {
+              url: url,
+              alt: alt || product.name,
+              isPrimary: isPrimary ?? false,
+              variantName: variantName, // Add the generated variant name
+            };
+          }
+          return null; // Filter out invalid image data
+        }).filter((img): img is ImageType => img !== null) || [];
+      }) || [];
+
+    // 3. Combine and Deduplicate (based on URL)
+    const combinedImages = [...baseImages, ...allVariantImages];
+    const uniqueImages = Array.from(new Map(combinedImages.map(img => [img.url, img])).values());
+
+    // 4. Determine Initial Image URL
+    let initialUrl: string | undefined;
+    if (selectedVariant?.images && selectedVariant.images.length > 0) {
+      // Find primary image of selected variant, or just the first image
+      const selectedVariantImageUrls = selectedVariant.images.map((imgData: any) =>
+        typeof imgData === 'string' ? imgData : (typeof imgData === 'object' && imgData?.url ? imgData.url : null)
+      ).filter(url => url);
+
+      const primaryVariantImage = uniqueImages.find(img =>
+        selectedVariantImageUrls.includes(img.url) && img.isPrimary
+      );
+      initialUrl = primaryVariantImage?.url || selectedVariantImageUrls[0];
+    }
+
+    // Fallback to primary base image or first base image if no variant image found
+    if (!initialUrl) {
+      const primaryBaseImage = baseImages.find(img => img.isPrimary);
+      initialUrl = primaryBaseImage?.url || baseImages[0]?.url;
+    }
+
+    return { allImages: uniqueImages, initialImageUrl: initialUrl };
+
+  }, [selectedVariant, product?.images, product?.variants, product?.name]);
 
 
   const addToWishlist = productContext?.addToWishlist || ((productId: string) => {
@@ -122,8 +191,12 @@ const ProductPage: React.FC<ProductPageProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10 bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-6 shadow-sm">
           {/* Ảnh sản phẩm */}
           <div className="space-y-6">
-            {/* Pass the dynamically determined images */}
-            <ProductImages images={displayImages} productName={product.name} /> 
+            {/* Pass the aggregated images and the initial image URL */}
+            <ProductImages
+              images={allImages}
+              initialImageUrl={initialImageUrl}
+              productName={product.name}
+            />
             
             {/* Thông tin nhanh về sản phẩm */}
             <div className="bg-gray-50 p-4 rounded-lg">
