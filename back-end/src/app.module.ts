@@ -16,6 +16,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { BranchesModule } from './branches/branches.module';
 import { ProductsModule } from './products/products.module';
 import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersModule
+import { EventsModule } from './events/events.module'; // Import EventsModule
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersM
     BranchesModule,
     ProductsModule,
     VouchersModule, // Add VouchersModule here
+    EventsModule, // Add EventsModule here
   ],
   controllers: [AppController],
   providers: [AppService],

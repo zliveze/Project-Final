@@ -3,14 +3,14 @@ import { FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
-import { Event } from './EventsTable';
+import { Event } from '@/contexts/EventsContext';
 
 interface EventEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (id: string, data: EventFormData) => void;
+  onSubmit: (id: string, data: EventFormData) => Promise<void>;
   eventId?: string;
-  events: Event[]; // Danh sách tất cả các sự kiện
+  events: Event[];
 }
 
 const EventEditModal: React.FC<EventEditModalProps> = ({
@@ -23,40 +23,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
-  const [formData, setFormData] = useState<EventFormData>({
-    title: '',
-    description: '',
-    tags: [],
-    startDate: new Date(),
-    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
-    products: []
-  });
-  
-  // Tìm sự kiện cần chỉnh sửa từ danh sách sự kiện
-  useEffect(() => {
-    if (eventId && isOpen) {
-      const event = events.find(e => e._id === eventId);
-      if (event) {
-        // Chuẩn bị dữ liệu cho form
-        const eventFormData: EventFormData = {
-          _id: event._id,
-          title: event.title,
-          description: event.description,
-          tags: event.tags,
-          startDate: event.startDate,
-          endDate: event.endDate,
-          products: event.products.map(product => ({
-            productId: product.productId,
-            variantId: product.variantId,
-            adjustedPrice: product.adjustedPrice,
-            // Có thể bổ sung thêm tên và ảnh sản phẩm nếu cần (sẽ cần thêm API call)
-          }))
-        };
-        
-        setFormData(eventFormData);
-      }
-    }
-  }, [eventId, isOpen, events]);
+  const [formData, setFormData] = useState<EventFormData | null>(null);
   
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
@@ -69,6 +36,24 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     }
   }, [isOpen]);
   
+  // Tải dữ liệu sự kiện khi mở modal và có eventId
+  useEffect(() => {
+    if (isOpen && eventId) {
+      const event = events.find(e => e._id === eventId);
+      if (event) {
+        setFormData({
+          _id: event._id,
+          title: event.title,
+          description: event.description,
+          tags: [...event.tags],
+          startDate: new Date(event.startDate),
+          endDate: new Date(event.endDate),
+          products: [...event.products]
+        });
+      }
+    }
+  }, [isOpen, eventId, events]);
+  
   // Xử lý thêm sản phẩm vào sự kiện
   const handleAddProducts = (products: {
     productId: string;
@@ -78,23 +63,48 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     image?: string;
     originalPrice?: number;
   }[]) => {
-    setFormData(prev => ({
-      ...prev,
-      products: [...prev.products, ...products]
-    }));
-    
-    setShowProductModal(false);
-    toast.success(`Đã thêm ${products.length} sản phẩm vào sự kiện`);
+    if (formData) {
+      try {
+        // Giới hạn số lượng sản phẩm có thể thêm vào một lần
+        if (formData.products.length + products.length > 50) {
+          toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
+          return;
+        }
+        
+        // Kiểm tra sản phẩm trùng lặp
+        const existingProductIds = new Set(formData.products.map(p => p.productId));
+        const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
+        
+        if (uniqueProducts.length === 0) {
+          toast.error('Các sản phẩm đã tồn tại trong sự kiện');
+          return;
+        }
+        
+        // Cập nhật state với sản phẩm mới
+        setFormData({
+          ...formData,
+          products: [...formData.products, ...uniqueProducts]
+        });
+        
+        setShowProductModal(false);
+        toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
+      } catch (error) {
+        console.error('Error adding products:', error);
+        toast.error('Có lỗi xảy ra khi thêm sản phẩm');
+      }
+    }
   };
   
   // Xử lý xóa sản phẩm khỏi sự kiện
   const handleRemoveProduct = (productId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      products: prev.products.filter(product => product.productId !== productId)
-    }));
-    
-    toast.success('Đã xóa sản phẩm khỏi sự kiện');
+    if (formData) {
+      setFormData({
+        ...formData,
+        products: formData.products.filter(product => product.productId !== productId)
+      });
+      
+      toast.success('Đã xóa sản phẩm khỏi sự kiện');
+    }
   };
   
   // Xử lý khi submit form
@@ -107,26 +117,20 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     try {
       setIsSubmitting(true);
       
-      // Giả lập API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // Gọi hàm submit từ parent component
-      onSubmit(eventId, data);
-      
-      // Thông báo thành công
-      toast.success('Cập nhật sự kiện thành công!');
+      await onSubmit(eventId, data);
       
       // Đóng modal
       onClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error('Error updating event:', error);
       toast.error('Đã xảy ra lỗi khi cập nhật sự kiện!');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  if (!modalVisible) return null;
+  if (!modalVisible || !formData) return null;
 
   // Danh sách ID sản phẩm đã thêm vào sự kiện
   const excludedProductIds = formData.products.map(product => product.productId);

@@ -9,6 +9,7 @@ import { CategoryProvider } from './CategoryContext';
 import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
 import { VoucherProvider } from './VoucherContext';
+import { EventsProvider } from './EventsContext';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -67,6 +68,45 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   const isVoucherPage = typeof window !== 'undefined' && 
     (window.location.pathname.startsWith('/admin/vouchers') || 
       (router.pathname && router.pathname.startsWith('/admin/vouchers')));
+      
+  // Kiểm tra nếu đang ở trang events để sử dụng EventsProvider
+  const isEventsPage = typeof window !== 'undefined' && 
+    (window.location.pathname.startsWith('/admin/events') || 
+      (router.pathname && router.pathname.startsWith('/admin/events')));
+  
+  // Tạo hàm để quyết định bọc children bằng Provider phù hợp
+  const wrapWithProviders = (children: React.ReactNode) => {
+    let wrappedChildren = children;
+    
+    // Bọc với VoucherProvider nếu ở trang voucher
+    if (isVoucherPage) {
+      wrappedChildren = (
+        <VoucherProvider>
+          {wrappedChildren}
+        </VoucherProvider>
+      );
+    }
+    
+    // Bọc với EventsProvider nếu ở trang events
+    if (isEventsPage) {
+      wrappedChildren = (
+        <EventsProvider>
+          {wrappedChildren}
+        </EventsProvider>
+      );
+    }
+    
+    // Cuối cùng bọc với ProductProvider nếu cần
+    if (useProductProvider) {
+      wrappedChildren = (
+        <ProductProvider>
+          {wrappedChildren}
+        </ProductProvider>
+      );
+    }
+    
+    return wrappedChildren;
+  };
   
   // ProductProvider có điều kiện, các provider khác giữ nguyên
   return (
@@ -77,27 +117,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
             <BrandProvider>
               <CategoryProvider>
                 <BranchProvider>
-                  {useProductProvider ? (
-                    // Sử dụng ProductProvider khi ở trang admin/products hoặc shop
-                    <ProductProvider>
-                      {isVoucherPage ? (
-                        <VoucherProvider>
-                          {children}
-                        </VoucherProvider>
-                      ) : (
-                        children
-                      )}
-                    </ProductProvider>
-                  ) : (
-                    // Ở các trang khác không sử dụng ProductProvider
-                    isVoucherPage ? (
-                      <VoucherProvider>
-                        {children}
-                      </VoucherProvider>
-                    ) : (
-                      children
-                    )
-                  )}
+                  {wrapWithProviders(children)}
                 </BranchProvider>
               </CategoryProvider>
             </BrandProvider>
@@ -118,3 +138,4 @@ export { useBranches } from './BranchContext';
 export { useProduct } from './ProductContext';
 export { ProductContext } from './ProductContext';
 export { useVoucher } from './VoucherContext';
+export { useEvents } from './EventsContext';

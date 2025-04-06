@@ -1,15 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { FiX, FiSearch, FiPlus } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiX, FiSearch, FiPlus, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { useProduct } from '@/contexts/ProductContext';
+import { toast } from 'react-hot-toast';
 
+// Định nghĩa interface cho sản phẩm từ API
 interface Product {
-  _id: string;
+  _id?: string;
+  id?: string;
   name: string;
   image: string;
-  price: number;
-  brandId: string;
-  brandName?: string;
-  categoryIds?: string[];
-  status: string;
+  price: number | string;
+  currentPrice?: number | string;
+  brandId?: string;
+  brand?: string;
+  status?: string;
+  sku?: string;
+}
+
+// Interface để phù hợp với AdminProduct từ API
+interface AdminProductResponse {
+  products: Product[];
+  total: number;
+  totalPages: number;
 }
 
 interface EventProductAddModalProps {
@@ -26,72 +38,21 @@ interface EventProductAddModalProps {
   excludedProductIds?: string[]; // Các sản phẩm đã được thêm vào sự kiện
 }
 
-// Dữ liệu mẫu sản phẩm để thêm vào sự kiện
-const sampleProducts: Product[] = [
-  {
-    _id: 'prod1',
-    name: 'Sữa Rửa Mặt CeraVe Sạch Sâu Cho Da Thường Đến Da Dầu',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 475000,
-    brandId: 'brand1',
-    brandName: 'CeraVe',
-    status: 'active'
-  },
-  {
-    _id: 'prod2',
-    name: 'Nước Hoa Hồng Klairs Không Mùi Cho Da Nhạy Cảm 180ml',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 435000,
-    brandId: 'brand2',
-    brandName: 'Klairs',
-    status: 'active'
-  },
-  {
-    _id: 'prod3',
-    name: 'Serum L\'Oreal Sáng Da, Mờ Thâm Bright Maker',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 499000,
-    brandId: 'brand3',
-    brandName: 'L\'Oreal',
-    status: 'active'
-  },
-  {
-    _id: 'prod4',
-    name: 'Sữa Rửa Mặt Cetaphil Gentle Skin Cleanser',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 445000,
-    brandId: 'brand4',
-    brandName: 'Cetaphil',
-    status: 'active'
-  },
-  {
-    _id: 'prod5',
-    name: 'Kem Chống Nắng La Roche-Posay Anthelios SPF 50+',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 520000,
-    brandId: 'brand5',
-    brandName: 'La Roche-Posay',
-    status: 'active'
-  },
-  {
-    _id: 'prod6',
-    name: 'Kem Dưỡng Ẩm Neutrogena Hydro Boost Water Gel',
-    image: 'https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png',
-    price: 389000,
-    brandId: 'brand6',
-    brandName: 'Neutrogena',
-    status: 'active'
-  }
-];
-
 const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   isOpen,
   onClose,
   onAdd,
   excludedProductIds = []
 }) => {
+  const { fetchAdminProductList } = useProduct();
   const [modalVisible, setModalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedProducts, setSelectedProducts] = useState<{
     productId: string;
     adjustedPrice: number;
@@ -100,30 +61,104 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     originalPrice?: number;
   }[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30); // Mặc định giảm 30%
-  
-  // Hiển thị/ẩn modal với animation
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Effect for modal visibility and resetting state
   useEffect(() => {
+    let visibilityTimer: NodeJS.Timeout | null = null;
     if (isOpen) {
       setModalVisible(true);
+      setSelectedProducts([]); // Reset selection when modal opens
+      setIsInitialLoad(true); // Reset initial load flag
     } else {
-      setTimeout(() => {
+      // Delay hiding for animation
+      visibilityTimer = setTimeout(() => {
         setModalVisible(false);
       }, 300);
     }
+    return () => {
+      if (visibilityTimer) clearTimeout(visibilityTimer);
+    };
   }, [isOpen]);
-  
-  // Lọc sản phẩm theo từ khóa tìm kiếm và loại bỏ các sản phẩm đã được thêm vào sự kiện
-  const filteredProducts = sampleProducts
-    .filter(product => !excludedProductIds.includes(product._id))
-    .filter(product => {
-      if (searchTerm.trim() === '') return true;
+
+  // Hàm lấy danh sách sản phẩm từ API
+  const fetchProducts = useCallback(async () => {
+    // toast.info(`Fetching products... Page: ${page}, Search: "${searchTerm}"`); // Removed temporary log
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await fetchAdminProductList({
+        page: page,
+        limit: 12,
+        search: searchTerm,
+        status: 'active',
+        sortBy: 'name',
+        sortOrder: 'asc'
+      });
       
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        product.name.toLowerCase().includes(searchLower) ||
-        (product.brandName && product.brandName.toLowerCase().includes(searchLower))
-      );
-    });
+      if (result) {
+        // Chuyển đổi price từ string sang number nếu cần
+        const formattedProducts = result.products.map(product => ({
+          ...product,
+          _id: product.id,
+          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+          currentPrice: typeof product.currentPrice === 'string' ? 
+            parseFloat(product.currentPrice) : product.currentPrice
+        }));
+        
+        setProducts(formattedProducts);
+        setTotalPages(result.totalPages);
+        // toast.success(`Fetched ${formattedProducts.length} products.`); // Removed temporary log
+      } else {
+        setProducts([]);
+        setTotalPages(1);
+        // toast.warn('API returned no result for products.'); // Removed temporary log
+      }
+    } catch (err: any) { // Explicitly type err
+      console.error('Error fetching products:', err);
+      const errorMessage = err?.response?.data?.message || 'Không thể tải danh sách sản phẩm.'; // Safely access error message
+      setError(errorMessage);
+      toast.error(`Lỗi tải sản phẩm: ${errorMessage}`); // Keep standard error toast
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchAdminProductList, page, searchTerm]);
+
+  // Effect for fetching data (initial with delay, subsequent immediately)
+  useEffect(() => {
+    let fetchTimer: NodeJS.Timeout | null = null;
+    // Fetch only when modal is open and visible
+    if (isOpen && modalVisible) {
+      const delay = isInitialLoad ? 150 : 0; // Apply delay only on initial load
+      
+      // Set initial load to false *before* the timeout to prevent potential re-trigger issues
+      if (isInitialLoad) {
+        setIsInitialLoad(false); 
+      }
+
+      fetchTimer = setTimeout(() => {
+        fetchProducts();
+      }, delay);
+    }
+
+    // Cleanup timer on unmount or when dependencies change
+    return () => {
+      if (fetchTimer) clearTimeout(fetchTimer);
+    };
+  // Fetch when modal is open/visible, page/search changes, or on initial load flag change
+  }, [isOpen, modalVisible, page, searchTerm, fetchProducts, isInitialLoad]);
+
+  // Xử lý tìm kiếm với debounce
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setPage(1); // Reset về trang 1 khi tìm kiếm
+  };
+  
+  // Lọc sản phẩm đã được thêm vào sự kiện
+  const filteredProducts = products.filter(product => 
+    !excludedProductIds.includes(product._id || product.id || '')
+  );
   
   // Kiểm tra xem sản phẩm đã được chọn chưa
   const isProductSelected = (productId: string) => {
@@ -132,19 +167,23 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   
   // Xử lý chọn/bỏ chọn sản phẩm
   const toggleProductSelection = (product: Product) => {
-    if (isProductSelected(product._id)) {
+    const productId = product._id || product.id || '';
+    
+    if (isProductSelected(productId)) {
       // Bỏ chọn sản phẩm
-      setSelectedProducts(prev => prev.filter(item => item.productId !== product._id));
+      setSelectedProducts(prev => prev.filter(item => item.productId !== productId));
     } else {
       // Chọn sản phẩm và tính giá sau khi áp dụng % giảm giá
-      const adjustedPrice = Math.round(product.price * (100 - discountPercent) / 100);
+      const productPrice = typeof product.price === 'string' ? 
+        parseFloat(product.price) : (product.price || 0);
+      const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
       
       setSelectedProducts(prev => [...prev, {
-        productId: product._id,
+        productId: productId,
         adjustedPrice,
         name: product.name,
         image: product.image,
-        originalPrice: product.price
+        originalPrice: productPrice
       }]);
     }
   };
@@ -157,8 +196,14 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       
       // Cập nhật giá của tất cả sản phẩm đã chọn
       setSelectedProducts(prev => prev.map(product => {
-        const originalProduct = sampleProducts.find(p => p._id === product.productId);
-        const originalPrice = originalProduct ? originalProduct.price : (product.originalPrice || 0);
+        const originalProduct = products.find(p => (p._id || p.id) === product.productId);
+        let originalPrice = product.originalPrice || 0;
+        
+        if (originalProduct) {
+          originalPrice = typeof originalProduct.price === 'string' ? 
+            parseFloat(originalProduct.price) : (originalProduct.price || 0);
+        }
+        
         const newAdjustedPrice = Math.round(originalPrice * (100 - value) / 100);
         
         return {
@@ -170,11 +215,45 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     }
   };
   
-  // Xử lý thêm sản phẩm vào sự kiện
-  const handleAddProducts = () => {
-    if (selectedProducts.length > 0) {
-      onAdd(selectedProducts);
+  // Xử lý chuyển trang
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
     }
+  };
+  
+  // Xử lý thêm sản phẩm vào sự kiện
+  const handleAddProducts = async () => {
+    if (selectedProducts.length === 0) return;
+    
+    try {
+      setSubmitting(true);
+      
+      // Thêm sản phẩm vào sự kiện (gọi callback)
+      onAdd(selectedProducts);
+      
+      // Reset state sau khi thêm
+      setSelectedProducts([]);
+      
+      // Đóng modal sau khi thêm thành công
+      setTimeout(() => {
+        onClose();
+      }, 100);
+    } catch (error) {
+      console.error('Error adding products:', error);
+      toast.error('Đã xảy ra lỗi khi thêm sản phẩm vào sự kiện!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Hàm định dạng giá tiền
+  const formatPrice = (price: number | string): string => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return new Intl.NumberFormat('vi-VN', { 
+      style: 'currency', 
+      currency: 'VND' 
+    }).format(numPrice);
   };
 
   if (!modalVisible) return null;
@@ -216,7 +295,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                   placeholder="Tìm kiếm sản phẩm..."
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                 />
               </div>
 
@@ -245,21 +324,42 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
           {/* Product List */}
           <div className="max-h-[400px] overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
-                  const isSelected = isProductSelected(product._id);
-                  const adjustedPrice = Math.round(product.price * (100 - discountPercent) / 100);
+            {loading ? (
+              <div className="flex justify-center items-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center text-red-500">
+                <p>{error}</p>
+                <button 
+                  onClick={fetchProducts}
+                  className="mt-2 text-sm text-pink-600 hover:text-pink-500"
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>Không tìm thấy sản phẩm nào.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
+                {filteredProducts.map((product) => {
+                  const productId = product._id || product.id || '';
+                  const isSelected = isProductSelected(productId);
+                  const productPrice = typeof product.price === 'string' ? 
+                    parseFloat(product.price) : (product.price || 0);
+                  const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
                   
                   return (
                     <div
-                      key={product._id}
+                      key={productId}
                       className={`border rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md ${
                         isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-200'
                       }`}
                       onClick={() => toggleProductSelection(product)}
                     >
-                      <div className="p-3 flex flex-col h-full">
+                      <div className="p-4">
                         <div className="flex mb-2">
                           <div className="h-16 w-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
                             {product.image ? (
@@ -276,67 +376,107 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                           </div>
                           <div className="ml-3 flex-1">
                             <h4 className="text-sm font-medium text-gray-900 line-clamp-2">{product.name}</h4>
-                            {product.brandName && (
-                              <p className="text-xs text-gray-500 mt-1">{product.brandName}</p>
+                            {product.brand && (
+                              <p className="text-xs text-gray-500 mt-1">{product.brand}</p>
+                            )}
+                            {product.sku && (
+                              <p className="text-xs text-gray-500">SKU: {product.sku}</p>
                             )}
                           </div>
                         </div>
                         
-                        <div className="mt-auto pt-2 flex justify-between items-center">
-                          <div>
-                            <div className="text-xs text-gray-500 line-through">
-                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
-                            </div>
-                            <div className="text-sm font-medium text-indigo-600">
-                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(adjustedPrice)}
-                            </div>
+                        <div className="mt-2 flex justify-between items-center">
+                          <div className="text-sm text-gray-500">
+                            <span className="line-through">{formatPrice(productPrice)}</span>
                           </div>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                            isSelected ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-400'
-                          }`}>
-                            {isSelected ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <FiPlus className="h-4 w-4" />
-                            )}
+                          <div className="text-sm font-semibold text-pink-600">
+                            {formatPrice(adjustedPrice)}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-2 flex justify-between items-center">
+                          <div className="text-xs text-gray-500">
+                            {isSelected ? 'Đã chọn' : 'Chưa chọn'}
+                          </div>
+                          <div className="text-xs font-medium text-pink-600">
+                            -{discountPercent}%
                           </div>
                         </div>
                       </div>
                     </div>
                   );
-                })
-              ) : (
-                <div className="col-span-3 py-8 text-center text-gray-500">
-                  {searchTerm ? 'Không tìm thấy sản phẩm phù hợp' : 'Không có sản phẩm nào khả dụng'}
-                </div>
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </div>
+          
+          {/* Pagination */}
+          {!loading && !error && totalPages > 1 && (
+            <div className="px-4 py-3 sm:px-6 border-t border-gray-200 flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 1}
+                  className={`p-2 rounded-md ${page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <FiChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="text-sm text-gray-700">
+                  Trang {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page === totalPages}
+                  className={`p-2 rounded-md ${page === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <FiChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
-            <button
-              type="button"
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={handleAddProducts}
-              disabled={selectedProducts.length === 0}
-            >
-              Thêm {selectedProducts.length > 0 ? `(${selectedProducts.length})` : ''}
-            </button>
-            <button
-              type="button"
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={onClose}
-            >
-              Hủy
-            </button>
-            
-            <div className="mr-auto flex items-center">
-              <span className="text-sm text-gray-500">
-                Đã chọn: <span className="font-medium text-gray-900">{selectedProducts.length}</span> sản phẩm
+          <div className="px-4 py-3 sm:px-6 border-t border-gray-200 flex justify-between">
+            <div>
+              <span className="text-sm text-gray-700">
+                Đã chọn {selectedProducts.length} sản phẩm 
+                {selectedProducts.length > 10 && 
+                  <span className="text-orange-500 ml-1">(Khuyến nghị: Nên chọn tối đa 10 sản phẩm mỗi lần)</span>
+                }
               </span>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className={`py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 ${
+                  submitting ? 'opacity-50 cursor-not-allowed' : 'bg-white hover:bg-gray-50'
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleAddProducts}
+                disabled={selectedProducts.length === 0 || submitting}
+                className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                  ${selectedProducts.length === 0 || submitting
+                    ? 'bg-gray-300 cursor-not-allowed' 
+                    : 'bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500'}`}
+              >
+                {submitting ? (
+                  <>
+                    <span className="inline-block h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <FiPlus className="inline-block h-4 w-4 mr-1" />
+                    Thêm vào sự kiện
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -345,4 +485,4 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   );
 };
 
-export default EventProductAddModal; 
+export default EventProductAddModal;

@@ -47,13 +47,34 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
     image?: string;
     originalPrice?: number;
   }[]) => {
-    setFormData(prev => ({
-      ...prev,
-      products: [...prev.products, ...products]
-    }));
-    
-    setShowProductModal(false);
-    toast.success(`Đã thêm ${products.length} sản phẩm vào sự kiện`);
+    try {
+      // Giới hạn số lượng sản phẩm có thể thêm vào một lần
+      if (formData.products.length + products.length > 50) {
+        toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
+        return;
+      }
+      
+      // Kiểm tra sản phẩm trùng lặp
+      const existingProductIds = new Set(formData.products.map(p => p.productId));
+      const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
+      
+      if (uniqueProducts.length === 0) {
+        toast.error('Các sản phẩm đã tồn tại trong sự kiện');
+        return;
+      }
+      
+      // Cập nhật state với sản phẩm mới
+      setFormData(prev => ({
+        ...prev,
+        products: [...prev.products, ...uniqueProducts]
+      }));
+      
+      setShowProductModal(false);
+      toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
+    } catch (error) {
+      console.error('Error adding products:', error);
+      toast.error('Có lỗi xảy ra khi thêm sản phẩm');
+    }
   };
   
   // Xử lý xóa sản phẩm khỏi sự kiện
@@ -71,14 +92,8 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
     try {
       setIsSubmitting(true);
       
-      // Giả lập API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // Gọi hàm submit từ parent component
-      onSubmit(data);
-      
-      // Thông báo thành công
-      toast.success('Thêm sự kiện mới thành công!');
+      await onSubmit(data);
       
       // Đóng modal
       onClose();

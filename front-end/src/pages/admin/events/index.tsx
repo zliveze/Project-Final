@@ -2,20 +2,25 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FiPlus, FiCalendar, FiClock, FiCheckCircle, FiFileText } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
-import EventsTable, { Event } from '@/components/admin/events/EventsTable';
+import EventsTable from '@/components/admin/events/EventsTable';
 import EventAddModal from '@/components/admin/events/EventAddModal';
 import EventEditModal from '@/components/admin/events/EventEditModal';
 import EventViewModal from '@/components/admin/events/EventViewModal';
 import EventDeleteModal from '@/components/admin/events/EventDeleteModal';
 import { EventFormData } from '@/components/admin/events/EventForm';
 import toast from 'react-hot-toast';
+import { useEvents, Event } from '@/contexts/EventsContext';
 
 export default function AdminEvents() {
   const router = useRouter();
-  
-  // State quản lý danh sách sự kiện
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { 
+    events, 
+    isLoading, 
+    fetchEvents, 
+    addEvent, 
+    updateEvent, 
+    deleteEvent 
+  } = useEvents();
   
   // State quản lý modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -27,109 +32,15 @@ export default function AdminEvents() {
   const [currentEventId, setCurrentEventId] = useState<string | undefined>(undefined);
   const [currentEvent, setCurrentEvent] = useState<Event | undefined>(undefined);
   
-  // Giả lập dữ liệu và tải dữ liệu khi component mount
+  // Tải dữ liệu khi component mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Giả lập API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Dữ liệu mẫu
-        const sampleEvents: Event[] = [
-          {
-            _id: 'event1',
-            title: 'Flash Sale Tháng 3',
-            description: 'Giảm giá sốc cho sản phẩm chăm sóc da',
-            tags: ['flash sale', 'chăm sóc da'],
-            startDate: new Date('2024-03-15T00:00:00Z'),
-            endDate: new Date('2024-03-20T23:59:59Z'),
-            products: [
-              { productId: 'prod1', adjustedPrice: 336000 },
-              { productId: 'prod2', adjustedPrice: 208000 },
-              { productId: 'prod3', adjustedPrice: 260000 }
-            ],
-            createdAt: new Date('2024-03-10T10:00:00Z'),
-            updatedAt: new Date('2024-03-10T10:00:00Z')
-          },
-          {
-            _id: 'event2',
-            title: 'Ưu đãi tháng 4 - Trang điểm',
-            description: 'Ưu đãi đặc biệt cho dòng sản phẩm trang điểm',
-            tags: ['makeup', 'trang điểm'],
-            startDate: new Date('2024-04-01T00:00:00Z'),
-            endDate: new Date('2024-04-15T23:59:59Z'),
-            products: [
-              { productId: 'prod4', adjustedPrice: 420000 },
-              { productId: 'prod5', adjustedPrice: 356000 },
-              { productId: 'prod6', adjustedPrice: 189000 }
-            ],
-            createdAt: new Date('2024-03-15T10:00:00Z'),
-            updatedAt: new Date('2024-03-15T10:00:00Z')
-          },
-          {
-            _id: 'event3',
-            title: 'Chào hè rực rỡ',
-            description: 'Khuyến mãi các sản phẩm chống nắng và dưỡng thể',
-            tags: ['summer', 'chống nắng'],
-            startDate: new Date('2024-05-01T00:00:00Z'),
-            endDate: new Date('2024-05-31T23:59:59Z'),
-            products: [
-              { productId: 'prod7', adjustedPrice: 540000 },
-              { productId: 'prod8', adjustedPrice: 378000 },
-              { productId: 'prod9', adjustedPrice: 298000 }
-            ],
-            createdAt: new Date('2024-04-10T10:00:00Z'),
-            updatedAt: new Date('2024-04-10T10:00:00Z')
-          },
-          {
-            _id: 'event4',
-            title: 'Black Friday',
-            description: 'Giảm giá toàn bộ sản phẩm trong cửa hàng',
-            tags: ['black friday', 'sale'],
-            startDate: new Date('2024-11-25T00:00:00Z'),
-            endDate: new Date('2024-11-30T23:59:59Z'),
-            products: [
-              { productId: 'prod10', adjustedPrice: 245000 },
-              { productId: 'prod11', adjustedPrice: 387000 },
-              { productId: 'prod12', adjustedPrice: 456000 }
-            ],
-            createdAt: new Date('2024-11-01T10:00:00Z'),
-            updatedAt: new Date('2024-11-01T10:00:00Z')
-          },
-          {
-            _id: 'event5',
-            title: 'Mừng Tết 2025',
-            description: 'Khuyến mãi đặc biệt mừng xuân 2025',
-            tags: ['tết', 'khuyến mãi'],
-            startDate: new Date('2025-01-15T00:00:00Z'),
-            endDate: new Date('2025-01-31T23:59:59Z'),
-            products: [
-              { productId: 'prod13', adjustedPrice: 198000 },
-              { productId: 'prod14', adjustedPrice: 278000 }
-            ],
-            createdAt: new Date('2024-12-10T10:00:00Z'),
-            updatedAt: new Date('2024-12-10T10:00:00Z')
-          }
-        ];
-        
-        setEvents(sampleEvents);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        toast.error('Đã xảy ra lỗi khi tải dữ liệu sự kiện');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, []);
+    fetchEvents();
+  }, [fetchEvents]);
   
   // Xử lý xem chi tiết sự kiện
   const handleViewEvent = (id: string) => {
     setCurrentEventId(id);
-    const event = events.find(e => e._id === id);
+    const event = events?.find(e => e._id === id);
     setCurrentEvent(event);
     setShowViewModal(true);
   };
@@ -143,87 +54,55 @@ export default function AdminEvents() {
   // Xử lý mở modal xóa
   const handleOpenDeleteModal = (id: string) => {
     setCurrentEventId(id);
-    const event = events.find(e => e._id === id);
+    const event = events?.find(e => e._id === id);
     setCurrentEvent(event);
     setShowDeleteModal(true);
   };
   
   // Xử lý thêm sự kiện mới
-  const handleAddEvent = (data: EventFormData) => {
-    // Tạo sự kiện mới với ID giả
-    const newEvent: Event = {
-      _id: `event${Date.now()}`,
-      title: data.title,
-      description: data.description,
-      tags: data.tags,
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
-      products: data.products,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+  const handleAddEvent = async (data: EventFormData) => {
+    // Gọi API thêm sự kiện thông qua context
+    const result = await addEvent(data);
     
-    // Cập nhật danh sách sự kiện
-    setEvents(prev => [newEvent, ...prev]);
-    
-    // Đóng modal
-    setShowAddModal(false);
-    
-    // Thông báo
-    toast.success('Đã thêm sự kiện mới thành công');
+    if (result) {
+      // Đóng modal
+      setShowAddModal(false);
+      // Thông báo thành công đã được xử lý trong context
+    }
   };
   
   // Xử lý chỉnh sửa sự kiện
-  const handleEditEvent = (id: string, data: EventFormData) => {
-    // Tìm sự kiện cần cập nhật
-    const eventIndex = events.findIndex(e => e._id === id);
+  const handleEditEvent = async (id: string, data: EventFormData) => {
+    // Gọi API cập nhật sự kiện thông qua context
+    const result = await updateEvent(id, data);
     
-    if (eventIndex !== -1) {
-      // Tạo bản sao của mảng events
-      const updatedEvents = [...events];
-      
-      // Cập nhật sự kiện
-      updatedEvents[eventIndex] = {
-        ...updatedEvents[eventIndex],
-        title: data.title,
-        description: data.description,
-        tags: data.tags,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        products: data.products,
-        updatedAt: new Date()
-      };
-      
-      // Cập nhật state
-      setEvents(updatedEvents);
-      
+    if (result) {
       // Đóng modal
       setShowEditModal(false);
-      
       // Cập nhật currentEvent (nếu đang được hiển thị trong modal xem chi tiết)
       if (currentEvent && currentEvent._id === id) {
-        setCurrentEvent(updatedEvents[eventIndex]);
+        setCurrentEvent(result);
       }
-      
-      // Thông báo
-      toast.success('Đã cập nhật sự kiện thành công');
+      // Thông báo thành công đã được xử lý trong context
     }
   };
   
   // Xử lý xóa sự kiện
-  const handleDeleteEvent = (id: string) => {
-    // Xóa sự kiện khỏi danh sách
-    setEvents(prev => prev.filter(e => e._id !== id));
+  const handleDeleteEvent = async (id: string) => {
+    // Gọi API xóa sự kiện thông qua context
+    const success = await deleteEvent(id);
     
-    // Đóng modal
-    setShowDeleteModal(false);
-    
-    // Thông báo
-    toast.success('Đã xóa sự kiện thành công');
+    if (success) {
+      // Đóng modal
+      setShowDeleteModal(false);
+      // Thông báo thành công đã được xử lý trong context
+    }
   };
 
   // Đếm số lượng sự kiện theo trạng thái
   const countEventsByStatus = (status: 'upcoming' | 'ongoing' | 'ended') => {
+    if (!events || events.length === 0) return 0;
+    
     return events.filter(event => {
       const now = new Date();
       const startDate = new Date(event.startDate);
@@ -237,7 +116,9 @@ export default function AdminEvents() {
   };
 
   // Tổng số sản phẩm trong tất cả sự kiện
-  const totalProducts = events.reduce((sum, event) => sum + event.products.length, 0);
+  const totalProducts = events && events.length > 0 
+    ? events.reduce((sum, event) => sum + event.products.length, 0)
+    : 0;
 
   return (
     <AdminLayout title="Quản lý sự kiện">
@@ -265,7 +146,7 @@ export default function AdminEvents() {
                     Tổng số sự kiện
                   </dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{events.length}</div>
+                    <div className="text-lg font-medium text-gray-900">{events?.length || 0}</div>
                   </dd>
                 </dl>
               </div>
@@ -285,7 +166,7 @@ export default function AdminEvents() {
                     Sắp diễn ra
                   </dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{countEventsByStatus('upcoming')}</div>
+                    <div className="text-lg font-medium text-gray-900">{events && events.length > 0 ? countEventsByStatus('upcoming') : 0}</div>
                   </dd>
                 </dl>
               </div>
@@ -305,7 +186,7 @@ export default function AdminEvents() {
                     Đang diễn ra
                   </dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{countEventsByStatus('ongoing')}</div>
+                    <div className="text-lg font-medium text-gray-900">{events && events.length > 0 ? countEventsByStatus('ongoing') : 0}</div>
                   </dd>
                 </dl>
               </div>
@@ -325,7 +206,7 @@ export default function AdminEvents() {
                     Đã kết thúc
                   </dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">{countEventsByStatus('ended')}</div>
+                    <div className="text-lg font-medium text-gray-900">{events && events.length > 0 ? countEventsByStatus('ended') : 0}</div>
                   </dd>
                 </dl>
               </div>
@@ -361,6 +242,7 @@ export default function AdminEvents() {
           </div>
         ) : (
           <EventsTable 
+            events={events || []}
             onView={handleViewEvent}
             onEdit={handleOpenEditModal}
             onDelete={handleOpenDeleteModal}
@@ -380,7 +262,7 @@ export default function AdminEvents() {
         onClose={() => setShowEditModal(false)}
         onSubmit={handleEditEvent}
         eventId={currentEventId}
-        events={events}
+        events={events || []}
       />
       
       <EventViewModal 

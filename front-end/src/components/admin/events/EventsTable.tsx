@@ -3,111 +3,19 @@ import { FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import Pagination from '../common/Pagination';
+import { Event } from '@/contexts/EventsContext';
 
 // Định nghĩa kiểu dữ liệu cho props
 interface EventsTableProps {
+  events: Event[];
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-// Định nghĩa kiểu dữ liệu cho event
-export interface Event {
-  _id: string;
-  title: string;
-  description: string;
-  tags: string[];
-  startDate: Date;
-  endDate: Date;
-  products: {
-    productId: string;
-    variantId?: string;
-    adjustedPrice: number;
-  }[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Dữ liệu mẫu không còn cần thiết nữa, đã được xóa
 
-// Dữ liệu mẫu cho sự kiện
-const sampleEvents: Event[] = [
-  {
-    _id: 'event1',
-    title: 'Flash Sale Tháng 3',
-    description: 'Giảm giá sốc cho sản phẩm chăm sóc da',
-    tags: ['flash sale', 'chăm sóc da'],
-    startDate: new Date('2024-03-15T00:00:00Z'),
-    endDate: new Date('2024-03-20T23:59:59Z'),
-    products: [
-      { productId: 'prod1', adjustedPrice: 336000 },
-      { productId: 'prod2', adjustedPrice: 208000 },
-      { productId: 'prod3', adjustedPrice: 260000 }
-    ],
-    createdAt: new Date('2024-03-10T10:00:00Z'),
-    updatedAt: new Date('2024-03-10T10:00:00Z')
-  },
-  {
-    _id: 'event2',
-    title: 'Ưu đãi tháng 4 - Trang điểm',
-    description: 'Ưu đãi đặc biệt cho dòng sản phẩm trang điểm',
-    tags: ['makeup', 'trang điểm'],
-    startDate: new Date('2024-04-01T00:00:00Z'),
-    endDate: new Date('2024-04-15T23:59:59Z'),
-    products: [
-      { productId: 'prod4', adjustedPrice: 420000 },
-      { productId: 'prod5', adjustedPrice: 356000 },
-      { productId: 'prod6', adjustedPrice: 189000 }
-    ],
-    createdAt: new Date('2024-03-15T10:00:00Z'),
-    updatedAt: new Date('2024-03-15T10:00:00Z')
-  },
-  {
-    _id: 'event3',
-    title: 'Chào hè rực rỡ',
-    description: 'Khuyến mãi các sản phẩm chống nắng và dưỡng thể',
-    tags: ['summer', 'chống nắng'],
-    startDate: new Date('2024-05-01T00:00:00Z'),
-    endDate: new Date('2024-05-31T23:59:59Z'),
-    products: [
-      { productId: 'prod7', adjustedPrice: 540000 },
-      { productId: 'prod8', adjustedPrice: 378000 },
-      { productId: 'prod9', adjustedPrice: 298000 }
-    ],
-    createdAt: new Date('2024-04-10T10:00:00Z'),
-    updatedAt: new Date('2024-04-10T10:00:00Z')
-  },
-  {
-    _id: 'event4',
-    title: 'Black Friday',
-    description: 'Giảm giá toàn bộ sản phẩm trong cửa hàng',
-    tags: ['black friday', 'sale'],
-    startDate: new Date('2024-11-25T00:00:00Z'),
-    endDate: new Date('2024-11-30T23:59:59Z'),
-    products: [
-      { productId: 'prod10', adjustedPrice: 245000 },
-      { productId: 'prod11', adjustedPrice: 387000 },
-      { productId: 'prod12', adjustedPrice: 456000 }
-    ],
-    createdAt: new Date('2024-11-01T10:00:00Z'),
-    updatedAt: new Date('2024-11-01T10:00:00Z')
-  },
-  {
-    _id: 'event5',
-    title: 'Mừng Tết 2025',
-    description: 'Khuyến mãi đặc biệt mừng xuân 2025',
-    tags: ['tết', 'khuyến mãi'],
-    startDate: new Date('2025-01-15T00:00:00Z'),
-    endDate: new Date('2025-01-31T23:59:59Z'),
-    products: [
-      { productId: 'prod13', adjustedPrice: 198000 },
-      { productId: 'prod14', adjustedPrice: 278000 }
-    ],
-    createdAt: new Date('2024-12-10T10:00:00Z'),
-    updatedAt: new Date('2024-12-10T10:00:00Z')
-  }
-];
-
-export default function EventsTable({ onView, onEdit, onDelete }: EventsTableProps) {
-  const [events] = useState<Event[]>(sampleEvents);
+export default function EventsTable({ events, onView, onEdit, onDelete }: EventsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, upcoming, ongoing, ended
