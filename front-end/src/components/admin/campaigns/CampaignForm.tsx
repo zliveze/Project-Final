@@ -6,32 +6,11 @@ import { vi } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ProductSelectionTable from './ProductSelectionTable';
-
-// Interface cho Campaign
-export interface Product {
-  productId: string;
-  variantId: string;
-  adjustedPrice: number;
-  productName?: string;
-  variantName?: string;
-  originalPrice?: number;
-  image?: string;
-}
-
-export interface Campaign {
-  _id: string;
-  title: string;
-  description: string;
-  type: string;
-  startDate: Date;
-  endDate: Date;
-  products: Product[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Import types from context
+import { Campaign, CampaignProduct as Product } from '@/contexts/CampaignContext'; 
 
 interface CampaignFormProps {
-  initialData?: Partial<Campaign>;
+  initialData?: Partial<Campaign>; // Use context Campaign type
   onSubmit: (data: Partial<Campaign>) => void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -110,7 +89,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   };
 
   // Xử lý xóa sản phẩm
-  const handleRemoveProduct = (productId: string, variantId: string) => {
+  const handleRemoveProduct = (productId: string, variantId?: string) => { // Make variantId optional here
     setFormData(prev => ({
       ...prev,
       products: prev.products?.filter(p => 
@@ -120,7 +99,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   };
 
   // Xử lý thay đổi giá sản phẩm
-  const handleProductPriceChange = (productId: string, variantId: string, newPrice: number) => {
+  const handleProductPriceChange = (productId: string, variantId: string | undefined, newPrice: number) => { // Allow variantId to be undefined
     setFormData(prev => ({
       ...prev,
       products: prev.products?.map(p => {
@@ -278,7 +257,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
           <button
             type="button"
             onClick={() => setShowProductSelection(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="inline-flex items-center px-4 py-2 border border-pink-600 rounded-md shadow-sm text-sm font-medium text-pink-600 bg-white hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           >
             <FiShoppingBag className="mr-2 -ml-1 h-5 w-5" />
             Thêm sản phẩm
@@ -348,27 +327,27 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
                         value={product.adjustedPrice}
                         onChange={(e) => handleProductPriceChange(
                           product.productId,
-                          product.variantId,
+                          product.variantId, // Pass potentially undefined variantId
                           Number(e.target.value)
                         )}
                         className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      {product.originalPrice ? (
+                      {product.originalPrice && product.adjustedPrice ? ( // Check adjustedPrice too
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           ((product.originalPrice - product.adjustedPrice) / product.originalPrice * 100) > 0
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {Math.round((product.originalPrice - product.adjustedPrice) / product.originalPrice * 100)}%
+                          {Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)}%
                         </span>
                       ) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         type="button"
-                        onClick={() => handleRemoveProduct(product.productId, product.variantId)}
+                        onClick={() => handleRemoveProduct(product.productId, product.variantId)} // Pass potentially undefined variantId
                         className="text-red-600 hover:text-red-900"
                       >
                         Xóa
@@ -388,12 +367,13 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
         )}
       </div>
 
-      {/* Popup chọn sản phẩm */}
+      {/* Product Selection Modal */}
       {showProductSelection && (
         <ProductSelectionTable
+          isOpen={showProductSelection}
           onClose={() => setShowProductSelection(false)}
           onAddProducts={handleAddProducts}
-          selectedProducts={formData.products || []}
+          initialSelectedProducts={formData.products || []}
         />
       )}
 
@@ -421,4 +401,4 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   );
 };
 
-export default CampaignForm; 
+export default CampaignForm;

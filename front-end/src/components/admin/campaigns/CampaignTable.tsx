@@ -1,204 +1,129 @@
-import { useState } from 'react';
-import { FiEdit2, FiTrash2, FiEye, FiPause, FiPlay } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiEdit2, FiTrash2, FiEye, FiPause, FiPlay, FiSearch } from 'react-icons/fi';
 import Image from 'next/image';
 import Pagination from '@/components/admin/common/Pagination';
-
-// Dữ liệu mẫu cho chiến dịch và sự kiện
-const sampleCampaigns = [
-  {
-    id: 'CP-001',
-    name: 'Khuyến mãi mùa hè 2025',
-    type: 'sale',
-    image: 'https://via.placeholder.com/50',
-    description: 'Giảm giá lên đến 50% cho tất cả sản phẩm chăm sóc da',
-    startDate: '01/06/2025',
-    endDate: '30/06/2025',
-    discountPercent: 50,
-    productCount: 45,
-    status: 'active',
-    createdAt: '15/03/2025'
-  },
-  {
-    id: 'CP-002',
-    name: 'Chào mừng thành viên mới',
-    type: 'promotion',
-    image: 'https://via.placeholder.com/50',
-    description: 'Tặng voucher 50K cho thành viên mới đăng ký',
-    startDate: '01/01/2025',
-    endDate: '31/12/2025',
-    discountPercent: null,
-    productCount: null,
-    status: 'active',
-    createdAt: '14/03/2025'
-  },
-  {
-    id: 'CP-003',
-    name: 'Ngày hội làm đẹp',
-    type: 'event',
-    image: 'https://via.placeholder.com/50',
-    description: 'Sự kiện tư vấn làm đẹp miễn phí tại cửa hàng',
-    startDate: '15/04/2025',
-    endDate: '16/04/2025',
-    discountPercent: null,
-    productCount: null,
-    status: 'scheduled',
-    createdAt: '13/03/2025'
-  },
-  {
-    id: 'CP-004',
-    name: 'Tết Nguyên Đán 2025',
-    type: 'sale',
-    image: 'https://via.placeholder.com/50',
-    description: 'Khuyến mãi đặc biệt dịp Tết Nguyên Đán',
-    startDate: '15/01/2025',
-    endDate: '05/02/2025',
-    discountPercent: 30,
-    productCount: 120,
-    status: 'completed',
-    createdAt: '12/12/2024'
-  },
-  {
-    id: 'CP-005',
-    name: 'Flash Sale cuối tuần',
-    type: 'flash_sale',
-    image: 'https://via.placeholder.com/50',
-    description: 'Giảm sốc 24h cho sản phẩm hot',
-    startDate: '10/04/2025',
-    endDate: '11/04/2025',
-    discountPercent: 70,
-    productCount: 15,
-    status: 'scheduled',
-    createdAt: '11/03/2025'
-  },
-  {
-    id: 'CP-006',
-    name: 'Sinh nhật cửa hàng',
-    type: 'event',
-    image: 'https://via.placeholder.com/50',
-    description: 'Kỷ niệm 5 năm thành lập với nhiều ưu đãi đặc biệt',
-    startDate: '20/05/2025',
-    endDate: '25/05/2025',
-    discountPercent: 25,
-    productCount: 200,
-    status: 'draft',
-    createdAt: '10/03/2025'
-  }
-];
+import { Campaign } from '@/contexts/CampaignContext'; // Import Campaign type
+import { format } from 'date-fns'; // Import date-fns for formatting
 
 interface CampaignTableProps {
+  campaigns: Campaign[]; // Receive campaigns as prop
+  isLoading: boolean;
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleStatus: (id: string, currentStatus: string) => void;
+  onDelete: (campaign: Campaign) => void; // Pass the whole campaign object
+  onToggleStatus: (id: string, currentStatus: string) => void; // Keep for potential future use
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange: (limit: number) => void;
+  onSearchChange: (search: string) => void;
+  onFilterChange: (filterType: string, value: string | Date | null) => void; // Add filter handler
 }
 
-export default function CampaignTable({ onView, onEdit, onDelete, onToggleStatus }: CampaignTableProps) {
-  const [campaigns, setCampaigns] = useState(sampleCampaigns);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+export default function CampaignTable({ 
+  campaigns,
+  isLoading,
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onView, 
+  onEdit, 
+  onDelete, 
+  onToggleStatus,
+  onPageChange,
+  onItemsPerPageChange,
+  onSearchChange,
+  onFilterChange // Destructure new prop
+}: CampaignTableProps) {
+  // Local state for controlled inputs
+  const [searchTerm, setSearchTerm] = useState(''); 
+  const [selectedType, setSelectedType] = useState(''); // Use empty string for 'all'
 
-  // Lọc chiến dịch theo từ khóa tìm kiếm, trạng thái và loại
-  const filteredCampaigns = campaigns.filter(campaign => {
-    const matchesSearch = 
-      campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      campaign.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = selectedStatus === 'all' || campaign.status === selectedStatus;
-    const matchesType = selectedType === 'all' || campaign.type === selectedType;
-    
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  // Handle search input change with debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // Only call onSearchChange if searchTerm has actually changed 
+      // (prevents initial call on mount if needed, though usually fine)
+      onSearchChange(searchTerm); 
+    }, 500); // Debounce time: 500ms
 
-  // Phân trang
-  const indexOfLastCampaign = currentPage * itemsPerPage;
-  const indexOfFirstCampaign = indexOfLastCampaign - itemsPerPage;
-  const currentCampaigns = filteredCampaigns.slice(indexOfFirstCampaign, indexOfLastCampaign);
-  const totalPages = Math.ceil(filteredCampaigns.length / itemsPerPage);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm, onSearchChange]);
 
-  // Xử lý thay đổi trang
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  // Handle type filter change
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newType = e.target.value;
+    setSelectedType(newType);
+    onFilterChange('type', newType === 'all' ? '' : newType); // Pass empty string if 'all'
   };
 
-  // Xử lý thay đổi số lượng hiển thị
+  // Handle items per page change
   const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setItemsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
+    onItemsPerPageChange(Number(e.target.value));
   };
 
-  // Hàm để hiển thị màu sắc dựa trên trạng thái chiến dịch
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'completed':
-        return 'bg-gray-100 text-gray-800';
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'paused':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Function to get status text and color based on dates
+  const getStatusInfo = (startDate: Date, endDate: Date): { text: string; color: string } => {
+    const now = new Date();
+    // Ensure dates are Date objects before comparison
+    const start = startDate instanceof Date ? startDate : new Date(startDate);
+    const end = endDate instanceof Date ? endDate : new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return { text: 'Ngày không hợp lệ', color: 'bg-red-100 text-red-800' };
+    }
+
+    if (end < now) {
+      return { text: 'Đã kết thúc', color: 'bg-gray-100 text-gray-800' };
+    } else if (start <= now && end >= now) {
+      return { text: 'Đang diễn ra', color: 'bg-green-100 text-green-800' };
+    } else if (start > now) {
+      return { text: 'Lên lịch', color: 'bg-blue-100 text-blue-800' };
+    } else {
+      // Fallback for unexpected cases
+      return { text: 'Không xác định', color: 'bg-yellow-100 text-yellow-800' }; 
     }
   };
 
-  // Hàm để hiển thị tên trạng thái chiến dịch
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Đang diễn ra';
-      case 'completed':
-        return 'Đã kết thúc';
-      case 'scheduled':
-        return 'Lên lịch';
-      case 'draft':
-        return 'Bản nháp';
-      case 'paused':
-        return 'Tạm dừng';
-      default:
-        return status;
-    }
-  };
-
-  // Hàm để hiển thị tên loại chiến dịch
+  // Function to display campaign type text
   const getTypeText = (type: string) => {
     switch (type) {
-      case 'sale':
-        return 'Khuyến mãi';
-      case 'promotion':
-        return 'Ưu đãi';
-      case 'event':
-        return 'Sự kiện';
-      case 'flash_sale':
-        return 'Flash Sale';
+      case 'Sale Event':
+        return 'Sự kiện giảm giá';
+      case 'Hero Banner':
+        return 'Banner quảng cáo';
       default:
-        return type;
+        return type || 'N/A'; // Handle potential undefined/empty type
     }
   };
 
-  // Hàm để hiển thị nút toggle trạng thái phù hợp
-  const getToggleButton = (campaign: any) => {
-    if (campaign.status === 'active') {
+  // Function to display toggle button (Placeholder)
+  const getToggleButton = (campaign: Campaign) => {
+    const statusInfo = getStatusInfo(campaign.startDate, campaign.endDate);
+    // This requires backend logic for pause/resume functionality
+    if (statusInfo.text === 'Đang diễn ra') {
       return (
         <button 
-          onClick={() => onToggleStatus(campaign.id, campaign.status)}
-          className="text-orange-600 hover:text-orange-900"
-          title="Tạm dừng"
+          onClick={() => onToggleStatus(campaign._id, 'active')}
+          className="text-orange-600 hover:text-orange-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Tạm dừng (Chưa hỗ trợ)"
+          disabled // Disable until implemented
         >
           <FiPause className="h-5 w-5" />
         </button>
       );
-    } else if (campaign.status === 'paused' || campaign.status === 'draft') {
+    } else if (statusInfo.text === 'Lên lịch') {
       return (
         <button 
-          onClick={() => onToggleStatus(campaign.id, campaign.status)}
-          className="text-green-600 hover:text-green-900"
-          title="Kích hoạt"
+          onClick={() => onToggleStatus(campaign._id, 'inactive')}
+          className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Kích hoạt (Chưa hỗ trợ)"
+          disabled // Disable until implemented
         >
           <FiPlay className="h-5 w-5" />
         </button>
@@ -207,53 +132,62 @@ export default function CampaignTable({ onView, onEdit, onDelete, onToggleStatus
     return null;
   };
 
+  // Format date helper
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A';
+    try {
+      // Ensure it's a Date object before formatting
+      const dateObj = date instanceof Date ? date : new Date(date);
+      if (isNaN(dateObj.getTime())) {
+          return 'Ngày không hợp lệ';
+      }
+      return format(dateObj, 'dd/MM/yyyy');
+    } catch (error) {
+      console.error("Error formatting date:", date, error);
+      return 'Lỗi định dạng';
+    }
+  };
+
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
-          <div className="w-full md:w-1/3">
+      {/* Filters Section */}
+      <div className="p-4 md:p-6 border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Search Input */}
+          <div className="w-full md:w-auto md:flex-grow lg:max-w-xs">
             <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="h-5 w-5 text-gray-400" />
+              </span>
               <input
                 type="text"
-                placeholder="Tìm kiếm chiến dịch..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                placeholder="Tìm theo tiêu đề..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
           
-          <div className="flex items-center space-x-4 flex-wrap">
+          {/* Other Filters */}
+          <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap">
+            {/* Type Filter */}
             <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+              onChange={handleTypeChange}
             >
-              <option value="all">Tất cả loại</option>
-              <option value="sale">Khuyến mãi</option>
-              <option value="promotion">Ưu đãi</option>
-              <option value="event">Sự kiện</option>
-              <option value="flash_sale">Flash Sale</option>
+              <option value="">Tất cả loại</option> {/* Use empty string for 'all' */}
+              <option value="Sale Event">Sự kiện giảm giá</option>
+              <option value="Hero Banner">Banner quảng cáo</option>
             </select>
             
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang diễn ra</option>
-              <option value="scheduled">Lên lịch</option>
-              <option value="completed">Đã kết thúc</option>
-              <option value="draft">Bản nháp</option>
-              <option value="paused">Tạm dừng</option>
-            </select>
-
+            {/* Items Per Page Selector */}
             <div className="flex items-center">
-              <label htmlFor="items-per-page" className="mr-2 text-sm text-gray-600">Hiển thị:</label>
+              <label htmlFor="items-per-page" className="mr-2 text-sm text-gray-600 whitespace-nowrap">Hiển thị:</label>
               <select
                 id="items-per-page"
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                 value={itemsPerPage}
                 onChange={handleItemsPerPageChange}
               >
@@ -267,6 +201,7 @@ export default function CampaignTable({ onView, onEdit, onDelete, onToggleStatus
         </div>
       </div>
       
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -283,82 +218,99 @@ export default function CampaignTable({ onView, onEdit, onDelete, onToggleStatus
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Trạng thái
               </th>
+               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ngày tạo
+              </th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentCampaigns.length > 0 ? (
-              currentCampaigns.map((campaign) => (
-                <tr key={campaign.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden">
-                        <Image 
-                          src={campaign.image} 
-                          alt={campaign.name}
-                          width={40}
-                          height={40}
-                          className="h-full w-full object-cover"
-                        />
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                  <div className="inline-flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang tải dữ liệu...
+                  </div>
+                </td>
+              </tr>
+            ) : campaigns.length > 0 ? (
+              campaigns.map((campaign) => {
+                const statusInfo = getStatusInfo(campaign.startDate, campaign.endDate);
+                return (
+                  <tr key={campaign._id} className="hover:bg-gray-50 transition-colors duration-150">
+                    {/* Campaign Info */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {/* Optional Image Placeholder */}
+                        {/* <div className="flex-shrink-0 h-10 w-10 mr-4"> <Image ... /> </div> */}
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">{campaign.title}</div>
+                          <div className="text-xs text-gray-500 max-w-xs truncate" title={campaign.description}>
+                            {campaign.description || 'Không có mô tả'}
+                          </div>
+                        </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{campaign.name}</div>
-                        <div className="text-sm text-gray-500">{campaign.description}</div>
+                    </td>
+                    {/* Type */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-800">{getTypeText(campaign.type)}</div>
+                      <div className="text-xs text-gray-500">{campaign.products?.length || 0} sản phẩm</div>
+                    </td>
+                    {/* Dates */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div>Từ: {formatDate(campaign.startDate)}</div>
+                      <div>Đến: {formatDate(campaign.endDate)}</div>
+                    </td>
+                    {/* Status */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color}`}>
+                        {statusInfo.text}
+                      </span>
+                    </td>
+                     {/* Created At */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(campaign.createdAt)}
+                    </td>
+                    {/* Actions */}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-3">
+                        <button 
+                          onClick={() => onView(campaign._id)}
+                          className="text-gray-500 hover:text-pink-600 transition-colors duration-150"
+                          title="Xem chi tiết"
+                        >
+                          <FiEye className="h-5 w-5" />
+                        </button>
+                        {/* {getToggleButton(campaign)} */}
+                        <button 
+                          onClick={() => onEdit(campaign._id)}
+                          className="text-blue-500 hover:text-blue-700 transition-colors duration-150"
+                          title="Chỉnh sửa"
+                        >
+                          <FiEdit2 className="h-5 w-5" />
+                        </button>
+                        <button 
+                          onClick={() => onDelete(campaign)} // Pass whole campaign object
+                          className="text-red-500 hover:text-red-700 transition-colors duration-150"
+                          title="Xóa"
+                        >
+                          <FiTrash2 className="h-5 w-5" />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{getTypeText(campaign.type)}</div>
-                    {campaign.discountPercent && (
-                      <div className="text-sm text-gray-500">Giảm {campaign.discountPercent}%</div>
-                    )}
-                    {campaign.productCount && (
-                      <div className="text-sm text-gray-500">{campaign.productCount} sản phẩm</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">Từ: {campaign.startDate}</div>
-                    <div className="text-sm text-gray-500">Đến: {campaign.endDate}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(campaign.status)}`}>
-                      {getStatusText(campaign.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => onView(campaign.id)}
-                        className="text-gray-600 hover:text-gray-900"
-                        title="Xem chi tiết"
-                      >
-                        <FiEye className="h-5 w-5" />
-                      </button>
-                      {getToggleButton(campaign)}
-                      <button 
-                        onClick={() => onEdit(campaign.id)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Chỉnh sửa"
-                      >
-                        <FiEdit2 className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => onDelete(campaign.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Xóa"
-                      >
-                        <FiTrash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  Không tìm thấy chiến dịch nào
+                <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                  Không tìm thấy chiến dịch nào phù hợp.
                 </td>
               </tr>
             )}
@@ -366,17 +318,19 @@ export default function CampaignTable({ onView, onEdit, onDelete, onToggleStatus
         </table>
       </div>
       
-      <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-          totalItems={filteredCampaigns.length}
-          itemsPerPage={itemsPerPage}
-          showItemsInfo={true}
-          className="mt-2"
-        />
-      </div>
+      {/* Pagination */}
+      { !isLoading && totalPages > 0 && (
+        <div className="px-4 py-3 md:px-6 border-t border-gray-200 bg-gray-50">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onPageChange} // Use handler from props
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            showItemsInfo={true}
+          />
+        </div>
+      )}
     </div>
   );
-} 
+}

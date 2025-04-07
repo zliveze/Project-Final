@@ -1,156 +1,465 @@
-import React, { useState, useEffect } from 'react';
-import { FiSearch, FiX, FiPlus, FiCheck } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiSearch, FiX, FiPlus, FiCheck, FiChevronLeft, FiChevronRight, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Image from 'next/image';
-import { Product } from './CampaignForm';
+import { CampaignProduct } from '@/contexts/CampaignContext'; // Đã import đúng
+import { useProduct } from '@/contexts/ProductContext'; // Thêm context Product
+import { useBrands } from '@/contexts/BrandContext'; // Thêm context Brand
+import { useCategory } from '@/contexts/CategoryContext'; // Thêm context Category
+import { toast } from 'react-hot-toast'; // Thêm toast
 
-// Dữ liệu mẫu cho sản phẩm
-const sampleProducts = [
-  {
-    id: 'P001',
-    name: 'Kem dưỡng ẩm Intensive',
-    description: 'Kem dưỡng ẩm chuyên sâu cho da khô',
-    image: 'https://via.placeholder.com/50',
-    price: 350000,
-    category: 'Skin Care',
-    variants: [
-      { id: 'V001', name: '50ml', price: 350000 },
-      { id: 'V002', name: '100ml', price: 590000 },
-    ]
-  },
-  {
-    id: 'P002',
-    name: 'Serum Vitamin C',
-    description: 'Serum làm sáng da với Vitamin C tinh khiết',
-    image: 'https://via.placeholder.com/50',
-    price: 420000,
-    category: 'Skin Care',
-    variants: [
-      { id: 'V003', name: '30ml', price: 420000 },
-    ]
-  },
-  {
-    id: 'P003',
-    name: 'Kem chống nắng SPF 50',
-    description: 'Kem chống nắng bảo vệ da khỏi tia UV',
-    image: 'https://via.placeholder.com/50',
-    price: 280000,
-    category: 'Sun Care',
-    variants: [
-      { id: 'V004', name: '50ml', price: 280000 },
-      { id: 'V005', name: '100ml', price: 450000 },
-    ]
-  },
-  {
-    id: 'P004',
-    name: 'Sữa rửa mặt tạo bọt',
-    description: 'Sữa rửa mặt làm sạch sâu, dịu nhẹ với da',
-    image: 'https://via.placeholder.com/50',
-    price: 180000,
-    category: 'Cleansers',
-    variants: [
-      { id: 'V006', name: '100ml', price: 180000 },
-      { id: 'V007', name: '200ml', price: 320000 },
-    ]
-  },
-  {
-    id: 'P005',
-    name: 'Toner cân bằng độ pH',
-    description: 'Toner không cồn, cân bằng độ pH cho da',
-    image: 'https://via.placeholder.com/50',
-    price: 250000,
-    category: 'Toners',
-    variants: [
-      { id: 'V008', name: '200ml', price: 250000 },
-    ]
-  },
-  {
-    id: 'P006',
-    name: 'Mặt nạ dưỡng ẩm overnight',
-    description: 'Mặt nạ ngủ dưỡng ẩm qua đêm',
-    image: 'https://via.placeholder.com/50',
-    price: 320000,
-    category: 'Masks',
-    variants: [
-      { id: 'V009', name: '50ml', price: 320000 },
-      { id: 'V010', name: '100ml', price: 550000 },
-    ]
-  }
-];
+// Định nghĩa interface cho sản phẩm từ API (tương tự EventProductAddModal)
+interface ProductFromApi {
+  _id?: string;
+  id?: string; // Giữ lại id nếu API ProductContext trả về id
+  name: string;
+  image: string; // URL ảnh chính
+  images?: Array<{url: string, alt: string, isPrimary?: boolean}>; // Thêm mảng images
+  price: number | string;
+  currentPrice?: number | string;
+  originalPrice?: number | string; // Giá gốc (có thể là price hoặc originalPrice tùy API)
+  brandId?: string;
+  brand?: string | { _id: string, name: string }; // Brand có thể là string hoặc object
+  status?: string;
+  sku?: string;
+  categoryIds?: string[];
+  categories?: Array<{ _id: string, name: string }>; // Categories có thể là mảng object
+  // Thêm variants nếu API trả về
+  variants?: Array<{
+    id?: string; // ID của variant
+    _id?: string;
+    sku: string;
+    name: string; // Tên variant (vd: 50ml, Red)
+    price: number; // Giá của variant
+    originalPrice?: number; // Giá gốc của variant nếu có
+    stock?: number;
+    image?: string; // Ảnh riêng của variant nếu có
+  }>;
+}
+
+// Interface cho bộ lọc sản phẩm (tương tự EventProductAddModal)
+interface ProductFilter {
+  brandId?: string;
+  categoryId?: string;
+  status?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+// Thêm định nghĩa cho tham số fetchAdminProductList (từ ProductContext)
+interface AdminProductListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  brandId?: string;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  // Thêm các flags nếu cần lọc
+  // isBestSeller?: boolean;
+  // isNew?: boolean;
+  // isOnSale?: boolean;
+  // hasGifts?: boolean;
+}
+
 
 interface ProductSelectionTableProps {
+  isOpen: boolean; // Thêm prop isOpen để biết khi nào modal mở
   onClose: () => void;
-  onAddProducts: (products: Product[]) => void;
-  selectedProducts: Product[];
+  onAddProducts: (products: CampaignProduct[]) => void;
+  initialSelectedProducts: CampaignProduct[]; // Đổi tên để rõ ràng hơn
 }
 
 const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
+  isOpen,
   onClose,
   onAddProducts,
-  selectedProducts = []
+  initialSelectedProducts = []
 }) => {
-  const [products, setProducts] = useState(sampleProducts);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [tempSelectedProducts, setTempSelectedProducts] = useState<Product[]>(selectedProducts);
+  // Sử dụng Contexts
+  const { fetchAdminProductList, loading: productLoading, error: productError } = useProduct();
+  const { brands, fetchBrands } = useBrands(); // Lấy brands và hàm fetchBrands
+  const { categories, fetchCategories } = useCategory(); // Lấy categories và hàm fetchCategories
 
-  // Tìm kiếm sản phẩm
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    
-    return matchesSearch && matchesCategory;
+  // States
+  const [products, setProducts] = useState<ProductFromApi[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [tempSelectedProducts, setTempSelectedProducts] = useState<CampaignProduct[]>([]);
+  const [loading, setLoading] = useState(false); // State loading riêng cho component này
+  const [error, setError] = useState<string | null>(null);
+
+  // State cho filter nâng cao
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [brandsList, setBrandsList] = useState<{id: string, name: string}[]>([]);
+  const [categoriesList, setCategoriesList] = useState<{id: string, name: string}[]>([]);
+  const [filters, setFilters] = useState<ProductFilter>({
+    status: 'active', // Mặc định lấy sản phẩm active
+  });
+  const [tempFilters, setTempFilters] = useState<ProductFilter>({
+    status: 'active',
   });
 
-  // Kiểm tra sản phẩm đã được chọn chưa
-  const isProductSelected = (productId: string, variantId: string) => {
+  // Cập nhật danh sách brandsList và categoriesList từ context
+  useEffect(() => {
+    if (brands && brands.length > 0) {
+      const brandItems = brands.map(brand => ({
+        id: brand.id || '', // Đảm bảo id là string và không null
+        name: brand.name
+      }));
+      setBrandsList(brandItems);
+    } else if (isOpen) {
+      // Tải brands nếu chưa có khi modal mở
+      fetchBrands(1, 100); // Tải tối đa 100 brands
+    }
+  }, [brands, isOpen, fetchBrands]);
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      // Lọc chỉ lấy category cha (level 0 hoặc 1 tùy cấu trúc) hoặc tất cả nếu cần
+      const categoryItems = categories
+        // .filter(cat => cat.level <= 1) // Ví dụ: chỉ lấy level 0 và 1
+        .map(category => ({
+          id: category._id || '', // Đảm bảo id là string và không null
+          name: category.name
+        }));
+      setCategoriesList(categoryItems);
+    } else if (isOpen) {
+      // Tải categories nếu chưa có khi modal mở
+      fetchCategories(1, 100); // Tải tối đa 100 categories
+    }
+  }, [categories, isOpen, fetchCategories]);
+
+  // Reset state và tải lại selected products khi modal mở/đóng hoặc initialSelectedProducts thay đổi
+  useEffect(() => {
+    if (isOpen) {
+      setTempSelectedProducts(initialSelectedProducts);
+      setSearchTerm('');
+      setFilters({ status: 'active' });
+      setTempFilters({ status: 'active' });
+      setPage(1);
+      setShowAdvancedFilters(false);
+      // Fetch products sẽ được trigger bởi useEffect bên dưới khi page=1 và filters được set
+    } else {
+      // Reset khi đóng modal (tùy chọn)
+      // setProducts([]);
+      // setTotalPages(1);
+      // setError(null);
+    }
+  }, [isOpen, initialSelectedProducts]);
+
+
+  // Hàm lấy danh sách sản phẩm từ API
+  const fetchProductsCallback = useCallback(async () => {
+    // Chỉ fetch khi modal đang mở
+    if (!isOpen) return;
+
+    setLoading(true);
+    setError(null);
+
+    const params: AdminProductListParams = {
+      page: page,
+      limit: 10, // Số lượng sản phẩm mỗi trang
+      search: searchTerm,
+      status: filters.status || 'active',
+      brandId: filters.brandId,
+      categoryId: filters.categoryId,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      sortBy: 'name', // Sắp xếp theo tên (tùy chọn)
+      sortOrder: 'asc',
+    };
+
+    try {
+      console.log('Fetching products with params:', params);
+      const result = await fetchAdminProductList(params);
+      console.log('API Result:', result);
+
+      if (result && result.products) {
+        // Chuẩn hóa dữ liệu trả về nếu cần
+        const formattedProducts = result.products.map(p => ({
+            ...p,
+            _id: p.id, // Sử dụng p.id thay vì p._id hoặc p.id || p._id
+            // Lấy ảnh chính từ p.image
+            image: p.image || 'https://via.placeholder.com/50',
+            // Chuẩn hóa giá về number
+            price: typeof p.price === 'string' ? parseFloat(p.price) : p.price,
+            originalPrice: p.originalPrice !== undefined
+                ? (typeof p.originalPrice === 'string' ? parseFloat(p.originalPrice) : p.originalPrice)
+                : (typeof p.price === 'string' ? parseFloat(p.price) : p.price),
+            // Giả sử brand là string trả về từ API product
+            brand: p.brand || 'N/A',
+            // Bỏ qua categories nếu không có sẵn hoặc không cần thiết
+            // categories: p.categories?.map(c => c.name).join(', ')
+        }));
+
+        setProducts(formattedProducts);
+        setTotalPages(result.totalPages);
+      } else {
+        setProducts([]);
+        setTotalPages(1);
+        // Có thể setError nếu result không như mong đợi ngay cả khi không có lỗi API
+        // setError("Không tìm thấy sản phẩm.");
+      }
+    } catch (err: any) {
+      console.error('Error fetching products:', err);
+      const errorMessage = err?.response?.data?.message || productError || 'Không thể tải danh sách sản phẩm.';
+      setError(errorMessage);
+      toast.error(`Lỗi tải sản phẩm: ${errorMessage}`);
+      setProducts([]); // Xóa sản phẩm cũ khi có lỗi
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [isOpen, fetchAdminProductList, page, searchTerm, filters, productError]); // Thêm productError vào dependencies
+
+  // Effect for fetching data
+  useEffect(() => {
+    fetchProductsCallback();
+  }, [fetchProductsCallback]); // fetchProductsCallback đã bao gồm dependencies cần thiết
+
+
+  // Tìm kiếm sản phẩm
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setPage(1); // Reset về trang 1 khi tìm kiếm
+  };
+
+  // Xử lý thay đổi filter tạm thời
+  const handleFilterChange = (name: keyof ProductFilter, value: any) => {
+    setTempFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Áp dụng filter
+  const applyFilters = () => {
+    setFilters(tempFilters);
+    setPage(1); // Reset về trang 1 khi áp dụng filter
+    setShowAdvancedFilters(false); // Đóng modal filter
+  };
+
+  // Xóa filter
+  const clearFilters = () => {
+    const defaultFilters = { status: 'active' };
+    setFilters(defaultFilters);
+    setTempFilters(defaultFilters);
+    setPage(1);
+    setShowAdvancedFilters(false);
+  };
+
+
+  // Kiểm tra sản phẩm/variant đã được chọn chưa
+  const isProductSelected = (productId: string, variantId?: string) => {
+    // Nếu sản phẩm không có variant (hoặc không quản lý variant), chỉ kiểm tra productId
+    if (!variantId) {
+      return tempSelectedProducts.some(p => p.productId === productId && !p.variantId);
+    }
+    // Nếu có variant, kiểm tra cả hai
     return tempSelectedProducts.some(
       p => p.productId === productId && p.variantId === variantId
     );
   };
 
-  // Thêm sản phẩm vào danh sách tạm thời
-  const handleSelectProduct = (product: any, variant: any) => {
-    const selected = isProductSelected(product.id, variant.id);
-    
+  // Thêm/Xóa sản phẩm/variant khỏi danh sách tạm thời
+  const handleSelectProduct = (product: ProductFromApi, variant?: ProductFromApi['variants'][number]) => {
+    const productId = product._id || ''; // Sử dụng _id đã chuẩn hóa
+    const variantId = variant?._id || variant?.id;
+    const selected = isProductSelected(productId, variantId);
+
+    let productToAddOrRemove: CampaignProduct;
+
+    if (variant) {
+      // Trường hợp có variant
+      productToAddOrRemove = {
+        productId: productId,
+        productName: product.name,
+        variantId: variantId,
+        variantName: variant.name,
+        // Lấy giá gốc của variant nếu có, fallback về giá gốc sản phẩm, cuối cùng là giá bán variant
+        originalPrice: variant.originalPrice ?? (typeof product.originalPrice === 'number' ? product.originalPrice : undefined) ?? variant.price,
+        // Giá điều chỉnh ban đầu có thể bằng giá gốc hoặc tính toán sau
+        adjustedPrice: variant.originalPrice ?? (typeof product.originalPrice === 'number' ? product.originalPrice : undefined) ?? variant.price,
+        image: variant.image || product.image // Ưu tiên ảnh variant
+      };
+    } else {
+      // Trường hợp không có variant (hoặc không chọn variant cụ thể)
+      productToAddOrRemove = {
+        productId: productId,
+        productName: product.name,
+        // variantId và variantName là undefined
+        originalPrice: typeof product.originalPrice === 'number' ? product.originalPrice : (typeof product.price === 'number' ? product.price : undefined),
+        adjustedPrice: typeof product.originalPrice === 'number' ? product.originalPrice : (typeof product.price === 'number' ? product.price : undefined),
+        image: product.image
+      };
+    }
+
+
     if (selected) {
       // Nếu đã chọn rồi thì xóa khỏi danh sách
-      setTempSelectedProducts(prev => 
-        prev.filter(p => !(p.productId === product.id && p.variantId === variant.id))
+      setTempSelectedProducts(prev =>
+        prev.filter(p => !(p.productId === productId && p.variantId === variantId))
       );
     } else {
       // Nếu chưa chọn thì thêm vào danh sách
-      setTempSelectedProducts(prev => [
-        ...prev,
-        {
-          productId: product.id,
-          productName: product.name,
-          variantId: variant.id,
-          variantName: variant.name,
-          originalPrice: variant.price,
-          adjustedPrice: Math.round(variant.price * 0.9), // Giảm giá mặc định 10%
-          image: product.image
-        }
-      ]);
+      // Kiểm tra xem sản phẩm (không có variant) đã tồn tại chưa nếu đang thêm variant
+       if (variantId && tempSelectedProducts.some(p => p.productId === productId && !p.variantId)) {
+         // Nếu sản phẩm gốc đã được chọn, xóa nó đi trước khi thêm variant
+         setTempSelectedProducts(prev => [
+           ...prev.filter(p => !(p.productId === productId && !p.variantId)),
+           productToAddOrRemove
+         ]);
+       } else if (!variantId && tempSelectedProducts.some(p => p.productId === productId && p.variantId)) {
+           // Nếu đang thêm sản phẩm gốc mà đã có variant được chọn, xóa các variant đó đi
+            setTempSelectedProducts(prev => [
+                ...prev.filter(p => p.productId !== productId),
+                productToAddOrRemove
+            ]);
+       }
+       else {
+           setTempSelectedProducts(prev => [...prev, productToAddOrRemove]);
+       }
     }
   };
 
+
   // Xác nhận thêm sản phẩm
   const handleConfirm = () => {
+    // Có thể thêm bước điều chỉnh giá ở đây nếu cần
     onAddProducts(tempSelectedProducts);
+    // onClose(); // Giữ modal mở sau khi add? Hoặc đóng tùy UX
   };
 
-  // Danh sách danh mục
-  const categories = ['Skin Care', 'Sun Care', 'Cleansers', 'Toners', 'Masks'];
+  // Xử lý chuyển trang
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  // Định dạng giá tiền
+  const formatPrice = (price: number | string | undefined): string => {
+    if (price === undefined || price === null) return 'N/A';
+    const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+    if (isNaN(numericPrice)) return 'N/A';
+    return numericPrice.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+  };
+
+
+  // Danh sách danh mục (giờ đã lấy từ context)
+  // const categories = ['Skin Care', 'Sun Care', 'Cleansers', 'Toners', 'Masks'];
+
+  // Render advanced filters popup
+  const renderAdvancedFilters = () => (
+    <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-md shadow-lg z-20 p-4">
+      <h4 className="text-sm font-medium mb-3">Bộ lọc nâng cao</h4>
+      {/* Brand Filter */}
+      <div className="mb-3">
+        <label htmlFor="brandFilter" className="block text-sm font-medium text-gray-700 mb-1">Thương hiệu</label>
+        <select
+          id="brandFilter"
+          name="brandId"
+          value={tempFilters.brandId || ''}
+          onChange={(e) => handleFilterChange('brandId', e.target.value || undefined)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+        >
+          <option value="">Tất cả thương hiệu</option>
+          {brandsList.map((brand) => (
+            <option key={brand.id} value={brand.id}>{brand.name}</option>
+          ))}
+        </select>
+      </div>
+      {/* Category Filter */}
+      <div className="mb-3">
+        <label htmlFor="categoryFilter" className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+        <select
+          id="categoryFilter"
+          name="categoryId"
+          value={tempFilters.categoryId || ''}
+          onChange={(e) => handleFilterChange('categoryId', e.target.value || undefined)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+        >
+          <option value="">Tất cả danh mục</option>
+          {categoriesList.map((category) => (
+            <option key={category.id} value={category.id}>{category.name}</option>
+          ))}
+        </select>
+      </div>
+      {/* Price Filter */}
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor="minPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá từ</label>
+          <input
+            type="number"
+            id="minPriceFilter"
+            name="minPrice"
+            placeholder="VNĐ"
+            value={tempFilters.minPrice?.toString() || ''}
+            onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+          />
+        </div>
+        <div>
+          <label htmlFor="maxPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá đến</label>
+          <input
+            type="number"
+            id="maxPriceFilter"
+            name="maxPrice"
+            placeholder="VNĐ"
+            value={tempFilters.maxPrice?.toString() || ''}
+            onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+          />
+        </div>
+      </div>
+      {/* Status Filter */}
+      <div className="mb-4">
+        <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+        <select
+          id="statusFilter"
+          name="status"
+          value={tempFilters.status || 'active'}
+          onChange={(e) => handleFilterChange('status', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+        >
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngừng hoạt động</option>
+          <option value="draft">Bản nháp</option>
+          <option value="">Tất cả</option>
+        </select>
+      </div>
+      {/* Action Buttons */}
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={clearFilters}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Xóa lọc
+        </button>
+        <button
+          onClick={applyFilters}
+          className="px-3 py-1.5 text-sm bg-pink-500 text-white rounded-md hover:bg-pink-600"
+        >
+          Áp dụng
+        </button>
+      </div>
+    </div>
+  );
+
+
+  // ---- RENDER ----
+  if (!isOpen) return null; // Không render nếu modal đóng
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-      
-      <div className="relative bg-white rounded-lg shadow-xl w-[95vw] max-w-5xl mx-auto z-50">
-        <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center justify-between">
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+
+      {/* Modal Content */}
+      <div className="relative bg-white rounded-lg shadow-xl w-[95vw] max-w-6xl mx-auto z-50 flex flex-col h-[90vh]">
+        {/* Header */}
+        <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center justify-between flex-shrink-0">
           <h3 className="text-lg font-medium text-gray-900">
             Chọn sản phẩm cho chiến dịch
           </h3>
@@ -163,154 +472,338 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
             <FiX className="h-6 w-6" />
           </button>
         </div>
-          
-        <div className="p-4">
-          <p className="text-sm text-gray-500 mb-4">
-            Chọn các sản phẩm và thiết lập giá đặc biệt cho chiến dịch của bạn.
+
+        {/* Body */}
+        <div className="p-4 flex-grow overflow-hidden flex flex-col">
+          <p className="text-sm text-gray-500 mb-4 flex-shrink-0">
+            Tìm kiếm, lọc và chọn các sản phẩm hoặc biến thể sản phẩm để thêm vào chiến dịch. Bạn có thể điều chỉnh giá sau khi thêm.
           </p>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0 mb-4">
-            <div className="w-full md:w-1/3">
-              <div className="relative">
+          {/* Search and Filter Bar - Đồng bộ giao diện từ EventProductAddModal */}
+          <div className="px-4 py-3 sm:px-6 border-b border-gray-200">
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[250px]">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <FiSearch className="h-5 w-5 text-gray-400" />
+                 </div>
                 <input
                   type="text"
-                  placeholder="Tìm kiếm sản phẩm..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 pl-10"
+                  placeholder="Tìm kiếm theo tên, SKU..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                 />
-                <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
+              </div>
+
+              {/* Filter Button - Thay đổi class và vị trí */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-500 flex items-center text-sm"
+              >
+                <FiFilter className="mr-1 h-4 w-4" />
+                <span>Lọc nâng cao</span>
+                {showAdvancedFilters ? <FiChevronUp className="ml-1 h-4 w-4" /> : <FiChevronDown className="ml-1 h-4 w-4" />}
+              </button>
+            </div>
+
+             {/* Advanced Filters Popup - Cập nhật layout và class */}
+             {showAdvancedFilters && (
+              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                 {/* Brand Filter */}
+                 <div>
+                   <label htmlFor="brandFilter" className="block text-sm font-medium text-gray-700 mb-1">Thương hiệu</label>
+                   <select
+                     id="brandFilter"
+                     name="brandId"
+                     value={tempFilters.brandId || ''}
+                     onChange={(e) => handleFilterChange('brandId', e.target.value || undefined)}
+                     className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                   >
+                     <option value="">Tất cả thương hiệu</option>
+                     {brandsList.map((brand) => (
+                       <option key={brand.id} value={brand.id}>{brand.name}</option>
+                     ))}
+                   </select>
+                 </div>
+                 {/* Category Filter */}
+                 <div>
+                   <label htmlFor="categoryFilter" className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                   <select
+                     id="categoryFilter"
+                     name="categoryId"
+                     value={tempFilters.categoryId || ''}
+                     onChange={(e) => handleFilterChange('categoryId', e.target.value || undefined)}
+                     className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                   >
+                     <option value="">Tất cả danh mục</option>
+                     {categoriesList.map((category) => (
+                       <option key={category.id} value={category.id}>{category.name}</option>
+                     ))}
+                   </select>
+                 </div>
+                 {/* Status Filter */}
+                 <div>
+                   <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                   <select
+                     id="statusFilter"
+                     name="status"
+                     value={tempFilters.status || 'active'}
+                     onChange={(e) => handleFilterChange('status', e.target.value)}
+                     className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                   >
+                     <option value="active">Đang hoạt động</option>
+                     <option value="inactive">Ngừng hoạt động</option>
+                     <option value="draft">Bản nháp</option>
+                     <option value="">Tất cả</option>
+                   </select>
+                 </div>
+                 {/* Price Range Filter */}
+                 <div className="grid grid-cols-2 gap-2">
+                   <div>
+                     <label htmlFor="minPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá từ</label>
+                     <input
+                       type="number"
+                       id="minPriceFilter"
+                       name="minPrice"
+                       placeholder="0đ"
+                       value={tempFilters.minPrice?.toString() || ''}
+                       onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+                       className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                     />
+                   </div>
+                   <div>
+                     <label htmlFor="maxPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Đến</label>
+                     <input
+                       type="number"
+                       id="maxPriceFilter"
+                       name="maxPrice"
+                       placeholder="1,000,000đ"
+                       value={tempFilters.maxPrice?.toString() || ''}
+                       onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+                       className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                     />
+                   </div>
+                 </div>
+                 {/* Filter Actions - Cập nhật class nút */}
+                 <div className="col-span-full flex justify-end space-x-2 mt-2">
+                   <button
+                     type="button"
+                     onClick={clearFilters}
+                     className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                   >
+                     Xóa bộ lọc
+                   </button>
+                   <button
+                     type="button"
+                     onClick={applyFilters}
+                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                   >
+                     Áp dụng
+                   </button>
+                 </div>
+               </div>
+             )}
+           </div>
+
+          {/* Loading and Error State */}
+          {loading && (
+            <div className="text-center py-10 flex-grow flex items-center justify-center">
+              <p>Đang tải sản phẩm...</p>
+              {/* Optionally add a spinner */}
+            </div>
+          )}
+          {error && !loading && (
+             <div className="text-center py-10 flex-grow flex items-center justify-center text-red-600">
+               <p>Lỗi: {error}</p>
+             </div>
+           )}
+
+          {/* Product Table */}
+          {!loading && !error && (
+            <div className="flex-grow overflow-hidden border border-gray-200 rounded-md">
+              <div className="h-full overflow-y-auto">
+                <table className="w-full table-auto divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[40%]">Sản phẩm</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Biến thể / SKU</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Giá gốc</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Thương hiệu</th>
+                      <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Chọn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {products.length === 0 ? (
+                       <tr>
+                         <td colSpan={5} className="text-center py-10 text-gray-500">Không tìm thấy sản phẩm phù hợp.</td>
+                       </tr>
+                     ) : (
+                       products.map((product) => (
+                        // Nếu API trả về variants, lặp qua variants. Nếu không, hiển thị product chính.
+                        (product.variants && product.variants.length > 0) ? (
+                          product.variants.map((variant, index) => {
+                            const currentVariantId = variant._id || variant.id;
+                            const isSelected = isProductSelected(product._id || '', currentVariantId);
+                            return (
+                             <tr key={`${product._id}-${currentVariantId || index}`} className={`${isSelected ? 'bg-pink-50' : ''} hover:bg-gray-50`}>
+                               {/* Chỉ hiển thị thông tin sản phẩm ở dòng đầu tiên của variants */}
+                               {index === 0 ? (
+                                <td className={`px-4 py-3 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
+                                  <div className="flex items-start">
+                                    <div className="flex-shrink-0 h-12 w-12">
+                                      <Image
+                                        src={product.image || 'https://via.placeholder.com/50'}
+                                        alt={product.name}
+                                        width={48}
+                                        height={48}
+                                        className="rounded-md object-cover"
+                                        unoptimized // Bỏ qua tối ưu hóa Next.js nếu URL từ Cloudinary
+                                      />
+                                    </div>
+                                    <div className="ml-3">
+                                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                      <div className="text-xs text-gray-500">ID: {product._id}</div>
+                                      {/* Có thể thêm description ngắn nếu cần */}
+                                    </div>
+                                  </div>
+                                </td>
+                              ) : (
+                                // Các dòng variant sau chỉ cần ô trống hoặc border
+                                <td className="px-4 py-3 border-t border-gray-200"></td>
+                              )}
+                              {/* Thông tin Variant */}
+                              <td className="px-4 py-3 text-sm text-gray-700 align-top">
+                                <div>{variant.name}</div>
+                                <div className="text-xs text-gray-500">SKU: {variant.sku || 'N/A'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 align-top">{formatPrice(variant.originalPrice ?? variant.price)}</td>
+                              {/* Chỉ hiển thị thương hiệu ở dòng đầu tiên */}
+                              {index === 0 ? (
+                                 <td className={`px-4 py-3 text-sm text-gray-500 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
+                                   {product.brand}
+                                  </td>
+                              ) : (
+                                  <td className="px-4 py-3 border-t border-gray-200"></td>
+                              )}
+                              {/* Nút chọn Variant */}
+                              <td className="px-4 py-3 text-center align-top">
+                                <button
+                                  onClick={() => handleSelectProduct(product, variant)}
+                                  className={`p-1.5 rounded-full transition-colors duration-150 ${
+                                    isSelected
+                                      ? 'bg-pink-500 text-white hover:bg-pink-600'
+                                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                  }`}
+                                  aria-label={isSelected ? 'Bỏ chọn' : 'Chọn'}
+                                >
+                                  {isSelected ? <FiCheck size={14} /> : <FiPlus size={14} />}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                        ) : (
+                          // Trường hợp sản phẩm không có variants
+                          <tr key={product._id} className={`${isProductSelected(product._id || '') ? 'bg-pink-50' : ''} hover:bg-gray-50`}>
+                             <td className="px-4 py-3">
+                               <div className="flex items-center">
+                                 <div className="flex-shrink-0 h-12 w-12">
+                                   <Image
+                                     src={product.image || 'https://via.placeholder.com/50'}
+                                     alt={product.name}
+                                     width={48}
+                                     height={48}
+                                     className="rounded-md object-cover"
+                                     unoptimized
+                                   />
+                                 </div>
+                                 <div className="ml-3">
+                                   <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                    <div className="text-xs text-gray-500">ID: {product._id}</div>
+                                    <div className="text-xs text-gray-500">SKU: {product.sku || 'N/A'}</div>
+                                 </div>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-sm text-gray-500 italic">Sản phẩm gốc</td>
+                             <td className="px-4 py-3 text-sm text-gray-500">{formatPrice(product.originalPrice ?? product.price)}</td>
+                             <td className="px-4 py-3 text-sm text-gray-500">
+                                {product.brand}
+                             </td>
+                             <td className="px-4 py-3 text-center">
+                               <button
+                                 onClick={() => handleSelectProduct(product)}
+                                 className={`p-1.5 rounded-full transition-colors duration-150 ${
+                                    isProductSelected(product._id || '')
+                                      ? 'bg-pink-500 text-white hover:bg-pink-600'
+                                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                  }`}
+                                   aria-label={isProductSelected(product._id || '') ? 'Bỏ chọn' : 'Chọn'}
+                                >
+                                  {isProductSelected(product._id || '') ? <FiCheck size={14} /> : <FiPlus size={14} />}
+                                </button>
+                             </td>
+                           </tr>
+                        )
+                       ))
+                     )}
+                  </tbody>
+                </table>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="all">Tất cả danh mục</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
-          <div className="mt-2 border border-gray-200 rounded-md">
-            <div className="max-h-[55vh] overflow-y-auto">
-              <table className="w-full table-fixed divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[35%]">
-                      Sản phẩm
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
-                      Biến thể
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
-                      Giá bán
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
-                      Danh mục
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">
-                      Thao tác
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((product) => (
-                    product.variants.map((variant) => (
-                      <tr key={`${product.id}-${variant.id}`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <Image
-                                src={product.image}
-                                alt={product.name}
-                                width={40}
-                                height={40}
-                                className="rounded-md object-cover"
-                              />
-                            </div>
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
-                                {product.name}
-                              </div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {product.description.substring(0, 50)}...
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {variant.name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {variant.price.toLocaleString('vi-VN')}₫
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {product.category}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectProduct(product, variant)}
-                            className={`inline-flex items-center px-3 py-1.5 border rounded-md text-sm font-medium ${
-                              isProductSelected(product.id, variant.id)
-                                ? 'border-pink-300 bg-pink-100 text-pink-700 hover:bg-pink-200'
-                                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {isProductSelected(product.id, variant.id) ? (
-                              <>
-                                <FiCheck className="mr-1.5 -ml-0.5 h-4 w-4" />
-                                Đã chọn
-                              </>
-                            ) : (
-                              <>
-                                <FiPlus className="mr-1.5 -ml-0.5 h-4 w-4" />
-                                Chọn
-                              </>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center">
-          <div className="text-sm text-gray-500 mb-3 sm:mb-0">
-            Đã chọn {tempSelectedProducts.length} sản phẩm
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={onClose}
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={handleConfirm}
-            >
-              Xác nhận ({tempSelectedProducts.length} sản phẩm)
-            </button>
-          </div>
+
+           {/* Footer with Pagination and Actions */}
+            <div className="mt-4 flex-shrink-0 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 pt-3">
+             {/* Pagination */}
+             {!loading && !error && totalPages > 1 && (
+               <div className="flex items-center justify-center space-x-2 mb-3 sm:mb-0">
+                 <button
+                   onClick={() => handlePageChange(page - 1)}
+                   disabled={page === 1}
+                   className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                 >
+                   <FiChevronLeft className="h-5 w-5" />
+                 </button>
+                 <span className="text-sm text-gray-700">
+                   Trang {page} / {totalPages}
+                 </span>
+                 <button
+                   onClick={() => handlePageChange(page + 1)}
+                   disabled={page === totalPages}
+                   className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                 >
+                   <FiChevronRight className="h-5 w-5" />
+                 </button>
+               </div>
+             )}
+             <div className="sm:ml-auto flex items-center space-x-3">
+               <span className="text-sm text-gray-600">
+                 Đã chọn: {tempSelectedProducts.length} sản phẩm/biến thể
+               </span>
+               <button
+                 type="button"
+                 onClick={onClose}
+                 className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+               >
+                 Hủy
+               </button>
+               <button
+                 type="button"
+                 onClick={handleConfirm}
+                 disabled={tempSelectedProducts.length === 0 || loading}
+                 className="px-4 py-2 text-sm bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                 Thêm sản phẩm đã chọn
+               </button>
+             </div>
+           </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default ProductSelectionTable; 
+export default ProductSelectionTable;

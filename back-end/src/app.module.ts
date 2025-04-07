@@ -17,6 +17,7 @@ import { BranchesModule } from './branches/branches.module';
 import { ProductsModule } from './products/products.module';
 import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersModule
 import { EventsModule } from './events/events.module'; // Import EventsModule
+import { CampaignsModule } from './campaigns/campaigns.module'; // Import CampaignsModule
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { EventsModule } from './events/events.module'; // Import EventsModule
     ProductsModule,
     VouchersModule, // Add VouchersModule here
     EventsModule, // Add EventsModule here
+    CampaignsModule, // Add CampaignsModule here
   ],
   controllers: [AppController],
   providers: [AppService],

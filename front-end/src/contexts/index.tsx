@@ -10,6 +10,7 @@ import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
 import { VoucherProvider } from './VoucherContext';
 import { EventsProvider } from './EventsContext';
+import { CampaignProvider } from './CampaignContext'; // Import CampaignProvider
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -19,7 +20,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Hàm kiểm tra đường dẫn
     const checkPath = (path: string) => {
-      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product') || path.startsWith('/admin/events');
+      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product') || path.startsWith('/admin/events') || path.startsWith('/admin/campaigns');
     };
     
     // Kiểm tra ngay lập tức dựa trên window.location
@@ -117,7 +118,10 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
             <BrandProvider>
               <CategoryProvider>
                 <BranchProvider>
-                  {wrapWithProviders(children)}
+                  {/* Wrap with CampaignProvider */}
+                  <CampaignProvider> 
+                    {wrapWithProviders(children)}
+                  </CampaignProvider>
                 </BranchProvider>
               </CategoryProvider>
             </BrandProvider>
@@ -139,6 +143,7 @@ export { useProduct } from './ProductContext';
 export { ProductContext } from './ProductContext';
 export { useVoucher } from './VoucherContext';
 export { useEvents } from './EventsContext';
+export { useCampaign } from './CampaignContext'; // Export useCampaign
 
 // Alias cho useBrands (để tương thích ngược)
 export const useBrand = useBrands;
