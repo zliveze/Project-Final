@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSearch, FiPlus, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiX, FiSearch, FiPlus, FiChevronLeft, FiChevronRight, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useProduct } from '@/contexts/ProductContext';
+import { useBrands } from '@/contexts/BrandContext';
+import { useCategory } from '@/contexts/CategoryContext';
 import { toast } from 'react-hot-toast';
 
 // Định nghĩa interface cho sản phẩm từ API
@@ -11,10 +13,32 @@ interface Product {
   image: string;
   price: number | string;
   currentPrice?: number | string;
+  originalPrice?: number | string;
   brandId?: string;
   brand?: string;
   status?: string;
   sku?: string;
+  categoryIds?: string[];
+  flags?: {
+    isBestSeller?: boolean;
+    isNew?: boolean;
+    isOnSale?: boolean;
+    hasGifts?: boolean;
+  };
+  images?: Array<{url: string, alt: string, isPrimary?: boolean}>;
+}
+
+// Interface cho bộ lọc sản phẩm
+interface ProductFilter {
+  brandId?: string;
+  categoryId?: string;
+  status?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isBestSeller?: boolean;
+  isNew?: boolean;
+  isOnSale?: boolean;
+  hasGifts?: boolean;
 }
 
 // Interface để phù hợp với AdminProduct từ API
@@ -22,6 +46,24 @@ interface AdminProductResponse {
   products: Product[];
   total: number;
   totalPages: number;
+}
+
+// Thêm định nghĩa cho tham số fetchAdminProductList
+interface AdminProductListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  brandId?: string;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isBestSeller?: boolean;
+  isNew?: boolean;
+  isOnSale?: boolean;
+  hasGifts?: boolean;
 }
 
 interface EventProductAddModalProps {
@@ -45,6 +87,8 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   excludedProductIds = []
 }) => {
   const { fetchAdminProductList } = useProduct();
+  const { brands } = useBrands();
+  const { categories } = useCategory();
   const [modalVisible, setModalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -62,6 +106,38 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   }[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30); // Mặc định giảm 30%
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // State cho filter nâng cao
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [brandsList, setBrands] = useState<{id: string, name: string}[]>([]);
+  const [categoriesList, setCategories] = useState<{id: string, name: string}[]>([]);
+  const [filters, setFilters] = useState<ProductFilter>({
+    status: 'active',
+  });
+  const [tempFilters, setTempFilters] = useState<ProductFilter>({
+    status: 'active',
+  });
+
+  // Chỉ cập nhật danh sách brandsList và categoriesList khi brands hoặc categories thay đổi
+  useEffect(() => {
+    if (brands && brands.length > 0) {
+      const brandItems = brands.map(brand => ({
+        id: brand.id || '',
+        name: brand.name
+      }));
+      setBrands(brandItems);
+    }
+  }, [brands]);
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      const categoryItems = categories.map(category => ({
+        id: category._id || '',
+        name: category.name
+      }));
+      setCategories(categoryItems);
+    }
+  }, [categories]);
 
   // Effect for modal visibility and resetting state
   useEffect(() => {
@@ -83,37 +159,66 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
   // Hàm lấy danh sách sản phẩm từ API
   const fetchProducts = useCallback(async () => {
-    // toast.info(`Fetching products... Page: ${page}, Search: "${searchTerm}"`); // Removed temporary log
     try {
       setLoading(true);
       setError(null);
 
-      const result = await fetchAdminProductList({
+      const params: AdminProductListParams = {
         page: page,
         limit: 12,
         search: searchTerm,
-        status: 'active',
-        sortBy: 'name',
-        sortOrder: 'asc'
-      });
+        status: filters.status || 'active',
+        brandId: filters.brandId,
+        categoryId: filters.categoryId,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        isBestSeller: filters.isBestSeller,
+        isNew: filters.isNew,
+        isOnSale: filters.isOnSale,
+        hasGifts: filters.hasGifts
+      };
+
+      console.log('Tham số gửi đến API để lọc sản phẩm:', params);
+      const result = await fetchAdminProductList(params);
+      console.log('Kết quả trả về từ API:', result);
       
       if (result) {
+        // Kiểm tra kiểu dữ liệu của sản phẩm đầu tiên nếu có
+        if (result.products && result.products.length > 0) {
+          console.log('Chi tiết sản phẩm đầu tiên:', result.products[0]);
+          console.log('Giá gốc (price):', result.products[0].price, 'kiểu:', typeof result.products[0].price);
+          console.log('Giá hiện tại (currentPrice):', result.products[0].currentPrice, 'kiểu:', typeof result.products[0].currentPrice);
+          console.log('Giá gốc dạng số (originalPrice):', result.products[0].originalPrice, 'kiểu:', typeof result.products[0].originalPrice);
+        }
+        
         // Chuyển đổi price từ string sang number nếu cần
-        const formattedProducts = result.products.map(product => ({
-          ...product,
-          _id: product.id,
-          price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
-          currentPrice: typeof product.currentPrice === 'string' ? 
-            parseFloat(product.currentPrice) : product.currentPrice
-        }));
+        const formattedProducts = result.products.map(product => {
+          // Chuyển đổi product sang product với _id
+          const formattedProduct = {
+            ...product,
+            _id: product.id,
+            // Đảm bảo đặt giá đúng
+            price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+            currentPrice: product.currentPrice !== undefined ? 
+              (typeof product.currentPrice === 'string' ? parseFloat(product.currentPrice) : product.currentPrice) : 
+              (typeof product.price === 'string' ? parseFloat(product.price) : product.price),
+            originalPrice: product.originalPrice !== undefined ? 
+              (typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice) : 
+              (typeof product.price === 'string' ? parseFloat(product.price) : product.price)
+          };
+          console.log(`Sản phẩm ${product.name} sau khi format:`, {
+            price: formattedProduct.price,
+            currentPrice: formattedProduct.currentPrice,
+            originalPrice: formattedProduct.originalPrice
+          });
+          return formattedProduct;
+        });
         
         setProducts(formattedProducts);
         setTotalPages(result.totalPages);
-        // toast.success(`Fetched ${formattedProducts.length} products.`); // Removed temporary log
       } else {
         setProducts([]);
         setTotalPages(1);
-        // toast.warn('API returned no result for products.'); // Removed temporary log
       }
     } catch (err: any) { // Explicitly type err
       console.error('Error fetching products:', err);
@@ -123,7 +228,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [fetchAdminProductList, page, searchTerm]);
+  }, [fetchAdminProductList, page, searchTerm, filters]);
 
   // Effect for fetching data (initial with delay, subsequent immediately)
   useEffect(() => {
@@ -147,12 +252,49 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       if (fetchTimer) clearTimeout(fetchTimer);
     };
   // Fetch when modal is open/visible, page/search changes, or on initial load flag change
-  }, [isOpen, modalVisible, page, searchTerm, fetchProducts, isInitialLoad]);
+  }, [isOpen, modalVisible, page, searchTerm, fetchProducts, isInitialLoad, filters]);
 
   // Xử lý tìm kiếm với debounce
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     setPage(1); // Reset về trang 1 khi tìm kiếm
+  };
+  
+  // Xử lý thay đổi filter
+  const handleFilterChange = (name: keyof ProductFilter, value: any) => {
+    setTempFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Áp dụng bộ lọc
+  const applyFilters = () => {
+    console.log('Applying filters:', tempFilters);
+    // Đảm bảo các giá trị lọc được chuyển đúng định dạng
+    const sanitizedFilters = {
+      ...tempFilters,
+      brandId: tempFilters.brandId || undefined,
+      categoryId: tempFilters.categoryId || undefined,
+      isBestSeller: tempFilters.isBestSeller === true ? true : undefined,
+      isNew: tempFilters.isNew === true ? true : undefined,
+      isOnSale: tempFilters.isOnSale === true ? true : undefined,
+      hasGifts: tempFilters.hasGifts === true ? true : undefined,
+    };
+    
+    console.log('Sanitized filters:', sanitizedFilters);
+    setFilters(sanitizedFilters);
+    setPage(1); // Reset về trang 1 khi áp dụng bộ lọc
+    setShowAdvancedFilters(false); // Đóng bộ lọc nâng cao
+  };
+  
+  // Xóa bộ lọc
+  const clearFilters = () => {
+    const defaultFilters = { status: 'active' };
+    console.log('Clearing filters, setting to:', defaultFilters);
+    setTempFilters(defaultFilters);
+    setFilters(defaultFilters);
+    setPage(1);
   };
   
   // Lọc sản phẩm đã được thêm vào sự kiện
@@ -174,15 +316,31 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       setSelectedProducts(prev => prev.filter(item => item.productId !== productId));
     } else {
       // Chọn sản phẩm và tính giá sau khi áp dụng % giảm giá
-      const productPrice = typeof product.price === 'string' ? 
-        parseFloat(product.price) : (product.price || 0);
+      // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
+      let productPrice = 0;
+      
+      if (product.originalPrice) {
+        productPrice = typeof product.originalPrice === 'string' ? 
+          parseFloat(product.originalPrice) : product.originalPrice;
+      } else if (product.price) {
+        productPrice = typeof product.price === 'string' ? 
+          parseFloat(product.price) : (product.price || 0);
+      }
+      
       const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
+      
+      // Lấy ảnh đầu tiên hoặc ảnh được đánh dấu là primary từ mảng images nếu có
+      let productImage = product.image;
+      if (product.images && product.images.length > 0) {
+        const primaryImage = product.images.find(img => img.isPrimary);
+        productImage = primaryImage ? primaryImage.url : product.images[0].url;
+      }
       
       setSelectedProducts(prev => [...prev, {
         productId: productId,
         adjustedPrice,
         name: product.name,
-        image: product.image,
+        image: productImage,
         originalPrice: productPrice
       }]);
     }
@@ -200,8 +358,14 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         let originalPrice = product.originalPrice || 0;
         
         if (originalProduct) {
-          originalPrice = typeof originalProduct.price === 'string' ? 
-            parseFloat(originalProduct.price) : (originalProduct.price || 0);
+          // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
+          if (originalProduct.originalPrice) {
+            originalPrice = typeof originalProduct.originalPrice === 'string' ? 
+              parseFloat(originalProduct.originalPrice) : originalProduct.originalPrice;
+          } else if (originalProduct.price) {
+            originalPrice = typeof originalProduct.price === 'string' ? 
+              parseFloat(originalProduct.price) : (originalProduct.price || 0);
+          }
         }
         
         const newAdjustedPrice = Math.round(originalPrice * (100 - value) / 100);
@@ -250,10 +414,8 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   // Hàm định dạng giá tiền
   const formatPrice = (price: number | string): string => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat('vi-VN', { 
-      style: 'currency', 
-      currency: 'VND' 
-    }).format(numPrice);
+    // Không nhân lên 1000 nữa vì giá trong DB đã đúng (150000)
+    return new Intl.NumberFormat('vi-VN').format(numPrice) + ' ₫';
   };
 
   if (!modalVisible) return null;
@@ -319,7 +481,184 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Filter Button */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
+              >
+                <FiFilter className="mr-1" />
+                Lọc nâng cao
+                {showAdvancedFilters ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />}
+              </button>
             </div>
+            
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                
+                {/* Brand Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Thương hiệu
+                  </label>
+                  <select
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    value={tempFilters.brandId || ''}
+                    onChange={(e) => {
+                      console.log('Selected brand ID:', e.target.value);
+                      handleFilterChange('brandId', e.target.value || undefined);
+                    }}
+                  >
+                    <option value="">Tất cả thương hiệu</option>
+                    {brandsList.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Danh mục
+                  </label>
+                  <select
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    value={tempFilters.categoryId || ''}
+                    onChange={(e) => {
+                      console.log('Selected category ID:', e.target.value);
+                      handleFilterChange('categoryId', e.target.value || undefined);
+                    }}
+                  >
+                    <option value="">Tất cả danh mục</option>
+                    {categoriesList.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Trạng thái
+                  </label>
+                  <select
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    value={tempFilters.status || 'active'}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                  >
+                    <option value="active">Đang bán</option>
+                    <option value="out_of_stock">Hết hàng</option>
+                    <option value="discontinued">Ngừng kinh doanh</option>
+                    <option value="">Tất cả trạng thái</option>
+                  </select>
+                </div>
+                
+                {/* Price Range Filter */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Giá từ</label>
+                    <input
+                      type="number"
+                      className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                      value={tempFilters.minPrice || ''}
+                      onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="0đ"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Đến</label>
+                    <input
+                      type="number"
+                      className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                      value={tempFilters.maxPrice || ''}
+                      onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="1,000,000đ"
+                    />
+                  </div>
+                </div>
+                
+                {/* Flag Filters */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Các đặc tính
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="flex items-center">
+                      <input
+                        id="flag-best-seller"
+                        type="checkbox"
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        checked={!!tempFilters.isBestSeller}
+                        onChange={(e) => handleFilterChange('isBestSeller', e.target.checked || undefined)}
+                      />
+                      <label htmlFor="flag-best-seller" className="ml-2 block text-sm text-gray-700">
+                        Bán chạy
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="flag-new"
+                        type="checkbox"
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        checked={!!tempFilters.isNew}
+                        onChange={(e) => handleFilterChange('isNew', e.target.checked || undefined)}
+                      />
+                      <label htmlFor="flag-new" className="ml-2 block text-sm text-gray-700">
+                        Sản phẩm mới
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="flag-on-sale"
+                        type="checkbox"
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        checked={!!tempFilters.isOnSale}
+                        onChange={(e) => handleFilterChange('isOnSale', e.target.checked || undefined)}
+                      />
+                      <label htmlFor="flag-on-sale" className="ml-2 block text-sm text-gray-700">
+                        Đang giảm giá
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="flag-has-gifts"
+                        type="checkbox"
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        checked={!!tempFilters.hasGifts}
+                        onChange={(e) => handleFilterChange('hasGifts', e.target.checked || undefined)}
+                      />
+                      <label htmlFor="flag-has-gifts" className="ml-2 block text-sm text-gray-700">
+                        Có quà tặng
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Filter Actions */}
+                <div className="col-span-full flex justify-end space-x-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Product List */}
@@ -347,9 +686,33 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 {filteredProducts.map((product) => {
                   const productId = product._id || product.id || '';
                   const isSelected = isProductSelected(productId);
-                  const productPrice = typeof product.price === 'string' ? 
-                    parseFloat(product.price) : (product.price || 0);
+                  
+                  // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) sau đó mới đến price
+                  let productPrice = 0;
+                  // Log để debug
+                  console.log(`Sản phẩm ${product.name}:`, product);
+                  
+                  if (product.originalPrice) {
+                    productPrice = typeof product.originalPrice === 'string' ? 
+                      parseFloat(product.originalPrice) : product.originalPrice;
+                  } else if (product.price) {
+                    productPrice = typeof product.price === 'string' ? 
+                      parseFloat(product.price) : product.price;
+                  }
+                  
+                  console.log(`Giá cuối cùng của sản phẩm ${product.name}: ${productPrice}`);
+                  
                   const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
+                  
+                  // Lấy ảnh sản phẩm
+                  let productImage = product.image;
+                  if (product.images && product.images.length > 0) {
+                    const primaryImage = product.images.find(img => img.isPrimary);
+                    productImage = primaryImage ? primaryImage.url : product.images[0].url;
+                  }
+                  
+                  // Tính phần trăm giảm giá thực tế
+                  const actualDiscount = Math.round(((productPrice - adjustedPrice) / productPrice) * 100);
                   
                   return (
                     <div
@@ -362,9 +725,9 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                       <div className="p-4">
                         <div className="flex mb-2">
                           <div className="h-16 w-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                            {product.image ? (
+                            {productImage ? (
                               <img
-                                src={product.image}
+                                src={productImage}
                                 alt={product.name}
                                 className="h-full w-full object-cover"
                               />
@@ -399,7 +762,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                             {isSelected ? 'Đã chọn' : 'Chưa chọn'}
                           </div>
                           <div className="text-xs font-medium text-pink-600">
-                            -{discountPercent}%
+                            -{actualDiscount}%
                           </div>
                         </div>
                       </div>

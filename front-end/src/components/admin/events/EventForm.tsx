@@ -59,7 +59,7 @@ const EventForm: React.FC<EventFormProps> = ({
         // Đảm bảo startDate và endDate là đối tượng Date
         startDate: initialData.startDate ? new Date(initialData.startDate) : prev.startDate,
         endDate: initialData.endDate ? new Date(initialData.endDate) : prev.endDate,
-        // Đảm bảo mảng products là một mảng mới
+        // Đảm bảo mảng products là một mảng mới và luôn cập nhật khi có thay đổi
         products: initialData.products ? [...initialData.products] : []
       }));
     }

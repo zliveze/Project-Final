@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiX, FiExternalLink, FiCalendar, FiTag, FiClock } from 'react-icons/fi';
 import { format, formatDistanceToNow, isAfter, isBefore, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Event } from './EventsTable';
+import { Event, ProductInEvent } from '@/contexts/EventsContext';
 
 interface EventViewModalProps {
   isOpen: boolean;
@@ -253,30 +253,84 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                       <thead className="bg-gray-50">
                         <tr>
                           <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ID sản phẩm
+                            Sản phẩm
                           </th>
                           <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Variant ID
+                            Giá gốc
                           </th>
                           <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Giá khuyến mãi
                           </th>
+                          <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Giảm giá
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {event.products.map((product, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-pink-600 font-medium">
-                              {product.productId}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {product.variantId || 'N/A'}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.adjustedPrice)}
+                        {event.products.map((product, index) => {
+                          // Tính phần trăm giảm giá (nếu có originalPrice)
+                          const discountPercent = product.originalPrice 
+                            ? Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)
+                            : 0;
+                            
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  {product.image ? (
+                                    <div className="flex-shrink-0 h-10 w-10 mr-3">
+                                      <img 
+                                        className="h-10 w-10 rounded-md object-cover" 
+                                        src={product.image} 
+                                        alt={product.name || 'Sản phẩm'}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-md mr-3 flex items-center justify-center">
+                                      <span className="text-gray-400 text-xs">No image</span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                                      {product.name || `Sản phẩm #${product.productId.substring(0, 8)}...`}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      ID: {product.productId.substring(0, 8)}...
+                                      {product.variantId && (
+                                        <span className="ml-2">Variant: {product.variantId.substring(0, 6)}...</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {product.originalPrice
+                                  ? new Intl.NumberFormat('vi-VN').format(product.originalPrice) + ' ₫'
+                                  : 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-pink-600">
+                                {new Intl.NumberFormat('vi-VN').format(product.adjustedPrice) + ' ₫'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {product.originalPrice ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    -{discountPercent}%
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-gray-500">N/A</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        
+                        {event.products.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
+                              Chưa có sản phẩm nào trong sự kiện này
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>

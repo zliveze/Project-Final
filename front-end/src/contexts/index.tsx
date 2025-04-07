@@ -4,7 +4,7 @@ import { AuthProvider } from './AuthContext';
 import { AdminAuthProvider } from './AdminAuthContext';
 import { NotificationProvider } from './NotificationContext';
 import { BannerProvider } from './BannerContext';
-import { BrandProvider } from './BrandContext';
+import { BrandProvider, useBrands } from './BrandContext';
 import { CategoryProvider } from './CategoryContext';
 import { BranchProvider } from './BranchContext';
 import { ProductProvider, ProductContext } from './ProductContext';
@@ -139,3 +139,6 @@ export { useProduct } from './ProductContext';
 export { ProductContext } from './ProductContext';
 export { useVoucher } from './VoucherContext';
 export { useEvents } from './EventsContext';
+
+// Alias cho useBrands (để tương thích ngược)
+export const useBrand = useBrands;

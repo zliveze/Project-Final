@@ -55,7 +55,7 @@ interface EventsContextType {
   // Các phương thức mới cho quản lý sản phẩm trong event
   addProductsToEvent: (eventId: string, products: ProductInEvent[]) => Promise<Event | null>;
   removeProductFromEvent: (eventId: string, productId: string) => Promise<Event | null>;
-  updateProductPriceInEvent: (eventId: string, productId: string, adjustedPrice: number) => Promise<Event | null>;
+  updateProductPriceInEvent: (eventId: string, productId: string, adjustedPrice: number, showToast?: boolean) => Promise<Event | null>;
 }
 
 // Tạo context
@@ -366,7 +366,8 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateProductPriceInEvent = useCallback(async (
     eventId: string, 
     productId: string, 
-    adjustedPrice: number
+    adjustedPrice: number,
+    showToast: boolean = false
   ): Promise<Event | null> => {
     if (!isAuthenticated || !accessToken) {
       toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
@@ -394,11 +395,16 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         event._id === eventId ? updatedEvent : event
       ));
       
-      toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+      // Chỉ hiển thị thông báo nếu showToast = true
+      if (showToast) {
+        toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+      }
+      
       return updatedEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể cập nhật giá sản phẩm trong sự kiện';
       setError(errorMessage);
+      // Luôn hiển thị thông báo lỗi
       toast.error(errorMessage);
       return null;
     } finally {

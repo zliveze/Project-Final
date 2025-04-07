@@ -211,6 +211,14 @@ interface ProductContextType {
     status?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    brandId?: string;
+    categoryId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    isBestSeller?: boolean;
+    isNew?: boolean;
+    isOnSale?: boolean;
+    hasGifts?: boolean;
   }) => Promise<{ products: AdminProduct[]; total: number; totalPages: number }>;
 
   // Phương thức tương tác với giỏ hàng
@@ -1061,6 +1069,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     status?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    brandId?: string;
+    categoryId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    isBestSeller?: boolean;
+    isNew?: boolean;
+    isOnSale?: boolean;
+    hasGifts?: boolean;
   } = {}): Promise<{ products: AdminProduct[]; total: number; totalPages: number }> => {
     try {
       await handleCheckApiHealth();
@@ -1074,12 +1090,22 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       queryParams.append('limit', (params.limit || 50).toString()); // Default to 50 for selection lists
       if (params.search) queryParams.append('search', params.search);
       if (params.status) queryParams.append('status', params.status);
+      if (params.brandId) queryParams.append('brandId', params.brandId);
+      if (params.categoryId) queryParams.append('categoryId', params.categoryId);
+      if (params.minPrice) queryParams.append('minPrice', params.minPrice.toString());
+      if (params.maxPrice) queryParams.append('maxPrice', params.maxPrice.toString());
+      if (params.isBestSeller !== undefined) queryParams.append('isBestSeller', params.isBestSeller.toString());
+      if (params.isNew !== undefined) queryParams.append('isNew', params.isNew.toString());
+      if (params.isOnSale !== undefined) queryParams.append('isOnSale', params.isOnSale.toString());
+      if (params.hasGifts !== undefined) queryParams.append('hasGifts', params.hasGifts.toString());
       queryParams.append('sortBy', params.sortBy || 'name'); // Default sort by name
       queryParams.append('sortOrder', params.sortOrder || 'asc');
 
-      console.log(`Đang gọi API lấy danh sách sản phẩm: ${API_URL}/admin/products/list?${queryParams.toString()}`);
+      const apiUrl = `${API_URL}/admin/products/list?${queryParams.toString()}`;
+      console.log(`Gọi API với URL: ${apiUrl}`);
+      console.log(`Tham số được gửi đi:`, params);
 
-      const response = await fetch(`${API_URL}/admin/products/list?${queryParams.toString()}`, {
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

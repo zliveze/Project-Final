@@ -26,7 +26,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [formData, setFormData] = useState<EventFormData | null>(null);
   
   // Sử dụng context để thao tác với API
-  const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent } = useEvents();
+  const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent, fetchEventById } = useEvents();
   
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
@@ -132,29 +132,18 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const handleUpdateProductPrice = async (productId: string, newPrice: number) => {
     if (!formData || !eventId) return;
     
-    try {
-      setIsSubmitting(true);
-      const updatedEvent = await updateProductPriceInEvent(eventId, productId, newPrice);
-      setIsSubmitting(false);
-      
-      if (updatedEvent) {
-        // Cập nhật state local
-        setFormData({
-          ...formData,
-          products: formData.products.map(product => 
-            product.productId === productId 
-              ? { ...product, adjustedPrice: newPrice }
-              : product
-          )
-        });
-        
-        toast.success('Đã cập nhật giá sản phẩm thành công');
-      }
-    } catch (error) {
-      console.error('Error updating product price:', error);
-      toast.error('Có lỗi xảy ra khi cập nhật giá sản phẩm');
-      setIsSubmitting(false);
-    }
+    // Chỉ cập nhật state local, không gọi API
+    setFormData({
+      ...formData,
+      products: formData.products.map(product => 
+        product.productId === productId 
+          ? { ...product, adjustedPrice: newPrice }
+          : product
+      )
+    });
+    
+    // Không gọi API updateProductPriceInEvent nữa
+    // Việc cập nhật API sẽ được thực hiện khi submit form
   };
   
   // Xử lý khi submit form
@@ -167,8 +156,39 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     try {
       setIsSubmitting(true);
       
-      // Gọi hàm submit từ parent component
+      // Cập nhật tất cả giá sản phẩm đã thay đổi
+      // Lưu ý: Chỉ khi người dùng bấm nút Lưu
+      if (formData) {
+        // Tạo mảng promises để cập nhật giá tất cả sản phẩm
+        const productPricePromises = formData.products.map(async (product) => {
+          // Tìm sản phẩm tương ứng từ events ban đầu
+          const originalEvent = events.find(e => e._id === eventId);
+          if (!originalEvent) return null;
+          
+          const originalProduct = originalEvent.products.find(p => p.productId === product.productId);
+          if (!originalProduct) return null;
+          
+          // Kiểm tra xem giá có thay đổi không
+          if (originalProduct.adjustedPrice !== product.adjustedPrice) {
+            // Chỉ gọi API, không sử dụng kết quả trả về để cập nhật UI
+            await updateProductPriceInEvent(eventId, product.productId, product.adjustedPrice);
+            return true;
+          }
+          return null;
+        });
+        
+        // Chờ tất cả promises hoàn thành (chỉ các promises không null)
+        await Promise.all(productPricePromises.filter(Boolean));
+        
+        // QUAN TRỌNG: Không lấy lại dữ liệu từ server để tránh reset giá
+        // Tiếp tục sử dụng giá người dùng đã nhập
+      }
+      
+      // Gọi hàm submit từ parent component để cập nhật thông tin sự kiện
       await onSubmit(eventId, data);
+      
+      // Hiển thị thông báo thành công
+      toast.success('Đã lưu sự kiện thành công');
       
       // Đóng modal
       onClose();
