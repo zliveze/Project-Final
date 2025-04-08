@@ -11,7 +11,9 @@ import { CloudinaryModule } from '../cloudinary';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
+    MongooseModule.forFeature([
+      { name: Product.name, schema: ProductSchema },
+    ]),
     CloudinaryModule,
     MulterModule.register({
       storage: diskStorage({

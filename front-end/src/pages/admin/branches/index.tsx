@@ -27,6 +27,11 @@ function BranchesContent() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   
+  // Tải dữ liệu ban đầu
+  useEffect(() => {
+    fetchBranches(pagination.page, pagination.limit);
+  }, []);
+  
   // Render thống kê
   const renderStats = () => {
     return (
@@ -72,10 +77,17 @@ function BranchesContent() {
   const confirmDeleteBranch = async () => {
     if (!selectedBranchId) return;
     
-    const success = await deleteBranch(selectedBranchId);
-    if (success) {
-      setShowDeleteModal(false);
-      fetchBranches(1, 10);
+    try {
+      const success = await deleteBranch(selectedBranchId);
+      if (success) {
+        setShowDeleteModal(false);
+        // Tải lại danh sách sau khi xóa
+        fetchBranches(pagination.page, pagination.limit);
+      }
+      // Không cần else - nếu có lỗi, deleteBranch đã xử lý hiển thị lỗi
+    } catch (error) {
+      console.error("Lỗi khi xóa chi nhánh:", error);
+      // Không cần làm gì thêm vì lỗi đã được xử lý trong BranchContext
     }
   };
 
@@ -132,14 +144,22 @@ function BranchesContent() {
       {showAddModal && (
         <BranchAddModal
           isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false);
+            // Refresh data after adding
+            fetchBranches(pagination.page, pagination.limit);
+          }}
         />
       )}
 
       {showEditModal && selectedBranchId && (
         <BranchEditModal
           isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => {
+            setShowEditModal(false);
+            // Refresh data after editing
+            fetchBranches(pagination.page, pagination.limit);
+          }}
           branchId={selectedBranchId}
         />
       )}

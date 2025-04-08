@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { FiEdit2, FiTrash2, FiEye, FiMapPin } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiEye, FiMapPin, FiMoreHorizontal, FiEdit, FiTrash, FiAlertTriangle } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { useBranches } from '@/contexts/BranchContext';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import Pagination from '@/components/admin/common/Pagination';
+import { toast } from 'react-hot-toast';
+import { Menu } from '@headlessui/react';
+import ConfirmModal from '@/components/common/ConfirmModal';
+
+// Hàm tiện ích để xử lý classNames
+const classNames = (...classes: string[]) => {
+  return classes.filter(Boolean).join(' ');
+};
 
 interface BranchListProps {
   onView: (id: string) => void;
@@ -11,16 +20,25 @@ interface BranchListProps {
 }
 
 const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => {
-  const { branches, loading, error, fetchBranches } = useBranches();
+  const { 
+    branches, 
+    loading, 
+    error, 
+    pagination, 
+    fetchBranches,
+    deleteBranch,
+    forceDeleteBranch
+  } = useBranches();
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit] = useState(10);
   const [sortField, setSortField] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+  const [branchIdToForceDelete, setBranchIdToForceDelete] = useState<string | null>(null);
+
   useEffect(() => {
-    fetchBranches(page, limit);
-  }, [page, limit, sortField, sortOrder]);
+    fetchBranches(pagination.page, pagination.limit);
+  }, [pagination.page, pagination.limit, sortField, sortOrder]);
 
   // Lọc chi nhánh theo từ khóa tìm kiếm
   const filteredBranches = branches.filter(branch =>
@@ -49,12 +67,63 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
     }
   };
 
+  // Xử lý chuyển trang
+  const handlePageChange = (page: number) => {
+    fetchBranches(page, pagination.limit);
+  };
+
   // Format thời gian
   const formatDate = (date: string) => {
     try {
       return format(new Date(date), 'dd/MM/yyyy');
     } catch (error) {
       return String(date);
+    }
+  };
+
+  // Xóa chi nhánh
+  const handleDelete = async (id: string) => {
+    try {
+      // Gọi API xóa
+      const success = await deleteBranch(id);
+      
+      if (success) {
+        // Hiển thị thông báo thành công
+        toast.success("Chi nhánh đã được xóa thành công");
+      }
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi xóa chi nhánh");
+      console.error("Error deleting branch:", error);
+    }
+  };
+
+  // Xóa chi nhánh với force option nếu có lỗi
+  const handleForceDelete = async (id: string) => {
+    try {
+      // Gọi API xóa với force option
+      const result = await forceDeleteBranch(id);
+      
+      if (result && result.success) {
+        // Hiển thị thông báo thành công
+        toast.success(result.message || "Chi nhánh đã được xóa thành công và cập nhật các sản phẩm liên quan");
+      }
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi xóa chi nhánh");
+      console.error("Error force deleting branch:", error);
+    }
+  };
+
+  // Mở modal xác nhận xóa với force delete
+  const handleOpenForceDeleteModal = (id: string) => {
+    setBranchIdToForceDelete(id);
+    setShowForceDeleteModal(true);
+  };
+
+  // Xác nhận force delete
+  const confirmForceDelete = async () => {
+    if (branchIdToForceDelete) {
+      await handleForceDelete(branchIdToForceDelete);
+      setShowForceDeleteModal(false);
     }
   };
 
@@ -159,27 +228,72 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => onView(branch.id)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Xem chi tiết"
-                        >
-                          <FiEye className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => onEdit(branch.id)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                          title="Chỉnh sửa"
-                        >
-                          <FiEdit2 className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(branch.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Xóa chi nhánh"
-                        >
-                          <FiTrash2 className="h-5 w-5" />
-                        </button>
+                        <Menu as="div" className="relative inline-block text-left">
+                          <div>
+                            <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
+                              <span className="sr-only">Open options</span>
+                              <FiMoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                            </Menu.Button>
+                          </div>
+                          <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => onView(branch.id)}
+                                  className={classNames(
+                                    active ? 'bg-gray-100' : '',
+                                    'flex w-full px-4 py-2 text-sm text-gray-700'
+                                  )}
+                                >
+                                  <FiEye className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
+                                  Xem chi tiết
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => onEdit(branch.id)}
+                                  className={classNames(
+                                    active ? 'bg-gray-100' : '',
+                                    'flex w-full px-4 py-2 text-sm text-gray-700'
+                                  )}
+                                >
+                                  <FiEdit className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
+                                  Chỉnh sửa
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => onDelete(branch.id)}
+                                  className={classNames(
+                                    active ? 'bg-gray-100' : '',
+                                    'flex w-full px-4 py-2 text-sm text-gray-700'
+                                  )}
+                                >
+                                  <FiTrash className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
+                                  Xóa
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => handleOpenForceDeleteModal(branch.id)}
+                                  className={classNames(
+                                    active ? 'bg-red-50' : '',
+                                    'flex w-full px-4 py-2 text-sm text-red-700'
+                                  )}
+                                >
+                                  <FiAlertTriangle className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
+                                  Xóa và cập nhật sản phẩm
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </Menu.Items>
+                        </Menu>
                       </div>
                     </td>
                   </tr>
@@ -196,48 +310,32 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
         </div>
       )}
 
-      {/* Phân trang */}
-      <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Hiển thị <span className="font-medium">{filteredBranches.length}</span> chi nhánh
-            </p>
-          </div>
-          <div>
-            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage(prev => prev - 1)}
-                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                  page <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                <span className="sr-only">Trang trước</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-              
-              <button
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium bg-pink-50 text-pink-600 z-10"
-              >
-                {page}
-              </button>
-              
-              <button
-                onClick={() => setPage(prev => prev + 1)}
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-              >
-                <span className="sr-only">Trang sau</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </nav>
-          </div>
-        </div>
+      {/* Phân trang với component Pagination */}
+      <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          onPageChange={handlePageChange}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          showItemsInfo={true}
+          className="mt-4"
+        />
       </div>
+
+      {/* Thêm modal xác nhận force delete */}
+      {showForceDeleteModal && (
+        <ConfirmModal
+          isOpen={showForceDeleteModal}
+          onClose={() => setShowForceDeleteModal(false)}
+          onConfirm={confirmForceDelete}
+          title="Xác nhận xóa chi nhánh và cập nhật sản phẩm"
+          message="Điều này sẽ xóa chi nhánh và tự động cập nhật tất cả sản phẩm liên quan. Hành động này không thể hoàn tác. Bạn có chắc chắn muốn tiếp tục?"
+          confirmText="Xóa và cập nhật sản phẩm"
+          cancelText="Hủy"
+          confirmButtonClass="bg-red-600 hover:bg-red-700"
+        />
+      )}
     </div>
   );
 };

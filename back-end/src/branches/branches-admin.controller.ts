@@ -18,9 +18,12 @@ import { BranchesService } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchFilterDto } from './dto/branch-filter.dto';
+import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiTags('Admin Branches')
 @Controller('admin/branches')
 @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
+@ApiBearerAuth()
 export class BranchesAdminController {
   private readonly logger = new Logger(BranchesAdminController.name);
 
@@ -58,8 +61,31 @@ export class BranchesAdminController {
 
   @Delete(':id')
   @AdminRoles('admin', 'superadmin')
-  async remove(@Param('id') id: string) {
-    await this.branchesService.remove(id);
-    return { message: 'Chi nhánh đã được xóa thành công' };
+  @ApiOperation({ summary: 'Xóa một chi nhánh' })
+  @ApiResponse({ status: 200, description: 'Chi nhánh đã được xóa thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy chi nhánh' })
+  @ApiResponse({ status: 400, description: 'Chi nhánh đang được sử dụng bởi các sản phẩm' })
+  async remove(@Param('id') id: string): Promise<void> {
+    return this.branchesService.remove(id);
+  }
+
+  @Delete(':id/force')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Xóa một chi nhánh và cập nhật tất cả sản phẩm tham chiếu' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Chi nhánh đã được xóa thành công và sản phẩm đã được cập nhật',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        productsUpdated: { type: 'number' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy chi nhánh' })
+  async removeWithReferences(@Param('id') id: string): Promise<{ success: boolean; message: string; productsUpdated: number }> {
+    return this.branchesService.removeWithReferences(id);
   }
 } 

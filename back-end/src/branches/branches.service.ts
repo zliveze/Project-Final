@@ -5,6 +5,7 @@ import { Branch, BranchDocument } from './schemas/branch.schema';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 import { BranchFilterDto } from './dto/branch-filter.dto';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class BranchesService {
@@ -12,6 +13,7 @@ export class BranchesService {
 
   constructor(
     @InjectModel(Branch.name) private branchModel: Model<BranchDocument>,
+    private readonly productsService: ProductsService,
   ) {}
 
   async create(createBranchDto: CreateBranchDto): Promise<BranchDocument> {
@@ -107,6 +109,15 @@ export class BranchesService {
 
   async remove(id: string): Promise<void> {
     try {
+      // Kiểm tra xem có sản phẩm nào đang sử dụng chi nhánh này không
+      const productsUsingBranch = await this.productsService.countProductsReferencingBranch(id);
+      
+      if (productsUsingBranch > 0) {
+        throw new BadRequestException(
+          `Không thể xóa chi nhánh này vì có ${productsUsingBranch} sản phẩm đang tham chiếu đến chi nhánh này. Vui lòng cập nhật thông tin sản phẩm trước khi xóa chi nhánh.`
+        );
+      }
+      
       const result = await this.branchModel.findByIdAndDelete(id).exec();
       
       if (!result) {
@@ -114,6 +125,33 @@ export class BranchesService {
       }
     } catch (error) {
       this.logger.error(`Lỗi khi xóa chi nhánh: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức để xóa chi nhánh và cập nhật tất cả sản phẩm tham chiếu đến chi nhánh đó
+  async removeWithReferences(id: string): Promise<{ success: boolean; message: string; productsUpdated: number }> {
+    try {
+      // Kiểm tra chi nhánh tồn tại
+      const branch = await this.branchModel.findById(id).exec();
+      
+      if (!branch) {
+        throw new NotFoundException(`Không tìm thấy chi nhánh với ID: ${id}`);
+      }
+      
+      // Xóa tham chiếu chi nhánh khỏi tất cả sản phẩm
+      const result = await this.productsService.removeBranchFromProducts(id);
+      
+      // Xóa chi nhánh
+      await this.branchModel.findByIdAndDelete(id).exec();
+      
+      return {
+        success: true,
+        message: `Chi nhánh đã được xóa thành công và đã cập nhật ${result.count} sản phẩm.`,
+        productsUpdated: result.count
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi xóa chi nhánh và cập nhật tham chiếu: ${error.message}`, error.stack);
       throw error;
     }
   }

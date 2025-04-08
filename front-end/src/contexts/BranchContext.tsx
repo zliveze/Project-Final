@@ -32,6 +32,7 @@ export interface BranchContextType {
   createBranch: (branchData: Partial<Branch>) => Promise<Branch | null>;
   updateBranch: (id: string, branchData: Partial<Branch>) => Promise<Branch | null>;
   deleteBranch: (id: string) => Promise<boolean>;
+  forceDeleteBranch: (id: string) => Promise<{success: boolean; message: string; productsUpdated: number} | null>;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -395,7 +396,9 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     try {
       // Kiểm tra ID chi nhánh trước khi gửi yêu cầu
       if (!id || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('ID chi nhánh không hợp lệ');
+        setError('ID chi nhánh không hợp lệ');
+        toast.error('ID chi nhánh không hợp lệ');
+        return false;
       }
 
       const response = await fetch(API_ENDPOINTS.BRANCH_DETAIL(id), {
@@ -407,8 +410,11 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Lỗi khi xóa chi nhánh');
+        const errorData = await response.json();
+        const errorMessage = errorData.message || 'Lỗi khi xóa chi nhánh';
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return false;
       }
       
       // Cập nhật danh sách chi nhánh
@@ -422,16 +428,58 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     } catch (err: any) {
       console.error('Error deleting branch:', err);
       
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      if (err.response?.status === 401 || err.message?.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi xóa chi nhánh');
-        toast.error(err.message || 'Có lỗi xảy ra khi xóa chi nhánh');
+        const errorMessage = err.message || 'Có lỗi xảy ra khi xóa chi nhánh';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
       
       return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Xóa chi nhánh và cập nhật tất cả sản phẩm tham chiếu
+  const forceDeleteBranch = async (id: string): Promise<{success: boolean; message: string; productsUpdated: number} | null> => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/admin/branches/${id}/force`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setError(data.message || 'Có lỗi xảy ra khi xóa chi nhánh');
+        toast.error(data.message || 'Có lỗi xảy ra khi xóa chi nhánh');
+        return null;
+      }
+
+      // Cập nhật state sau khi xóa
+      setBranches(branches.filter(branch => branch.id !== id));
+      
+      // Cập nhật thống kê
+      fetchStatistics();
+      
+      toast.success(data.message || 'Xóa chi nhánh thành công!');
+      return data;
+    } catch (error: any) {
+      console.error('Error force deleting branch:', error);
+      const errorMessage = error.message || 'Có lỗi xảy ra khi xóa chi nhánh';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -479,7 +527,8 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     fetchBranch,
     createBranch,
     updateBranch,
-    deleteBranch
+    deleteBranch,
+    forceDeleteBranch
   };
 
   return (

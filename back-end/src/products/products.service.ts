@@ -1351,4 +1351,58 @@ export class ProductsService {
       throw error;
     }
   }
+
+  // Phương thức để xóa chi nhánh khỏi tất cả các sản phẩm
+  async removeBranchFromProducts(branchId: string): Promise<{ success: boolean; count: number }> {
+    try {
+      // Tìm tất cả sản phẩm có tham chiếu đến chi nhánh này
+      const products = await this.productModel.find({
+        'inventory.branchId': branchId
+      });
+
+      let count = 0;
+      
+      // Xử lý từng sản phẩm
+      for (const product of products) {
+        // Lọc bỏ chi nhánh khỏi inventory
+        product.inventory = product.inventory.filter(
+          inv => inv.branchId.toString() !== branchId
+        );
+        
+        // Cập nhật trạng thái sản phẩm dựa trên tổng inventory còn lại
+        const totalInventory = product.inventory.reduce(
+          (sum, inv) => sum + inv.quantity,
+          0
+        );
+
+        if (totalInventory === 0 && product.status !== 'discontinued') {
+          product.status = 'out_of_stock';
+        }
+        
+        // Lưu sản phẩm
+        await product.save();
+        count++;
+      }
+      
+      return {
+        success: true,
+        count
+      };
+    } catch (error) {
+      this.logger.error(`Error removing branch from products: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức để kiểm tra có bao nhiêu sản phẩm tham chiếu đến một chi nhánh
+  async countProductsReferencingBranch(branchId: string): Promise<number> {
+    try {
+      return await this.productModel.countDocuments({
+        'inventory.branchId': branchId
+      });
+    } catch (error) {
+      this.logger.error(`Error counting products with branch reference: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 }
