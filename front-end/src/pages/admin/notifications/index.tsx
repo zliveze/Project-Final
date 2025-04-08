@@ -6,6 +6,7 @@ import NotificationTable from '@/components/admin/notifications/NotificationTabl
 import NotificationAddModal from '@/components/admin/notifications/NotificationAddModal';
 import NotificationEditModal from '@/components/admin/notifications/NotificationEditModal';
 import NotificationViewModal from '@/components/admin/notifications/NotificationViewModal';
+import Pagination from '@/components/admin/common/Pagination';
 import { useNotification } from '@/contexts/NotificationContext';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -248,76 +249,14 @@ export default function AdminNotifications() {
     const { page, totalPages, total, limit } = paginatedData;
     
     return (
-      <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Hiển thị <span className="font-medium">{((page - 1) * limit) + 1}</span> đến <span className="font-medium">{Math.min(page * limit, total)}</span> trong số <span className="font-medium">{total}</span> thông báo
-            </p>
-          </div>
-          <div>
-            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-              <button
-                disabled={page <= 1}
-                onClick={() => setQueryParams(prev => ({ ...prev, page: prev.page - 1 }))}
-                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                  page <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                <span className="sr-only">Trang trước</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-              
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNum = i + 1;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setQueryParams(prev => ({ ...prev, page: pageNum }))}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                      page === pageNum ? 'bg-pink-50 text-pink-600 z-10' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              
-              {totalPages > 5 && (
-                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                  ...
-                </span>
-              )}
-              
-              {totalPages > 5 && (
-                <button
-                  onClick={() => setQueryParams(prev => ({ ...prev, page: totalPages }))}
-                  className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                    page === totalPages ? 'bg-pink-50 text-pink-600 z-10' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  {totalPages}
-                </button>
-              )}
-              
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setQueryParams(prev => ({ ...prev, page: prev.page + 1 }))}
-                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                  page >= totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                <span className="sr-only">Trang sau</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </nav>
-          </div>
-        </div>
-      </div>
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={total}
+        itemsPerPage={limit}
+        onPageChange={(newPage) => setQueryParams(prev => ({ ...prev, page: newPage }))}
+        className="mt-4"
+      />
     );
   };
 
@@ -376,11 +315,14 @@ export default function AdminNotifications() {
             onEdit={handleOpenEditModal}
             onDelete={handleOpenDeleteModal}
             onToggleStatus={handleToggleStatus}
+            // Sử dụng state cục bộ queryParams.page để đảm bảo giao diện luôn khớp với yêu cầu của người dùng
+            currentPage={queryParams.page} 
+            totalPages={paginatedData?.totalPages}
+            totalItems={paginatedData?.total}
+            itemsPerPage={paginatedData?.limit}
+            onPageChange={(newPage) => setQueryParams(prev => ({ ...prev, page: newPage }))}
           />
         )}
-
-        {/* Phân trang */}
-        {renderPagination()}
 
         {/* Modals */}
         {showAddModal && (
@@ -433,4 +375,4 @@ export default function AdminNotifications() {
       </div>
     </AdminLayout>
   );
-} 
+}

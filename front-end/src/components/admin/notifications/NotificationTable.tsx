@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FiEdit2, FiTrash2, FiEye, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { Notification } from './NotificationForm';
+import Pagination from '@/components/admin/common/Pagination';
 
 // Định nghĩa kiểu dữ liệu cho props
 interface NotificationTableProps {
@@ -10,9 +11,25 @@ interface NotificationTableProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
+  currentPage?: number;
+  totalPages?: number;
+  totalItems?: number;
+  itemsPerPage?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export default function NotificationTable({ notifications, onView, onEdit, onDelete, onToggleStatus }: NotificationTableProps) {
+export default function NotificationTable({
+  notifications,
+  onView,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onPageChange
+}: NotificationTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -244,6 +261,21 @@ export default function NotificationTable({ notifications, onView, onEdit, onDel
             )}
           </tbody>
         </table>
+      </div>
+      
+      {/* Phân trang với component Pagination */}
+      <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+        {currentPage && totalPages && totalItems && itemsPerPage && onPageChange && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            showItemsInfo={true}
+            className="mt-4"
+          />
+        )}
       </div>
     </div>
   );

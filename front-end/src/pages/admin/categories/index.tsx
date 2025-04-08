@@ -274,7 +274,7 @@ export default function AdminCategories() {
 
   if (error) {
     return (
-      <AdminLayout title="Quản lý danh mục">
+      <AdminLayout>
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 my-4">
           <h3 className="text-lg font-medium">Đã xảy ra lỗi</h3>
           <p>{error}</p>
@@ -290,7 +290,7 @@ export default function AdminCategories() {
   }
 
   return (
-    <AdminLayout title="Quản lý danh mục">
+    <AdminLayout>
       <Head>
         <title>Quản lý danh mục | Yumin Admin</title>
       </Head>
@@ -434,7 +434,6 @@ export default function AdminCategories() {
         {loading || loadingDetails ? (
           <div className="flex items-center justify-center h-64">
             <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-pink-600 border-t-transparent" role="status">
-              <span className="visually-hidden">Đang tải...</span>
             </div>
             <p className="ml-2 text-gray-600">Đang tải dữ liệu...</p>
           </div>

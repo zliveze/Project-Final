@@ -268,7 +268,9 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       const normalizedCampaigns = data.campaigns.map((campaign: any) => normalizeCampaign(campaign));
       
       setCampaigns(normalizedCampaigns);
-      setCurrentPage(data.page);
+      // Đảm bảo data.page luôn được xử lý như một number
+      const backendPage = parseInt(String(data.page), 10); // Chuyển sang string rồi parse để an toàn
+      setCurrentPage(isNaN(backendPage) ? 1 : backendPage); // Nếu parse lỗi, mặc định về 1
       setTotalItems(data.total);
       setTotalPages(Math.ceil(data.total / data.limit));
       
@@ -478,4 +480,4 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
   );
 };
 
-export default CampaignProvider; 
+export default CampaignProvider;

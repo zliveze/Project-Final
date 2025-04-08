@@ -433,7 +433,8 @@ export default function VoucherTable({
 
       {/* Phân trang */}
       {totalItems > 0 && (
-        <div className="mt-6">
+        // Sử dụng padding, border-top và background chuẩn giống các bảng khác
+        <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -441,10 +442,10 @@ export default function VoucherTable({
             totalItems={totalItems}
             itemsPerPage={itemsPerPage}
             showItemsInfo={true}
-            className="mt-6"
+            // Không cần thêm className ở đây nữa
           />
         </div>
       )}
     </div>
   );
-} 
+}

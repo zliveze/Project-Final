@@ -302,7 +302,7 @@ export default function AdminBrands() {
   };
 
   return (
-    <AdminLayout title="Quản lý thương hiệu">
+    <AdminLayout>
       <Head>
         <title>Quản lý thương hiệu | Yumin Admin</title>
       </Head>
