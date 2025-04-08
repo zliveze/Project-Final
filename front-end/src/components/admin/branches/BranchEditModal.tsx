@@ -45,7 +45,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
           name: result.name,
           address: result.address,
           contact: result.contact,
-          isActive: true, // Giả định nếu API không có trường này
+          // isActive: true, // Removed status field
           createdAt: result.createdAt,
           updatedAt: result.updatedAt
         });
@@ -97,14 +97,14 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
         </span>
 
         <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full ${
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full ${ // Re-added rounded-lg
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
           <div className="absolute top-0 right-0 pt-4 pr-4 z-10">
             <button
               type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors"
+              className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors" // Re-added rounded-md
               onClick={onClose}
             >
               <span className="sr-only">Đóng</span>
@@ -113,7 +113,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
           </div>
           
           <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
-            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
+            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3"> {/* Re-added rounded-full */}
               <FiEdit className="text-pink-600" />
             </div>
             <h2 className="text-lg font-bold text-gray-900">
@@ -124,7 +124,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
           <div className="p-6 max-h-[80vh] overflow-y-auto">
             {isLoading ? (
               <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-pink-500"></div>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-pink-500"></div> {/* Re-added rounded-full */}
               </div>
             ) : branch ? (
               <BranchForm 
@@ -145,4 +145,4 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
   );
 };
 
-export default BranchEditModal; 
+export default BranchEditModal;

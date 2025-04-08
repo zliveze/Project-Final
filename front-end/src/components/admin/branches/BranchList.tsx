@@ -128,7 +128,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    <div className="bg-white shadow-md rounded-lg overflow-hidden"> {/* Re-added rounded-lg */}
       <div className="p-4 border-b">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Tìm kiếm */}
@@ -136,7 +136,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
             <input
               type="text"
               placeholder="Tìm kiếm chi nhánh..."
-              className="w-full md:w-80 pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full md:w-80 pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" // Re-added rounded-lg
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -151,7 +151,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
             {/* Sắp xếp */}
             <div className="flex space-x-2">
               <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${ // Re-added rounded-md
                   sortField === 'name' && sortOrder === 'asc' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 onClick={() => { setSortField('name'); setSortOrder('asc'); }}
@@ -159,7 +159,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
                 Tên (A-Z)
               </button>
               <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${ // Re-added rounded-md
                   sortField === 'name' && sortOrder === 'desc' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 onClick={() => { setSortField('name'); setSortOrder('desc'); }}
@@ -167,7 +167,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
                 Tên (Z-A)
               </button>
               <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium ${ // Re-added rounded-md
                   sortField === 'createdAt' && sortOrder === 'desc' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 onClick={() => { setSortField('createdAt'); setSortOrder('desc'); }}
@@ -182,11 +182,11 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner />
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+         </div>
+       ) : (
+         <div> {/* Removed overflow-x-auto */}
+           <table className="min-w-full divide-y divide-gray-200">
+             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('name')}>
                   Tên chi nhánh {getSortIcon('name')}
@@ -228,72 +228,50 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <Menu as="div" className="relative inline-block text-left">
-                          <div>
-                            <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
-                              <span className="sr-only">Open options</span>
-                              <FiMoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                            </Menu.Button>
+                        <div className="relative group">
+                          <button
+                            onClick={() => onView(branch.id)}
+                            className="p-2 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 hover:shadow-md transition-all relative z-40" // Re-added rounded
+                          >
+                            <FiEye className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center"> {/* Re-added rounded */}
+                            Xem chi tiết
                           </div>
-                          <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <Menu.Item>
-                              {({ active }) => (
-                                <button
-                                  onClick={() => onView(branch.id)}
-                                  className={classNames(
-                                    active ? 'bg-gray-100' : '',
-                                    'flex w-full px-4 py-2 text-sm text-gray-700'
-                                  )}
-                                >
-                                  <FiEye className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
-                                  Xem chi tiết
-                                </button>
-                              )}
-                            </Menu.Item>
-                            <Menu.Item>
-                              {({ active }) => (
-                                <button
-                                  onClick={() => onEdit(branch.id)}
-                                  className={classNames(
-                                    active ? 'bg-gray-100' : '',
-                                    'flex w-full px-4 py-2 text-sm text-gray-700'
-                                  )}
-                                >
-                                  <FiEdit className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
-                                  Chỉnh sửa
-                                </button>
-                              )}
-                            </Menu.Item>
-                            <Menu.Item>
-                              {({ active }) => (
-                                <button
-                                  onClick={() => onDelete(branch.id)}
-                                  className={classNames(
-                                    active ? 'bg-gray-100' : '',
-                                    'flex w-full px-4 py-2 text-sm text-gray-700'
-                                  )}
-                                >
-                                  <FiTrash className="mr-3 h-5 w-5 text-gray-400" aria-hidden="true" />
-                                  Xóa
-                                </button>
-                              )}
-                            </Menu.Item>
-                            <Menu.Item>
-                              {({ active }) => (
-                                <button
-                                  onClick={() => handleOpenForceDeleteModal(branch.id)}
-                                  className={classNames(
-                                    active ? 'bg-red-50' : '',
-                                    'flex w-full px-4 py-2 text-sm text-red-700'
-                                  )}
-                                >
-                                  <FiAlertTriangle className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                  Xóa và cập nhật sản phẩm
-                                </button>
-                              )}
-                            </Menu.Item>
-                          </Menu.Items>
-                        </Menu>
+                        </div>
+                        <div className="relative group">
+                          <button
+                            onClick={() => onEdit(branch.id)}
+                            className="p-2 rounded bg-green-50 text-green-600 hover:bg-green-100 hover:shadow-md transition-all relative z-40" // Re-added rounded
+                          >
+                            <FiEdit className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-1 w-24 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center"> {/* Re-added rounded */}
+                            Chỉnh sửa
+                          </div>
+                        </div>
+                        <div className="relative group">
+                          <button
+                            onClick={() => onDelete(branch.id)}
+                            className="p-2 rounded bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-md transition-all relative z-40" // Re-added rounded
+                          >
+                            <FiTrash className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-1 w-16 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center"> {/* Re-added rounded */}
+                            Xóa
+                          </div>
+                        </div>
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleOpenForceDeleteModal(branch.id)}
+                            className="p-2 rounded bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-md transition-all relative z-40" // Re-added rounded
+                          >
+                            <FiAlertTriangle className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none text-center"> {/* Re-added rounded */}
+                            Xóa và cập nhật sản phẩm
+                          </div>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -340,4 +318,4 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
   );
 };
 
-export default BranchList; 
+export default BranchList;

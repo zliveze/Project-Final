@@ -8,10 +8,9 @@ import { useAdminAuth } from '../../contexts/AdminAuthContext';
 
 interface AdminLayoutProps {
   children: ReactNode;
-  title?: string;
 }
 
-export default function AdminLayout({ children, title = 'Admin Dashboard' }: AdminLayoutProps) {
+export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, checkAuth } = useAdminAuth();
   const [loading, setLoading] = useState(true);
@@ -71,9 +70,9 @@ export default function AdminLayout({ children, title = 'Admin Dashboard' }: Adm
   return (
     <>
       <Head>
-        <title>{title} | Yumin Admin</title>
+        <title>Yumin Admin</title>
       </Head>
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 3000,
@@ -89,11 +88,6 @@ export default function AdminLayout({ children, title = 'Admin Dashboard' }: Adm
           <Header />
           <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
             <div className="max-w-7xl mx-auto">
-              {title && (
-                <div className="mb-6">
-                  <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-                </div>
-              )}
               {children}
             </div>
           </main>
@@ -101,4 +95,4 @@ export default function AdminLayout({ children, title = 'Admin Dashboard' }: Adm
       </div>
     </>
   );
-} 
+}
