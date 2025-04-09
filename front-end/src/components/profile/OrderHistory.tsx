@@ -3,7 +3,7 @@ import { FaShoppingBag, FaEye, FaFileDownload, FaTimes, FaUndo, FaShoppingCart }
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import OrderDetail from './OrderDetail';
+import OrderDetailModal from './OrderDetailModal';
 
 interface OrderProduct {
   productId: string;
@@ -316,18 +316,15 @@ const OrderHistory = ({
       
       {/* Hiện thị modal chi tiết đơn hàng nếu có */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-medium">Chi tiết đơn hàng #{selectedOrder.orderNumber}</h2>
-              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600">
-                <FaTimes />
-              </button>
-            </div>
-            <div className="p-4">
-              <OrderDetail order={selectedOrder} onClose={handleCloseModal} />
-            </div>
-          </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <OrderDetailModal 
+            order={selectedOrder} 
+            onClose={handleCloseModal}
+            onBuyAgain={handleBuyAgain}
+            onDownloadInvoice={handleDownloadInvoice}
+            onCancelOrder={handleCancelOrder}
+            onReturnOrder={handleReturnOrder}
+          />
         </div>
       )}
     </div>

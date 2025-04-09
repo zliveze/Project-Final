@@ -3,27 +3,20 @@ import { FaHeart, FaShoppingCart, FaEye, FaTrash } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
+import { WishlistItem } from './types';
 
-interface Product {
-  _id: string;
-  name: string;
-  price: number;
-  discountPrice?: number;
-  image: string;
-  variantId?: string | null;
-  options?: {
-    shade?: string;
-    size?: string;
-  };
-}
-
-interface WishlistItemsProps {
-  items: Product[];
+// Mở rộng interface để tương thích với cả dữ liệu cũ và mới
+interface WishlistItemProps {
+  items: Array<WishlistItem & {
+    imageUrl?: string;
+    currentPrice?: number;
+  }>;
   onRemoveFromWishlist?: (productId: string, variantId?: string | null) => void;
   onAddToCart?: (productId: string, variantId?: string | null) => void;
+  isLoading?: boolean; // Add isLoading prop
 }
 
-const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistItemsProps) => {
+const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = false }: WishlistItemProps) => { // Destructure and provide default
   const handleRemoveFromWishlist = (productId: string, variantId?: string | null) => {
     if (onRemoveFromWishlist) {
       onRemoveFromWishlist(productId, variantId);
@@ -64,6 +57,17 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
     );
   }
 
+  // Show loading indicator if isLoading is true
+  if (isLoading) {
+    return (
+      <div className="bg-white shadow rounded-lg p-6 text-center">
+        <h2 className="text-xl font-semibold text-gray-800 mb-6">Sản phẩm yêu thích</h2>
+        <p className="text-gray-500">Đang tải danh sách yêu thích...</p>
+        {/* Optional: Add a spinner */}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
@@ -84,7 +88,7 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
       </div>
 
       <div className="space-y-4">
-        {items.map((item, index) => (
+        {items.map((item) => (
           <div 
             key={`${item._id}-${item.variantId || ''}`} 
             className="bg-white border border-gray-200 hover:border-pink-200 rounded-lg shadow-sm hover:shadow-md transition-all p-4"
@@ -95,14 +99,14 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
                 <Link href={`/shop/product/${item._id}`}>
                   <div className="w-full h-full relative overflow-hidden rounded-md group">
                     <Image 
-                      src={item.image} 
+                      src={item.image || item.imageUrl || '/images/placeholder.png'} 
                       alt={item.name} 
                       fill
                       className="object-cover rounded-md transition-transform group-hover:scale-110 duration-300"
                     />
-                    {item.discountPrice && (
+                    {(item.discountPrice || (item.currentPrice && item.currentPrice < item.price)) && (
                       <div className="absolute top-1 right-1 bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded-sm">
-                        -{Math.round(((item.price - item.discountPrice) / item.price) * 100)}%
+                        -{Math.round(((item.price - (item.discountPrice || item.currentPrice || 0)) / item.price) * 100)}%
                       </div>
                     )}
                   </div>
@@ -134,10 +138,10 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
                 {/* Giá */}
                 <div className="mt-2 flex items-center justify-center sm:justify-start">
                   <span className="text-pink-600 font-semibold">
-                    {item.discountPrice ? formatPrice(item.discountPrice) : formatPrice(item.price)}
+                    {item.discountPrice ? formatPrice(item.discountPrice) : (item.currentPrice && item.currentPrice < item.price) ? formatPrice(item.currentPrice) : formatPrice(item.price)}
                   </span>
                   
-                  {item.discountPrice && (
+                  {(item.discountPrice || (item.currentPrice && item.currentPrice < item.price)) && (
                     <span className="ml-2 text-gray-400 line-through text-sm">
                       {formatPrice(item.price)}
                     </span>
@@ -183,8 +187,8 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
             <p className="text-gray-600">Tổng số sản phẩm: <span className="font-semibold text-pink-600">{items.length}</span></p>
             <p className="text-gray-600 mt-1">
               Tổng giá trị: <span className="font-semibold text-pink-600">
-                {formatPrice(items.reduce((total, item) => 
-                  total + (item.discountPrice || item.price), 0)
+                {formatPrice(items.reduce((total, item) =>
+                  total + (item.discountPrice || item.currentPrice || item.price), 0)
                 )}
               </span>
             </p>
@@ -198,4 +202,4 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart }: WishlistIte
   );
 };
 
-export default WishlistItems; 
+export default WishlistItems;

@@ -14,7 +14,7 @@ const getToken = (): string | null => {
 // Helper function để xử lý lỗi response
 const handleApiError = async (response: Response) => {
   let errorMessage = 'Đã xảy ra lỗi với máy chủ';
-  
+
   try {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
@@ -27,7 +27,7 @@ const handleApiError = async (response: Response) => {
   } catch (error) {
     console.error('Không thể phân tích phản hồi lỗi:', error);
   }
-  
+
   // Xử lý các mã lỗi cụ thể
   if (response.status === 404) {
     errorMessage = 'Không tìm thấy tài nguyên được yêu cầu';
@@ -39,7 +39,7 @@ const handleApiError = async (response: Response) => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
   }
-  
+
   throw new Error(errorMessage);
 };
 
@@ -49,13 +49,14 @@ export const UserApiService = {
   async getProfile(): Promise<User> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
 
-    console.log('Gọi API lấy profile với URL:', `${API_URL}/users/profile`);
-    console.log('Token được sử dụng:', token.substring(0, 15) + '...');
-    
+
+    const profileUrl = `${API_URL}/profile`; // Corrected URL
+    console.log('Gọi API lấy profile với URL:', profileUrl);
+    console.log('Token được sử dụng:', token ? token.substring(0, 15) + '...' : 'Không có token');
+
     try {
-      const response = await fetch(`${API_URL}/users/profile`, {
+      const response = await fetch(profileUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -63,19 +64,19 @@ export const UserApiService = {
         },
         credentials: 'include',
       });
-      
+
       console.log('Kết quả API profile:', response.status, response.statusText);
-      
+
       // Sao chép response để tránh đọc body nhiều lần
       const responseClone = response.clone();
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
-        
+
         try {
           const errorData = await response.json();
           throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
@@ -84,7 +85,7 @@ export const UserApiService = {
           throw new Error(`Lỗi ${response.status}: ${response.statusText}`);
         }
       }
-      
+
       try {
         const data = await responseClone.json();
         console.log('Dữ liệu profile:', data);
@@ -98,13 +99,14 @@ export const UserApiService = {
       throw error;
     }
   },
-  
+
   // Cập nhật thông tin profile
   async updateProfile(updateData: Partial<User>): Promise<User> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile`, {
+    const profileUrl = `${API_URL}/profile`; // Corrected URL
+
+    const response = await fetch(profileUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -112,7 +114,7 @@ export const UserApiService = {
       },
       body: JSON.stringify(updateData),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -122,16 +124,17 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Thêm địa chỉ mới
-  async addAddress(addressData: Omit<Address, 'addressId'>): Promise<User> {
+  async addAddress(addressData: Omit<Address, '_id'>): Promise<User> { // Use Omit<Address, '_id'>
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile/addresses`, {
+    const addressesUrl = `${API_URL}/profile/addresses`; // Corrected URL
+
+    const response = await fetch(addressesUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -139,7 +142,7 @@ export const UserApiService = {
       },
       body: JSON.stringify(addressData),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -149,16 +152,17 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Cập nhật địa chỉ
-  async updateAddress(addressId: string, addressData: Omit<Address, 'addressId'>): Promise<User> {
+  async updateAddress(_id: string, addressData: Omit<Address, '_id'>): Promise<User> { // Use _id and Omit<Address, '_id'>
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile/addresses/${addressId}`, {
+    const addressUrl = `${API_URL}/profile/addresses/${_id}`; // Use _id in URL
+
+    const response = await fetch(addressUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -166,7 +170,7 @@ export const UserApiService = {
       },
       body: JSON.stringify(addressData),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -176,22 +180,23 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Xóa địa chỉ
-  async deleteAddress(addressId: string): Promise<User> {
+  async deleteAddress(_id: string): Promise<User> { // Use _id
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile/addresses/${addressId}`, {
+    const addressUrl = `${API_URL}/profile/addresses/${_id}`; // Use _id in URL
+
+    const response = await fetch(addressUrl, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -201,22 +206,24 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Đặt địa chỉ mặc định
-  async setDefaultAddress(addressId: string): Promise<User> {
+  async setDefaultAddress(_id: string): Promise<User> { // Use _id
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile/addresses/${addressId}/default`, {
-      method: 'PATCH',
+    const defaultUrl = `${API_URL}/profile/addresses/${_id}/default`; // Use _id in URL
+
+    const response = await fetch(defaultUrl, {
+      method: 'POST', // Corrected Method
       headers: {
         'Authorization': `Bearer ${token}`,
+        // Không cần Content-Type vì không có body
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -226,55 +233,45 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Lấy danh sách sản phẩm yêu thích
   async getWishlist(): Promise<WishlistItem[]> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    // Kiểm tra xem có localStorage user không để đảm bảo có ID
-    let userId: string | null = null;
+    const wishlistUrl = `${API_URL}/profile/wishlist`; // Corrected URL
+
+    console.log('Gọi API lấy wishlist với URL:', wishlistUrl);
+
     try {
-      const userJson = localStorage.getItem('user');
-      if (userJson) {
-        const userData = JSON.parse(userJson);
-        userId = userData._id;
-      }
-    } catch (error) {
-      console.error('Lỗi khi lấy thông tin người dùng từ localStorage:', error);
-    }
-    
-    if (!userId) {
-      console.error('Không có ID người dùng khi gọi API wishlist');
-      // Trả về mảng rỗng thay vì lỗi để tránh crash ứng dụng
-      return [];
-    }
-    
-    console.log('Gọi API lấy wishlist với URL:', `${API_URL}/users/profile/wishlist`);
-    
-    try {
-      const response = await fetch(`${API_URL}/users/profile/wishlist`, {
+      const response = await fetch(wishlistUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       console.log('Kết quả API wishlist:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
+
+        // Handle 404 errors gracefully
+        if (response.status === 404) {
+          console.warn('Không tìm thấy wishlist, có thể chưa có sản phẩm nào trong wishlist');
+          return [];
+        }
+
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -286,68 +283,99 @@ export const UserApiService = {
       throw error;
     }
   },
-  
+
   // Thêm sản phẩm vào danh sách yêu thích
-  async addToWishlist(productId: string): Promise<User> { // Bỏ variantId khỏi tham số
+  async addToWishlist(productId: string): Promise<User> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    const response = await fetch(`${API_URL}/users/profile/wishlist`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      // Chỉ gửi productId theo yêu cầu của backend
-      body: JSON.stringify({ productId }), 
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    const addWishlistUrl = `${API_URL}/profile/wishlist/${productId}`; // Corrected URL
+
+    try {
+      const response = await fetch(addWishlistUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Không cần Content-Type và body vì productId đã có trong URL
+        },
+        // body: JSON.stringify({ productId }), // Removed body
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+
+        // Handle 404 errors gracefully
+        if (response.status === 404) {
+          throw new Error('Sản phẩm không tồn tại hoặc đã bị xóa');
+        }
+
+        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+        throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
-      throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
+
+      return await response.json();
+    } catch (error) {
+      console.error('Lỗi khi thêm vào wishlist:', error);
+      throw error;
     }
-    
-    return await response.json();
   },
-  
+
   // Xóa sản phẩm khỏi danh sách yêu thích
-  async removeFromWishlist(productId: string): Promise<User> { // Bỏ variantId khỏi tham số
+  async removeFromWishlist(productId: string): Promise<User> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
-    // Backend chỉ nhận productId trong path
-    const url = `${API_URL}/users/profile/wishlist/${productId}`;
-      
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    const removeWishlistUrl = `${API_URL}/profile/wishlist/${productId}`; // Corrected URL
+
+    try {
+      const response = await fetch(removeWishlistUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+
+        // Handle 404 errors gracefully
+        if (response.status === 404) {
+          console.warn('Sản phẩm không tồn tại trong wishlist hoặc đã bị xóa');
+          // Return a mock user object to avoid breaking the UI
+          return {
+            _id: '',
+            name: '',
+            email: '',
+            phone: '',
+            addresses: [],
+            role: 'user',
+            wishlist: [],
+            createdAt: new Date().toISOString()
+          } as User;
+        }
+
+        const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+        throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
-      throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
+
+      return await response.json();
+    } catch (error) {
+      console.error('Lỗi khi xóa khỏi wishlist:', error);
+      throw error;
     }
-    
-    return await response.json();
   },
-  
+
   // Lấy danh sách đơn hàng
   async getOrders(status: string = 'all', page: number = 1, limit: number = 10): Promise<{ orders: Order[], total: number }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     // Kiểm tra xem có localStorage user không để đảm bảo có ID
     let userId: string | null = null;
     try {
@@ -359,18 +387,18 @@ export const UserApiService = {
     } catch (error) {
       console.error('Lỗi khi lấy thông tin người dùng từ localStorage:', error);
     }
-    
+
     if (!userId) {
       console.error('Không có ID người dùng khi gọi API orders');
       // Trả về dữ liệu rỗng để tránh crash ứng dụng
       return { orders: [], total: 0 };
     }
-    
+
     console.log('Gọi API lấy orders với URL:', `${API_URL}/orders/user?status=${status}&page=${page}&limit=${limit}`);
-    
+
     try {
       const response = await fetch(
-        `${API_URL}/orders/user?status=${status}&page=${page}&limit=${limit}`, 
+        `${API_URL}/orders/user?status=${status}&page=${page}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
@@ -378,27 +406,27 @@ export const UserApiService = {
           },
         }
       );
-      
+
       console.log('Kết quả API orders:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         // Xử lý lỗi 404 nhẹ nhàng hơn vì API chưa tồn tại
         if (response.status === 404) {
           console.warn(`API ${response.url} trả về 404 (Not Found). Trả về dữ liệu rỗng.`);
-          return { orders: [], total: 0 }; 
+          return { orders: [], total: 0 };
         }
-        
+
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
-        
+
         // Ném lỗi cho các trường hợp khác (500, 403, etc.)
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -410,19 +438,19 @@ export const UserApiService = {
       throw error;
     }
   },
-  
+
   // Lấy chi tiết đơn hàng
   async getOrderDetail(orderId: string): Promise<Order> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/orders/${orderId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -432,15 +460,15 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Huỷ đơn hàng
   async cancelOrder(orderId: string, reason: string): Promise<Order> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/orders/${orderId}/cancel`, {
       method: 'POST',
       headers: {
@@ -449,7 +477,7 @@ export const UserApiService = {
       },
       body: JSON.stringify({ reason }),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -459,15 +487,15 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Yêu cầu trả hàng
   async requestReturnOrder(orderId: string, reason: string): Promise<Order> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/orders/${orderId}/return`, {
       method: 'POST',
       headers: {
@@ -476,7 +504,7 @@ export const UserApiService = {
       },
       body: JSON.stringify({ reason }),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -486,22 +514,22 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Tải hóa đơn
   async downloadInvoice(orderId: string): Promise<Blob> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/orders/${orderId}/invoice`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -511,22 +539,22 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.blob();
   },
-  
+
   // Mua lại sản phẩm từ đơn hàng
   async buyAgain(orderId: string): Promise<{ success: boolean, message: string }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/orders/${orderId}/buy-again`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -536,15 +564,15 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Lấy danh sách thông báo
   async getNotifications(page: number = 1, limit: number = 10): Promise<{ notifications: Notification[], total: number }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     // Kiểm tra xem có localStorage user không để đảm bảo có ID
     let userId: string | null = null;
     try {
@@ -556,18 +584,18 @@ export const UserApiService = {
     } catch (error) {
       console.error('Lỗi khi lấy thông tin người dùng từ localStorage:', error);
     }
-    
+
     if (!userId) {
       console.error('Không có ID người dùng khi gọi API notifications');
       // Trả về dữ liệu rỗng để tránh crash ứng dụng
       return { notifications: [], total: 0 };
     }
-    
+
     console.log('Gọi API lấy notifications với URL:', `${API_URL}/notifications?page=${page}&limit=${limit}`);
-    
+
     try {
       const response = await fetch(
-        `${API_URL}/notifications?page=${page}&limit=${limit}`, 
+        `${API_URL}/notifications?page=${page}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
@@ -575,9 +603,9 @@ export const UserApiService = {
           },
         }
       );
-      
+
       console.log('Kết quả API notifications:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
@@ -587,7 +615,7 @@ export const UserApiService = {
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -599,19 +627,19 @@ export const UserApiService = {
       throw error;
     }
   },
-  
+
   // Đánh dấu thông báo đã đọc
   async markNotificationAsRead(notificationId: string): Promise<Notification> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -621,22 +649,22 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Đánh dấu tất cả thông báo đã đọc
   async markAllNotificationsAsRead(): Promise<{ success: boolean }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/notifications/read-all`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -646,22 +674,22 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Xóa thông báo
   async deleteNotification(notificationId: string): Promise<{ success: boolean }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -671,15 +699,15 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Lấy danh sách đánh giá
   async getReviews(page: number = 1, limit: number = 10): Promise<{ reviews: Review[], total: number }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     // Kiểm tra xem có localStorage user không để đảm bảo có ID
     let userId: string | null = null;
     try {
@@ -691,20 +719,20 @@ export const UserApiService = {
     } catch (error) {
       console.error('Lỗi khi lấy thông tin người dùng từ localStorage:', error);
     }
-    
+
     if (!userId) {
       console.error('Không có ID người dùng khi gọi API reviews');
       // Trả về dữ liệu rỗng để tránh crash ứng dụng
       return { reviews: [], total: 0 };
     }
-    
+
     // Sửa URL để gọi đúng endpoint /reviews/user/me
     const url = `${API_URL}/reviews/user/me?page=${page}&limit=${limit}`;
     console.log('Gọi API lấy reviews với URL:', url);
-    
+
     try {
       const response = await fetch(
-        url, 
+        url,
         {
           method: 'GET',
           headers: {
@@ -712,9 +740,9 @@ export const UserApiService = {
           },
         }
       );
-      
+
       console.log('Kết quả API reviews:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
@@ -724,7 +752,7 @@ export const UserApiService = {
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
@@ -736,12 +764,12 @@ export const UserApiService = {
       throw error;
     }
   },
-  
+
   // Cập nhật đánh giá
   async updateReview(reviewId: string, updateData: Partial<Review>): Promise<Review> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/reviews/${reviewId}`, {
       method: 'PATCH',
       headers: {
@@ -750,7 +778,7 @@ export const UserApiService = {
       },
       body: JSON.stringify(updateData),
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -760,22 +788,22 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
-  
+
   // Xóa đánh giá
   async deleteReview(reviewId: string): Promise<{ success: boolean }> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    
+
     const response = await fetch(`${API_URL}/reviews/${reviewId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('accessToken');
@@ -785,7 +813,7 @@ export const UserApiService = {
       const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   },
 };

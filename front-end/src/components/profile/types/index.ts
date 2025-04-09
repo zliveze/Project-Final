@@ -7,16 +7,17 @@ export type TabType = 'account' | 'wishlist' | 'orders' | 'notifications' | 'rev
 // Type cho trạng thái đơn hàng
 export type OrderStatusType = 'all' | 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
 
-// Type cho địa chỉ
+// Type cho địa chỉ (đồng bộ với Backend Schema)
 export interface Address {
-  addressId: string;
+  _id: string; // Sử dụng _id thay vì addressId
   addressLine: string;
   city: string;
-  district: string;
-  ward: string;
+  state?: string; // Thêm state (tùy chọn)
+  // district?: string; // Bỏ district nếu không dùng ở backend
+  // ward?: string; // Bỏ ward nếu không dùng ở backend
   country: string;
-  postalCode: string;
-  isDefault: boolean;
+  postalCode?: string; // postalCode là tùy chọn
+  isDefault?: boolean; // isDefault là tùy chọn
 }
 
 // Type cho người dùng
@@ -135,4 +136,4 @@ export interface Review {
   createdAt: string;
   updatedAt?: string;
   isVerifiedPurchase: boolean;
-} 
+}

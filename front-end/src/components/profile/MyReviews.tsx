@@ -3,20 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { FaStar, FaStarHalfAlt, FaRegStar, FaEdit, FaTrash, FaImage } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-
-interface Review {
-  _id: string;
-  productId: string;
-  productName: string;
-  productImage: string;
-  rating: number;
-  title: string;
-  comment: string;
-  images?: string[];
-  createdAt: string;
-  updatedAt?: string;
-  isVerifiedPurchase: boolean;
-}
+import { Review } from './types';
 
 interface MyReviewsProps {
   reviews: Review[];

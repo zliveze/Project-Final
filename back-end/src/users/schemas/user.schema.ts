@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import { Address, AddressSchema } from './address.schema'; // Import AddressSchema
 
 export interface UserDocument extends User, Document {
   _id: Types.ObjectId;
@@ -8,31 +9,10 @@ export interface UserDocument extends User, Document {
   updatedAt?: Date;
 }
 
-@Schema({ timestamps: true })
-export class Address {
-  @Prop()
-  addressId: string;
-
-  @Prop({ required: true })
-  addressLine: string;
-
-  @Prop({ required: true })
-  city: string;
-
-  @Prop()
-  state: string;
-
-  @Prop({ required: true })
-  country: string;
-
-  @Prop()
-  postalCode: string;
-
-  @Prop({ default: false })
-  isDefault: boolean;
-}
-
-export const AddressSchema = SchemaFactory.createForClass(Address);
+// Remove the inline Address class and AddressSchema definition
+// @Schema({ timestamps: true })
+// export class Address { ... }
+// export const AddressSchema = SchemaFactory.createForClass(Address);
 
 @Schema({ timestamps: true })
 export class User {
@@ -158,4 +138,4 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
   } catch (error) {
     throw error;
   }
-}; 
+};

@@ -42,6 +42,12 @@ const ProfileMain: React.FC = () => {
     handleOrderStatusFilterChange,
     handleTabChange,
     handleLogout,
+    // Add address handlers
+    handleAddAddress,
+    handleUpdateAddress,
+    handleDeleteAddress,
+    handleSetDefaultAddress,
+    isLoading,
   } = useProfile();
 
   // useEffect(() => { // Gỡ bỏ - ProfileContext đã xử lý
@@ -53,7 +59,7 @@ const ProfileMain: React.FC = () => {
 
   // Đếm số thông báo chưa đọc - Thêm kiểm tra null/undefined
   const unreadNotificationCount = Array.isArray(notifications)
-    ? notifications.filter(notif => !notif.isRead).length 
+    ? notifications.filter(notif => !notif.isRead).length
     : 0;
 
   // Xử lý nút back
@@ -64,12 +70,12 @@ const ProfileMain: React.FC = () => {
   return (
     <div className="bg-gray-50 min-h-screen py-6">
       <div className="container mx-auto px-4">
-        <ProfileHeader 
-          title="Trang cá nhân" 
+        <ProfileHeader
+          title="Trang cá nhân"
           onBack={handleBack}
           onLogout={handleLogout}
         />
-        
+
         <div className="flex flex-col md:flex-row gap-4">
           <div className="w-full md:w-1/4">
             <ProfileSidebar
@@ -79,7 +85,7 @@ const ProfileMain: React.FC = () => {
               notificationCount={unreadNotificationCount}
             />
           </div>
-          
+
           <div className="w-full md:w-3/4">
             <ProfileContent
               activeTab={activeTab}
@@ -98,6 +104,7 @@ const ProfileMain: React.FC = () => {
               handleDownloadInvoice={handleDownloadInvoice}
               handleCancelOrder={handleCancelOrder}
               handleReturnOrder={handleReturnOrder}
+              isLoading={isLoading}
               handleBuyAgain={handleBuyAgain}
               handleMarkAsRead={handleMarkAsRead}
               handleMarkAllAsRead={handleMarkAllAsRead}
@@ -105,6 +112,11 @@ const ProfileMain: React.FC = () => {
               handleEditReview={handleEditReview}
               handleDeleteReview={handleDeleteReview}
               handleOrderStatusFilterChange={handleOrderStatusFilterChange}
+              // Pass address handlers
+              handleAddAddress={handleAddAddress}
+              handleUpdateAddress={handleUpdateAddress}
+              handleDeleteAddress={handleDeleteAddress}
+              handleSetDefaultAddress={handleSetDefaultAddress}
             />
           </div>
         </div>
@@ -122,9 +134,9 @@ const ProfilePage: NextPage = () => {
           <title>Trang cá nhân | YUMIN</title>
           <meta name="description" content="Quản lý thông tin cá nhân, địa chỉ và đơn hàng" />
         </Head>
-        
+
         <ProfileMain />
-        
+
         <ToastContainer
           position="top-right"
           autoClose={3000}

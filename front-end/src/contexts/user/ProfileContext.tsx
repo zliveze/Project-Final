@@ -29,13 +29,13 @@ interface ProfileContextProps {
   setSearchOrderQuery: React.Dispatch<React.SetStateAction<string>>;
   isLoading: boolean;
   error: string | null;
-  
+
   // Các hàm xử lý
   handleUpdateProfile: (updatedData: Partial<User>) => Promise<void>;
-  handleAddAddress: (address: Omit<Address, 'addressId'>) => Promise<void>;
+  handleAddAddress: (address: Omit<Address, '_id'>) => Promise<void>; // Use Omit<Address, '_id'>
   handleUpdateAddress: (updatedAddress: Address) => Promise<void>;
-  handleDeleteAddress: (addressId: string) => Promise<void>;
-  handleSetDefaultAddress: (addressId: string) => Promise<void>;
+  handleDeleteAddress: (_id: string) => Promise<void>; // Use _id
+  handleSetDefaultAddress: (_id: string) => Promise<void>; // Use _id
   handleRemoveFromWishlist: (productId: string, variantId?: string | null) => Promise<void>;
   handleAddToCart: (productId: string, variantId?: string | null) => void;
   handleViewOrderDetails: (orderId: string) => Promise<void>;
@@ -60,7 +60,7 @@ const ProfileContext = createContext<ProfileContextProps | undefined>(undefined)
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const { logout, isAuthenticated, isLoading: authLoading, user: authUser } = useAuth(); // Thêm isLoading và user từ useAuth
-  
+
   // States
   const [user, setUser] = useState<User>(mockUser);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
@@ -83,107 +83,106 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         fetchUserData(authUser._id); // Truyền userId vào fetchUserData
       } else {
         // Nếu chưa xác thực, chuyển hướng đến trang đăng nhập chính xác
-        router.push('/auth/login'); 
+        router.push('/auth/login');
       }
     }
   }, [isAuthenticated, authLoading, authUser, router]); // Thêm authLoading và authUser vào dependencies
 
   // Hàm lấy dữ liệu người dùng từ API - nhận userId làm tham số
-  const fetchUserData = async (userId: string) => { 
+  const fetchUserData = async (userId: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Lấy dữ liệu profile
       console.log('Bắt đầu lấy profile người dùng');
       let userProfile;
-      
-      try {
-        // Lấy dữ liệu profile (có thể không cần gọi lại nếu authUser đã đủ thông tin)
-        // Nếu authUser đã có đủ thông tin cần thiết, có thể dùng trực tiếp
-        // userProfile = await UserApiService.getProfile(); 
-        // setUser(userProfile);
-        // console.log('Đã lấy profile thành công:', userProfile);
 
-        // Sử dụng thông tin từ AuthContext nếu có
-        if (authUser) {
-          setUser(authUser as User); // Ép kiểu nếu cần, đảm bảo User type khớp
-          console.log('Sử dụng profile từ AuthContext:', authUser);
-          
-          // Thực hiện các API call khác với userId đã có
+      try {
+      // Lấy dữ liệu profile đầy đủ từ API
+      userProfile = await UserApiService.getProfile(); // Gọi API để lấy profile đầy đủ
+      setUser(userProfile); // Cập nhật state với profile đầy đủ
+      console.log('Đã lấy profile đầy đủ từ API:', userProfile);
+
+      // Kiểm tra xem userProfile có tồn tại không trước khi tiếp tục
+      if (userProfile && userProfile._id) {
+        // Thực hiện các API call khác với userId đã có (lấy từ userProfile)
+        try {
+          console.log('Đang lấy wishlist với userId:', userProfile._id);
+          // Lấy danh sách wishlist - Tạm thời vô hiệu hóa backend
           try {
-            console.log('Đang lấy wishlist với userId:', userId);
-            // Lấy danh sách wishlist - Tạm thời vô hiệu hóa backend
-            try {
-              // const wishlist = await UserApiService.getWishlist(); // Tạm thời comment out
-              // setWishlistItems(wishlist); // Tạm thời comment out
-              setWishlistItems([]); // Set rỗng để tránh lỗi UI
-              console.log('Wishlist backend tạm thời vô hiệu hóa, sử dụng mảng rỗng.');
-            } catch (wishlistError) {
-              console.error("Lỗi khi lấy wishlist (đã vô hiệu hóa):", wishlistError);
-              setWishlistItems([]); 
-            }
-            
-            // Lấy danh sách đơn hàng - Bắt lỗi nếu API chưa tồn tại
-            try {
-              const { orders: userOrders } = await UserApiService.getOrders();
-              setOrders(userOrders);
-              console.log('Đã lấy orders thành công:', userOrders);
-            } catch (orderError) {
-              console.warn("Lỗi khi lấy orders (có thể do API chưa tồn tại):", orderError);
-              // Set orders thành mảng rỗng để tránh lỗi
-              setOrders([]); 
-            }
-            
-            // Lấy danh sách thông báo
-            const { notifications: userNotifications } = await UserApiService.getNotifications();
-            setNotifications(userNotifications);
-            console.log('Đã lấy notifications thành công:', userNotifications);
-            
-            // Lấy danh sách đánh giá
-            const { reviews: userReviews } = await UserApiService.getReviews();
-            setReviews(userReviews);
-            console.log('Đã lấy reviews thành công:', userReviews);
-          } catch (otherError) {
-            console.error('Lỗi khi lấy dữ liệu bổ sung:', otherError);
-            toast.warning('Một số dữ liệu không thể tải. Vui lòng làm mới trang.');
-            
-            // Trong môi trường phát triển, sử dụng dữ liệu mẫu
-            if (process.env.NODE_ENV === 'development') {
-              setWishlistItems(mockWishlistItems);
-              setOrders(mockOrders);
-              setNotifications(mockNotifications);
-              setReviews(mockReviews);
-              console.log('Sử dụng dữ liệu mẫu cho các phần khác trong môi trường phát triển');
-            }
+            const wishlist = await UserApiService.getWishlist();
+            setWishlistItems(wishlist);
+            console.log('Lấy wishlist thành công:', wishlist);
+          } catch (wishlistError) {
+            console.error("Lỗi khi lấy wishlist:", wishlistError);
+            // Set empty wishlist and don't show error to user
+            setWishlistItems([]);
+            // Don't show toast for wishlist errors as they're not critical
+            // toast.warning('Không thể tải danh sách yêu thích. Vui lòng thử lại sau.');
           }
-        } else {
-          console.error('Profile không có ID hợp lệ:', userProfile);
-          throw new Error('Dữ liệu profile không hợp lệ');
+
+          // Lấy danh sách đơn hàng - Bắt lỗi nếu API chưa tồn tại
+          try {
+            const { orders: userOrders } = await UserApiService.getOrders();
+            setOrders(userOrders);
+            console.log('Đã lấy orders thành công:', userOrders);
+          } catch (orderError) {
+            console.warn("Lỗi khi lấy orders (có thể do API chưa tồn tại):", orderError);
+            // Set orders thành mảng rỗng để tránh lỗi
+            setOrders([]);
+          }
+
+          // Lấy danh sách thông báo
+          const { notifications: userNotifications } = await UserApiService.getNotifications();
+          setNotifications(userNotifications);
+          console.log('Đã lấy notifications thành công:', userNotifications);
+
+          // Lấy danh sách đánh giá
+          const { reviews: userReviews } = await UserApiService.getReviews();
+          setReviews(userReviews);
+          console.log('Đã lấy reviews thành công:', userReviews);
+        } catch (otherError) {
+          console.error('Lỗi khi lấy dữ liệu bổ sung:', otherError);
+          toast.warning('Một số dữ liệu không thể tải. Vui lòng làm mới trang.');
+
+          // Trong môi trường phát triển, sử dụng dữ liệu mẫu
+          if (process.env.NODE_ENV === 'development') {
+            setWishlistItems(mockWishlistItems);
+            setOrders(mockOrders);
+            setNotifications(mockNotifications);
+            setReviews(mockReviews);
+            console.log('Sử dụng dữ liệu mẫu cho các phần khác trong môi trường phát triển');
+          }
         }
-      } catch (profileError) {
-        console.error('Lỗi khi lấy profile:', profileError);
-        
+      } else {
+        // Xử lý trường hợp userProfile không hợp lệ sau khi gọi API
+        console.error('Dữ liệu profile lấy từ API không hợp lệ:', userProfile);
+        throw new Error('Dữ liệu profile không hợp lệ sau khi gọi API');
+      }
+    } catch (profileError) {
+      console.error('Lỗi khi lấy profile từ API:', profileError);
+
         // Kiểm tra nếu lỗi là do phiên đăng nhập hết hạn
-        if (profileError instanceof Error && 
+        if (profileError instanceof Error &&
             profileError.message.includes('Phiên đăng nhập đã hết hạn')) {
           toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
-          
+
           // Đăng xuất người dùng
           await logout(); // Sử dụng logout từ useAuth
-          
+
           // Chuyển hướng đến trang đăng nhập
           router.push('/auth/login'); // Sửa đường dẫn
           return;
         }
-        
+
         // Hiển thị thông báo lỗi cụ thể nếu có
-        const errorMessage = profileError instanceof Error ? 
+        const errorMessage = profileError instanceof Error ?
           profileError.message : 'Không thể lấy thông tin người dùng';
-        
+
         toast.error(errorMessage);
         setError(errorMessage);
-        
+
         // Nếu lỗi không phải 401, vẫn tiếp tục với mock data trong môi trường dev
         if (process.env.NODE_ENV === 'development') {
           setUser(mockUser);
@@ -201,7 +200,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
       setError(errorMessage);
       toast.error(errorMessage);
-      
+
       // Sử dụng dữ liệu mẫu khi có lỗi xảy ra (chỉ dùng cho môi trường dev)
       if (process.env.NODE_ENV === 'development') {
         setUser(mockUser);
@@ -215,7 +214,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   // Phát hiện tab từ URL query params khi component mount hoặc URL thay đổi
   useEffect(() => {
     const { tab } = router.query;
@@ -225,7 +224,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
   }, [router.query]);
-  
+
   // Update URL khi tab thay đổi
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -234,7 +233,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       query: { ...router.query, tab }
     }, undefined, { shallow: true });
   };
-  
+
   // Handler functions với API integration
   const handleUpdateProfile = async (updatedData: Partial<User>) => {
     try {
@@ -249,10 +248,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
-  const handleAddAddress = async (address: Omit<Address, 'addressId'>) => {
+
+  // Updated handleAddAddress to match the prop type
+  const handleAddAddress = async (address: Omit<Address, '_id'>) => {
     try {
       setIsLoading(true);
+      // Ensure the passed address object matches Omit<Address, '_id'> if needed,
+      // but UserApiService.addAddress already expects this type after previous edits.
       const updatedUser = await UserApiService.addAddress(address);
       setUser(updatedUser);
       toast.success('Thêm địa chỉ mới thành công!');
@@ -263,12 +265,18 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
+  // Updated handleUpdateAddress to use _id
   const handleUpdateAddress = async (updatedAddress: Address) => {
     try {
       setIsLoading(true);
-      const { addressId, ...addressData } = updatedAddress;
-      const updatedUser = await UserApiService.updateAddress(addressId, addressData);
+      const { _id, ...addressData } = updatedAddress; // Destructure _id
+      if (!_id) {
+        throw new Error("Không tìm thấy ID địa chỉ để cập nhật.");
+      }
+      // UserApiService.updateAddress expects Omit<Address, '_id'> or similar for data part
+      // Ensure addressData matches what the API expects (it should if Address type is correct)
+      const updatedUser = await UserApiService.updateAddress(_id, addressData as Omit<Address, '_id'>); // Pass _id and the rest
       setUser(updatedUser);
       toast.success('Cập nhật địa chỉ thành công!');
     } catch (err) {
@@ -278,11 +286,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
-  const handleDeleteAddress = async (addressId: string) => {
+
+  // Updated handleDeleteAddress to use _id
+  const handleDeleteAddress = async (_id: string) => { // Use _id
     try {
       setIsLoading(true);
-      const updatedUser = await UserApiService.deleteAddress(addressId);
+      const updatedUser = await UserApiService.deleteAddress(_id); // Pass _id
       setUser(updatedUser);
       toast.success('Xóa địa chỉ thành công!');
     } catch (err) {
@@ -292,11 +301,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
-  const handleSetDefaultAddress = async (addressId: string) => {
+
+  // Updated handleSetDefaultAddress to use _id
+  const handleSetDefaultAddress = async (_id: string) => { // Use _id
     try {
       setIsLoading(true);
-      const updatedUser = await UserApiService.setDefaultAddress(addressId);
+      const updatedUser = await UserApiService.setDefaultAddress(_id); // Pass _id
       setUser(updatedUser);
       toast.success('Đã đặt làm địa chỉ mặc định!');
     } catch (err) {
@@ -306,40 +316,35 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
-  const handleRemoveFromWishlist = async (productId: string) => { // Bỏ variantId
-    try {
-    setIsLoading(true);
-    // Gọi API chỉ với productId - Tạm thời vô hiệu hóa backend
-    // await UserApiService.removeFromWishlist(productId); 
-    console.log('Backend cho removeFromWishlist tạm thời vô hiệu hóa.');
 
-    // Cập nhật danh sách wishlist trên giao diện (cần điều chỉnh logic nếu variantId quan trọng)
-      // Hiện tại, sẽ xóa tất cả các biến thể của productId đó
-      // Lọc ra tất cả các item không có productId trùng khớp
-      setWishlistItems(prevItems => 
-      prevItems.filter(item => item._id !== productId) 
-    );
-    
-    // toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích!'); // Thay bằng thông báo tạm thời
-    toast.info('Đã xóa khỏi giao diện (backend tạm thời vô hiệu hóa).'); 
-  } catch (err) {
-    console.error('Lỗi khi xóa sản phẩm khỏi wishlist (đã vô hiệu hóa):', err);
+  const handleRemoveFromWishlist = async (productId: string, variantId?: string | null) => {
+    try {
+      setIsLoading(true);
+      await UserApiService.removeFromWishlist(productId);
+
+      // Cập nhật danh sách wishlist trên giao diện
+      setWishlistItems(prevItems =>
+        prevItems.filter(item => item._id !== productId)
+      );
+
+      toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích!');
+    } catch (err) {
+      console.error('Lỗi khi xóa sản phẩm khỏi wishlist:', err);
       toast.error(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi xóa sản phẩm');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const handleAddToCart = (productId: string, variantId?: string | null) => {
     // Giả lập thêm sản phẩm vào giỏ hàng - tích hợp với CartContext (nếu có)
     toast.success('Đã thêm sản phẩm vào giỏ hàng!');
   };
-  
+
   const handleViewOrderDetails = async (orderId: string) => {
     try {
       setIsLoading(true);
-      
+
       // Nếu đã có trong state thì không cần gọi API
       const existingOrder = orders.find(order => order._id === orderId);
       if (existingOrder) {
@@ -358,14 +363,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleDownloadInvoice = async (orderId: string) => {
     try {
       setIsLoading(true);
       toast.info('Đang tải xuống hóa đơn...');
-      
+
       const blob = await UserApiService.downloadInvoice(orderId);
-      
+
       // Tạo đường dẫn URL từ blob và tạo link download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -373,11 +378,11 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       link.setAttribute('download', `invoice_${orderId}.pdf`);
       document.body.appendChild(link);
       link.click();
-      
+
       // Xóa đường dẫn tạm
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success('Tải xuống hóa đơn thành công!');
     } catch (err) {
       console.error('Lỗi khi tải hóa đơn:', err);
@@ -386,30 +391,30 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleCancelOrder = async (orderId: string) => {
     if (window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) {
       try {
         setIsLoading(true);
         const reason = window.prompt('Vui lòng cho biết lý do hủy đơn hàng:') || 'Người dùng hủy đơn';
-        
+
         // Gọi API hủy đơn hàng
         const updatedOrder = await UserApiService.cancelOrder(orderId, reason);
-        
+
         // Cập nhật danh sách đơn hàng
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
             order._id === orderId ? updatedOrder : order
           )
         );
-        
+
         // Cập nhật đơn hàng đang xem nếu cần
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder(updatedOrder);
         }
-        
+
         toast.success('Hủy đơn hàng thành công!');
-        
+
         // Đóng modal chi tiết đơn hàng
         setShowOrderModal(false);
       } catch (err) {
@@ -420,27 +425,27 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
   };
-  
+
   const handleReturnOrder = async (orderId: string) => {
     try {
       setIsLoading(true);
       const reason = window.prompt('Vui lòng cho biết lý do trả hàng:') || 'Không hài lòng với sản phẩm';
-      
+
       // Gọi API yêu cầu trả hàng
       const updatedOrder = await UserApiService.requestReturnOrder(orderId, reason);
-      
+
       // Cập nhật danh sách đơn hàng
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
           order._id === orderId ? updatedOrder : order
         )
       );
-      
+
       // Cập nhật đơn hàng đang xem nếu cần
       if (selectedOrder && selectedOrder._id === orderId) {
         setSelectedOrder(updatedOrder);
       }
-      
+
       toast.info('Đã gửi yêu cầu trả hàng. Chúng tôi sẽ liên hệ với bạn sớm!');
       setShowOrderModal(false);
     } catch (err) {
@@ -450,20 +455,20 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleBuyAgain = async (orderId: string) => {
     try {
       setIsLoading(true);
-      
+
       // Gọi API mua lại sản phẩm
       const result = await UserApiService.buyAgain(orderId);
-      
+
       if (result.success) {
         toast.success(result.message || 'Đã thêm các sản phẩm vào giỏ hàng!');
-        
+
         // Đóng modal chi tiết đơn hàng
         setShowOrderModal(false);
-        
+
         // Chuyển hướng đến trang giỏ hàng
         router.push('/cart');
       } else {
@@ -489,14 +494,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
   }; // Thêm dấu ngoặc nhọn bị thiếu
-  
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await UserApiService.markNotificationAsRead(notificationId);
-      
+
       // Cập nhật trạng thái trên giao diện
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notification => 
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification =>
           notification._id === notificationId
             ? { ...notification, isRead: true }
             : notification
@@ -507,17 +512,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Không hiển thị toast lỗi để tránh làm phiền người dùng với thao tác nhỏ này
     }
   };
-  
+
   const handleMarkAllAsRead = async () => {
     try {
       setIsLoading(true);
       await UserApiService.markAllNotificationsAsRead();
-      
+
       // Cập nhật trạng thái trên giao diện
-      setNotifications(prevNotifications => 
+      setNotifications(prevNotifications =>
         prevNotifications.map(notification => ({ ...notification, isRead: true }))
       );
-      
+
       toast.success('Đã đánh dấu tất cả thông báo là đã đọc');
     } catch (err) {
       console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', err);
@@ -526,17 +531,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleDeleteNotification = async (notificationId: string) => {
     try {
       setIsLoading(true);
       await UserApiService.deleteNotification(notificationId);
-      
+
       // Cập nhật danh sách thông báo
-      setNotifications(prevNotifications => 
+      setNotifications(prevNotifications =>
         prevNotifications.filter(notification => notification._id !== notificationId)
       );
-      
+
       toast.success('Đã xóa thông báo');
     } catch (err) {
       console.error('Lỗi khi xóa thông báo:', err);
@@ -545,19 +550,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleEditReview = async (reviewId: string, updatedData: Partial<Review>) => {
     try {
       setIsLoading(true);
       const updatedReview = await UserApiService.updateReview(reviewId, updatedData);
-      
+
       // Cập nhật danh sách đánh giá
-      setReviews(prevReviews => 
-        prevReviews.map(review => 
+      setReviews(prevReviews =>
+        prevReviews.map(review =>
           review._id === reviewId ? updatedReview : review
         )
       );
-      
+
       toast.success('Cập nhật đánh giá thành công!');
     } catch (err) {
       console.error('Lỗi khi cập nhật đánh giá:', err);
@@ -566,17 +571,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleDeleteReview = async (reviewId: string) => {
     try {
       setIsLoading(true);
       await UserApiService.deleteReview(reviewId);
-      
+
       // Cập nhật danh sách đánh giá
-      setReviews(prevReviews => 
+      setReviews(prevReviews =>
         prevReviews.filter(review => review._id !== reviewId)
       );
-      
+
       toast.success('Xóa đánh giá thành công!');
     } catch (err) {
       console.error('Lỗi khi xóa đánh giá:', err);
@@ -585,10 +590,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
     }
   };
-  
+
   const handleOrderStatusFilterChange = (status: OrderStatusType) => {
     setOrderStatusFilter(status);
-    
+
     // Lấy danh sách đơn hàng theo trạng thái từ API
     (async () => {
       try {
@@ -603,16 +608,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     })();
   };
-  
+
   const handleSearchOrderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchOrderQuery(e.target.value);
   };
-  
+
   const handleSearchOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Tìm kiếm đơn hàng theo mã đơn - có thể thực hiện ở component OrdersTab
   };
-  
+
   return (
     <ProfileContext.Provider
       value={{

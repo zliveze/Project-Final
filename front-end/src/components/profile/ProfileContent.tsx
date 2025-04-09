@@ -4,7 +4,8 @@ import WishlistItems from './WishlistItems'; // Khôi phục Wishlist
 import OrdersTab from './OrdersTab';
 import Notifications from './Notifications';
 import MyReviews from './MyReviews';
-import AddressManager from './AddressManager';
+// import AddressManager from './AddressManager'; // Remove import
+import AddressList from './AddressList'; // Import AddressList
 import OrderDetailModal from './OrderDetailModal';
 import { TabType, Order, Notification, Review, WishlistItem, Address, User, OrderStatusType } from './types'; // Khôi phục WishlistItem
 
@@ -32,6 +33,12 @@ interface ProfileContentProps {
   handleEditReview: (reviewId: string, updatedData: Partial<Review>) => void;
   handleDeleteReview: (reviewId: string) => void;
   handleOrderStatusFilterChange: (status: OrderStatusType) => void;
+  // Add address handlers from context
+  handleAddAddress: (address: Omit<Address, '_id'>) => Promise<void>;
+  handleUpdateAddress: (updatedAddress: Address) => Promise<void>;
+  handleDeleteAddress: (_id: string) => Promise<void>;
+  handleSetDefaultAddress: (_id: string) => Promise<void>;
+  isLoading?: boolean;
 }
 
 const ProfileContent: React.FC<ProfileContentProps> = ({
@@ -57,7 +64,13 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   handleDeleteNotification,
   handleEditReview,
   handleDeleteReview,
-  handleOrderStatusFilterChange
+  handleOrderStatusFilterChange,
+  // Destructure new props
+  handleAddAddress,
+  handleUpdateAddress,
+  handleDeleteAddress,
+  handleSetDefaultAddress,
+  isLoading = false
 }) => {
   // Render content based on active tab
   const renderContent = () => {
@@ -69,25 +82,19 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
               user={user}
               onUpdate={handleUpdateProfile}
             />
-            
-            <AddressManager
-              user={user}
-              onAddAddress={(address) => user.addresses && user.addresses.length < 10 && handleUpdateProfile({
-                addresses: [...user.addresses, { ...address, addressId: `new-${Date.now()}`, isDefault: !user.addresses.length }]
-              })}
-              onUpdateAddress={(address) => handleUpdateProfile({
-                addresses: user.addresses.map(addr => addr.addressId === address.addressId ? address : addr)
-              })}
-              onDeleteAddress={(addressId) => handleUpdateProfile({
-                addresses: user.addresses.filter(addr => addr.addressId !== addressId)
-              })}
-              onSetDefaultAddress={(addressId) => handleUpdateProfile({
-                addresses: user.addresses.map(addr => ({
-                  ...addr,
-                  isDefault: addr.addressId === addressId
-                }))
-              })}
-            />
+
+            {/* Render AddressList directly */}
+            <div className="mt-8"> {/* Add margin top similar to AddressManager */}
+              <AddressList
+                addresses={user.addresses || []} // Ensure addresses is an array
+                user={user}
+                onAddAddress={handleAddAddress}
+                onUpdateAddress={handleUpdateAddress}
+                onDeleteAddress={handleDeleteAddress}
+                onSetDefaultAddress={handleSetDefaultAddress}
+                // No need for onCancelAdd here as AddressList handles its own form visibility
+              />
+            </div>
           </div>
         );
       case 'wishlist': // Khôi phục tab Wishlist
@@ -96,6 +103,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
             items={wishlistItems}
             onRemoveFromWishlist={handleRemoveFromWishlist}
             onAddToCart={handleAddToCart}
+            isLoading={isLoading}
           />
         );
       case 'orders':
@@ -138,7 +146,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   return (
     <div className="flex-grow bg-white shadow rounded p-4 border border-gray-200">
       {renderContent()}
-      
+
       {/* Modal chi tiết đơn hàng */}
       {showOrderModal && selectedOrder && (
         <OrderDetailModal

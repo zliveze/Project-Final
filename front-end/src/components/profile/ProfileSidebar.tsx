@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaUser, FaMapMarkerAlt, FaHeart, FaShoppingBag, FaBell, FaStar } from 'react-icons/fa';
-import { User, TabType } from './types';
+import { User, TabType, Address } from './types/index'; // Corrected import path and added Address
 
 interface ProfileSidebarProps {
   user: User;
@@ -60,22 +60,25 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="px-4 py-3 bg-gray-50 rounded border border-gray-200">
             <h3 className="font-medium text-gray-800 mb-2">Địa chỉ giao hàng mặc định</h3>
-            {/* Thêm kiểm tra user && user.addresses && Array.isArray(user.addresses) */}
-            {user && user.addresses && Array.isArray(user.addresses) && user.addresses.find(addr => addr.isDefault) ? (
-              <div className="text-sm text-gray-700">
-                <p className="mb-1">
-                  {user.addresses.find(addr => addr.isDefault)?.addressLine}
-                </p>
-                <p className="mb-1">
-                  {user.addresses.find(addr => addr.isDefault)?.ward}, {user.addresses.find(addr => addr.isDefault)?.district}
-                </p>
-                <p>
-                  {user.addresses.find(addr => addr.isDefault)?.city}, {user.addresses.find(addr => addr.isDefault)?.country}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Bạn chưa có địa chỉ mặc định</p>
-            )}
+            {/* Find the default address */}
+            {(() => {
+              const defaultAddress = user?.addresses?.find((addr: Address) => addr.isDefault);
+              if (defaultAddress) {
+                return (
+                  <div className="text-sm text-gray-700">
+                    <p className="mb-1">{defaultAddress.addressLine}</p>
+                    {/* Display state (district) and city */}
+                    <p>
+                      {defaultAddress.state && `${defaultAddress.state}, `}
+                      {defaultAddress.city}, {defaultAddress.country}
+                    </p>
+                  </div>
+                );
+              } else {
+                return <p className="text-sm text-gray-500">Bạn chưa có địa chỉ mặc định</p>;
+              }
+            })()}
+            {/* Remove extra closing parenthesis */}
             <button
               onClick={() => onTabChange('account')}
               className="mt-2 text-sm text-pink-600 hover:text-pink-700 flex items-center font-medium focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2"

@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common'; // Removed unused UnauthorizedException
+import { Types } from 'mongoose'; // Import Types
 import { UpdateProfileDto } from '../dto/profile.dto';
 import { AddressDto } from '../dto/address.dto';
 import { UsersService } from '../users.service';
@@ -35,13 +36,9 @@ export class ProfileService {
 
   // Thêm địa chỉ mới
   async addAddress(userId: string, addressDto: AddressDto): Promise<UserDocument> {
-    // Tạo ID cho địa chỉ mới
-    const addressWithId = {
-      ...addressDto,
-      addressId: uuidv4()
-    };
-
-    return this.usersService.addAddress(userId, addressWithId);
+    // Không cần tạo addressId ở đây, Mongoose sẽ tự tạo _id cho subdocument
+    // UsersService sẽ xử lý việc thêm địa chỉ vào mảng addresses của user
+    return this.usersService.addAddress(userId, addressDto);
   }
 
   // Cập nhật địa chỉ hiện có
@@ -61,31 +58,26 @@ export class ProfileService {
       throw new NotFoundException('Không tìm thấy người dùng');
     }
 
-    // Tìm địa chỉ cần đặt làm mặc định
-    const addressToSetDefault = user.addresses.find(address => address.addressId === addressId);
+    // Tìm địa chỉ cần đặt làm mặc định bằng _id
+    const addressToSetDefault = user.addresses.find(address => address._id.toString() === addressId);
     if (!addressToSetDefault) {
-      throw new NotFoundException('Không tìm thấy địa chỉ');
+      throw new NotFoundException('Không tìm thấy địa chỉ với ID này');
     }
 
-    // Cập nhật từng địa chỉ một cách riêng biệt
+    // Cập nhật trạng thái isDefault cho tất cả địa chỉ
+    // Chỉ cần cập nhật isDefault, không cần gửi toàn bộ DTO
+    // Tuy nhiên, usersService.updateAddress mong đợi AddressDto, nên ta cần tạo DTO chỉ với isDefault
     for (const address of user.addresses) {
-      // Bỏ qua địa chỉ nếu trạng thái đã đúng
-      if ((address.addressId === addressId) === address.isDefault) {
-        continue;
+      const shouldBeDefault = address._id.toString() === addressId;
+      // Chỉ cập nhật nếu trạng thái isDefault hiện tại khác với trạng thái mong muốn
+      if (address.isDefault !== shouldBeDefault) {
+        // Tạo DTO chỉ chứa trường isDefault để cập nhật
+        const updateDto: Partial<AddressDto> = {
+          isDefault: shouldBeDefault
+        };
+        // Gọi service để cập nhật, truyền _id dưới dạng string
+        await this.usersService.updateAddress(userId, address._id.toString(), updateDto as AddressDto); // Cast vì updateAddress mong đợi AddressDto đầy đủ
       }
-
-      // Cập nhật địa chỉ với dữ liệu đầy đủ
-      const updatedAddressDto: AddressDto = {
-        addressId: address.addressId,
-        addressLine: address.addressLine,
-        city: address.city,
-        state: address.state,
-        country: address.country,
-        postalCode: address.postalCode,
-        isDefault: address.addressId === addressId
-      };
-
-      await this.usersService.updateAddress(userId, address.addressId, updatedAddressDto);
     }
     
     return this.usersService.findOne(userId);
@@ -110,4 +102,4 @@ export class ProfileService {
 
     return user.wishlist || [];
   }
-} 
+}

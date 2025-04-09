@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings } from 'react-icons/fi';
+import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings, FiBell, FiStar } from 'react-icons/fi';
 import { UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
@@ -171,22 +171,36 @@ export default function MiddleHeader({
                           Thông tin tài khoản
                         </Link>
                         <Link 
-                          href="/profile/orders" 
+                          href="/profile?tab=orders" 
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiShoppingCart className="mr-2 w-4 h-4" />
                           Đơn hàng của tôi
                         </Link>
                         <Link 
-                          href="/profile/settings" 
+                          href="/profile?tab=wishlist" 
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
-                          <FiSettings className="mr-2 w-4 h-4" />
-                          Cài đặt tài khoản
+                          <FiHeart className="mr-2 w-4 h-4" />
+                          Danh sách yêu thích
+                        </Link>
+                        <Link 
+                          href="/profile?tab=notifications" 
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
+                        >
+                          <FiBell className="mr-2 w-4 h-4" />
+                          Thông báo
+                        </Link>
+                        <Link 
+                          href="/profile?tab=reviews" 
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
+                        >
+                          <FiStar className="mr-2 w-4 h-4" />
+                          Đánh giá của tôi
                         </Link>
                         <div className="border-t border-gray-100 my-1"></div>
                         <a 
-                          href="#" 
+                          href="#"
                           onClick={handleLogout}
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
@@ -241,4 +255,4 @@ export default function MiddleHeader({
       </div>
     </div>
   );
-} 
+}

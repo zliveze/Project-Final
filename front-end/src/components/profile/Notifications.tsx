@@ -2,17 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaBell, FaCheck, FaFilter, FaTimes, FaCircle, FaExternalLinkAlt, FaShoppingBag, FaGift, FaCog } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
-
-interface Notification {
-  _id: string;
-  title: string;
-  message: string;
-  type: 'order' | 'promotion' | 'system';
-  isRead: boolean;
-  createdAt: string;
-  relatedId?: string;
-  image?: string;
-}
+import { Notification } from './types';
 
 interface NotificationsProps {
   notifications: Notification[];

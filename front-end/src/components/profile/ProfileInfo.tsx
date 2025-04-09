@@ -1,19 +1,7 @@
 import { useState } from 'react';
 import { FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { Address } from './AddressList';
-
-export interface User {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-  addresses: Address[];
-  role: string;
-  createdAt: string;
-  wishlist?: Array<{ productId: string; variantId: string | null }>;
-  updatedAt?: string;
-}
+import { User } from './types';
 
 interface ProfileInfoProps {
   user: User;
