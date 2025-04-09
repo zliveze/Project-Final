@@ -1,26 +1,26 @@
 import React from 'react';
 import ProfileInfo from './ProfileInfo';
-import WishlistItems from './WishlistItems';
+import WishlistItems from './WishlistItems'; // Khôi phục Wishlist
 import OrdersTab from './OrdersTab';
 import Notifications from './Notifications';
 import MyReviews from './MyReviews';
 import AddressManager from './AddressManager';
 import OrderDetailModal from './OrderDetailModal';
-import { TabType, Order, Notification, Review, WishlistItem, Address, User, OrderStatusType } from './types';
+import { TabType, Order, Notification, Review, WishlistItem, Address, User, OrderStatusType } from './types'; // Khôi phục WishlistItem
 
 interface ProfileContentProps {
   activeTab: TabType;
   user: User;
   orders: Order[];
-  wishlistItems: WishlistItem[];
+  wishlistItems: WishlistItem[]; // Khôi phục Wishlist
   notifications: Notification[];
   reviews: Review[];
   selectedOrder: Order | null;
   showOrderModal: boolean;
   setShowOrderModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleUpdateProfile: (updatedUser: Partial<User>) => void;
-  handleRemoveFromWishlist: (productId: string, variantId?: string | null) => void;
-  handleAddToCart: (productId: string, variantId?: string | null) => void;
+  handleRemoveFromWishlist: (productId: string, variantId?: string | null) => void; // Khôi phục Wishlist
+  handleAddToCart: (productId: string, variantId?: string | null) => void; // Khôi phục Wishlist
   handleViewOrderDetails: (orderId: string) => void;
   handleDownloadInvoice: (orderId: string) => void;
   handleCancelOrder: (orderId: string) => void;
@@ -38,15 +38,15 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   activeTab,
   user,
   orders,
-  wishlistItems,
+  wishlistItems, // Khôi phục Wishlist
   notifications,
   reviews,
   selectedOrder,
   showOrderModal,
   setShowOrderModal,
   handleUpdateProfile,
-  handleRemoveFromWishlist,
-  handleAddToCart,
+  handleRemoveFromWishlist, // Khôi phục Wishlist
+  handleAddToCart, // Khôi phục Wishlist
   handleViewOrderDetails,
   handleDownloadInvoice,
   handleCancelOrder,
@@ -90,7 +90,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
             />
           </div>
         );
-      case 'wishlist':
+      case 'wishlist': // Khôi phục tab Wishlist
         return (
           <WishlistItems
             items={wishlistItems}
@@ -154,4 +154,4 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   );
 };
 
-export default ProfileContent; 
+export default ProfileContent;

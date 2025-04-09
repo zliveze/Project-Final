@@ -527,8 +527,8 @@ const AddressList = ({
     );
   };
 
-  // Nếu chỉ hiển thị form thêm địa chỉ
-  if (showAddForm && addresses.length === 0) {
+  // Render logic
+  if (showAddForm && addresses?.length === 0) {
     return <AddressForm />;
   }
 
@@ -550,11 +550,9 @@ const AddressList = ({
 
       {isAdding && <AddressForm />}
 
-      {editingId && (
-        <AddressForm isEditing />
-      )}
+      {editingId && <AddressForm isEditing />}
 
-      {addresses.length === 0 && !isAdding && !editingId ? (
+      {addresses && Array.isArray(addresses) && addresses.length === 0 && !isAdding && !editingId ? (
         <div className="text-center py-8 text-gray-500">
           <FaMapMarkerAlt className="mx-auto text-gray-400 text-4xl mb-3" />
           <p>Bạn chưa có địa chỉ nào</p>
@@ -565,11 +563,11 @@ const AddressList = ({
             Thêm địa chỉ mới
           </button>
         </div>
-      ) : (
+      ) : addresses && Array.isArray(addresses) ? (
         <div className="space-y-4">
           {addresses.map((address) => (
-            <div 
-              key={address.addressId} 
+            <div
+              key={address.addressId}
               className={`p-4 border rounded-lg ${address.isDefault ? 'border-pink-500 bg-pink-50' : 'border-gray-200'}`}
             >
               {editingId === address.addressId ? (
@@ -624,9 +622,20 @@ const AddressList = ({
             </div>
           ))}
         </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          <FaMapMarkerAlt className="mx-auto text-gray-400 text-4xl mb-3" />
+          <p>Không có địa chỉ nào</p>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="mt-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          >
+            Thêm địa chỉ mới
+          </button>
+        </div>
       )}
     </div>
   );
 };
 
-export default AddressList; 
+export default AddressList;

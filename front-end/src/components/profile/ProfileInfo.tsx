@@ -56,13 +56,30 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
     setIsEditing(false);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined | null): string => {
+    // Kiểm tra nếu dateString không hợp lệ (null, undefined, empty)
+    if (!dateString) {
+      return 'Không xác định';
+    }
+    
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
+    
+    // Kiểm tra xem đối tượng Date có hợp lệ không
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid date value received: ${dateString}`);
+      return 'Ngày không hợp lệ';
+    }
+    
+    try {
+      return new Intl.DateTimeFormat('vi-VN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date);
+    } catch (error) {
+      console.error(`Error formatting date: ${dateString}`, error);
+      return 'Lỗi định dạng ngày';
+    }
   };
 
   return (
@@ -161,4 +178,4 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
   );
 };
 
-export default ProfileInfo; 
+export default ProfileInfo;

@@ -68,6 +68,30 @@ async function bootstrap() {
   // Không sử dụng prefix '/api' cho các routes
   app.setGlobalPrefix('api');
   
+  // In ra tất cả các routes đã đăng ký
+  await app.init();
+  const server = app.getHttpServer();
+  const router = server._events.request._router;
+  
+  try {
+    if (router && router.stack) {
+      logger.debug('Registered Routes:');
+      router.stack.forEach(layer => {
+        if (layer.route) {
+          const path = layer.route?.path;
+          const method = layer.route?.stack[0]?.method?.toUpperCase();
+          if (path && method) {
+            logger.debug(`${method} ${path}`);
+          }
+        }
+      });
+    } else {
+      logger.debug('Router information is not available yet.');
+    }
+  } catch (error) {
+    logger.error('Error while logging routes:', error);
+  }
+  
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   

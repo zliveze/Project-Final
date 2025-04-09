@@ -17,7 +17,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
 }) => {
   const tabs = [
     { id: 'account' as const, label: 'Tài khoản', icon: <FaUser /> },
-    { id: 'wishlist' as const, label: 'Yêu thích', icon: <FaHeart /> },
+    { id: 'wishlist' as const, label: 'Yêu thích', icon: <FaHeart /> }, // Khôi phục tab Yêu thích
     { id: 'orders' as const, label: 'Đơn hàng', icon: <FaShoppingBag /> },
     { id: 'notifications' as const, label: 'Thông báo', icon: <FaBell /> },
     { id: 'reviews' as const, label: 'Đánh giá', icon: <FaStar /> },
@@ -60,7 +60,8 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         <div className="mt-6 pt-6 border-t">
           <div className="px-4 py-3 bg-pink-50 rounded-lg">
             <h3 className="font-medium text-pink-700 mb-1">Địa chỉ giao hàng mặc định</h3>
-            {user.addresses.find(addr => addr.isDefault) ? (
+            {/* Thêm kiểm tra user && user.addresses && Array.isArray(user.addresses) */}
+            {user && user.addresses && Array.isArray(user.addresses) && user.addresses.find(addr => addr.isDefault) ? (
               <div className="text-sm text-gray-700">
                 <p className="mb-1">
                   {user.addresses.find(addr => addr.isDefault)?.addressLine}
@@ -88,4 +89,4 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
   );
 };
 
-export default ProfileSidebar; 
+export default ProfileSidebar;

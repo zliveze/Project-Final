@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import { ProfileProvider, useProfile } from '../../contexts/ProfileContext';
+import { useAuth } from '../../contexts/AuthContext'; // Import useAuth
+import { ProfileProvider, useProfile } from '../../contexts/user/ProfileContext';
 import DefaultLayout from '../../layout/DefaultLayout';
 import ProfileHeader from '../../components/profile/ProfileHeader';
 import ProfileSidebar from '../../components/profile/ProfileSidebar';
@@ -14,19 +15,20 @@ import ProfileContent from '../../components/profile/ProfileContent';
 // Component con lấy dữ liệu từ Context
 const ProfileMain: React.FC = () => {
   const router = useRouter();
+  // const { isAuthenticated, isLoading: authLoading } = useAuth(); // Gỡ bỏ - ProfileContext đã xử lý
   const {
     user,
     activeTab,
     orders,
-    wishlistItems,
+    wishlistItems, // Khôi phục wishlist
     notifications,
     reviews,
     selectedOrder,
     showOrderModal,
     setShowOrderModal,
     handleUpdateProfile,
-    handleRemoveFromWishlist,
-    handleAddToCart,
+    handleRemoveFromWishlist, // Khôi phục wishlist
+    handleAddToCart, // Khôi phục wishlist (nếu liên quan)
     handleViewOrderDetails,
     handleDownloadInvoice,
     handleCancelOrder,
@@ -39,11 +41,20 @@ const ProfileMain: React.FC = () => {
     handleDeleteReview,
     handleOrderStatusFilterChange,
     handleTabChange,
-    handleLogout
+    handleLogout,
   } = useProfile();
 
-  // Đếm số thông báo chưa đọc
-  const unreadNotificationCount = notifications.filter(notif => !notif.isRead).length;
+  // useEffect(() => { // Gỡ bỏ - ProfileContext đã xử lý
+  //   // Chỉ kiểm tra khi auth context đã load xong và user chưa đăng nhập
+  //   if (!authLoading && !isAuthenticated) {
+  //     router.push('/auth/login'); // Chuyển hướng đến /auth/login
+  //   }
+  // }, [isAuthenticated, authLoading, router]);
+
+  // Đếm số thông báo chưa đọc - Thêm kiểm tra null/undefined
+  const unreadNotificationCount = Array.isArray(notifications)
+    ? notifications.filter(notif => !notif.isRead).length 
+    : 0;
 
   // Xử lý nút back
   const handleBack = () => {
@@ -71,15 +82,15 @@ const ProfileMain: React.FC = () => {
             activeTab={activeTab}
             user={user}
             orders={orders}
-            wishlistItems={wishlistItems}
+            wishlistItems={wishlistItems} // Khôi phục wishlist
             notifications={notifications}
             reviews={reviews}
             selectedOrder={selectedOrder}
             showOrderModal={showOrderModal}
             setShowOrderModal={setShowOrderModal}
             handleUpdateProfile={handleUpdateProfile}
-            handleRemoveFromWishlist={handleRemoveFromWishlist}
-            handleAddToCart={handleAddToCart}
+            handleRemoveFromWishlist={handleRemoveFromWishlist} // Khôi phục wishlist
+            handleAddToCart={handleAddToCart} // Khôi phục wishlist (nếu liên quan)
             handleViewOrderDetails={handleViewOrderDetails}
             handleDownloadInvoice={handleDownloadInvoice}
             handleCancelOrder={handleCancelOrder}
@@ -126,4 +137,4 @@ const ProfilePage: NextPage = () => {
   );
 };
 
-export default ProfilePage; 
+export default ProfilePage;

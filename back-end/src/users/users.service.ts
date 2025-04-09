@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -9,6 +9,8 @@ import { AddressDto } from './dto/address.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
@@ -216,7 +218,17 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<UserDocument> {
+    this.logger.debug(`Finding user with ID: ${id}`);
+    
+    // Kiểm tra xem id có phải là một ObjectId hợp lệ không
+    if (!Types.ObjectId.isValid(id)) {
+      this.logger.error(`Invalid ObjectId format: ${id}`);
+      throw new BadRequestException(`ID ${id} không phải là một ObjectId hợp lệ`);
+    }
+    
     const user = await this.userModel.findById(id).exec();
+    this.logger.debug(`User found: ${user ? 'YES' : 'NO'}`);
+    
     if (!user || user.isDeleted) {
       throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
     }

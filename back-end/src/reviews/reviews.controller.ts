@@ -33,12 +33,6 @@ export class ReviewsController {
     return this.reviewsService.findAll(page, limit, status, rating, userId);
   }
 
-  // Lấy đánh giá theo ID
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.reviewsService.findOne(id);
-  }
-
   // Lấy đánh giá theo userID (phải đăng nhập)
   @UseGuards(JwtAuthGuard)
   @Get('user/me')
@@ -79,6 +73,12 @@ export class ReviewsController {
     @Query('status') status: string = 'approved',
   ) {
     return this.reviewsService.findAllByProduct(productId, status);
+  }
+
+  // Lấy đánh giá theo ID - Di chuyển xuống dưới để tránh xung đột với /user/me và /user/:userId
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.reviewsService.findOne(id);
   }
 
   // Tạo đánh giá mới (phải đăng nhập)
@@ -181,4 +181,4 @@ export class ReviewsController {
       distribution: await this.reviewsService.getRatingDistribution(productId),
     };
   }
-} 
+}

@@ -139,7 +139,7 @@ export default function NotificationSection() {
           }
           .marquee {
             display: flex;
-            animation: marquee 30s linear infinite;
+            animation: marquee 200s linear infinite;
             white-space: nowrap;
           }
           .marquee span {

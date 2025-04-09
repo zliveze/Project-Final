@@ -26,6 +26,9 @@ export class UsersController {
 
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserDocument> {
+    if (id === 'profile') {
+      throw new Error('Không thể truy cập profile qua endpoint này, vui lòng sử dụng /users/profile');
+    }
     return this.usersService.findOne(id);
   }
 
@@ -34,11 +37,17 @@ export class UsersController {
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserDocument> {
+    if (id === 'profile') {
+      throw new Error('Không thể cập nhật profile qua endpoint này, vui lòng sử dụng /users/profile');
+    }
     return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string): Promise<void> {
+    if (id === 'profile') {
+      throw new Error('Không thể xóa profile qua endpoint này');
+    }
     return this.usersService.remove(id);
   }
 
