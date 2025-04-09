@@ -8,7 +8,7 @@ import BrandAddModal from '@/components/admin/brands/BrandAddModal';
 import BrandEditModal from '@/components/admin/brands/BrandEditModal';
 import BrandDetailModal from '@/components/admin/brands/BrandDetailModal';
 import BrandDeleteModal from '@/components/admin/brands/BrandDeleteModal';
-import Pagination from '@/components/admin/common/Pagination';
+// Đã tích hợp phân trang vào BrandTable
 import { Brand } from '@/components/admin/brands/BrandForm';
 import { useBrands } from '@/contexts/BrandContext';
 import toast from 'react-hot-toast';
@@ -305,19 +305,21 @@ export default function AdminBrands() {
     <AdminLayout>
       <Head>
         <title>Quản lý thương hiệu | Yumin Admin</title>
+        <meta name="description" content="Quản lý thương hiệu mỹ phẩm" />
       </Head>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Quản lý thương hiệu</h1>
         <button
           onClick={handleAddBrand}
-          className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors duration-200"
         >
           <FiPlus className="mr-2 -ml-1 h-5 w-5" />
           Thêm thương hiệu mới
         </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {/* Thống kê thương hiệu */}
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
@@ -400,7 +402,7 @@ export default function AdminBrands() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 mb-8">
         {loading && !isInitialized ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
@@ -426,20 +428,11 @@ export default function AdminBrands() {
               onDelete={handleDeleteBrand}
               itemsPerPage={itemsPerPage}
               onItemsPerPageChange={handleItemsPerPageChange}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={pagination.total}
+              onPageChange={handlePageChange}
             />
-            
-            {/* Phân trang */}
-            <div className="mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                totalItems={pagination.total}
-                itemsPerPage={itemsPerPage}
-                showItemsInfo={true}
-                className="mt-6"
-              />
-            </div>
           </>
         )}
       </div>

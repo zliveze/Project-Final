@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FiSave, FiX } from 'react-icons/fi';
+import { FiSave, FiX, FiUpload, FiGlobe, FiFacebook, FiInstagram, FiYoutube, FiInfo } from 'react-icons/fi';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 // Định nghĩa interfaces cho Brand
 export interface BrandLogo {
@@ -208,214 +209,283 @@ const BrandForm: React.FC<BrandFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Logo upload */}
-        <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center mb-4">
-          <div className="relative w-40 h-40 mb-4 overflow-hidden rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-            {logoPreview ? (
-              <Image
-                src={logoPreview}
-                alt="Logo preview"
-                width={150}
-                height={150}
-                className="object-contain"
-              />
-            ) : (
-              <div className="text-gray-400 text-center">
-                <p>Chưa có hình ảnh</p>
+    <motion.form 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      onSubmit={handleSubmit} 
+      className="space-y-6 bg-white rounded-xl shadow-sm border border-gray-100"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Cột trái: Logo thương hiệu và Mạng xã hội */}
+        <div className="col-span-1 lg:col-span-1 p-4 border-r border-gray-100">
+          {/* Logo thương hiệu */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Logo thương hiệu</h3>
+            <div className="flex flex-col items-center">
+              <div className="relative w-40 h-40 mb-4 overflow-hidden rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 transition-all hover:border-pink-300 group">
+                {logoPreview ? (
+                  <Image
+                    src={logoPreview}
+                    alt="Logo preview"
+                    width={150}
+                    height={150}
+                    className="object-contain"
+                  />
+                ) : (
+                  <div className="text-gray-400 text-center">
+                    <FiUpload className="h-8 w-8 mx-auto mb-2" />
+                    <p>Chưa có hình ảnh</p>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <label className="cursor-pointer bg-white text-pink-600 hover:bg-pink-50 px-3 py-1.5 rounded-md transition duration-150 font-medium text-sm flex items-center">
+                    <FiUpload className="mr-1.5" />
+                    Tải lên
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoChange}
+                    />
+                  </label>
+                </div>
               </div>
-            )}
+              
+              <label className="cursor-pointer bg-pink-600 text-white hover:bg-pink-700 px-3 py-1.5 rounded-md transition duration-150 font-medium text-sm flex items-center w-fit">
+                <FiUpload className="mr-1.5" />
+                Tải lên logo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoChange}
+                />
+              </label>
+              <div className="mt-2 flex items-center">
+                <FiInfo className="h-4 w-4 text-gray-400 mr-1" />
+                <span className="text-xs text-gray-500">Khuyến nghị: 150x150px, PNG/JPG</span>
+              </div>
+              {errors.logo && <p className="mt-1 text-sm text-red-600">{errors.logo}</p>}
+            </div>
           </div>
-          <label className="cursor-pointer bg-pink-100 text-pink-700 hover:bg-pink-200 px-4 py-2 rounded-md transition duration-150 font-medium text-sm flex items-center">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleLogoChange}
-            />
-            Tải lên logo thương hiệu
-          </label>
-          <span className="text-xs text-gray-500 mt-2">Khuyến nghị kích thước 150x150px, định dạng PNG, JPG</span>
-          {errors.logo && <p className="mt-1 text-sm text-red-600">{errors.logo}</p>}
-        </div>
-
-        {/* Tên thương hiệu */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Tên thương hiệu <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name || ''}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border ${
-              errors.name ? 'border-red-300' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
-          />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-        </div>
-
-        {/* Xuất xứ */}
-        <div>
-          <label htmlFor="origin" className="block text-sm font-medium text-gray-700 mb-1">
-            Xuất xứ
-          </label>
-          <input
-            type="text"
-            id="origin"
-            name="origin"
-            value={formData.origin || ''}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-          />
-        </div>
-
-        {/* Mô tả */}
-        <div className="col-span-1 md:col-span-2">
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Mô tả <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description || ''}
-            onChange={handleChange}
-            rows={3}
-            className={`w-full px-3 py-2 border ${
-              errors.description ? 'border-red-300' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
-          />
-          {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
-        </div>
-
-        {/* Website */}
-        <div>
-          <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
-            Website
-          </label>
-          <input
-            type="url"
-            id="website"
-            name="website"
-            value={formData.website || ''}
-            onChange={handleChange}
-            placeholder="https://example.com"
-            className={`w-full px-3 py-2 border ${
-              errors.website ? 'border-red-300' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
-          />
-          {errors.website && <p className="mt-1 text-sm text-red-600">{errors.website}</p>}
-        </div>
-
-        {/* Trạng thái */}
-        <div>
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-            Trạng thái <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="status"
-            name="status"
-            value={formData.status || 'active'}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-          >
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
-          </select>
-        </div>
-
-        {/* Featured checkbox */}
-        <div className="col-span-1 md:col-span-2">
-          <div className="flex items-center">
-            <input
-              id="featured"
-              name="featured"
-              type="checkbox"
-              checked={formData.featured || false}
-              onChange={handleCheckboxChange}
-              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-            />
-            <label htmlFor="featured" className="ml-2 block text-sm text-gray-700">
-              Thương hiệu nổi bật
-            </label>
-          </div>
-        </div>
-
-        {/* Social Media */}
-        <div className="col-span-1 md:col-span-2">
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Mạng xã hội</h3>
           
-          <div className="space-y-4">
-            {/* Facebook */}
-            <div>
-              <label htmlFor="socialMedia.facebook" className="block text-sm font-medium text-gray-700 mb-1">
-                Facebook
+          {/* Mạng xã hội */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Mạng xã hội</h3>
+            
+            <div className="space-y-4">
+              {/* Facebook */}
+              <div className="space-y-2">
+                <label htmlFor="socialMedia.facebook" className="block text-sm font-medium text-gray-700">
+                  Facebook
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiFacebook className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <input
+                    type="url"
+                    id="socialMedia.facebook"
+                    name="socialMedia.facebook"
+                    value={formData.socialMedia?.facebook || ''}
+                    onChange={handleChange}
+                    placeholder="https://facebook.com/yourbrand"
+                    className={`w-full pl-10 pr-4 py-2.5 border ${
+                      errors['socialMedia.facebook'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                  />
+                </div>
+                {errors['socialMedia.facebook'] && <p className="text-sm text-red-600">{errors['socialMedia.facebook']}</p>}
+              </div>
+
+              {/* Instagram */}
+              <div className="space-y-2">
+                <label htmlFor="socialMedia.instagram" className="block text-sm font-medium text-gray-700">
+                  Instagram
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiInstagram className="h-5 w-5 text-pink-600" />
+                  </div>
+                  <input
+                    type="url"
+                    id="socialMedia.instagram"
+                    name="socialMedia.instagram"
+                    value={formData.socialMedia?.instagram || ''}
+                    onChange={handleChange}
+                    placeholder="https://instagram.com/yourbrand"
+                    className={`w-full pl-10 pr-4 py-2.5 border ${
+                      errors['socialMedia.instagram'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                  />
+                </div>
+                {errors['socialMedia.instagram'] && <p className="text-sm text-red-600">{errors['socialMedia.instagram']}</p>}
+              </div>
+
+              {/* Youtube */}
+              <div className="space-y-2">
+                <label htmlFor="socialMedia.youtube" className="block text-sm font-medium text-gray-700">
+                  Youtube
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiYoutube className="h-5 w-5 text-red-600" />
+                  </div>
+                  <input
+                    type="url"
+                    id="socialMedia.youtube"
+                    name="socialMedia.youtube"
+                    value={formData.socialMedia?.youtube || ''}
+                    onChange={handleChange}
+                    placeholder="https://youtube.com/c/yourbrand"
+                    className={`w-full pl-10 pr-4 py-2.5 border ${
+                      errors['socialMedia.youtube'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                  />
+                </div>
+                {errors['socialMedia.youtube'] && <p className="text-sm text-red-600">{errors['socialMedia.youtube']}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Cột phải: Thông tin thương hiệu và Trạng thái */}
+        <div className="col-span-1 lg:col-span-1 p-4">
+          {/* Thông tin thương hiệu */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Thông tin thương hiệu</h3>
+          
+            {/* Tên thương hiệu */}
+            <div className="space-y-2 mb-4">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Tên thương hiệu <span className="text-red-500">*</span>
               </label>
               <input
-                type="url"
-                id="socialMedia.facebook"
-                name="socialMedia.facebook"
-                value={formData.socialMedia?.facebook || ''}
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name || ''}
                 onChange={handleChange}
-                placeholder="https://facebook.com/yourbrand"
-                className={`w-full px-3 py-2 border ${
-                  errors['socialMedia.facebook'] ? 'border-red-300' : 'border-gray-300'
-                } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
+                placeholder="Nhập tên thương hiệu"
+                className={`w-full px-4 py-2 border ${
+                  errors.name ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
               />
-              {errors['socialMedia.facebook'] && <p className="mt-1 text-sm text-red-600">{errors['socialMedia.facebook']}</p>}
+              {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
             </div>
 
-            {/* Instagram */}
-            <div>
-              <label htmlFor="socialMedia.instagram" className="block text-sm font-medium text-gray-700 mb-1">
-                Instagram
+            {/* Xuất xứ */}
+            <div className="space-y-2 mb-4">
+              <label htmlFor="origin" className="block text-sm font-medium text-gray-700">
+                Xuất xứ
               </label>
               <input
-                type="url"
-                id="socialMedia.instagram"
-                name="socialMedia.instagram"
-                value={formData.socialMedia?.instagram || ''}
+                type="text"
+                id="origin"
+                name="origin"
+                value={formData.origin || ''}
                 onChange={handleChange}
-                placeholder="https://instagram.com/yourbrand"
-                className={`w-full px-3 py-2 border ${
-                  errors['socialMedia.instagram'] ? 'border-red-300' : 'border-gray-300'
-                } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
+                placeholder="Ví dụ: Hàn Quốc, Nhật Bản, Pháp..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
               />
-              {errors['socialMedia.instagram'] && <p className="mt-1 text-sm text-red-600">{errors['socialMedia.instagram']}</p>}
             </div>
 
-            {/* Youtube */}
-            <div>
-              <label htmlFor="socialMedia.youtube" className="block text-sm font-medium text-gray-700 mb-1">
-                Youtube
+            {/* Mô tả */}
+            <div className="space-y-2 mb-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Mô tả <span className="text-red-500">*</span>
               </label>
-              <input
-                type="url"
-                id="socialMedia.youtube"
-                name="socialMedia.youtube"
-                value={formData.socialMedia?.youtube || ''}
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description || ''}
                 onChange={handleChange}
-                placeholder="https://youtube.com/c/yourbrand"
-                className={`w-full px-3 py-2 border ${
-                  errors['socialMedia.youtube'] ? 'border-red-300' : 'border-gray-300'
-                } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
+                rows={3}
+                placeholder="Nhập mô tả chi tiết về thương hiệu"
+                className={`w-full px-4 py-2 border ${
+                  errors.description ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
               />
-              {errors['socialMedia.youtube'] && <p className="mt-1 text-sm text-red-600">{errors['socialMedia.youtube']}</p>}
+              {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
+            </div>
+
+            {/* Website */}
+            <div className="space-y-2 mb-4">
+              <label htmlFor="website" className="block text-sm font-medium text-gray-700">
+                Website chính thức
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiGlobe className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="url"
+                  id="website"
+                  name="website"
+                  value={formData.website || ''}
+                  onChange={handleChange}
+                  placeholder="https://example.com"
+                  className={`w-full pl-10 pr-4 py-2 border ${
+                    errors.website ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
+                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                />
+              </div>
+              {errors.website && <p className="text-sm text-red-600">{errors.website}</p>}
+            </div>
+          </div>
+
+          {/* Trạng thái */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Trạng thái</h3>
+            
+            {/* Trạng thái hoạt động */}
+            <div className="space-y-2 mb-4">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                Trạng thái <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status || 'active'}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none bg-white transition-all"
+              >
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+              </select>
+            </div>
+            
+            {/* Featured checkbox */}
+            <div className="mb-4">
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                <input
+                  id="featured"
+                  name="featured"
+                  type="checkbox"
+                  checked={formData.featured || false}
+                  onChange={handleCheckboxChange}
+                  className="h-5 w-5 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                />
+                <div>
+                  <label htmlFor="featured" className="block text-sm font-medium text-gray-700">
+                    Thương hiệu nổi bật
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">Hiển thị ở vị trí ưu tiên</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Form actions */}
-      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+      <div className="flex justify-end space-x-4 pt-4 border-t border-gray-100 px-4">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all"
         >
           <FiX className="mr-2 -ml-1 h-5 w-5" />
           Hủy
@@ -423,14 +493,14 @@ const BrandForm: React.FC<BrandFormProps> = ({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+          className={`inline-flex items-center px-6 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isSubmitting ? 'bg-pink-400' : 'bg-pink-600 hover:bg-pink-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all`}
         >
           <FiSave className="mr-2 -ml-1 h-5 w-5" />
           {isSubmitting ? 'Đang lưu...' : 'Lưu thương hiệu'}
         </button>
       </div>
-    </form>
+    </motion.form>
   );
 };
 
-export default BrandForm; 
+export default BrandForm;

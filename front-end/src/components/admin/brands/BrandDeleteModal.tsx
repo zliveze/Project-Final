@@ -1,6 +1,5 @@
-import { Fragment, useState } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { FiAlertTriangle, FiX } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiAlertTriangle, FiX, FiTrash2 } from 'react-icons/fi';
 import { Brand } from './BrandForm';
 
 interface BrandDeleteModalProps {
@@ -12,6 +11,18 @@ interface BrandDeleteModalProps {
 
 const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onClose, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  
+  // Hiển thị/ẩn modal với animation
+  useEffect(() => {
+    if (isOpen) {
+      setModalVisible(true);
+    } else {
+      setTimeout(() => {
+        setModalVisible(false);
+      }, 300);
+    }
+  }, [isOpen]);
 
   const handleDelete = async () => {
     if (!brand) return;
@@ -26,96 +37,89 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
     }
   };
 
-  if (!brand) return null;
+  if (!brand || (!isOpen && !modalVisible)) return null;
 
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </Transition.Child>
+    <div className={`fixed inset-0 z-[1000] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
 
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-              enterTo="opacity-100 translate-y-0 sm:scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+          &#8203;
+        </span>
+
+        <div 
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full ${
+            isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
+          }`}
+        >
+          <div className="absolute top-0 right-0 pt-4 pr-4 z-10">
+            <button
+              type="button"
+              className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors"
+              onClick={onClose}
             >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
-                  <button
-                    type="button"
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2"
-                    onClick={onClose}
-                  >
-                    <span className="sr-only">Đóng</span>
-                    <FiX className="h-6 w-6" aria-hidden="true" />
-                  </button>
-                </div>
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <FiAlertTriangle className="h-6 w-6 text-red-600" aria-hidden="true" />
-                  </div>
-                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                    <Dialog.Title as="h3" className="text-base font-semibold leading-6 text-gray-900">
-                      Xóa thương hiệu
-                    </Dialog.Title>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Bạn có chắc chắn muốn xóa thương hiệu <span className="font-medium text-gray-900">{brand.name}</span>? 
-                        Hành động này không thể hoàn tác và có thể ảnh hưởng đến các sản phẩm thuộc thương hiệu này.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Đang xóa...
-                      </>
-                    ) : (
-                      "Xóa"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
-                    onClick={onClose}
-                    disabled={isDeleting}
-                  >
-                    Hủy bỏ
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              <span className="sr-only">Đóng</span>
+              <FiX className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+              <FiTrash2 className="text-red-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">
+              Xóa thương hiệu
+            </h2>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-start mb-5">
+              <div className="flex-shrink-0 mt-0.5">
+                <FiAlertTriangle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-gray-600">
+                  Bạn có chắc chắn muốn xóa thương hiệu <span className="font-medium text-gray-900">{brand.name}</span>? 
+                  Hành động này không thể hoàn tác và có thể ảnh hưởng đến các sản phẩm thuộc thương hiệu này.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-5 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                onClick={onClose}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xóa"
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </Dialog>
-    </Transition.Root>
+      </div>
+    </div>
   );
 };
 
-export default BrandDeleteModal; 
+export default BrandDeleteModal;
