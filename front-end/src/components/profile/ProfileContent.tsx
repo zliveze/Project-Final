@@ -136,7 +136,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   };
 
   return (
-    <div className="flex-grow p-3 bg-white">
+    <div className="flex-grow bg-white shadow rounded p-4 border border-gray-200">
       {renderContent()}
       
       {/* Modal chi tiết đơn hàng */}

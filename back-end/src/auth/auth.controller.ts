@@ -91,20 +91,35 @@ export class AuthController {
   }
 
   // Callback URL sau khi xác thực Google
-  @Get('callback/google')
+  @Get('google/callback') // Đổi route thành 'google/callback'
   @UseGuards(GoogleAuthGuard)
-  googleCallback(@Req() req: RequestWithUser, @Res() res: Response) {
+  googleCallback(@Req() req: RequestWithUser, @Res() res: Response) { // Giữ lại @Res để có thể tùy chỉnh response nếu cần, nhưng sẽ trả về JSON
     this.logger.log('Google callback received');
-    
-    // Tạo và trả về các token như đăng nhập thông thường
-    const { accessToken, refreshToken, user } = req.user;
-    
-    // Redirect về frontend với token (trong thực tế nên dùng cách bảo mật hơn)
-    const redirectUrl = `${this.clientUrl}/auth/google-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
-    return res.redirect(redirectUrl);
+    this.logger.debug(`User from Google Strategy: ${JSON.stringify(req.user)}`);
+
+    // GoogleAuthGuard đã chạy GoogleStrategy#validate,
+    // AuthService#registerWithGoogle đã được gọi và trả về user/tokens trong req.user
+    if (!req.user || !req.user.accessToken || !req.user.user) {
+        this.logger.error('Google callback failed: Invalid user data received from strategy.');
+        // Trả về lỗi cho frontend
+        return res.status(500).json({ message: 'Lỗi xử lý xác thực Google.' });
+    }
+
+    // Trả về thông tin user và tokens dưới dạng JSON cho frontend xử lý
+    this.logger.log('Returning user and tokens as JSON response.');
+    return res.status(200).json({
+        accessToken: req.user.accessToken,
+        refreshToken: req.user.refreshToken, // Đảm bảo refreshToken được trả về từ strategy/service nếu có
+        user: req.user.user
+    });
+
+    // Không sử dụng redirect nữa, frontend sẽ xử lý response JSON
+    // const { accessToken, refreshToken, user } = req.user;
+    // const redirectUrl = `${this.clientUrl}/auth/google-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
+    // return res.redirect(redirectUrl);
   }
 
-  // Phương thức thay thế khi không sử dụng OAuth trực tiếp
+  // Phương thức thay thế khi không sử dụng OAuth trực tiếp (giữ nguyên)
   @Post('google')
   async googleAuth(@Body() googleAuthDto: GoogleAuthDto) {
     this.logger.log(`LƯU Ý: Chức năng demo đang được sử dụng thay vì OAuth thực tế với Google`);
@@ -141,4 +156,4 @@ export class AuthController {
       message: 'Nếu email của bạn đã đăng ký, chúng tôi sẽ gửi hướng dẫn xác minh.',
     };
   }
-} 
+}

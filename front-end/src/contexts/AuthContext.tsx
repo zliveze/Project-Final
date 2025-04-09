@@ -29,7 +29,8 @@ export const useAuth = () => useContext(AuthContext);
 
 // Base API URL từ biến môi trường
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3001/auth';
+// Sử dụng API_URL cho tất cả các endpoint, bao gồm cả auth
+const AUTH_URL = API_URL + '/auth'; // Đảm bảo AUTH_URL cũng có /api
 
 // Hàm lưu token vào cả localStorage và cookie
 const saveToken = (name: string, value: string, expires?: number) => {
@@ -219,46 +220,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const googleLogin = async (code: string) => {
     try {
       setIsLoading(true);
-      
-      console.log('Đang gọi Google login API với code:', code);
-      console.log('API URL:', `${AUTH_URL}/google/callback`);
-      
-      // Gọi API endpoint xử lý Google OAuth
-      const response = await fetch(`${AUTH_URL}/google/callback`, {
-        method: 'POST',
+      console.log('Đang xử lý callback Google với code:', code);
+
+      // Backend sẽ xử lý việc trao đổi code lấy token và thông tin user
+      // Frontend chỉ cần gọi endpoint callback của backend với code nhận được
+      // Endpoint này nên là GET và code nằm trong query param
+      const googleCallbackUrl = `${API_URL}/auth/google/callback?code=${code}`;
+      console.log('Gọi API Backend:', googleCallbackUrl);
+
+      const response = await fetch(googleCallbackUrl, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          // Không cần Content-Type cho GET không có body
         },
-        body: JSON.stringify({ code }),
-        credentials: 'include'
+        // Không cần body, code đã ở trong URL
+        credentials: 'include' // Quan trọng để gửi/nhận cookie session nếu backend dùng session
       });
 
       console.log('Response status:', response.status);
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Đăng nhập Google thất bại');
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // Nếu không parse được JSON, dùng text
+          errorData = { message: await response.text() };
+        }
+        console.error('Lỗi từ backend:', errorData);
+        throw new Error(errorData.message || `Đăng nhập Google thất bại (status: ${response.status})`);
       }
 
       const data = await response.json();
-      console.log('Response data:', data);
+      console.log('Response data từ backend:', data);
 
+      // Backend nên trả về accessToken, refreshToken (nếu có), và user info
       if (!data.accessToken || !data.user) {
-        throw new Error('Không nhận được thông tin xác thực từ server');
+        console.error('Dữ liệu trả về không hợp lệ:', data);
+        throw new Error('Không nhận được thông tin xác thực đầy đủ từ server');
       }
 
       // Lưu token và thông tin người dùng
-      saveToken('accessToken', data.accessToken, 2);
+      saveToken('accessToken', data.accessToken, 2); // 2 ngày
       if (data.refreshToken) {
-        saveToken('refreshToken', data.refreshToken, 7);
+        saveToken('refreshToken', data.refreshToken, 7); // 7 ngày
       }
       localStorage.setItem('user', JSON.stringify(data.user));
 
       setUser(data.user);
       setIsAuthenticated(true);
+      console.log('Đăng nhập Google thành công!');
       return true;
     } catch (error) {
-      console.error('Lỗi đăng nhập Google:', error);
+      console.error('Lỗi trong hàm googleLogin:', error);
+      // Ném lại lỗi để component gọi có thể xử lý (ví dụ: hiển thị thông báo)
       throw error;
     } finally {
       setIsLoading(false);
@@ -302,4 +317,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}; 
+};

@@ -62,47 +62,51 @@ const ProfileMain: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-8">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="bg-gray-50 min-h-screen py-6">
+      <div className="container mx-auto px-4">
         <ProfileHeader 
           title="Trang cá nhân" 
           onBack={handleBack}
           onLogout={handleLogout}
         />
         
-        <div className="flex flex-col md:flex-row gap-6">
-          <ProfileSidebar
-            user={user}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            notificationCount={unreadNotificationCount}
-          />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="w-full md:w-1/4">
+            <ProfileSidebar
+              user={user}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              notificationCount={unreadNotificationCount}
+            />
+          </div>
           
-          <ProfileContent
-            activeTab={activeTab}
-            user={user}
-            orders={orders}
-            wishlistItems={wishlistItems} // Khôi phục wishlist
-            notifications={notifications}
-            reviews={reviews}
-            selectedOrder={selectedOrder}
-            showOrderModal={showOrderModal}
-            setShowOrderModal={setShowOrderModal}
-            handleUpdateProfile={handleUpdateProfile}
-            handleRemoveFromWishlist={handleRemoveFromWishlist} // Khôi phục wishlist
-            handleAddToCart={handleAddToCart} // Khôi phục wishlist (nếu liên quan)
-            handleViewOrderDetails={handleViewOrderDetails}
-            handleDownloadInvoice={handleDownloadInvoice}
-            handleCancelOrder={handleCancelOrder}
-            handleReturnOrder={handleReturnOrder}
-            handleBuyAgain={handleBuyAgain}
-            handleMarkAsRead={handleMarkAsRead}
-            handleMarkAllAsRead={handleMarkAllAsRead}
-            handleDeleteNotification={handleDeleteNotification}
-            handleEditReview={handleEditReview}
-            handleDeleteReview={handleDeleteReview}
-            handleOrderStatusFilterChange={handleOrderStatusFilterChange}
-          />
+          <div className="w-full md:w-3/4">
+            <ProfileContent
+              activeTab={activeTab}
+              user={user}
+              orders={orders}
+              wishlistItems={wishlistItems}
+              notifications={notifications}
+              reviews={reviews}
+              selectedOrder={selectedOrder}
+              showOrderModal={showOrderModal}
+              setShowOrderModal={setShowOrderModal}
+              handleUpdateProfile={handleUpdateProfile}
+              handleRemoveFromWishlist={handleRemoveFromWishlist}
+              handleAddToCart={handleAddToCart}
+              handleViewOrderDetails={handleViewOrderDetails}
+              handleDownloadInvoice={handleDownloadInvoice}
+              handleCancelOrder={handleCancelOrder}
+              handleReturnOrder={handleReturnOrder}
+              handleBuyAgain={handleBuyAgain}
+              handleMarkAsRead={handleMarkAsRead}
+              handleMarkAllAsRead={handleMarkAllAsRead}
+              handleDeleteNotification={handleDeleteNotification}
+              handleEditReview={handleEditReview}
+              handleDeleteReview={handleDeleteReview}
+              handleOrderStatusFilterChange={handleOrderStatusFilterChange}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -83,13 +83,13 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Thông tin cá nhân</h2>
+    <div className="bg-white shadow rounded p-6 border border-gray-200">
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+        <h2 className="text-xl font-bold text-gray-800">Thông tin cá nhân</h2>
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center text-pink-600 hover:text-pink-800 transition-colors"
+            className="flex items-center text-pink-600 hover:text-pink-700 transition-colors border border-pink-600 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2"
           >
             <FaEdit className="mr-1" /> Chỉnh sửa
           </button>
@@ -97,13 +97,13 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
           <div className="flex space-x-2">
             <button
               onClick={handleSubmit}
-              className="flex items-center text-green-600 hover:text-green-800"
+              className="flex items-center text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             >
               <FaCheck className="mr-1" /> Lưu
             </button>
             <button
               onClick={handleCancel}
-              className="flex items-center text-red-600 hover:text-red-800"
+              className="flex items-center text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
             >
               <FaTimes className="mr-1" /> Hủy
             </button>
@@ -124,7 +124,7 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
               required
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
 
@@ -139,14 +139,14 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
               required
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
           
           <div className="pt-4">
             <button
               type="submit"
-              className="w-full px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:opacity-90 transition-opacity"
+              className="w-full px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors"
             >
               Lưu thông tin
             </button>
@@ -154,21 +154,21 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
         </form>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
-              <p className="text-sm font-medium text-pink-600 mb-1">Họ và tên</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Họ và tên</p>
               <p className="text-md text-gray-900 font-medium">{user.name}</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-              <p className="text-sm font-medium text-purple-600 mb-1">Email</p>
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Email</p>
               <p className="text-md text-gray-900 font-medium">{user.email}</p>
             </div>
-            <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
-              <p className="text-sm font-medium text-pink-600 mb-1">Số điện thoại</p>
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Số điện thoại</p>
               <p className="text-md text-gray-900 font-medium">{user.phone || 'Chưa cập nhật'}</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-              <p className="text-sm font-medium text-purple-600 mb-1">Ngày tham gia</p>
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Ngày tham gia</p>
               <p className="text-md text-gray-900 font-medium">{formatDate(user.createdAt)}</p>
             </div>
           </div>

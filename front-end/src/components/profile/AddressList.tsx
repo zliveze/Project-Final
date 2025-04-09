@@ -352,7 +352,7 @@ const AddressList = ({
     };
     
     return (
-      <form onSubmit={handleFormSubmit} className="bg-gray-50 p-4 rounded-md mb-4">
+<form onSubmit={handleFormSubmit} className="bg-gray-50 p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           {/* Tỉnh/Thành phố */}
           <div>
@@ -365,7 +365,7 @@ const AddressList = ({
               value={selectedProvince}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 rounded appearance-none bg-white"
               disabled={loading}
             >
               <option value="">-- Chọn Tỉnh/Thành phố --</option>
@@ -388,7 +388,7 @@ const AddressList = ({
               value={selectedDistrict}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 rounded appearance-none bg-white"
               disabled={!selectedProvince || loading}
             >
               <option value="">-- Chọn Quận/Huyện --</option>
@@ -411,7 +411,7 @@ const AddressList = ({
               value={selectedWard}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 rounded appearance-none bg-white"
               disabled={!selectedDistrict || loading}
             >
               <option value="">-- Chọn Phường/Xã --</option>
@@ -435,7 +435,7 @@ const AddressList = ({
               required
               value={formData.addressLine}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 rounded"
               placeholder="Số nhà, tên đường, tòa nhà, ..."
               autoComplete="off"
             />
@@ -452,7 +452,7 @@ const AddressList = ({
               type="text"
               value={formData.postalCode}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
               placeholder="Mã bưu điện (nếu có)"
               autoComplete="off"
             />
@@ -476,7 +476,7 @@ const AddressList = ({
 
         {/* Hiển thị địa chỉ đầy đủ */}
         {formData.city && formData.district && formData.ward && formData.addressLine && (
-          <div className="mb-4 p-3 bg-pink-50 border border-pink-200 rounded-md">
+          <div className="mb-4 p-3 bg-pink-50 border border-pink-100 rounded">
             <p className="text-sm text-gray-700 font-medium">Địa chỉ đầy đủ:</p>
             <p className="text-sm text-gray-600">
               {formData.addressLine}, {formData.ward}, {formData.district}, {formData.city}, {formData.country}
@@ -489,13 +489,13 @@ const AddressList = ({
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
             disabled={loading || !formData.city || !formData.district || !formData.ward || !formData.addressLine}
           >
             {isEditing ? 'Cập nhật' : 'Thêm'}
@@ -535,12 +535,12 @@ const AddressList = ({
   return (
     <div>
       {!showAddForm && (
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Địa chỉ của tôi</h2>
+        <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800">Địa chỉ của tôi</h2>
           {!isAdding && !editingId && (
             <button
               onClick={() => setIsAdding(true)}
-              className="flex items-center text-pink-600 hover:text-pink-800"
+              className="flex items-center text-pink-600 hover:text-pink-800 border border-pink-600 px-3 py-1 rounded"
             >
               <FaPlus className="mr-1" /> Thêm địa chỉ mới
             </button>
@@ -553,12 +553,12 @@ const AddressList = ({
       {editingId && <AddressForm isEditing />}
 
       {addresses && Array.isArray(addresses) && addresses.length === 0 && !isAdding && !editingId ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 bg-gray-50 rounded border border-gray-200">
           <FaMapMarkerAlt className="mx-auto text-gray-400 text-4xl mb-3" />
           <p>Bạn chưa có địa chỉ nào</p>
           <button
             onClick={() => setIsAdding(true)}
-            className="mt-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="mt-4 px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           >
             Thêm địa chỉ mới
           </button>
@@ -568,7 +568,7 @@ const AddressList = ({
           {addresses.map((address) => (
             <div
               key={address.addressId}
-              className={`p-4 border rounded-lg ${address.isDefault ? 'border-pink-500 bg-pink-50' : 'border-gray-200'}`}
+              className={`p-4 border rounded ${address.isDefault ? 'border-pink-600 bg-pink-50' : 'border-gray-200'}`}
             >
               {editingId === address.addressId ? (
                 <AddressForm isEditing />
@@ -593,7 +593,7 @@ const AddressList = ({
                   <div className="flex space-x-2">
                     <button
                       onClick={() => startEditing(address)}
-                      className="text-pink-600 hover:text-pink-800"
+                      className="text-pink-600 hover:text-pink-700 p-1.5 rounded border border-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2"
                       title="Chỉnh sửa"
                     >
                       <FaEdit />
@@ -602,14 +602,14 @@ const AddressList = ({
                       <>
                         <button
                           onClick={() => handleSetDefault(address.addressId)}
-                          className="text-purple-600 hover:text-purple-800"
+                          className="text-purple-600 hover:text-purple-700 p-1.5 rounded border border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                           title="Đặt làm mặc định"
                         >
                           <FaCheck />
                         </button>
                         <button
                           onClick={() => handleDelete(address.addressId)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-700 p-1.5 rounded border border-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                           title="Xóa"
                         >
                           <FaTrash />
@@ -623,12 +623,12 @@ const AddressList = ({
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 bg-gray-50 rounded border border-gray-200">
           <FaMapMarkerAlt className="mx-auto text-gray-400 text-4xl mb-3" />
           <p>Không có địa chỉ nào</p>
           <button
             onClick={() => setIsAdding(true)}
-            className="mt-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="mt-4 px-4 py-2 border border-transparent rounded shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           >
             Thêm địa chỉ mới
           </button>
