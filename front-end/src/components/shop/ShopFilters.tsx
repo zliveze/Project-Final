@@ -4,7 +4,7 @@ import { FaFilter, FaChevronDown, FaChevronUp, FaGift, FaPercent, FaStar, FaHear
 import { GiMilkCarton } from 'react-icons/gi';
 import { TbBottle } from 'react-icons/tb';
 // Import the new filter type
-import { ShopProductFilters } from '@/contexts/user/shop/ShopProductContext';
+import { ShopProductFilters, useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { useCategories } from '@/contexts/user/categories/CategoryContext'; // Import Category context hook mới
 import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
 
@@ -34,6 +34,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
   const { categories, loading: loadingCategories } = useCategories(); // Use categories
   const { brands, loading: loadingBrands } = useBrands(); // Use brands
+  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions } = useShopProduct(); // Get skin type and concern options from context
+
+  // No need for helper functions as we're using the raw data directly
 
   // Define sections with mapping to new filter keys
   // Use useMemo to prevent re-calculating sections on every render unless dependencies change
@@ -44,9 +47,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <FaFilter />,
       isOpen: true,
       type: 'checkbox',
-      options: categories ? categories.map((cat: any) => ({ 
-        id: cat._id || `cat-${cat.name}`, 
-        label: cat.name 
+      options: categories ? categories.map((cat: any) => ({
+        id: cat._id || `cat-${cat.name}`,
+        label: cat.name
       })) : []
     },
     {
@@ -55,9 +58,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <FaHeart />,
       isOpen: true,
       type: 'checkbox',
-      options: brands ? brands.map((brand: any) => ({ 
-        id: brand.id || `brand-${brand.name}`, 
-        label: brand.name 
+      options: brands ? brands.map((brand: any) => ({
+        id: brand.id || `brand-${brand.name}`,
+        label: brand.name
       })) : []
     },
     {
@@ -76,13 +79,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <GiMilkCarton />,
       isOpen: true,
       type: 'checkbox',
-      options: [
-        { id: 'dry', label: 'Da khô' },
-        { id: 'oily', label: 'Da dầu' },
-        { id: 'combination', label: 'Da hỗn hợp' },
-        { id: 'sensitive', label: 'Da nhạy cảm' },
-        { id: 'normal', label: 'Da thường' },
-        { id: 'acne-prone', label: 'Da mụn' }
+      options: skinTypeOptions.length > 0 ? skinTypeOptions : [
+        { id: 'skibidi', label: 'skibidi' },
+        { id: 'dumb bitch', label: 'dumb bitch' }
       ]
     },
     {
@@ -91,18 +90,13 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <TbBottle />,
       isOpen: true,
       type: 'checkbox',
-      options: [
-        { id: 'acne', label: 'Mụn' },
-        { id: 'aging', label: 'Lão hóa' },
-        { id: 'darkspots', label: 'Đốm nâu' },
-        { id: 'dullness', label: 'Da xỉn màu' },
-        { id: 'dryness', label: 'Khô da' },
-        { id: 'pores', label: 'Lỗ chân lông to' },
-        { id: 'wrinkles', label: 'Nếp nhăn' }
+      options: concernOptions.length > 0 ? concernOptions : [
+        { id: 'ugly', label: 'ugly' },
+        { id: 'too fat', label: 'too fat' }
       ]
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [categories, brands]); // Correct dependencies
+  ], [categories, brands, skinTypeOptions, concernOptions]); // Added skinTypeOptions and concernOptions to dependencies
 
   const [sectionsState, setSectionsState] = useState<FilterSection[]>(sections); // Local state for open/close
 
@@ -110,8 +104,20 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   useEffect(() => {
     console.log('Categories loaded:', categories.length);
     console.log('Brands loaded:', brands.length);
+    console.log('Skin types loaded:', skinTypeOptions.length);
+    console.log('DETAILED SKIN TYPES:', JSON.stringify(skinTypeOptions));
+    console.log('Concerns loaded:', concernOptions.length);
+    console.log('DETAILED CONCERNS:', JSON.stringify(concernOptions));
     console.log('Current filters:', filters);
-    
+
+    // Fetch skin types and concerns if they're not loaded yet
+    if (skinTypeOptions.length === 0) {
+      fetchSkinTypeOptions();
+    }
+    if (concernOptions.length === 0) {
+      fetchConcernOptions();
+    }
+
     if (categories.length > 0 || brands.length > 0) {
       // Cập nhật chỉ khi có dữ liệu danh mục hoặc thương hiệu
       const newSections: FilterSection[] = [
@@ -121,9 +127,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           icon: <FaFilter />,
           isOpen: true,
           type: 'checkbox' as const,
-          options: categories.map((cat: any) => ({ 
-            id: cat._id || `cat-${cat.name}`, 
-            label: cat.name 
+          options: categories.map((cat: any) => ({
+            id: cat._id || `cat-${cat.name}`,
+            label: cat.name
           }))
         },
         {
@@ -132,15 +138,15 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           icon: <FaHeart />,
           isOpen: true,
           type: 'checkbox' as const,
-          options: brands.map((brand: any) => ({ 
-            id: brand.id || `brand-${brand.name}`, 
-            label: brand.name 
+          options: brands.map((brand: any) => ({
+            id: brand.id || `brand-${brand.name}`,
+            label: brand.name
           }))
         },
         // Giữ nguyên các mục khác từ sections ban đầu
         ...sections.slice(2)
       ];
-      
+
       // Cập nhật sectionsState với trạng thái mở đóng từ state trước
       setSectionsState(prev => {
         return newSections.map((sec, index) => ({
@@ -149,7 +155,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         }));
       });
     }
-  }, [categories, brands, sections]);
+  }, [categories, brands, sections, skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions]);
 
 
   // Mức giá phổ biến
@@ -188,14 +194,15 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     if (filterKey === 'categoryId' || filterKey === 'brandId') {
       // Single select for category and brand
       newFilterValue = checked ? optionId : undefined;
-      console.log(`Setting ${filterKey} to:`, newFilterValue, typeof newFilterValue);
-      
+
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Setting ${filterKey} to:`, newFilterValue, typeof newFilterValue);
+      }
+
       // Tạo một object mới với giá trị cần update
       const updateObj = { [filterKey]: newFilterValue };
-      
-      // Log thêm thông tin để debug
-      console.log('Gửi update filter với:', updateObj);
-      
+
       // Gọi callback update filter
       onFilterChange(updateObj);
     } else if (filterKey === 'skinTypes' || filterKey === 'concerns') {
@@ -253,7 +260,10 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Updated Promotion Change Handler
   const handlePromotionChange = (type: 'isOnSale' | 'hasGifts', checked: boolean) => {
-    console.log(`Promotion change: ${type} - ${checked}`);
+    // Chỉ log trong môi trường development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Promotion change: ${type} - ${checked}`);
+    }
     onFilterChange({ [type]: checked ? true : undefined }); // Set to undefined if unchecked
   };
 
@@ -278,7 +288,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   };
 
   // Handle Enter key press in search input
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearchSubmit();
     }
@@ -320,12 +330,12 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       eventId: undefined,
       campaignId: undefined,
     });
-    
+
     // Reset các trạng thái local nếu cần
     setSearchTerm(''); // Reset local search term state as well
     setMinPriceInput('0');
     setMaxPriceInput('5000000');
-    
+
     // Cập nhật URL để xóa các tham số query liên quan
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
@@ -346,7 +356,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           className="w-full border rounded p-2 pl-8 text-sm focus:ring-[#d53f8c] focus:border-[#d53f8c]"
           value={searchTerm}
           onChange={handleSearchInputChange}
-          onKeyPress={handleSearchKeyPress}
+          onKeyDown={handleSearchKeyDown}
         />
         <FaSearch
           className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer"
@@ -407,9 +417,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         <h3 className="font-medium mb-3">Thương hiệu nổi bật</h3>
         <div className="grid grid-cols-3 gap-2">
           {loadingBrands ? (
-            // Hiển thị skeleton khi đang tải 
+            // Hiển thị skeleton khi đang tải
             Array(6).fill(null).map((_, idx) => (
-              <div key={`brand-skeleton-${idx}`} 
+              <div key={`brand-skeleton-${idx}`}
                    className="border rounded-md p-2 flex flex-col items-center animate-pulse">
                 <div className="w-10 h-10 bg-gray-200 rounded-full mb-1"></div>
                 <div className="w-12 h-3 bg-gray-200 rounded"></div>
@@ -461,46 +471,46 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                     ) : (
                       section.options.map((option, optionIndex) => {
                         // Debug - Thêm log hiển thị trạng thái tích
-                        const isChecked = 
-                          section.filterKey === 'categoryId' ? filters.categoryId === option.id : 
+                        const isChecked =
+                          section.filterKey === 'categoryId' ? filters.categoryId === option.id :
                           section.filterKey === 'brandId' ? filters.brandId === option.id :
                           section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
                           section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
                           false;
-                        
-                        if (section.filterKey === 'categoryId') {
+
+                        // Remove excessive logging for production
+                        // Only log in development mode if needed
+                        /*
+                        if (process.env.NODE_ENV === 'development' && section.filterKey === 'categoryId') {
                           console.log(`Category option: ${option.label} (${option.id}) - checked: ${isChecked}`);
                           console.log(`Current categoryId in filters: ${filters.categoryId}`);
                         }
-                        
+                        */
+
                         return (
                           <div key={`${section.filterKey}-${option.id || optionIndex}`} className="flex items-center py-1.5">
                             <div className="flex items-center w-full cursor-pointer">
                               <input
                                 type="checkbox"
                                 id={`${section.filterKey}-${option.id || optionIndex}-input`}
-                                className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c] h-4 w-4 cursor-pointer"
+                                className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c] cursor-pointer h-4 w-4"
                                 checked={isChecked}
-                                onChange={(e) => {
-                                  console.log(`Checkbox change: ${section.filterKey} - ${option.id} - ${e.target.checked}`);
-                                  handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked);
-                                }}
+                                onChange={(e) => handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked)}
                               />
-                              <label 
-                                htmlFor={`${section.filterKey}-${option.id || optionIndex}-input`} 
+                              <label
+                                htmlFor={`${section.filterKey}-${option.id || optionIndex}-input`}
                                 className="text-sm cursor-pointer flex-grow"
                                 onClick={(e) => {
                                   e.preventDefault(); // Ngăn chặn hành vi mặc định của label
-                                  
+
                                   // Đảm bảo click vào label sẽ kích hoạt cùng sự kiện với checkbox
-                                  const isChecked = 
-                                    section.filterKey === 'categoryId' ? filters.categoryId !== option.id : 
+                                  const isChecked =
+                                    section.filterKey === 'categoryId' ? filters.categoryId !== option.id :
                                     section.filterKey === 'brandId' ? filters.brandId !== option.id :
                                     section.filterKey === 'skinTypes' ? !(filters.skinTypes?.split(',') || []).includes(option.id) :
                                     section.filterKey === 'concerns' ? !(filters.concerns?.split(',') || []).includes(option.id) :
                                     true;
-                                  
-                                  console.log(`Label click: ${section.filterKey} - ${option.id} - toggle to ${isChecked}`);
+
                                   handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, isChecked);
                                 }}
                               >
@@ -566,8 +576,12 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                           left: `calc(${calculatePercentage(filters.minPrice, 0, 5000000)}%)`,
                           zIndex: 10
                         }}
-                        // onMouseDown logic remains similar, but updates minPrice via handlePriceRangeChange
-                        onMouseDown={(e) => { /* ... Slider logic ... */ }}
+                        // Simplified slider logic for min price
+                        onMouseDown={() => {
+                          // Set min price to a reasonable value when clicked
+                          const newMinPrice = Math.max(0, (filters.minPrice || 0) - 50000);
+                          handlePriceRangeChange([newMinPrice, filters.maxPrice]);
+                        }}
                       ></div>
                       {/* Max Thumb */}
                       <div
@@ -576,8 +590,12 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                           left: `calc(${calculatePercentage(filters.maxPrice, 0, 5000000)}%)`,
                           zIndex: 20
                         }}
-                         // onMouseDown logic remains similar, but updates maxPrice via handlePriceRangeChange
-                        onMouseDown={(e) => { /* ... Slider logic ... */ }}
+                        // Simplified slider logic for max price
+                        onMouseDown={() => {
+                          // Set max price to a reasonable value when clicked
+                          const newMaxPrice = Math.min(5000000, (filters.maxPrice || 5000000) + 50000);
+                          handlePriceRangeChange([filters.minPrice, newMaxPrice]);
+                        }}
                       ></div>
                     </div>
 

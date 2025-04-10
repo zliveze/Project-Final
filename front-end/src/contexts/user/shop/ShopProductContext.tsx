@@ -74,7 +74,7 @@ export interface ShopProductFilters {
   brandId?: string;
   categoryId?: string;
   eventId?: string; // ID của sự kiện để lọc sản phẩm
-  campaignId?: string; // ID của chiến dịch để lọc sản phẩm 
+  campaignId?: string; // ID của chiến dịch để lọc sản phẩm
   status?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -105,6 +105,10 @@ interface ShopProductContextType {
   changePage: (newPage: number) => void;
   changeLimit: (newLimit: number) => void;
   fetchCampaign: (campaignId: string) => Promise<void>;
+  fetchSkinTypeOptions: () => Promise<{ id: string; label: string }[]>;
+  fetchConcernOptions: () => Promise<{ id: string; label: string }[]>;
+  skinTypeOptions: { id: string; label: string }[];
+  concernOptions: { id: string; label: string }[];
   addToWishlist?: (productId: string) => Promise<boolean>;
   addToCart?: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
 }
@@ -138,6 +142,10 @@ export const useShopProduct = (): ShopProductContextType => {
       changePage: () => { console.warn('ShopProductProvider not available.'); },
       changeLimit: () => { console.warn('ShopProductProvider not available.'); },
       fetchCampaign: async () => { console.warn('ShopProductProvider not available.'); },
+      fetchSkinTypeOptions: async () => { console.warn('ShopProductProvider not available.'); return []; },
+      fetchConcernOptions: async () => { console.warn('ShopProductProvider not available.'); return []; },
+      skinTypeOptions: [],
+      concernOptions: [],
       addToWishlist: async () => { console.warn('ShopProductProvider not available.'); return false; },
       addToCart: async () => { console.warn('ShopProductProvider not available.'); return false; }
     };
@@ -145,12 +153,12 @@ export const useShopProduct = (): ShopProductContextType => {
   return context;
 };
 
-// Thêm biến tĩnh ở mức module để lưu yêu cầu cuối cùng 
+// Thêm biến tĩnh ở mức module để lưu yêu cầu cuối cùng
 let lastRequestKey: string = '';
 let debounceTimer: NodeJS.Timeout | null = null;
 // Thêm cache kết quả
 const resultsCache: { [key: string]: { timestamp: number, data: LightProductsApiResponse } } = {};
-const CACHE_TTL = 60000; // 60 giây cache
+const CACHE_TTL = 120000; // Tăng lên 120 giây (2 phút) cache
 
 // Provider component
 export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -163,6 +171,8 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [itemsPerPage, setItemsPerPage] = useState<number>(12); // Default for shop view
   const [filters, setFiltersState] = useState<ShopProductFilters>({});
   const [selectedCampaign, setSelectedCampaign] = useState<UserCampaign | null>(null);
+  const [skinTypeOptions, setSkinTypeOptions] = useState<{ id: string; label: string }[]>([]);
+  const [concernOptions, setConcernOptions] = useState<{ id: string; label: string }[]>([]);
 
   const fetchProducts = useCallback(async (
     page: number = currentPage,
@@ -173,23 +183,23 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Thêm kiểm tra để tránh gọi API liên tục khi tham số giống với lần gọi trước
     const filterString = JSON.stringify(currentFilters);
     const requestKey = `${page}-${limit}-${filterString}`;
-    
+
     // Kiểm tra nếu yêu cầu này giống với yêu cầu cuối cùng và không yêu cầu refresh
     if (!forceRefresh && requestKey === lastRequestKey) {
-      console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
+      // Bỏ qua yêu cầu trùng lặp mà không cần log
       return;
     }
-    
+
     // Kiểm tra cache
-    if (!forceRefresh && resultsCache[requestKey] && 
+    if (!forceRefresh && resultsCache[requestKey] &&
         (Date.now() - resultsCache[requestKey].timestamp) < CACHE_TTL) {
       console.log('Sử dụng kết quả từ cache cho:', requestKey);
-      
+
       const cachedData = resultsCache[requestKey].data;
       // Xử lý dữ liệu từ cache
       const productsWithId = cachedData.products.map(p => {
         const product = { ...p, id: p._id };
-        
+
         if (product.promotion) {
           if (product.promotion.startDate) {
             product.promotion.startDate = new Date(product.promotion.startDate);
@@ -198,10 +208,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
             product.promotion.endDate = new Date(product.promotion.endDate);
           }
         }
-        
+
         return product;
       });
-      
+
       setProducts(productsWithId);
       setTotalProducts(cachedData.total);
       setCurrentPage(cachedData.page);
@@ -216,19 +226,23 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    
+
     // Lưu yêu cầu hiện tại
     lastRequestKey = requestKey;
-    
+
     // Thêm debounce trước khi thực sự gọi API
     debounceTimer = setTimeout(async () => {
       setLoading(true);
       setError(null);
-      console.log(`Fetching products for page ${page}, limit ${limit} with filters:`, currentFilters);
-      
-      // Kiểm tra và log thông tin campaignId nếu có
-      if (currentFilters.campaignId) {
-        console.log('Đang lọc theo campaign ID:', currentFilters.campaignId);
+
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Fetching products for page ${page}, limit ${limit} with filters:`, currentFilters);
+
+        // Kiểm tra và log thông tin campaignId nếu có
+        if (currentFilters.campaignId) {
+          console.log('Đang lọc theo campaign ID:', currentFilters.campaignId);
+        }
       }
 
       try {
@@ -249,10 +263,18 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
 
         const requestURL = `${API_URL}/products/light?${params.toString()}`;
-        console.log('Gửi request API đến:', requestURL);
-        console.log('Chi tiết params:', Object.fromEntries(params.entries()));
+
+        // Chỉ log trong môi trường development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Gửi request API đến:', requestURL);
+          console.log('Chi tiết params:', Object.fromEntries(params.entries()));
+        }
+
         const response = await axios.get<LightProductsApiResponse>(`${API_URL}/products/light`, { params });
-        console.log('Nhận response từ API:', response.status, response.statusText);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Nhận response từ API:', response.status, response.statusText);
+        }
 
         if (response.data && response.data.products) {
            // Lưu kết quả vào cache
@@ -260,15 +282,18 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
              timestamp: Date.now(),
              data: response.data
            };
-           
+
            // Đảm bảo sản phẩm có thông tin chi tiết promotion đầy đủ
            const productsWithId = response.data.products.map(p => {
              // Đảm bảo mỗi sản phẩm có id dựa trên _id
              const product = { ...p, id: p._id };
-             
+
              // Cập nhật thêm thông tin promotion chi tiết hơn nếu có
              if (product.promotion) {
-               console.log('Sản phẩm có promotion:', product.name, product.promotion);
+               // Chỉ log trong môi trường development
+               if (process.env.NODE_ENV === 'development') {
+                 console.log('Sản phẩm có promotion:', product.name, product.promotion);
+               }
                // Chuyển đổi startDate và endDate thành đối tượng Date nếu có
                if (product.promotion.startDate) {
                  product.promotion.startDate = new Date(product.promotion.startDate);
@@ -277,42 +302,60 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
                  product.promotion.endDate = new Date(product.promotion.endDate);
                }
              }
-             
+
              return product;
            });
-           
+
            setProducts(productsWithId);
            setTotalProducts(response.data.total);
            setCurrentPage(response.data.page);
            setItemsPerPage(response.data.limit);
            setTotalPages(response.data.totalPages);
-           console.log('Products fetched successfully:', response.data);
-           
+
+           // Chỉ log trong môi trường development
+           if (process.env.NODE_ENV === 'development') {
+             console.log('Products fetched successfully:', {
+               products: response.data.products.length,
+               total: response.data.total,
+               page: response.data.page,
+               limit: response.data.limit,
+               totalPages: response.data.totalPages
+             });
+           }
+
            // Kiểm tra sản phẩm có campaign không
            if (currentFilters.campaignId) {
-             const productsWithCampaign = productsWithId.filter(p => 
+             const productsWithCampaign = productsWithId.filter(p =>
                p.promotion && p.promotion.type === 'campaign' && p.promotion.id === currentFilters.campaignId
              );
-             console.log(`Tìm thấy ${productsWithCampaign.length} sản phẩm thuộc chiến dịch ${currentFilters.campaignId}`);
-             
-             if (productsWithCampaign.length > 0) {
-               console.log('Thông tin chiến dịch từ sản phẩm đầu tiên:', productsWithCampaign[0].promotion);
-             } else {
-               console.log('Không tìm thấy sản phẩm nào trong chiến dịch này');
+
+             // Chỉ log trong môi trường development
+             if (process.env.NODE_ENV === 'development') {
+               console.log(`Tìm thấy ${productsWithCampaign.length} sản phẩm thuộc chiến dịch ${currentFilters.campaignId}`);
+
+               if (productsWithCampaign.length > 0) {
+                 console.log('Thông tin chiến dịch từ sản phẩm đầu tiên:', productsWithCampaign[0].promotion);
+               } else {
+                 console.log('Không tìm thấy sản phẩm nào trong chiến dịch này');
+               }
              }
            }
-           
+
            // Kiểm tra sản phẩm có event không
            if (currentFilters.eventId) {
-             const productsWithEvent = productsWithId.filter(p => 
+             const productsWithEvent = productsWithId.filter(p =>
                p.promotion && p.promotion.type === 'event' && p.promotion.id === currentFilters.eventId
              );
-             console.log(`Tìm thấy ${productsWithEvent.length} sản phẩm thuộc sự kiện ${currentFilters.eventId}`);
-             
-             if (productsWithEvent.length > 0) {
-               console.log('Thông tin sự kiện từ sản phẩm đầu tiên:', productsWithEvent[0].promotion);
-             } else {
-               console.log('Không tìm thấy sản phẩm nào trong sự kiện này');
+
+             // Chỉ log trong môi trường development
+             if (process.env.NODE_ENV === 'development') {
+               console.log(`Tìm thấy ${productsWithEvent.length} sản phẩm thuộc sự kiện ${currentFilters.eventId}`);
+
+               if (productsWithEvent.length > 0) {
+                 console.log('Thông tin sự kiện từ sản phẩm đầu tiên:', productsWithEvent[0].promotion);
+               } else {
+                 console.log('Không tìm thấy sản phẩm nào trong sự kiện này');
+               }
              }
            }
         } else {
@@ -330,31 +373,39 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       } finally {
         setLoading(false);
       }
-    }, 300); // Thêm 300ms debounce để tránh gọi API quá nhiều lần
+    }, 500); // Tăng debounce lên 500ms để tránh gọi API quá nhiều lần
   }, [currentPage, itemsPerPage, filters]);
 
   // Function to update filters and trigger fetch
   const setFilters = useCallback((newFilters: Partial<ShopProductFilters>, skipFetch: boolean = false) => {
-    console.log('setFilters called with:', newFilters, 'skipFetch:', skipFetch);
-    console.log('Current filters before update:', filters);
-    
-    // Xử lý đặc biệt cho các key có giá trị undefined
-    Object.keys(newFilters).forEach(key => {
-      if (newFilters[key as keyof ShopProductFilters] === undefined) {
-        console.log(`Removing ${key} from filters`);
-      }
-    });
-    
+    // Chỉ log trong môi trường development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('setFilters called with:', newFilters, 'skipFetch:', skipFetch);
+      console.log('Current filters before update:', filters);
+
+      // Xử lý đặc biệt cho các key có giá trị undefined
+      Object.keys(newFilters).forEach(key => {
+        if (newFilters[key as keyof ShopProductFilters] === undefined) {
+          console.log(`Removing ${key} from filters`);
+        }
+      });
+    }
+
     const updatedFilters = { ...filters, ...newFilters };
-    console.log('Updated filters after merge:', updatedFilters);
-    
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Updated filters after merge:', updatedFilters);
+    }
+
     // Reset page to 1 when filters change
     setCurrentPage(1);
     setFiltersState(updatedFilters);
-    
+
     // Chỉ gọi fetchProducts nếu không được yêu cầu bỏ qua
     if (!skipFetch) {
-      console.log('Calling fetchProducts with new filters');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Calling fetchProducts with new filters');
+      }
       // Fetch products with the new filters and reset page
       fetchProducts(1, itemsPerPage, updatedFilters, true); // Force refresh to ensure data is reloaded
     }
@@ -385,29 +436,29 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Thêm hàm fetchCampaign để lấy thông tin chiến dịch
   const fetchCampaign = useCallback(async (campaignId: string) => {
     if (!campaignId) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const campaignUrl = `${API_URL}/campaigns/public/${campaignId}`;
       console.log(`Đang lấy thông tin chiến dịch với URL: ${campaignUrl}`);
-      
+
       // Thêm logging để debug
       console.log(`API_URL được sử dụng: ${API_URL}`);
       console.log(`BASE_URL từ env: ${process.env.NEXT_PUBLIC_API_URL || 'Không có'}`);
-      
+
       const response = await axios.get(campaignUrl);
       console.log('Status response chiến dịch:', response.status, response.statusText);
       console.log('Kết quả lấy thông tin chiến dịch:', response.data);
-      
+
       if (response.data) {
         const campaignData = {
           ...response.data,
           startDate: new Date(response.data.startDate),
           endDate: new Date(response.data.endDate)
         };
-        
+
         setSelectedCampaign(campaignData);
         console.log('Đã cập nhật selectedCampaign:', campaignData);
       } else {
@@ -422,6 +473,145 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       setLoading(false);
     }
   }, []);
+
+  // --- Fetch Filter Options ---
+  const fetchSkinTypeOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
+    try {
+      // Kiểm tra cache trong localStorage
+      const cachedOptions = localStorage.getItem('skinTypeOptions');
+      if (cachedOptions) {
+        try {
+          const parsedOptions = JSON.parse(cachedOptions);
+          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+            console.log('Sử dụng skin types từ cache:', parsedOptions);
+            setSkinTypeOptions(parsedOptions);
+            return parsedOptions;
+          }
+        } catch (e) {
+           console.error("Failed to parse cached skinTypeOptions", e);
+           localStorage.removeItem('skinTypeOptions'); // Xóa cache bị lỗi
+        }
+      }
+
+      console.log('Gọi API để lấy skin types...');
+      try {
+        // Gọi API để lấy dữ liệu từ database
+        const response = await axios.get(`${API_URL}/products/filters/skin-types`);
+        console.log('RAW API RESPONSE FOR SKIN TYPES:', JSON.stringify(response.data));
+        if (response.data && response.data.skinTypes && Array.isArray(response.data.skinTypes)) {
+          // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
+          const apiSkinTypes = response.data.skinTypes.map((type: string) => ({
+            id: type,
+            label: type // Sử dụng chính xác tên loại da từ database
+          }));
+
+          localStorage.setItem('skinTypeOptions', JSON.stringify(apiSkinTypes));
+          console.log('Đã cập nhật skin types từ API:', JSON.stringify(apiSkinTypes));
+          setSkinTypeOptions(apiSkinTypes);
+          return apiSkinTypes;
+        } else {
+           console.warn('API for skin types returned no data or unexpected format.');
+        }
+      } catch (apiError) {
+        if (axios.isAxiosError(apiError)) {
+          console.error(`API Error fetching skin types: ${apiError.message}`, apiError.response?.status, apiError.response?.data);
+        } else {
+          console.error('Non-API Error fetching skin types:', apiError);
+        }
+      }
+
+      console.warn('API call for skin types failed or returned no data. Using example options.');
+      const exampleOptions = [
+        { id: 'skibidi', label: 'skibidi' },
+        { id: 'dumb bitch', label: 'dumb bitch' }
+      ];
+      localStorage.setItem('skinTypeOptions', JSON.stringify(exampleOptions));
+      setSkinTypeOptions(exampleOptions);
+      return exampleOptions;
+    } catch (err) {
+      console.error('Overall Error fetching skin type options:', err);
+      console.warn('Using example options due to overall error.');
+      // Trả về example để tránh lỗi crash app
+      const exampleOptions = [
+        { id: 'skibidi', label: 'skibidi' },
+        { id: 'dumb bitch', label: 'dumb bitch' }
+      ];
+      setSkinTypeOptions(exampleOptions);
+      return exampleOptions;
+    }
+  }, []); // Không phụ thuộc vào state thay đổi thường xuyên
+
+  const fetchConcernOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
+    try {
+      // Kiểm tra cache trong localStorage
+      const cachedOptions = localStorage.getItem('concernOptions');
+       if (cachedOptions) {
+        try {
+          const parsedOptions = JSON.parse(cachedOptions);
+          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+            console.log('Sử dụng concerns từ cache:', parsedOptions);
+            setConcernOptions(parsedOptions);
+            return parsedOptions;
+          }
+        } catch (e) {
+           console.error("Failed to parse cached concernOptions", e);
+           localStorage.removeItem('concernOptions'); // Xóa cache bị lỗi
+        }
+      }
+
+      console.log('Gọi API để lấy concerns...');
+      try {
+        // Gọi API để lấy dữ liệu từ database
+        const response = await axios.get(`${API_URL}/products/filters/concerns`);
+        console.log('RAW API RESPONSE FOR CONCERNS:', JSON.stringify(response.data));
+        if (response.data && response.data.concerns && Array.isArray(response.data.concerns)) {
+          // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
+          const apiConcerns = response.data.concerns.map((concern: string) => ({
+            id: concern,
+            label: concern // Sử dụng chính xác tên vấn đề da từ database
+          }));
+
+          localStorage.setItem('concernOptions', JSON.stringify(apiConcerns));
+          console.log('Đã cập nhật concerns từ API:', JSON.stringify(apiConcerns));
+          setConcernOptions(apiConcerns);
+          return apiConcerns;
+        } else {
+           console.warn('API for concerns returned no data or unexpected format.');
+        }
+      } catch (apiError) {
+        if (axios.isAxiosError(apiError)) {
+          console.error(`API Error fetching concerns: ${apiError.message}`, apiError.response?.status, apiError.response?.data);
+        } else {
+          console.error('Non-API Error fetching concerns:', apiError);
+        }
+      }
+
+      console.warn('API call for concerns failed or returned no data. Using example options.');
+      const exampleOptions = [
+        { id: 'ugly', label: 'ugly' },
+        { id: 'too fat', label: 'too fat' }
+      ];
+      localStorage.setItem('concernOptions', JSON.stringify(exampleOptions));
+      setConcernOptions(exampleOptions);
+      return exampleOptions;
+    } catch (err) {
+      console.error('Overall Error fetching skin concern options:', err);
+      console.warn('Using example options due to overall error.');
+      // Trả về example để tránh lỗi crash app
+      const exampleOptions = [
+        { id: 'ugly', label: 'ugly' },
+        { id: 'too fat', label: 'too fat' }
+      ];
+      setConcernOptions(exampleOptions);
+      return exampleOptions;
+    }
+  }, []); // Không phụ thuộc vào state thay đổi thường xuyên
+
+  // Effect để fetch skin type và concern options khi component mount
+  useEffect(() => {
+    fetchSkinTypeOptions();
+    fetchConcernOptions();
+  }, [fetchSkinTypeOptions, fetchConcernOptions]);
 
   // Thêm useEffect để tự động lấy campaign khi campaignId thay đổi
   useEffect(() => {
@@ -447,6 +637,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     changePage,
     changeLimit,
     fetchCampaign,
+    fetchSkinTypeOptions,
+    fetchConcernOptions,
+    skinTypeOptions,
+    concernOptions,
     addToWishlist: async (productId: string) => {
       // Tạm thời implement giả cho method này
       console.warn('addToWishlist chưa được triển khai. ProductId:', productId);

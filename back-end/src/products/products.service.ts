@@ -456,25 +456,25 @@ export class ProductsService {
       // Kiểm tra và lọc bỏ các URL base64 trong images
       if (updateProductDto.images && Array.isArray(updateProductDto.images)) {
         this.logger.log(`Kiểm tra ${updateProductDto.images.length} hình ảnh để loại bỏ dữ liệu base64`);
-        
+
         // Lọc bỏ các hình ảnh có URL dạng base64
         const filteredImages = updateProductDto.images.filter(img => {
           if (!img || !img.url) return true; // Giữ lại nếu không có URL
-          
+
           const isBase64 = img.url.startsWith('data:image');
           if (isBase64) {
             this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh sản phẩm ID: ${id}`);
           }
           return !isBase64;
         });
-        
+
         if (filteredImages.length !== updateProductDto.images.length) {
           this.logger.log(`Đã loại bỏ ${updateProductDto.images.length - filteredImages.length} hình ảnh có URL base64`);
         }
-        
+
         updateProductDto.images = filteredImages;
       }
-      
+
       // Kiểm tra và lọc bỏ các URL base64 trong variants
       if (updateProductDto.variants && Array.isArray(updateProductDto.variants)) {
         updateProductDto.variants = updateProductDto.variants.map(variant => {
@@ -773,7 +773,7 @@ export class ProductsService {
       // --- START: Xử lý filter theo eventId hoặc campaignId ---
       if (eventId || campaignId) {
         let productIds: string[] = [];
-        
+
         if (eventId) {
           // Lấy thông tin sự kiện
           const event = await this.eventsService.findOne(eventId);
@@ -791,7 +791,7 @@ export class ProductsService {
             this.logger.log(`Filtering by ${productIds.length} products from campaign ${campaignId}`);
           }
         }
-        
+
         // Nếu có danh sách sản phẩm, thêm vào filter
         if (productIds.length > 0) {
           // Chuyển đổi string ID thành ObjectId
@@ -1007,7 +1007,7 @@ export class ProductsService {
           imageUrl,
           brandId: product.brandId ? (product.brandId as any)._id?.toString() : undefined,
           brandName: product.brandId ? (product.brandId as any).name : undefined,
-          categoryIds: product.categoryIds && Array.isArray(product.categoryIds) 
+          categoryIds: product.categoryIds && Array.isArray(product.categoryIds)
             ? product.categoryIds.map((cat: any) => ({
                 id: cat._id?.toString(),
                 name: cat.name || 'Không xác định'
@@ -1521,6 +1521,88 @@ export class ProductsService {
       });
     } catch (error) {
       this.logger.error(`Error counting products with branch reference: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức để lấy tất cả các loại da có trong sản phẩm
+  async getSkinTypes() {
+    try {
+      // Log to check if there are any products with cosmetic_info
+      const productsWithCosmeticInfo = await this.productModel.find(
+        { 'cosmetic_info': { $exists: true } },
+        { 'cosmetic_info': 1, 'name': 1 }
+      ).limit(10);
+
+      this.logger.log(`Found ${productsWithCosmeticInfo.length} products with cosmetic_info field`);
+      this.logger.log(`DETAILED COSMETIC INFO FOR ALL PRODUCTS: ${JSON.stringify(productsWithCosmeticInfo)}`);
+      productsWithCosmeticInfo.forEach(product => {
+        this.logger.log(`Product ${product.name}: ${JSON.stringify(product.cosmetic_info)}`);
+      });
+
+      // Lấy trực tiếp dữ liệu cosmetic_info.skinType từ các sản phẩm
+      const allSkinTypes: string[] = [];
+
+      // Thu thập tất cả các loại da từ các sản phẩm
+      productsWithCosmeticInfo.forEach(product => {
+        if (product.cosmetic_info && product.cosmetic_info.skinType && Array.isArray(product.cosmetic_info.skinType)) {
+          product.cosmetic_info.skinType.forEach((type: string) => {
+            if (!allSkinTypes.includes(type)) {
+              allSkinTypes.push(type);
+            }
+          });
+        }
+      });
+
+      this.logger.log(`Raw skin types found: ${JSON.stringify(allSkinTypes)}`);
+
+      // Trả về danh sách các loại da
+      return {
+        skinTypes: allSkinTypes
+      };
+    } catch (error) {
+      this.logger.error(`Error getting skin types: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức để lấy tất cả các vấn đề da có trong sản phẩm
+  async getConcerns() {
+    try {
+      // Log to check if there are any products with cosmetic_info.concerns
+      const productsWithConcerns = await this.productModel.find(
+        { 'cosmetic_info.concerns': { $exists: true } },
+        { 'cosmetic_info.concerns': 1, 'name': 1 }
+      ).limit(10);
+
+      this.logger.log(`Found ${productsWithConcerns.length} products with cosmetic_info.concerns field`);
+      this.logger.log(`DETAILED CONCERNS INFO FOR ALL PRODUCTS: ${JSON.stringify(productsWithConcerns)}`);
+      productsWithConcerns.forEach(product => {
+        this.logger.log(`Product ${product.name} concerns: ${JSON.stringify(product.cosmetic_info?.concerns)}`);
+      });
+
+      // Lấy trực tiếp dữ liệu cosmetic_info.concerns từ các sản phẩm
+      const allConcerns: string[] = [];
+
+      // Thu thập tất cả các vấn đề da từ các sản phẩm
+      productsWithConcerns.forEach(product => {
+        if (product.cosmetic_info && product.cosmetic_info.concerns && Array.isArray(product.cosmetic_info.concerns)) {
+          product.cosmetic_info.concerns.forEach((concern: string) => {
+            if (!allConcerns.includes(concern)) {
+              allConcerns.push(concern);
+            }
+          });
+        }
+      });
+
+      this.logger.log(`Raw concerns found: ${JSON.stringify(allConcerns)}`);
+
+      // Trả về danh sách các vấn đề da
+      return {
+        concerns: allConcerns
+      };
+    } catch (error) {
+      this.logger.error(`Error getting skin concerns: ${error.message}`, error.stack);
       throw error;
     }
   }
