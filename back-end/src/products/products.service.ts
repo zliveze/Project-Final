@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, SortOrder, Types } from 'mongoose';
+import { Model, SortOrder, Types, PipelineStage } from 'mongoose'; // Import PipelineStage
 import { Product, ProductDocument } from './schemas/product.schema';
 import {
   CreateProductDto,
@@ -12,6 +12,10 @@ import {
   AdminListProductResponseDto
 } from './dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { EventsService } from '../events/events.service'; // Import EventsService
+import { CampaignsService } from '../campaigns/campaigns.service'; // Import CampaignsService
+import { Event } from '../events/entities/event.entity'; // Import Event entity
+import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
 
 @Injectable()
 export class ProductsService {
@@ -20,7 +24,9 @@ export class ProductsService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
-    private readonly cloudinaryService: CloudinaryService
+    private readonly cloudinaryService: CloudinaryService,
+    private readonly eventsService: EventsService,
+    private readonly campaignsService: CampaignsService
   ) {
     // Kiểm tra xem collection có text index hay không
     this.checkTextIndex();
@@ -30,7 +36,7 @@ export class ProductsService {
   private async checkTextIndex() {
     try {
       const indexes = await this.productModel.collection.indexes();
-      this.hasTextIndex = indexes.some(index => 
+      this.hasTextIndex = indexes.some(index =>
         index.name === 'name_text_description.full_text_description.short_text_tags_text'
         || index.textIndexVersion !== undefined
       );
@@ -65,25 +71,25 @@ export class ProductsService {
       // Kiểm tra và lọc bỏ các URL base64 trong images
       if (productData.images && Array.isArray(productData.images)) {
         this.logger.log(`Kiểm tra ${productData.images.length} hình ảnh để loại bỏ dữ liệu base64 trong quá trình tạo sản phẩm`);
-        
+
         // Lọc bỏ các hình ảnh có URL dạng base64
         const filteredImages = productData.images.filter(img => {
           if (!img || !img.url) return true; // Giữ lại nếu không có URL
-          
+
           const isBase64 = img.url.startsWith('data:image');
           if (isBase64) {
             this.logger.warn(`Phát hiện và loại bỏ URL base64 trong hình ảnh khi tạo sản phẩm`);
           }
           return !isBase64;
         });
-        
+
         if (filteredImages.length !== productData.images.length) {
           this.logger.log(`Đã loại bỏ ${productData.images.length - filteredImages.length} hình ảnh có URL base64`);
         }
-        
+
         productData.images = filteredImages;
       }
-      
+
       // Kiểm tra và lọc bỏ các URL base64 trong variants
       if (productData.variants && Array.isArray(productData.variants)) {
         productData.variants = productData.variants.map(variant => {
@@ -286,26 +292,26 @@ export class ProductsService {
 
       // Filter by flags
       if (isBestSeller !== undefined) {
-        query['flags.isBestSeller'] = typeof isBestSeller === 'string' 
-          ? isBestSeller === 'true' 
+        query['flags.isBestSeller'] = typeof isBestSeller === 'string'
+          ? isBestSeller === 'true'
           : Boolean(isBestSeller);
       }
 
       if (isNew !== undefined) {
-        query['flags.isNew'] = typeof isNew === 'string' 
-          ? isNew === 'true' 
+        query['flags.isNew'] = typeof isNew === 'string'
+          ? isNew === 'true'
           : Boolean(isNew);
       }
 
       if (isOnSale !== undefined) {
-        query['flags.isOnSale'] = typeof isOnSale === 'string' 
-          ? isOnSale === 'true' 
+        query['flags.isOnSale'] = typeof isOnSale === 'string'
+          ? isOnSale === 'true'
           : Boolean(isOnSale);
       }
 
       if (hasGifts !== undefined) {
-        query['flags.hasGifts'] = typeof hasGifts === 'string' 
-          ? hasGifts === 'true' 
+        query['flags.hasGifts'] = typeof hasGifts === 'string'
+          ? hasGifts === 'true'
           : Boolean(hasGifts);
       }
 
@@ -745,6 +751,8 @@ export class ProductsService {
         search,
         brandId,
         categoryId,
+        eventId,
+        campaignId,
         status,
         minPrice,
         maxPrice,
@@ -761,6 +769,46 @@ export class ProductsService {
 
       // Build filter conditions
       const filter: any = {};
+
+      // --- START: Xử lý filter theo eventId hoặc campaignId ---
+      if (eventId || campaignId) {
+        let productIds: string[] = [];
+        
+        if (eventId) {
+          // Lấy thông tin sự kiện
+          const event = await this.eventsService.findOne(eventId);
+          if (event && Array.isArray(event.products)) {
+            // Lấy danh sách ID sản phẩm từ sự kiện
+            productIds = event.products.map(p => p.productId.toString());
+            this.logger.log(`Filtering by ${productIds.length} products from event ${eventId}`);
+          }
+        } else if (campaignId) {
+          // Lấy thông tin chiến dịch
+          const campaign = await this.campaignsService.findOne(campaignId);
+          if (campaign && Array.isArray(campaign.products)) {
+            // Lấy danh sách ID sản phẩm từ chiến dịch
+            productIds = campaign.products.map(p => p.productId.toString());
+            this.logger.log(`Filtering by ${productIds.length} products from campaign ${campaignId}`);
+          }
+        }
+        
+        // Nếu có danh sách sản phẩm, thêm vào filter
+        if (productIds.length > 0) {
+          // Chuyển đổi string ID thành ObjectId
+          const objectIds = productIds.map(id => new Types.ObjectId(id));
+          filter._id = { $in: objectIds };
+        } else {
+          // Nếu không tìm thấy sản phẩm nào, trả về danh sách rỗng
+          return {
+            products: [],
+            total: 0,
+            page: +page,
+            limit: +limit,
+            totalPages: 0,
+          };
+        }
+      }
+      // --- END: Xử lý filter theo eventId hoặc campaignId ---
 
       // Sử dụng text search nếu có index text thay vì regex cho hiệu suất tốt hơn
       if (search) {
@@ -788,7 +836,8 @@ export class ProductsService {
       // Chuyển đổi categoryId sang ObjectId nếu hợp lệ
       if (categoryId) {
         try {
-          filter.categoryIds = new Types.ObjectId(categoryId);
+          // Sử dụng $in để tìm sản phẩm nếu categoryIds là mảng
+          filter.categoryIds = { $in: [new Types.ObjectId(categoryId)] };
         } catch (e) {
           this.logger.warn(`Invalid categoryId format: ${categoryId}`);
         }
@@ -825,29 +874,29 @@ export class ProductsService {
 
       // Xử lý các trường boolean một cách chính xác
       if (isBestSeller !== undefined) {
-        const isBestSellerBool = typeof isBestSeller === 'string' 
-          ? isBestSeller === 'true' 
+        const isBestSellerBool = typeof isBestSeller === 'string'
+          ? isBestSeller === 'true'
           : Boolean(isBestSeller);
         filter['flags.isBestSeller'] = isBestSellerBool;
       }
-      
+
       if (isNew !== undefined) {
-        const isNewBool = typeof isNew === 'string' 
-          ? isNew === 'true' 
+        const isNewBool = typeof isNew === 'string'
+          ? isNew === 'true'
           : Boolean(isNew);
         filter['flags.isNew'] = isNewBool;
       }
-      
+
       if (isOnSale !== undefined) {
-        const isOnSaleBool = typeof isOnSale === 'string' 
-          ? isOnSale === 'true' 
+        const isOnSaleBool = typeof isOnSale === 'string'
+          ? isOnSale === 'true'
           : Boolean(isOnSale);
         filter['flags.isOnSale'] = isOnSaleBool;
       }
-      
+
       if (hasGifts !== undefined) {
-        const hasGiftsBool = typeof hasGifts === 'string' 
-          ? hasGifts === 'true' 
+        const hasGiftsBool = typeof hasGifts === 'string'
+          ? hasGifts === 'true'
           : Boolean(hasGifts);
         filter['flags.hasGifts'] = hasGiftsBool;
       }
@@ -864,8 +913,9 @@ export class ProductsService {
         this.productModel.countDocuments(filter),
         this.productModel
           .find(filter)
-          .select('_id name slug sku price currentPrice status images brandId flags reviews')
+          .select('_id name slug sku price currentPrice status images brandId categoryIds flags reviews')
           .populate('brandId', 'name')
+          .populate('categoryIds', 'name')
           .sort(sort)
           .skip(skip)
           .limit(+limit)
@@ -875,7 +925,48 @@ export class ProductsService {
       // Calculate total pages
       const totalPages = Math.ceil(total / limit);
 
-      // Transform products to include only required information
+      // --- START: Tích hợp Event/Campaign ---
+      // Lấy tất cả events và campaigns đang hoạt động
+      const [activeEvents, activeCampaigns] = await Promise.all([
+        this.eventsService.findActive(),
+        this.campaignsService.getActiveCampaigns()
+      ]);
+
+      // Tạo map để lưu giá khuyến mãi tốt nhất cho mỗi sản phẩm
+      const promotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string }>();
+
+      // Xử lý active events
+      activeEvents.forEach(event => {
+        event.products.forEach(productInEvent => {
+          const productIdStr = productInEvent.productId.toString();
+          const currentPromotion = promotionMap.get(productIdStr);
+          if (!currentPromotion || productInEvent.adjustedPrice < currentPromotion.price) {
+            promotionMap.set(productIdStr, {
+              price: productInEvent.adjustedPrice,
+              type: 'event',
+              name: event.title
+            });
+          }
+        });
+      });
+
+      // Xử lý active campaigns
+      activeCampaigns.forEach(campaign => {
+        campaign.products.forEach(productInCampaign => {
+          const productIdStr = productInCampaign.productId.toString();
+          const currentPromotion = promotionMap.get(productIdStr);
+          if (!currentPromotion || productInCampaign.adjustedPrice < currentPromotion.price) {
+            promotionMap.set(productIdStr, {
+              price: productInCampaign.adjustedPrice,
+              type: 'campaign',
+              name: campaign.title
+            });
+          }
+        });
+      });
+      // --- END: Tích hợp Event/Campaign ---
+
+      // Transform products to include only required information and promotion details
       const lightProducts = products.map(product => {
         // Find primary image or use first available
         let imageUrl = '';
@@ -884,24 +975,45 @@ export class ProductsService {
           imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
         }
 
+        const productIdStr = product._id.toString();
+        const promotion = promotionMap.get(productIdStr);
+        let finalPrice = product.currentPrice || product.price;
+        let promotionInfo: any = null;
+
+        if (promotion && promotion.price < finalPrice) {
+          finalPrice = promotion.price;
+          promotionInfo = {
+            type: promotion.type,
+            name: promotion.name,
+            adjustedPrice: promotion.price
+          };
+        }
+
         return {
-          _id: product._id.toString(),
+          _id: productIdStr,
           name: product.name,
           slug: product.slug,
           sku: product.sku,
-          price: product.price,
-          currentPrice: product.currentPrice || product.price,
+          price: product.price, // Giá gốc
+          currentPrice: finalPrice, // Giá hiện tại (có thể đã áp dụng KM)
           status: product.status,
           imageUrl,
           brandId: product.brandId ? (product.brandId as any)._id?.toString() : undefined,
           brandName: product.brandId ? (product.brandId as any).name : undefined,
+          categoryIds: product.categoryIds && Array.isArray(product.categoryIds) 
+            ? product.categoryIds.map((cat: any) => ({
+                id: cat._id?.toString(),
+                name: cat.name || 'Không xác định'
+              }))
+            : [],
           flags: product.flags,
           reviews: product.reviews,
+          promotion: promotionInfo, // Thêm thông tin khuyến mãi
         };
       });
 
       return {
-        products: lightProducts,
+        products: lightProducts, // Trả về danh sách đã cập nhật
         total,
         page: +page,
         limit: +limit,
@@ -915,12 +1027,12 @@ export class ProductsService {
 
   async findAllForAdmin(queryDto: QueryProductDto): Promise<AdminListProductResponseDto> {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        search, 
-        brandId, 
-        categoryId, 
+      const {
+        page = 1,
+        limit = 10,
+        search,
+        brandId,
+        categoryId,
         status,
         minPrice,
         maxPrice,
@@ -940,7 +1052,7 @@ export class ProductsService {
 
       // Xây dựng pipeline cho aggregation
       const pipeline: any[] = [];
-      
+
       // Match stage - điều kiện lọc
       const matchStage: any = {};
 
@@ -1009,29 +1121,29 @@ export class ProductsService {
 
       // Thêm filter flags
       if (isBestSeller !== undefined) {
-        const isBestSellerBool = typeof isBestSeller === 'string' 
-          ? isBestSeller === 'true' 
+        const isBestSellerBool = typeof isBestSeller === 'string'
+          ? isBestSeller === 'true'
           : Boolean(isBestSeller);
         matchStage['flags.isBestSeller'] = isBestSellerBool;
       }
-      
+
       if (isNew !== undefined) {
-        const isNewBool = typeof isNew === 'string' 
-          ? isNew === 'true' 
+        const isNewBool = typeof isNew === 'string'
+          ? isNew === 'true'
           : Boolean(isNew);
         matchStage['flags.isNew'] = isNewBool;
       }
-      
+
       if (isOnSale !== undefined) {
-        const isOnSaleBool = typeof isOnSale === 'string' 
-          ? isOnSale === 'true' 
+        const isOnSaleBool = typeof isOnSale === 'string'
+          ? isOnSale === 'true'
           : Boolean(isOnSale);
         matchStage['flags.isOnSale'] = isOnSaleBool;
       }
-      
+
       if (hasGifts !== undefined) {
-        const hasGiftsBool = typeof hasGifts === 'string' 
-          ? hasGifts === 'true' 
+        const hasGiftsBool = typeof hasGifts === 'string'
+          ? hasGifts === 'true'
           : Boolean(hasGifts);
         matchStage['flags.hasGifts'] = hasGiftsBool;
       }
@@ -1079,12 +1191,12 @@ export class ProductsService {
                     then: {
                       $let: {
                         vars: {
-                          primaryImage: { 
-                            $filter: { 
-                              input: '$images', 
-                              as: 'img', 
-                              cond: { $eq: ['$$img.isPrimary', true] } 
-                            } 
+                          primaryImage: {
+                            $filter: {
+                              input: '$images',
+                              as: 'img',
+                              cond: { $eq: ['$$img.isPrimary', true] }
+                            }
                           }
                         },
                         in: {
@@ -1107,22 +1219,22 @@ export class ProductsService {
 
       // Thực hiện truy vấn aggregation
       const result = await this.productModel.aggregate(pipeline);
-      
+
       // Xử lý kết quả từ aggregation
       const totalItems = result[0].totalCount.length > 0 ? result[0].totalCount[0].count : 0;
       const totalPages = Math.ceil(totalItems / limit);
       const products = result[0].paginatedResults;
-      
+
       // Chuyển đổi kết quả sang định dạng phù hợp cho frontend
       const formattedProducts = products.map(product => {
         // Định dạng giá thành chuỗi
         const priceString = new Intl.NumberFormat('vi-VN').format(product.price) + 'đ';
-        
+
         // Lấy tên danh mục đầu tiên hoặc chuỗi rỗng
-        const category = product.categoryNames && product.categoryNames.length > 0 
-          ? product.categoryNames[0] 
+        const category = product.categoryNames && product.categoryNames.length > 0
+          ? product.categoryNames[0]
           : '';
-        
+
         return {
           id: product._id.toString(),
           name: product.name,
@@ -1148,7 +1260,7 @@ export class ProductsService {
           updatedAt: product.updatedAt ? new Date(product.updatedAt).toISOString() : '',
         };
       });
-      
+
       return {
         items: formattedProducts,
         total: totalItems,
@@ -1218,7 +1330,7 @@ export class ProductsService {
   async cleanupBase64Images(): Promise<{ success: boolean; message: string; count: number }> {
     try {
       this.logger.log('Bắt đầu quá trình dọn dẹp dữ liệu base64 trong database');
-      
+
       // Tìm tất cả sản phẩm có hình ảnh dạng base64
       const products = await this.productModel.find({
         $or: [
@@ -1226,7 +1338,7 @@ export class ProductsService {
           { 'variants.images.url': { $regex: '^data:image' } }
         ]
       }).exec();
-      
+
       if (!products || products.length === 0) {
         this.logger.log('Không tìm thấy sản phẩm nào có hình ảnh dạng base64');
         return {
@@ -1235,31 +1347,31 @@ export class ProductsService {
           count: 0
         };
       }
-      
+
       this.logger.log(`Tìm thấy ${products.length} sản phẩm có hình ảnh dạng base64. Tiến hành dọn dẹp...`);
       let processedCount = 0;
-      
+
       for (const product of products) {
         let needsUpdate = false;
-        
+
         // Dọn dẹp hình ảnh sản phẩm
         if (product.images && product.images.length > 0) {
           const originalImageCount = product.images.length;
           product.images = product.images.filter(img => !img.url || !img.url.startsWith('data:image'));
-          
+
           if (originalImageCount !== product.images.length) {
             this.logger.log(`Đã loại bỏ ${originalImageCount - product.images.length} hình ảnh base64 từ sản phẩm ID: ${product._id}`);
             needsUpdate = true;
           }
         }
-        
+
         // Dọn dẹp hình ảnh biến thể
         if (product.variants && product.variants.length > 0) {
           for (let i = 0; i < product.variants.length; i++) {
             if (product.variants[i].images && product.variants[i].images.length > 0) {
               const originalVariantImageCount = product.variants[i].images.length;
               product.variants[i].images = product.variants[i].images.filter(img => !img.url || !img.url.startsWith('data:image'));
-              
+
               if (originalVariantImageCount !== product.variants[i].images.length) {
                 this.logger.log(`Đã loại bỏ ${originalVariantImageCount - product.variants[i].images.length} hình ảnh base64 từ biến thể của sản phẩm ID: ${product._id}`);
                 needsUpdate = true;
@@ -1267,14 +1379,14 @@ export class ProductsService {
             }
           }
         }
-        
+
         // Lưu lại sản phẩm nếu có thay đổi
         if (needsUpdate) {
           await product.save();
           processedCount++;
         }
       }
-      
+
       return {
         success: true,
         message: `Đã dọn dẹp thành công dữ liệu base64 trong ${processedCount} sản phẩm`,
@@ -1301,7 +1413,7 @@ export class ProductsService {
 
       // Tạo bản sao của sản phẩm
       const productObj = originalProduct.toObject();
-      
+
       // Tạo đối tượng mới, bỏ qua các trường không cần thiết/không thể sao chép
       const productToClone: any = {
         name: `${productObj.name} (Bản sao)`,
@@ -1324,13 +1436,13 @@ export class ProductsService {
         relatedEvents: productObj.relatedEvents,
         relatedCampaigns: productObj.relatedCampaigns,
       };
-      
+
       // Xử lý các biến thể (nếu có)
       if (productObj.variants && productObj.variants.length > 0) {
         productToClone.variants = productObj.variants.map(variant => {
           // Tạo biến thể mới mà không có variantId
           const { variantId, ...variantWithoutId } = variant;
-          
+
           // Tạo SKU mới cho biến thể và tạo variantId mới
           return {
             ...variantWithoutId,
@@ -1361,14 +1473,14 @@ export class ProductsService {
       });
 
       let count = 0;
-      
+
       // Xử lý từng sản phẩm
       for (const product of products) {
         // Lọc bỏ chi nhánh khỏi inventory
         product.inventory = product.inventory.filter(
           inv => inv.branchId.toString() !== branchId
         );
-        
+
         // Cập nhật trạng thái sản phẩm dựa trên tổng inventory còn lại
         const totalInventory = product.inventory.reduce(
           (sum, inv) => sum + inv.quantity,
@@ -1378,12 +1490,12 @@ export class ProductsService {
         if (totalInventory === 0 && product.status !== 'discontinued') {
           product.status = 'out_of_stock';
         }
-        
+
         // Lưu sản phẩm
         await product.save();
         count++;
       }
-      
+
       return {
         success: true,
         count

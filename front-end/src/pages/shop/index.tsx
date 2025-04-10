@@ -9,6 +9,8 @@ import { BreadcrumItem } from '@/components/common/Breadcrum';
 import { useShopProduct, ShopProductFilters } from '@/contexts/user/shop/ShopProductContext';
 // Import kiểu LightProduct từ context mới
 import { LightProduct } from '@/contexts/user/shop/ShopProductContext';
+import { useCategory } from '@/contexts/CategoryContext';
+import { useBrands } from '@/contexts/BrandContext';
 
 // Sử dụng lại interface Product từ context mới nếu cần, hoặc dùng LightProduct trực tiếp
 // interface Product { ... } // Có thể xóa nếu LightProduct đủ dùng
@@ -70,11 +72,58 @@ export default function Shop() {
 
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
+  // Thêm context cho danh mục và thương hiệu
+  const { categories } = useCategory();
+  const { brands } = useBrands();
+  
+  // Thêm xử lý URL parameters
+  useEffect(() => {
+    const handleUrlParams = () => {
+      // Lấy URL parameters từ chuỗi truy vấn
+      const searchParams = new URLSearchParams(window.location.search);
+      const newFilters: Partial<ShopProductFilters> = {};
+      
+      // Lấy eventId nếu có
+      const eventId = searchParams.get('eventId');
+      if (eventId) {
+        newFilters.eventId = eventId;
+      }
+      
+      // Lấy campaignId nếu có
+      const campaignId = searchParams.get('campaignId');
+      if (campaignId) {
+        newFilters.campaignId = campaignId;
+      }
+      
+      // Xử lý trường hợp promotion=flash-sale (đặc biệt)
+      const promotion = searchParams.get('promotion');
+      if (promotion === 'flash-sale' && eventId) {
+        newFilters.eventId = eventId;
+      }
+      
+      // Áp dụng filters từ URL nếu có - Chỉ áp dụng nếu có sự thay đổi
+      if (Object.keys(newFilters).length > 0) {
+        // Kiểm tra xem filters hiện tại đã giống newFilters chưa để tránh render lại
+        const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
+          return filters[key as keyof ShopProductFilters] !== value;
+        });
+        
+        if (needsUpdate) {
+          setFilters(newFilters);
+        }
+      }
+    };
+    
+    handleUrlParams();
+  }, [setFilters, filters]); // Thêm filters vào dependencies
+
   // Effect để đếm số bộ lọc đang active (sử dụng filters từ context)
   useEffect(() => {
     let count = 0;
     if (filters.categoryId) count++; // Thay categories -> categoryId
     if (filters.brandId) count++; // Thay brands -> brandId
+    if (filters.eventId) count++; // Thêm đếm eventId
+    if (filters.campaignId) count++; // Thêm đếm campaignId
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++; // Thay priceRange
     if (filters.skinTypes) count++; // Thay skinType
     if (filters.concerns) count++; // Thay concerns
@@ -116,6 +165,36 @@ export default function Shop() {
     { label: 'Cửa hàng', href: '/shop' }, // Removed 'active: true'
   ];
 
+  // Hàm helper để lấy tên danh mục từ ID
+  const getCategoryName = (categoryId: string): string => {
+    const category = categories.find((cat: any) => cat._id === categoryId);
+    
+    // Nếu không tìm thấy trong categories, thử tìm từ sản phẩm đầu tiên
+    if (!category && products.length > 0) {
+      // Lấy sản phẩm đầu tiên có categoryId này
+      const firstProductWithCategory = products.find(
+        (p) => p.categoryIds?.some((cat) => cat.id === categoryId)
+      );
+      
+      if (firstProductWithCategory) {
+        const matchingCategory = firstProductWithCategory.categoryIds?.find(
+          (cat) => cat.id === categoryId
+        );
+        if (matchingCategory) {
+          return matchingCategory.name;
+        }
+      }
+    }
+    
+    return category ? category.name : categoryId;
+  };
+  
+  // Hàm helper để lấy tên thương hiệu từ ID
+  const getBrandName = (brandId: string): string => {
+    const brand = brands.find((brand: any) => brand.id === brandId);
+    return brand ? brand.name : brandId;
+  };
+
   return (
     <DefaultLayout breadcrumItems={breadcrumbs}>
       <ShopBanner />
@@ -141,10 +220,10 @@ export default function Shop() {
                   Bộ lọc ({activeFiltersCount}):
                 </span>
 
-                {/* Ví dụ cập nhật cho brandId */}
+                {/* Hiển thị tên thương hiệu thay vì ID */}
                 {filters.brandId && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Thương hiệu: {filters.brandId} {/* Cần lấy tên thương hiệu nếu có */}
+                    Thương hiệu: {getBrandName(filters.brandId)}
                     <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
                       onClick={() => setFilters({ brandId: undefined })}
@@ -153,10 +232,11 @@ export default function Shop() {
                     </button>
                   </div>
                 )}
-                 {/* Ví dụ cập nhật cho categoryId */}
-                 {filters.categoryId && (
+                
+                {/* Hiển thị tên danh mục thay vì ID */}
+                {filters.categoryId && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Danh mục: {filters.categoryId} {/* Cần lấy tên danh mục nếu có */}
+                    Danh mục: {getCategoryName(filters.categoryId)}
                     <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
                       onClick={() => setFilters({ categoryId: undefined })}
@@ -213,18 +293,44 @@ export default function Shop() {
                     </button>
                   </div>
                 )}
-                 {/* Ví dụ cập nhật cho hasGifts */}
+                 {/* Hiển thị khi có quà tặng */}
                  {filters.hasGifts && (
-                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Có quà tặng
-                    <button
-                      className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => setFilters({ hasGifts: undefined })}
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
+                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                     Có quà tặng
+                     <button
+                       className="ml-2 text-gray-500 hover:text-gray-700"
+                       onClick={() => setFilters({ hasGifts: undefined })}
+                     >
+                       ×
+                     </button>
+                   </div>
+                 )}
+                 
+                 {/* Hiển thị filter theo Event */}
+                 {filters.eventId && (
+                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                     Sự kiện: Flash Sale
+                     <button
+                       className="ml-2 text-gray-500 hover:text-gray-700"
+                       onClick={() => setFilters({ eventId: undefined })}
+                     >
+                       ×
+                     </button>
+                   </div>
+                 )}
+                 
+                 {/* Hiển thị filter theo Campaign */}
+                 {filters.campaignId && (
+                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                     Chiến dịch: Khuyến mãi
+                     <button
+                       className="ml-2 text-gray-500 hover:text-gray-700"
+                       onClick={() => setFilters({ campaignId: undefined })}
+                     >
+                       ×
+                     </button>
+                   </div>
+                 )}
 
                 {/* Nút xóa tất cả bộ lọc */}
                 <button

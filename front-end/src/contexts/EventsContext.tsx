@@ -87,6 +87,8 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsLoading(true);
     setError(null);
 
+    console.log('fetchEvents called - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'null');
+
     try {
       const response = await axios.get(`${API_URL}/events`);
       const formattedEvents = response.data.map(formatEventData);
@@ -100,7 +102,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, accessToken]);
 
   // Hàm để lấy chi tiết event theo ID
   const fetchEventById = useCallback(async (id: string): Promise<Event | null> => {
@@ -140,6 +142,8 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Hàm để thêm event mới (cần xác thực admin)
   const addEvent = useCallback(async (eventData: EventFormData): Promise<Event | null> => {
+    console.log('addEvent called - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'null');
+    
     if (!isAuthenticated || !accessToken) {
       toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
       return null;

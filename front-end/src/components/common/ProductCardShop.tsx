@@ -18,7 +18,12 @@ interface ProductCardProps {
     isActive: boolean
     endTime: string
     soldPercent: number
-  }
+  };
+  promotion?: { // Add promotion prop
+    type: 'event' | 'campaign';
+    name: string;
+    adjustedPrice: number;
+  } | null;
 }
 
 const formatPrice = (price: number) => {
@@ -39,7 +44,8 @@ export default function ProductCardShop({
   soldCount,
   discount,
   slug,
-  flashSale
+  flashSale,
+  promotion // Destructure promotion prop
 }: ProductCardProps) {
   return (
     <Link href={`/product/${slug}`} className="block group h-full">
@@ -62,8 +68,17 @@ export default function ProductCardShop({
             </div>
           )}
 
-          {/* Flash Sale Badge */}
-          {flashSale?.isActive && (
+          {/* Promotion Badge (Event/Campaign) */}
+          {promotion && (
+            <div className={`absolute top-0 left-0 text-white text-xs px-2 py-1 ${promotion.type === 'event' ? 'bg-blue-500' : 'bg-green-500'}`}>
+              <div className="flex items-center gap-1">
+                <span className="font-medium uppercase">{promotion.type === 'event' ? 'Sự kiện' : 'Chiến dịch'}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Flash Sale Badge (Show only if no other promotion or if flash sale is prioritized) */}
+          {flashSale?.isActive && !promotion && ( // Example: Prioritize promotion over flash sale badge if both exist
             <div className="absolute top-0 left-0 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs px-2 py-1">
               <div className="flex items-center gap-1">
                 <span className="font-medium">FLASH SALE</span>

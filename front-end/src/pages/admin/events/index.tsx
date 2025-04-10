@@ -34,7 +34,9 @@ export default function AdminEvents() {
   
   // Tải dữ liệu khi component mount
   useEffect(() => {
-    fetchEvents();
+    if (fetchEvents && typeof fetchEvents === 'function') {
+      fetchEvents();
+    }
   }, [fetchEvents]);
   
   // Xử lý xem chi tiết sự kiện

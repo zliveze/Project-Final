@@ -12,6 +12,7 @@ import { ShopProductProvider } from './user/shop/ShopProductContext'; // User Sh
 import { VoucherProvider } from './VoucherContext';
 import { EventsProvider } from './EventsContext';
 import { CampaignProvider } from './CampaignContext'; // Import CampaignProvider
+import { UserContextProvider } from './user/UserContextProvider';
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -83,8 +84,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [router]);
 
-  // --- Render Providers based on page type ---
-  // Base providers applied to all pages
+  // --- Cấu trúc provider cơ bản ---
   let providers = (
     <AuthProvider>
       <AdminAuthProvider>
@@ -105,20 +105,47 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthProvider>
   );
 
-  // Conditionally wrap with specific providers
-  if (currentPageType === 'admin' || currentPageType === 'event' || currentPageType === 'campaign') {
-    providers = <ProductProvider>{providers}</ProductProvider>; // Admin Product Provider
+  // --- Áp dụng các provider theo nhu cầu ---
+  // Đảm bảo EventsProvider luôn có AdminAuthProvider phía trên
+  if (currentPageType === 'event') {
+    providers = (
+      <AuthProvider>
+        <AdminAuthProvider>
+          <NotificationProvider>
+            <BannerProvider>
+              <BrandProvider>
+                <CategoryProvider>
+                  <BranchProvider>
+                    <CampaignProvider>
+                      <ProductProvider>
+                        <EventsProvider>
+                          {children}
+                        </EventsProvider>
+                      </ProductProvider>
+                    </CampaignProvider>
+                  </BranchProvider>
+                </CategoryProvider>
+              </BrandProvider>
+            </BannerProvider>
+          </NotificationProvider>
+        </AdminAuthProvider>
+      </AuthProvider>
+    );
+    return providers;
   }
+
+  // Các trang khác sử dụng cấu trúc provider theo điều kiện
+  if (currentPageType === 'admin' || currentPageType === 'campaign') {
+    providers = <ProductProvider>{providers}</ProductProvider>;
+  }
+  
   if (currentPageType === 'shop' || currentPageType === 'product_detail') {
-    providers = <ShopProductProvider>{providers}</ShopProductProvider>; // User Shop Product Provider
+    providers = <EventsProvider><UserContextProvider>{providers}</UserContextProvider></EventsProvider>;
   }
+  
   if (currentPageType === 'voucher') {
     providers = <VoucherProvider>{providers}</VoucherProvider>;
   }
-  if (currentPageType === 'event') {
-    providers = <EventsProvider>{providers}</EventsProvider>;
-  }
-  // Note: CampaignProvider is already included in the base providers
 
   return providers;
 };
@@ -131,7 +158,6 @@ export { useBrands } from './BrandContext';
 export { useCategory } from './CategoryContext';
 export { useBranches } from './BranchContext';
 export { useProduct } from './ProductContext'; // Admin Product Context hook
-// export { ProductContext } from './ProductContext'; // No need to export context itself usually
 export { useShopProduct } from './user/shop/ShopProductContext'; // User Shop Product Context hook
 export { useVoucher } from './VoucherContext';
 export { useEvents } from './EventsContext';

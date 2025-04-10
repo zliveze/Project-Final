@@ -29,6 +29,16 @@ export class QueryProductDto {
   @IsOptional()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Event ID để lấy sản phẩm trong sự kiện cụ thể' })
+  @IsMongoId()
+  @IsOptional()
+  eventId?: string;
+
+  @ApiPropertyOptional({ description: 'Campaign ID để lấy sản phẩm trong chiến dịch cụ thể' })
+  @IsMongoId()
+  @IsOptional()
+  campaignId?: string;
+
   @ApiPropertyOptional({ description: 'Product status', enum: ['active', 'out_of_stock', 'discontinued'] })
   @IsEnum(['active', 'out_of_stock', 'discontinued'])
   @IsOptional()

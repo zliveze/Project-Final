@@ -8,6 +8,8 @@ import { ProductsController } from './products.controller';
 import { ProductsAdminController } from './products-admin.controller';
 import { Product, ProductSchema } from './schemas/product.schema';
 import { CloudinaryModule } from '../cloudinary';
+import { EventsModule } from '../events/events.module'; // Import EventsModule
+import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { CloudinaryModule } from '../cloudinary';
       { name: Product.name, schema: ProductSchema },
     ]),
     CloudinaryModule,
+    EventsModule, // Add EventsModule here
+    CampaignsModule, // Add CampaignsModule here
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {

@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+// Định nghĩa thêm campaign và event cho sản phẩm
+export interface ProductPromotion {
+  type: 'event' | 'campaign';
+  id: string;  // ID của sự kiện hoặc chiến dịch
+  name: string;
+  adjustedPrice: number;
+  startDate?: Date;
+  endDate?: Date;
+}
+
 // Define the structure for a lightweight product (adjust based on actual API response)
 export interface LightProduct {
   _id: string;
@@ -15,6 +25,10 @@ export interface LightProduct {
   imageUrl: string; // Primary image URL
   brandId?: string;
   brandName?: string;
+  categoryIds?: Array<{
+    id: string;
+    name: string;
+  }>;
   flags?: {
     isBestSeller?: boolean;
     isNew?: boolean;
@@ -25,6 +39,7 @@ export interface LightProduct {
     averageRating: number;
     reviewCount: number;
   };
+  promotion?: ProductPromotion | null;
 }
 
 // Define the structure for the API response of /products/light
@@ -41,6 +56,8 @@ export interface ShopProductFilters {
   search?: string;
   brandId?: string;
   categoryId?: string;
+  eventId?: string; // ID của sự kiện để lọc sản phẩm
+  campaignId?: string; // ID của chiến dịch để lọc sản phẩm 
   status?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -119,6 +136,19 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     limit: number = itemsPerPage,
     currentFilters: ShopProductFilters = filters
   ) => {
+    // Thêm kiểm tra để tránh gọi API liên tục khi tham số giống với lần gọi trước
+    const filterString = JSON.stringify(currentFilters);
+    const requestKey = `${page}-${limit}-${filterString}`;
+    
+    // Biến static để lưu trữ yêu cầu cuối cùng
+    if ((fetchProducts as any).lastRequest === requestKey) {
+      console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
+      return;
+    }
+    
+    // Lưu yêu cầu hiện tại
+    (fetchProducts as any).lastRequest = requestKey;
+    
     setLoading(true);
     setError(null);
     console.log(`Fetching products for page ${page}, limit ${limit} with filters:`, currentFilters);
@@ -143,8 +173,25 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       const response = await axios.get<LightProductsApiResponse>(`${API_URL}/products/light`, { params });
 
       if (response.data && response.data.products) {
-         // Add 'id' field based on '_id' for consistency
-         const productsWithId = response.data.products.map(p => ({ ...p, id: p._id }));
+         // Đảm bảo sản phẩm có thông tin chi tiết promotion đầy đủ
+         const productsWithId = response.data.products.map(p => {
+           // Đảm bảo mỗi sản phẩm có id dựa trên _id
+           const product = { ...p, id: p._id };
+           
+           // Cập nhật thêm thông tin promotion chi tiết hơn nếu có
+           if (product.promotion) {
+             // Chuyển đổi startDate và endDate thành đối tượng Date nếu có
+             if (product.promotion.startDate) {
+               product.promotion.startDate = new Date(product.promotion.startDate);
+             }
+             if (product.promotion.endDate) {
+               product.promotion.endDate = new Date(product.promotion.endDate);
+             }
+           }
+           
+           return product;
+         });
+         
          setProducts(productsWithId);
          setTotalProducts(response.data.total);
          setCurrentPage(response.data.page);

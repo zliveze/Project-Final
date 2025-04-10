@@ -267,7 +267,7 @@ export default function EventsSection() {
                 <span className="text-sm font-bold text-red-600">{remainingTime}</span>
               </div>
               <Link 
-                href={`/events/${currentEvent.slug}`} 
+                href={`/shop?eventId=${currentEvent.id}`} 
                 className="ml-3 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full text-sm font-medium hover:shadow-md transition-all duration-300 flex items-center"
               >
                 Xem tất cả

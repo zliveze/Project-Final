@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'; // Add useMemo
 import { FaFilter, FaChevronDown, FaChevronUp, FaGift, FaPercent, FaStar, FaHeart, FaRegStar, FaSearch } from 'react-icons/fa';
 // Removed IoMdColorPalette, FaShippingFast as they are no longer used
 import { GiMilkCarton } from 'react-icons/gi';
 import { TbBottle } from 'react-icons/tb';
 // Import the new filter type
 import { ShopProductFilters } from '@/contexts/user/shop/ShopProductContext';
+import { useCategories } from '@/contexts/user/categories/CategoryContext'; // Import Category context hook mới
+import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
 
 // Simplified FilterSection
 interface FilterSection {
@@ -30,24 +32,19 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const [minPriceInput, setMinPriceInput] = useState<string>(filters.minPrice?.toString() ?? '0');
   const [maxPriceInput, setMaxPriceInput] = useState<string>(filters.maxPrice?.toString() ?? '5000000');
   const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
+  const { categories, loading: loadingCategories } = useCategories(); // Use categories
+  const { brands, loading: loadingBrands } = useBrands(); // Use brands
 
   // Define sections with mapping to new filter keys
-  // Removed sections: Màu sắc, Đánh giá, Dung tích
-  const [sections, setSections] = useState<FilterSection[]>([
+  // Use useMemo to prevent re-calculating sections on every render unless dependencies change
+  const sections = useMemo<FilterSection[]>(() => [
     {
       title: 'Danh mục',
       filterKey: 'categoryId', // Map to categoryId
       icon: <FaFilter />,
       isOpen: true,
       type: 'checkbox',
-      options: [ // Replace with actual categories if available via API/Context later
-        { id: '6616a012a47a35f1a0f4f18e', label: 'Chăm sóc da mặt' },
-        { id: '6616a012a47a35f1a0f4f18f', label: 'Trang điểm' },
-        { id: '6616a012a47a35f1a0f4f190', label: 'Chăm sóc cơ thể' },
-        { id: '6616a012a47a35f1a0f4f191', label: 'Chăm sóc tóc' },
-        { id: '6616a012a47a35f1a0f4f192', label: 'Nước hoa' },
-        { id: '6616a012a47a35f1a0f4f193', label: 'Dụng cụ làm đẹp' },
-      ]
+      options: categories.map((cat: any) => ({ id: cat._id, label: cat.name })) // Use categories and cat._id
     },
     {
       title: 'Thương hiệu',
@@ -55,12 +52,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <FaHeart />,
       isOpen: true,
       type: 'checkbox',
-      options: [ // Replace with actual brands if available via API/Context later
-        { id: '66169c8ea47a35f1a0f4f18a', label: 'Innisfree' },
-        { id: '66169c8ea47a35f1a0f4f18b', label: 'The Face Shop' },
-        { id: '66169c8ea47a35f1a0f4f18c', label: 'Laneige' },
-        // Add more brands as needed
-      ]
+      options: brands.map((brand: any) => ({ id: brand.id, label: brand.name })) // Use brands and brand.id
     },
     {
       title: 'Khoảng giá',
@@ -103,7 +95,19 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         { id: 'wrinkles', label: 'Nếp nhăn' }
       ]
     },
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [categories, brands]); // Correct dependencies
+
+  const [sectionsState, setSectionsState] = useState<FilterSection[]>(sections); // Local state for open/close
+
+  // Update local sections state when base sections change (e.g., data loaded)
+  useEffect(() => {
+    setSectionsState(prev => sections.map((sec, index) => ({
+      ...sec,
+      isOpen: prev[index]?.isOpen ?? sec.isOpen // Preserve open state
+    })));
+  }, [sections]);
+
 
   // Mức giá phổ biến
   const popularPriceRanges = [
@@ -121,15 +125,17 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   }, [filters.minPrice, filters.maxPrice]);
 
   // Cập nhật searchTerm khi filter search thay đổi từ context
-   useEffect(() => {
+  useEffect(() => {
     setSearchTerm(filters.search || '');
   }, [filters.search]);
 
-
+  // Function to toggle section visibility
   const toggleSection = (index: number) => {
-    const newSections = [...sections];
-    newSections[index].isOpen = !newSections[index].isOpen;
-    setSections(newSections);
+    setSectionsState(prevSections => {
+      const newSections = [...prevSections];
+      newSections[index].isOpen = !newSections[index].isOpen;
+      return newSections;
+    });
   };
 
   // Updated Checkbox Handler
@@ -323,17 +329,20 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         </div>
       </div>
 
-      {/* Thương hiệu nổi bật - Updated logic */}
+      {/* Thương hiệu nổi bật - Sử dụng dữ liệu từ BrandContext */}
       <div className="mb-6">
         <h3 className="font-medium mb-3">Thương hiệu nổi bật</h3>
         <div className="grid grid-cols-3 gap-2">
-          {/* Replace with actual brands */}
-          {[
-             { id: '66169c8ea47a35f1a0f4f18a', name: 'Innisfree' },
-             { id: '66169c8ea47a35f1a0f4f18b', name: 'The Face Shop' },
-             { id: '66169c8ea47a35f1a0f4f18c', name: 'Laneige' },
-             // Add more brands
-          ].map((brand) => (
+          {loadingBrands ? (
+            // Hiển thị skeleton khi đang tải 
+            Array(6).fill(null).map((_, idx) => (
+              <div key={`brand-skeleton-${idx}`} 
+                   className="border rounded-md p-2 flex flex-col items-center animate-pulse">
+                <div className="w-10 h-10 bg-gray-200 rounded-full mb-1"></div>
+                <div className="w-12 h-3 bg-gray-200 rounded"></div>
+              </div>
+            ))
+          ) : brands.slice(0, 6).map((brand: any) => (
             <div
               key={brand.id}
               className={`border rounded-md p-2 flex flex-col items-center justify-center cursor-pointer transition-colors ${
@@ -353,11 +362,11 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       </div>
 
       <div className="space-y-4">
-        {sections.map((section, index) => (
+        {sectionsState.map((section, index) => ( // Use sectionsState here
           <div key={section.title} className="border-b pb-3">
             <div
               className="flex justify-between items-center cursor-pointer py-2"
-              onClick={() => toggleSection(index)}
+              onClick={() => toggleSection(index)} // Use sectionsState index
             >
               <h3 className="font-medium flex items-center">
                 <span className="mr-2 text-[#d53f8c]">{section.icon}</span>
@@ -370,25 +379,31 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
               <div className="mt-2">
                 {section.type === 'checkbox' && section.options && (
                   <div className="space-y-2">
-                    {section.options.map(option => (
-                      <div key={option.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={`${section.filterKey}-${option.id}`} // Unique ID
-                          className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c]"
-                          // Updated checked logic
-                          checked={
-                            section.filterKey === 'categoryId' ? filters.categoryId === option.id :
-                            section.filterKey === 'brandId' ? filters.brandId === option.id :
-                            section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
-                            section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
-                            false
-                          }
-                          onChange={(e) => handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked)}
-                        />
-                        <label htmlFor={`${section.filterKey}-${option.id}`} className="text-sm">{option.label}</label>
-                      </div>
-                    ))}
+                    {/* Add loading indicator */}
+                    {(section.filterKey === 'categoryId' && loadingCategories) || (section.filterKey === 'brandId' && loadingBrands) ? (
+                      <div className="text-sm text-gray-500">Đang tải...</div>
+                    ) : section.options.length === 0 ? (
+                      <div className="text-sm text-gray-500">Không có dữ liệu.</div>
+                    ) : (
+                      section.options.map(option => (
+                        <div key={option.id} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id={`${section.filterKey}-${option.id}`}
+                            className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c]"
+                            checked={
+                              section.filterKey === 'categoryId' ? filters.categoryId === option.id :
+                              section.filterKey === 'brandId' ? filters.brandId === option.id :
+                              section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
+                              section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
+                              false
+                            }
+                            onChange={(e) => handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked)}
+                          />
+                          <label htmlFor={`${section.filterKey}-${option.id}`} className="text-sm">{option.label}</label>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
 
