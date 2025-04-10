@@ -129,6 +129,12 @@ const ShopBanner = () => {
       const url = new URL('/shop', window.location.origin);
       url.searchParams.append('campaignName', campaignName);
       
+      // Thêm campaignId vào URL nếu có
+      if (promotion.id && promotion.id !== 'undefined') {
+        url.searchParams.append('campaignId', promotion.id);
+        console.log(`Đang thêm campaignId ${promotion.id} vào URL`);
+      }
+      
       // Thêm timestamp để đảm bảo router sẽ coi đây là một điều hướng mới
       url.searchParams.append('refresh', Date.now().toString());
       console.log(`Chuyển hướng đến campaign: ${url.toString()}`);

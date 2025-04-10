@@ -47,6 +47,12 @@ export class CampaignsController {
     return this.campaignsService.getActiveCampaigns();
   }
 
+  @Get('public/:id')
+  @ApiOperation({ summary: 'Lấy thông tin chiến dịch cho client không cần xác thực' })
+  getPublicCampaign(@Param('id') id: string) {
+    return this.campaignsService.findOne(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Lấy thông tin chi tiết chiến dịch' })
   findOne(@Param('id') id: string) {
