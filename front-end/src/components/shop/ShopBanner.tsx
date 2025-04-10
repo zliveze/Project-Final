@@ -1,68 +1,101 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FiTag, FiGift, FiTruck } from 'react-icons/fi';
+import { FiTag, FiGift, FiTruck, FiPercent } from 'react-icons/fi';
 import { useEvents, Event } from '@/contexts/EventsContext';
+import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
+import { useRouter } from 'next/router';
 
 // Định nghĩa kiểu dữ liệu cho sự kiện hiển thị
-interface DisplayEvent {
+interface DisplayPromotion {
   id: string;
   title: string;
   description: string;
   code?: string;
-  icon: 'tag' | 'truck' | 'gift';
+  icon: 'tag' | 'truck' | 'gift' | 'percent';
+  type: 'event' | 'campaign';
+  name?: string; // Thêm trường name để lưu tên đầy đủ (không bị cắt)
 }
 
 const ShopBanner = () => {
   const { fetchActiveEvents } = useEvents();
-  const [currentEvents, setCurrentEvents] = useState<DisplayEvent[]>([]);
+  const { products } = useShopProduct();
+  const [currentPromotions, setCurrentPromotions] = useState<DisplayPromotion[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const loadEvents = async () => {
+    const loadPromotions = async () => {
       try {
         setLoading(true);
+        
+        // Lấy events từ EventsContext
         const activeEvents = await fetchActiveEvents();
         
         // Lọc các sự kiện có product
         const eventsWithProducts = activeEvents.filter(event => event.products && event.products.length > 0);
         
-        if (eventsWithProducts.length > 0) {
-          // Chuyển đổi các sự kiện thành DisplayEvent cho banner
-          const displayEvents: DisplayEvent[] = eventsWithProducts.slice(0, 3).map(event => ({
-            id: event._id,
-            title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
-            description: `Cho ${event.products.length} sản phẩm`,
-            code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
-            icon: getIconForEvent(event)
-          }));
-          
-          setCurrentEvents(displayEvents);
+        // Tạo DisplayPromotion từ Events
+        const displayEvents: DisplayPromotion[] = eventsWithProducts.slice(0, 2).map(event => ({
+          id: event._id,
+          title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
+          name: event.title, // Lưu tên đầy đủ
+          description: `Cho ${event.products.length} sản phẩm`,
+          code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
+          icon: getIconForEvent(event),
+          type: 'event'
+        }));
+        
+        // Lấy campaigns từ các sản phẩm promotion
+        const uniqueCampaigns = new Map<string, DisplayPromotion>();
+        
+        products.forEach(product => {
+          if (product.promotion && product.promotion.type === 'campaign') {
+            // Chỉ thêm campaign nếu chưa có trong danh sách
+            if (!uniqueCampaigns.has(product.promotion.id)) {
+              uniqueCampaigns.set(product.promotion.id, {
+                id: product.promotion.id, 
+                title: product.promotion.name.length > 20 ? product.promotion.name.substring(0, 20) + '...' : product.promotion.name,
+                name: product.promotion.name, // Lưu tên đầy đủ
+                description: 'Khuyến mãi đặc biệt',
+                icon: 'percent',
+                type: 'campaign'
+              });
+            }
+          }
+        });
+        
+        // Kết hợp events và campaigns
+        const allPromotions = [...displayEvents, ...Array.from(uniqueCampaigns.values())];
+        
+        if (allPromotions.length > 0) {
+          // Giới hạn hiển thị tối đa 3 promotions
+          setCurrentPromotions(allPromotions.slice(0, 3));
         } else {
-          // Fallback nếu không có sự kiện
-          setCurrentEvents([
-            { id: 'event1', title: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag' },
-            { id: 'event2', title: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck' },
-            { id: 'event3', title: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift' }
+          // Fallback nếu không có sự kiện hay chiến dịch
+          setCurrentPromotions([
+            { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
+            { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
+            { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
           ]);
         }
       } catch (err) {
-        console.error('Lỗi khi tải sự kiện:', err);
+        console.error('Lỗi khi tải sự kiện và chiến dịch:', err);
         // Fallback khi có lỗi
-        setCurrentEvents([
-          { id: 'event1', title: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag' },
-          { id: 'event2', title: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck' },
-          { id: 'event3', title: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift' }
+        setCurrentPromotions([
+          { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
+          { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
+          { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
         ]);
       } finally {
         setLoading(false);
       }
     };
     
-    loadEvents();
-  }, [fetchActiveEvents]);
+    loadPromotions();
+  }, [fetchActiveEvents, products]);
 
   // Hàm hỗ trợ để xác định icon dựa trên event
-  const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' => {
+  const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' | 'percent' => {
     const title = event.title.toLowerCase();
     
     if (title.includes('gift') || title.includes('quà') || title.includes('tặng')) {
@@ -71,6 +104,35 @@ const ShopBanner = () => {
       return 'truck';
     } else {
       return 'tag'; // Default
+    }
+  };
+  
+  // Xử lý khi click vào promotion
+  const handlePromotionClick = (promotion: DisplayPromotion) => {
+    if (promotion.type === 'event') {
+      // Xây dựng URL với eventName và eventId nếu có
+      const eventName = promotion.name || promotion.title;
+      const url = new URL('/shop', window.location.origin);
+      url.searchParams.append('eventName', eventName);
+      
+      if (promotion.id && promotion.id !== 'undefined') {
+        url.searchParams.append('eventId', promotion.id);
+      }
+      
+      // Thêm timestamp để đảm bảo router sẽ coi đây là một điều hướng mới
+      url.searchParams.append('refresh', Date.now().toString());
+      console.log(`Chuyển hướng đến: ${url.toString()}`);
+      router.push(url.toString());
+    } else if (promotion.type === 'campaign') {
+      // Sử dụng tên campaign và thêm timestamp
+      const campaignName = promotion.name || promotion.title;
+      const url = new URL('/shop', window.location.origin);
+      url.searchParams.append('campaignName', campaignName);
+      
+      // Thêm timestamp để đảm bảo router sẽ coi đây là một điều hướng mới
+      url.searchParams.append('refresh', Date.now().toString());
+      console.log(`Chuyển hướng đến campaign: ${url.toString()}`);
+      router.push(url.toString());
     }
   };
 
@@ -83,7 +145,7 @@ const ShopBanner = () => {
           Sự kiện đang diễn ra
         </h2>
         
-        {/* Danh sách sự kiện */}
+        {/* Danh sách sự kiện và chiến dịch */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loading ? (
             // Hiển thị skeleton loading
@@ -100,35 +162,36 @@ const ShopBanner = () => {
               </div>
             ))
           ) : (
-            currentEvents.map(event => (
+            currentPromotions.map(promotion => (
               <div 
-                key={event.id} 
+                key={`${promotion.type}-${promotion.id}`} 
                 className="bg-white rounded-lg shadow-sm p-4 flex items-center relative group"
               >
                 <div className="w-12 h-12 rounded-full bg-[#fdf2f8] flex items-center justify-center mr-4">
-                  {event.icon === 'tag' && <FiTag className="w-6 h-6 text-[#d53f8c]" />}
-                  {event.icon === 'truck' && <FiTruck className="w-6 h-6 text-[#d53f8c]" />}
-                  {event.icon === 'gift' && <FiGift className="w-6 h-6 text-[#d53f8c]" />}
+                  {promotion.icon === 'tag' && <FiTag className="w-6 h-6 text-[#d53f8c]" />}
+                  {promotion.icon === 'truck' && <FiTruck className="w-6 h-6 text-[#d53f8c]" />}
+                  {promotion.icon === 'gift' && <FiGift className="w-6 h-6 text-[#d53f8c]" />}
+                  {promotion.icon === 'percent' && <FiPercent className="w-6 h-6 text-[#d53f8c]" />}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-sm md:text-base">{event.title}</h3>
-                  <p className="text-gray-600 text-xs md:text-sm">{event.description}</p>
+                  <h3 className="font-semibold text-sm md:text-base">{promotion.title}</h3>
+                  <p className="text-gray-600 text-xs md:text-sm">{promotion.description}</p>
                 </div>
-                {event.code && (
+                {promotion.code && (
                   <div className="ml-2">
                     <span className="bg-[#fdf2f8] text-[#d53f8c] text-xs font-medium px-2 py-1 rounded">
-                      {event.code}
+                      {promotion.code}
                     </span>
                   </div>
                 )}
-                <Link 
-                  href={`/shop?eventId=${event.id}`} 
-                  className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-lg"
+                <div 
+                  onClick={() => handlePromotionClick(promotion)}
+                  className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-lg cursor-pointer"
                 >
                   <span className="bg-gradient-to-r from-[#d53f8c] to-[#805ad5] text-white text-sm font-medium px-4 py-2 rounded shadow-md transform scale-90 group-hover:scale-100 transition-transform duration-300">
                     Xem ngay
                   </span>
-                </Link>
+                </div>
               </div>
             ))
           )}

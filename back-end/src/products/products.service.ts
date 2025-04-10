@@ -933,7 +933,7 @@ export class ProductsService {
       ]);
 
       // Tạo map để lưu giá khuyến mãi tốt nhất cho mỗi sản phẩm
-      const promotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string }>();
+      const promotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
 
       // Xử lý active events
       activeEvents.forEach(event => {
@@ -941,10 +941,13 @@ export class ProductsService {
           const productIdStr = productInEvent.productId.toString();
           const currentPromotion = promotionMap.get(productIdStr);
           if (!currentPromotion || productInEvent.adjustedPrice < currentPromotion.price) {
+            // Truy cập event._id như một thuộc tính của đối tượng (JS)
+            const eventId = event['_id']?.toString() || '';
             promotionMap.set(productIdStr, {
               price: productInEvent.adjustedPrice,
               type: 'event',
-              name: event.title
+              name: event.title,
+              id: eventId
             });
           }
         });
@@ -956,10 +959,13 @@ export class ProductsService {
           const productIdStr = productInCampaign.productId.toString();
           const currentPromotion = promotionMap.get(productIdStr);
           if (!currentPromotion || productInCampaign.adjustedPrice < currentPromotion.price) {
+            // Truy cập campaign._id như một thuộc tính của đối tượng (JS)
+            const campaignId = campaign['_id']?.toString() || '';
             promotionMap.set(productIdStr, {
               price: productInCampaign.adjustedPrice,
               type: 'campaign',
-              name: campaign.title
+              name: campaign.title,
+              id: campaignId
             });
           }
         });
@@ -984,6 +990,7 @@ export class ProductsService {
           finalPrice = promotion.price;
           promotionInfo = {
             type: promotion.type,
+            id: promotion.id || '',
             name: promotion.name,
             adjustedPrice: promotion.price
           };

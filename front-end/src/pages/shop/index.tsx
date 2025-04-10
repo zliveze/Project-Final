@@ -11,6 +11,7 @@ import { useShopProduct, ShopProductFilters } from '@/contexts/user/shop/ShopPro
 import { LightProduct } from '@/contexts/user/shop/ShopProductContext';
 import { useCategory } from '@/contexts/CategoryContext';
 import { useBrands } from '@/contexts/BrandContext';
+import { useRouter } from 'next/router';
 
 // Sử dụng lại interface Product từ context mới nếu cần, hoặc dùng LightProduct trực tiếp
 // interface Product { ... } // Có thể xóa nếu LightProduct đủ dùng
@@ -58,19 +59,24 @@ interface Filters {
 */
 
 export default function Shop() {
-  // Sử dụng hook mới
-  const {
-    products, // Sử dụng trực tiếp products từ context (đã là LightProduct[])
+  // Cập nhật các thuộc tính để lấy thêm selectedCampaign
+  const { 
+    products,
     loading,
-    error, // Có thể sử dụng để hiển thị thông báo lỗi
+    error,
     currentPage,
     totalPages,
-    filters, // Lấy filters từ context
-    setFilters, // Lấy hàm setFilters từ context
-    changePage, // Lấy hàm changePage từ context
+    filters,
+    setFilters,
+    changePage,
+    selectedCampaign,
+    fetchProducts,
+    itemsPerPage
   } = useShopProduct();
 
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  // Thêm router
+  const router = useRouter();
 
   // Thêm context cho danh mục và thương hiệu
   const { categories } = useCategory();
@@ -87,12 +93,68 @@ export default function Shop() {
       const eventId = searchParams.get('eventId');
       if (eventId) {
         newFilters.eventId = eventId;
+        console.log(`Đã tìm thấy eventId ${eventId} từ URL params`);
+      }
+      
+      // Xử lý eventName nếu có
+      const eventName = searchParams.get('eventName');
+      if (eventName) {
+        console.log(`Tìm kiếm với eventName: ${eventName}`);
+        // Sử dụng eventId nếu đã có trong URL
+        if (eventId) {
+          console.log(`Sử dụng eventId ${eventId} từ URL với eventName ${eventName}`);
+        } 
+        // Nếu không tìm thấy eventId, tìm qua danh sách sản phẩm
+        else if (products.length > 0) {
+          console.log(`Đang tìm kiếm sản phẩm theo eventName: ${eventName} trong ${products.length} sản phẩm`);
+          const productsWithEvent = products.filter(
+            (product: LightProduct) => product.promotion && 
+                      product.promotion.type === 'event' && 
+                      product.promotion.name === eventName
+          );
+          
+          if (productsWithEvent.length > 0) {
+            // Lấy ID của event từ sản phẩm đầu tiên tìm được
+            const foundEventId = productsWithEvent[0].promotion?.id;
+            if (foundEventId) {
+              newFilters.eventId = foundEventId;
+              console.log(`Tìm thấy eventId ${foundEventId} từ tên "${eventName}"`);
+            }
+          } else {
+            console.log(`Không tìm thấy event với tên "${eventName}" trong danh sách sản phẩm hiện tại`);
+          }
+        }
       }
       
       // Lấy campaignId nếu có
       const campaignId = searchParams.get('campaignId');
-      if (campaignId) {
+      if (campaignId && campaignId !== 'undefined') {
         newFilters.campaignId = campaignId;
+        console.log(`Đã tìm thấy campaignId ${campaignId} từ URL params`);
+      }
+      
+      // Xử lý campaignName nếu có
+      const campaignName = searchParams.get('campaignName');
+      if (campaignName) {
+        console.log(`Tìm kiếm với campaignName: ${campaignName}`);
+        if (products.length > 0) {
+          const productsWithCampaign = products.filter(
+            (product: LightProduct) => product.promotion && 
+                      product.promotion.type === 'campaign' && 
+                      product.promotion.name === campaignName
+          );
+          
+          if (productsWithCampaign.length > 0) {
+            // Lấy ID của campaign từ sản phẩm đầu tiên tìm được
+            const foundCampaignId = productsWithCampaign[0].promotion?.id;
+            if (foundCampaignId && foundCampaignId !== 'undefined') {
+              newFilters.campaignId = foundCampaignId;
+              console.log(`Tìm thấy campaignId ${foundCampaignId} từ tên "${campaignName}"`);
+            }
+          } else {
+            console.log(`Không tìm thấy campaign với tên "${campaignName}" trong danh sách sản phẩm hiện tại`);
+          }
+        }
       }
       
       // Xử lý trường hợp promotion=flash-sale (đặc biệt)
@@ -100,22 +162,71 @@ export default function Shop() {
       if (promotion === 'flash-sale' && eventId) {
         newFilters.eventId = eventId;
       }
+
+      // Kiểm tra nếu có tham số refresh, đảm bảo dữ liệu được tải lại
+      const refresh = searchParams.get('refresh');
+      const forceRefresh = refresh !== null;
       
-      // Áp dụng filters từ URL nếu có - Chỉ áp dụng nếu có sự thay đổi
-      if (Object.keys(newFilters).length > 0) {
+      // Lưu trữ giá trị refresh đã xử lý để tránh xử lý lặp lại
+      const processedRefresh = sessionStorage.getItem('processed_refresh');
+      const isRefreshProcessed = processedRefresh === refresh;
+      
+      // Nếu đã xử lý refresh này rồi, bỏ qua
+      if (forceRefresh && isRefreshProcessed) {
+        console.log('Bỏ qua refresh đã được xử lý:', refresh);
+        return;
+      }
+      
+      // Áp dụng filters từ URL nếu có - Chỉ áp dụng nếu có sự thay đổi hoặc buộc refresh
+      if (Object.keys(newFilters).length > 0 || forceRefresh) {
         // Kiểm tra xem filters hiện tại đã giống newFilters chưa để tránh render lại
         const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
           return filters[key as keyof ShopProductFilters] !== value;
         });
         
-        if (needsUpdate) {
-          setFilters(newFilters);
+        console.log('Cần cập nhật filters:', needsUpdate, 'Filters mới:', newFilters, 'Buộc refresh:', forceRefresh);
+        
+        if (needsUpdate || forceRefresh) {
+          if (forceRefresh) {
+            console.log('Buộc tải lại dữ liệu do tham số refresh:', refresh);
+            
+            // Lưu giá trị refresh đã xử lý vào sessionStorage
+            sessionStorage.setItem('processed_refresh', refresh || '');
+            
+            // Kết hợp filters hiện tại với newFilters để đảm bảo không mất bộ lọc hiện tại
+            const combinedFilters = { ...filters, ...newFilters };
+            
+            // Gọi trực tiếp fetchProducts với forceRefresh=true để bỏ qua kiểm tra trùng lặp
+            fetchProducts(1, itemsPerPage, combinedFilters, true);
+            
+            // Cập nhật state filters mà không gọi lại fetchProducts
+            setFilters(combinedFilters, true);
+            
+            // Sau khi xử lý refresh, xóa tham số refresh khỏi URL để tránh gọi API lặp lại
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('refresh');
+            window.history.replaceState({}, '', newUrl.toString());
+          } else {
+            // Cập nhật filters thông thường 
+            setFilters(newFilters);
+          }
         }
       }
     };
     
-    handleUrlParams();
-  }, [setFilters, filters]); // Thêm filters vào dependencies
+    // Nếu router.isReady thì mới xử lý URL parameters
+    if (router.isReady) {
+      handleUrlParams();
+    }
+  }, [
+    setFilters,
+    filters, 
+    products,
+    router.isReady,
+    router.query,  // Thêm router.query để useEffect chạy lại khi query thay đổi
+    itemsPerPage,
+    fetchProducts
+  ]);
 
   // Effect để đếm số bộ lọc đang active (sử dụng filters từ context)
   useEffect(() => {
@@ -193,6 +304,35 @@ export default function Shop() {
   const getBrandName = (brandId: string): string => {
     const brand = brands.find((brand: any) => brand.id === brandId);
     return brand ? brand.name : brandId;
+  };
+
+  // Thêm hàm helper để lấy tên chiến dịch từ ID
+  const getCampaignName = (campaignId: string): string => {
+    // Nếu đã có selectedCampaign, sử dụng title của nó
+    if (selectedCampaign && selectedCampaign._id === campaignId) {
+      return selectedCampaign.title;
+    }
+    
+    // Backup: Tìm tên chiến dịch từ dữ liệu sản phẩm
+    const productWithCampaign = products.find(product => 
+      product.promotion && 
+      product.promotion.type === 'campaign' && 
+      product.promotion.id === campaignId
+    );
+    
+    return productWithCampaign?.promotion?.name || 'Khuyến mãi';
+  };
+
+  // Thêm hàm helper để lấy tên sự kiện từ ID
+  const getEventName = (eventId: string): string => {
+    // Tìm sự kiện từ dữ liệu sản phẩm
+    const productWithEvent = products.find(product => 
+      product.promotion && 
+      product.promotion.type === 'event' && 
+      product.promotion.id === eventId
+    );
+    
+    return productWithEvent?.promotion?.name || 'Sự kiện';
   };
 
   return (
@@ -306,23 +446,10 @@ export default function Shop() {
                    </div>
                  )}
                  
-                 {/* Hiển thị filter theo Event */}
-                 {filters.eventId && (
-                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                     Sự kiện: Flash Sale
-                     <button
-                       className="ml-2 text-gray-500 hover:text-gray-700"
-                       onClick={() => setFilters({ eventId: undefined })}
-                     >
-                       ×
-                     </button>
-                   </div>
-                 )}
-                 
-                 {/* Hiển thị filter theo Campaign */}
+                 {/* Hiển thị tên campaign thay vì ID */}
                  {filters.campaignId && (
                    <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                     Chiến dịch: Khuyến mãi
+                     Khuyến mãi: {getCampaignName(filters.campaignId)}
                      <button
                        className="ml-2 text-gray-500 hover:text-gray-700"
                        onClick={() => setFilters({ campaignId: undefined })}
@@ -331,6 +458,19 @@ export default function Shop() {
                      </button>
                    </div>
                  )}
+
+                {/* Thêm filter hiển thị Event nếu có */}
+                {filters.eventId && (
+                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                    Sự kiện: {getEventName(filters.eventId)}
+                    <button
+                      className="ml-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => setFilters({ eventId: undefined })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
 
                 {/* Nút xóa tất cả bộ lọc */}
                 <button
@@ -349,6 +489,8 @@ export default function Shop() {
                     isNew: undefined,
                     isOnSale: undefined,
                     hasGifts: undefined,
+                    eventId: undefined,
+                    campaignId: undefined,
                     sortBy: undefined, // Hoặc giá trị mặc định như 'createdAt'
                     sortOrder: undefined // Hoặc giá trị mặc định như 'desc'
                   })}
@@ -406,6 +548,8 @@ export default function Shop() {
                     isNew: undefined,
                     isOnSale: undefined,
                     hasGifts: undefined,
+                    eventId: undefined,
+                    campaignId: undefined,
                     sortBy: undefined,
                     sortOrder: undefined
                   })}
@@ -430,10 +574,11 @@ export default function Shop() {
                       soldCount={Math.floor(Math.random() * 100) + 10} // Giữ lại random nếu chưa có API
                       discount={product.currentPrice < product.price ? Math.round(((product.price - product.currentPrice) / product.price) * 100) : undefined}
                       slug={product.slug}
-                      flashSale={product.flags?.isOnSale ? {
+                      promotion={product.promotion} // Truyền thông tin promotion từ API
+                      flashSale={product.promotion?.type === 'event' && product.promotion?.name === 'Flash Sale' ? {
                         isActive: true,
-                        endTime: new Date(Date.now() + 86400000).toISOString(), // Giữ lại logic tạm thời
-                        soldPercent: Math.floor(Math.random() * 80) + 20 // Giữ lại random nếu chưa có API
+                        endTime: new Date(Date.now() + 86400000).toISOString(),
+                        soldPercent: Math.floor(Math.random() * 80) + 20
                       } : undefined}
                     />
                   </div>

@@ -72,7 +72,7 @@ export default function ProductCardShop({
           {promotion && (
             <div className={`absolute top-0 left-0 text-white text-xs px-2 py-1 ${promotion.type === 'event' ? 'bg-blue-500' : 'bg-green-500'}`}>
               <div className="flex items-center gap-1">
-                <span className="font-medium uppercase">{promotion.type === 'event' ? 'Sự kiện' : 'Chiến dịch'}</span>
+                <span className="font-medium">{promotion.name || (promotion.type === 'event' ? 'Sự kiện' : 'Chiến dịch')}</span>
               </div>
             </div>
           )}

@@ -119,6 +119,8 @@ export class CampaignsService {
         startDate: { $lte: now },
         endDate: { $gte: now },
       })
+      .select('_id title description type startDate endDate products')
+      .lean()
       .exec();
   }
 } 
