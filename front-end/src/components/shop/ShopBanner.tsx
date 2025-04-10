@@ -4,6 +4,7 @@ import { FiTag, FiGift, FiTruck, FiPercent } from 'react-icons/fi';
 import { useEvents, Event } from '@/contexts/EventsContext';
 import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { useRouter } from 'next/router';
+import axios from 'axios';
 
 // Định nghĩa kiểu dữ liệu cho sự kiện hiển thị
 interface DisplayPromotion {
@@ -16,67 +17,101 @@ interface DisplayPromotion {
   name?: string; // Thêm trường name để lưu tên đầy đủ (không bị cắt)
 }
 
+// Định nghĩa interface cho Campaign từ API
+interface ApiCampaign {
+  _id: string;
+  title: string;
+  description: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  products: Array<{
+    productId: string;
+    productName?: string;
+    originalPrice?: number;
+    adjustedPrice: number;
+    image?: string;
+  }>;
+}
+
 const ShopBanner = () => {
   const { fetchActiveEvents } = useEvents();
   const { products } = useShopProduct();
   const [currentPromotions, setCurrentPromotions] = useState<DisplayPromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  
+  // Thêm API URL
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     const loadPromotions = async () => {
       try {
         setLoading(true);
         
-        // Lấy events từ EventsContext
+        // Lấy tất cả events đang active
         const activeEvents = await fetchActiveEvents();
+        console.log('Đã tải', activeEvents.length, 'sự kiện đang hoạt động');
         
-        // Lọc các sự kiện có product
-        const eventsWithProducts = activeEvents.filter(event => event.products && event.products.length > 0);
-        
-        // Tạo DisplayPromotion từ Events
-        const displayEvents: DisplayPromotion[] = eventsWithProducts.slice(0, 2).map(event => ({
+        // Tạo DisplayPromotion từ tất cả Events đang active, không cần lọc
+        const displayEvents: DisplayPromotion[] = activeEvents.map(event => ({
           id: event._id,
           title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
           name: event.title, // Lưu tên đầy đủ
-          description: `Cho ${event.products.length} sản phẩm`,
+          description: event.products.length > 0 
+            ? `Cho ${event.products.length} sản phẩm` 
+            : event.description || 'Sự kiện đặc biệt',
           code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
           icon: getIconForEvent(event),
           type: 'event'
         }));
         
-        // Lấy campaigns từ các sản phẩm promotion
-        const uniqueCampaigns = new Map<string, DisplayPromotion>();
-        
-        products.forEach(product => {
-          if (product.promotion && product.promotion.type === 'campaign') {
-            // Chỉ thêm campaign nếu chưa có trong danh sách
-            if (!uniqueCampaigns.has(product.promotion.id)) {
-              uniqueCampaigns.set(product.promotion.id, {
-                id: product.promotion.id, 
-                title: product.promotion.name.length > 20 ? product.promotion.name.substring(0, 20) + '...' : product.promotion.name,
-                name: product.promotion.name, // Lưu tên đầy đủ
-                description: 'Khuyến mãi đặc biệt',
-                icon: 'percent',
-                type: 'campaign'
-              });
-            }
+        // Lấy campaigns đang active từ API riêng
+        try {
+          const response = await axios.get(`${API_URL}/campaigns/active`);
+          const activeCampaigns: ApiCampaign[] = response.data;
+          console.log('Đã tải', activeCampaigns.length, 'chiến dịch đang hoạt động');
+          
+          // Tạo DisplayPromotion từ Campaigns
+          const displayCampaigns: DisplayPromotion[] = activeCampaigns.map(campaign => ({
+            id: campaign._id,
+            title: campaign.title.length > 20 ? campaign.title.substring(0, 20) + '...' : campaign.title,
+            name: campaign.title, // Lưu tên đầy đủ
+            description: campaign.products.length > 0 
+              ? `Cho ${campaign.products.length} sản phẩm` 
+              : campaign.description || 'Khuyến mãi đặc biệt',
+            icon: 'percent',
+            type: 'campaign'
+          }));
+          
+          // Kết hợp events và campaigns
+          const allPromotions = [...displayEvents, ...displayCampaigns];
+          
+          if (allPromotions.length > 0) {
+            // Giới hạn hiển thị tối đa 3 promotions
+            setCurrentPromotions(allPromotions.slice(0, 3));
+          } else {
+            // Fallback nếu không có sự kiện hay chiến dịch
+            setCurrentPromotions([
+              { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
+              { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
+              { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
+            ]);
           }
-        });
-        
-        // Kết hợp events và campaigns
-        const allPromotions = [...displayEvents, ...Array.from(uniqueCampaigns.values())];
-        
-        if (allPromotions.length > 0) {
-          // Giới hạn hiển thị tối đa 3 promotions
-          setCurrentPromotions(allPromotions.slice(0, 3));
-        } else {
-          // Fallback nếu không có sự kiện hay chiến dịch
-          setCurrentPromotions([
-            { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
-            { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
-            { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-          ]);
+        } catch (campaignError) {
+          console.error('Lỗi khi tải chiến dịch:', campaignError);
+          
+          // Vẫn hiển thị events nếu có
+          if (displayEvents.length > 0) {
+            setCurrentPromotions(displayEvents.slice(0, 3));
+          } else {
+            // Fallback khi không tải được cả events và campaigns
+            setCurrentPromotions([
+              { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
+              { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
+              { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
+            ]);
+          }
         }
       } catch (err) {
         console.error('Lỗi khi tải sự kiện và chiến dịch:', err);
@@ -92,7 +127,7 @@ const ShopBanner = () => {
     };
     
     loadPromotions();
-  }, [fetchActiveEvents, products]);
+  }, [fetchActiveEvents]);
 
   // Hàm hỗ trợ để xác định icon dựa trên event
   const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' | 'percent' => {

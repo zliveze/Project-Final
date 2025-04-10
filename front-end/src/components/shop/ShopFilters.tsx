@@ -44,7 +44,10 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <FaFilter />,
       isOpen: true,
       type: 'checkbox',
-      options: categories.map((cat: any) => ({ id: cat._id, label: cat.name })) // Use categories and cat._id
+      options: categories ? categories.map((cat: any) => ({ 
+        id: cat._id || `cat-${cat.name}`, 
+        label: cat.name 
+      })) : []
     },
     {
       title: 'Thương hiệu',
@@ -52,7 +55,10 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <FaHeart />,
       isOpen: true,
       type: 'checkbox',
-      options: brands.map((brand: any) => ({ id: brand.id, label: brand.name })) // Use brands and brand.id
+      options: brands ? brands.map((brand: any) => ({ 
+        id: brand.id || `brand-${brand.name}`, 
+        label: brand.name 
+      })) : []
     },
     {
       title: 'Khoảng giá',
@@ -102,11 +108,48 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Update local sections state when base sections change (e.g., data loaded)
   useEffect(() => {
-    setSectionsState(prev => sections.map((sec, index) => ({
-      ...sec,
-      isOpen: prev[index]?.isOpen ?? sec.isOpen // Preserve open state
-    })));
-  }, [sections]);
+    console.log('Categories loaded:', categories.length);
+    console.log('Brands loaded:', brands.length);
+    console.log('Current filters:', filters);
+    
+    if (categories.length > 0 || brands.length > 0) {
+      // Cập nhật chỉ khi có dữ liệu danh mục hoặc thương hiệu
+      const newSections: FilterSection[] = [
+        {
+          title: 'Danh mục',
+          filterKey: 'categoryId' as const,
+          icon: <FaFilter />,
+          isOpen: true,
+          type: 'checkbox' as const,
+          options: categories.map((cat: any) => ({ 
+            id: cat._id || `cat-${cat.name}`, 
+            label: cat.name 
+          }))
+        },
+        {
+          title: 'Thương hiệu',
+          filterKey: 'brandId' as const,
+          icon: <FaHeart />,
+          isOpen: true,
+          type: 'checkbox' as const,
+          options: brands.map((brand: any) => ({ 
+            id: brand.id || `brand-${brand.name}`, 
+            label: brand.name 
+          }))
+        },
+        // Giữ nguyên các mục khác từ sections ban đầu
+        ...sections.slice(2)
+      ];
+      
+      // Cập nhật sectionsState với trạng thái mở đóng từ state trước
+      setSectionsState(prev => {
+        return newSections.map((sec, index) => ({
+          ...sec,
+          isOpen: prev[index]?.isOpen ?? sec.isOpen
+        }));
+      });
+    }
+  }, [categories, brands, sections]);
 
 
   // Mức giá phổ biến
@@ -145,7 +188,16 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     if (filterKey === 'categoryId' || filterKey === 'brandId') {
       // Single select for category and brand
       newFilterValue = checked ? optionId : undefined;
-      onFilterChange({ [filterKey]: newFilterValue });
+      console.log(`Setting ${filterKey} to:`, newFilterValue, typeof newFilterValue);
+      
+      // Tạo một object mới với giá trị cần update
+      const updateObj = { [filterKey]: newFilterValue };
+      
+      // Log thêm thông tin để debug
+      console.log('Gửi update filter với:', updateObj);
+      
+      // Gọi callback update filter
+      onFilterChange(updateObj);
     } else if (filterKey === 'skinTypes' || filterKey === 'concerns') {
       // Multi-select for skinTypes and concerns (comma-separated string)
       const currentValues = filters[filterKey]?.split(',') || [];
@@ -201,6 +253,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Updated Promotion Change Handler
   const handlePromotionChange = (type: 'isOnSale' | 'hasGifts', checked: boolean) => {
+    console.log(`Promotion change: ${type} - ${checked}`);
     onFilterChange({ [type]: checked ? true : undefined }); // Set to undefined if unchecked
   };
 
@@ -248,6 +301,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Updated Reset Filters Handler
   const handleResetFilters = () => {
+    // Thực hiện reset filters
     onFilterChange({
       categoryId: undefined,
       brandId: undefined,
@@ -262,8 +316,23 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       // Reset sorting if needed
       // sortBy: 'createdAt',
       // sortOrder: 'desc',
+      // Thêm các trường khác nếu cần
+      eventId: undefined,
+      campaignId: undefined,
     });
+    
+    // Reset các trạng thái local nếu cần
     setSearchTerm(''); // Reset local search term state as well
+    setMinPriceInput('0');
+    setMaxPriceInput('5000000');
+    
+    // Cập nhật URL để xóa các tham số query liên quan
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const pathname = url.pathname;
+      // Sử dụng window.history để thay đổi URL mà không refresh trang
+      window.history.replaceState({}, '', pathname);
+    }
   };
 
 
@@ -302,29 +371,33 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         <h3 className="font-medium text-[#d53f8c] mb-2">Khuyến mãi đặc biệt</h3>
         <div className="space-y-2">
           <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="isOnSale" // Changed id
-              className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c]"
-              checked={filters.isOnSale || false} // Use isOnSale
-              onChange={(e) => handlePromotionChange('isOnSale', e.target.checked)} // Use isOnSale
-            />
-            <label htmlFor="isOnSale" className="text-sm flex items-center"> {/* Changed htmlFor */}
-              <FaPercent className="mr-1 text-red-500" /> Đang giảm giá
-            </label>
+            <div className="flex items-center cursor-pointer w-full" onClick={() => handlePromotionChange('isOnSale', !filters.isOnSale)}>
+              <input
+                type="checkbox"
+                id="isOnSale"
+                className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c] cursor-pointer h-4 w-4"
+                checked={filters.isOnSale || false}
+                onChange={(e) => handlePromotionChange('isOnSale', e.target.checked)}
+              />
+              <label htmlFor="isOnSale" className="text-sm flex items-center cursor-pointer flex-grow">
+                <FaPercent className="mr-1 text-red-500" /> Đang giảm giá
+              </label>
+            </div>
           </div>
           {/* Removed Free Shipping */}
           <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="hasGifts"
-              className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c]"
-              checked={filters.hasGifts || false} // Use hasGifts
-              onChange={(e) => handlePromotionChange('hasGifts', e.target.checked)} // Use hasGifts
-            />
-            <label htmlFor="hasGifts" className="text-sm flex items-center">
-              <FaGift className="mr-1 text-pink-500" /> Có quà tặng kèm
-            </label>
+            <div className="flex items-center cursor-pointer w-full" onClick={() => handlePromotionChange('hasGifts', !filters.hasGifts)}>
+              <input
+                type="checkbox"
+                id="hasGifts"
+                className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c] cursor-pointer h-4 w-4"
+                checked={filters.hasGifts || false}
+                onChange={(e) => handlePromotionChange('hasGifts', e.target.checked)}
+              />
+              <label htmlFor="hasGifts" className="text-sm flex items-center cursor-pointer flex-grow">
+                <FaGift className="mr-1 text-pink-500" /> Có quà tặng kèm
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -342,13 +415,14 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                 <div className="w-12 h-3 bg-gray-200 rounded"></div>
               </div>
             ))
-          ) : brands.slice(0, 6).map((brand: any) => (
+          ) : brands.slice(0, 6).map((brand: any, brandIndex) => (
             <div
-              key={brand.id}
+              key={`brand-featured-${brand.id || brandIndex}`}
               className={`border rounded-md p-2 flex flex-col items-center justify-center cursor-pointer transition-colors ${
                 filters.brandId === brand.id ? 'border-[#d53f8c] bg-[#fdf2f8]' : 'hover:border-[#d53f8c] hover:bg-gray-50'
               }`}
               onClick={() => {
+                console.log('Clicked brand:', brand.name, brand.id);
                 handleCheckboxChange('brandId', brand.id, filters.brandId !== brand.id);
               }}
             >
@@ -363,7 +437,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
       <div className="space-y-4">
         {sectionsState.map((section, index) => ( // Use sectionsState here
-          <div key={section.title} className="border-b pb-3">
+          <div key={`section-${section.title}-${index}`} className="border-b pb-3">
             <div
               className="flex justify-between items-center cursor-pointer py-2"
               onClick={() => toggleSection(index)} // Use sectionsState index
@@ -385,24 +459,57 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                     ) : section.options.length === 0 ? (
                       <div className="text-sm text-gray-500">Không có dữ liệu.</div>
                     ) : (
-                      section.options.map(option => (
-                        <div key={option.id} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id={`${section.filterKey}-${option.id}`}
-                            className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c]"
-                            checked={
-                              section.filterKey === 'categoryId' ? filters.categoryId === option.id :
-                              section.filterKey === 'brandId' ? filters.brandId === option.id :
-                              section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
-                              section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
-                              false
-                            }
-                            onChange={(e) => handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked)}
-                          />
-                          <label htmlFor={`${section.filterKey}-${option.id}`} className="text-sm">{option.label}</label>
-                        </div>
-                      ))
+                      section.options.map((option, optionIndex) => {
+                        // Debug - Thêm log hiển thị trạng thái tích
+                        const isChecked = 
+                          section.filterKey === 'categoryId' ? filters.categoryId === option.id : 
+                          section.filterKey === 'brandId' ? filters.brandId === option.id :
+                          section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
+                          section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
+                          false;
+                        
+                        if (section.filterKey === 'categoryId') {
+                          console.log(`Category option: ${option.label} (${option.id}) - checked: ${isChecked}`);
+                          console.log(`Current categoryId in filters: ${filters.categoryId}`);
+                        }
+                        
+                        return (
+                          <div key={`${section.filterKey}-${option.id || optionIndex}`} className="flex items-center py-1.5">
+                            <div className="flex items-center w-full cursor-pointer">
+                              <input
+                                type="checkbox"
+                                id={`${section.filterKey}-${option.id || optionIndex}-input`}
+                                className="mr-2 text-[#d53f8c] focus:ring-[#d53f8c] h-4 w-4 cursor-pointer"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  console.log(`Checkbox change: ${section.filterKey} - ${option.id} - ${e.target.checked}`);
+                                  handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, e.target.checked);
+                                }}
+                              />
+                              <label 
+                                htmlFor={`${section.filterKey}-${option.id || optionIndex}-input`} 
+                                className="text-sm cursor-pointer flex-grow"
+                                onClick={(e) => {
+                                  e.preventDefault(); // Ngăn chặn hành vi mặc định của label
+                                  
+                                  // Đảm bảo click vào label sẽ kích hoạt cùng sự kiện với checkbox
+                                  const isChecked = 
+                                    section.filterKey === 'categoryId' ? filters.categoryId !== option.id : 
+                                    section.filterKey === 'brandId' ? filters.brandId !== option.id :
+                                    section.filterKey === 'skinTypes' ? !(filters.skinTypes?.split(',') || []).includes(option.id) :
+                                    section.filterKey === 'concerns' ? !(filters.concerns?.split(',') || []).includes(option.id) :
+                                    true;
+                                  
+                                  console.log(`Label click: ${section.filterKey} - ${option.id} - toggle to ${isChecked}`);
+                                  handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, isChecked);
+                                }}
+                              >
+                                {option.label}
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -487,7 +594,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                       <div className="space-y-2">
                         {popularPriceRanges.map((range, idx) => (
                           <div
-                            key={idx}
+                            key={`price-range-${idx}-${range.min || 0}-${range.max || 5000000}`}
                             className={`text-sm py-1 px-2 rounded cursor-pointer ${
                               filters.minPrice === range.min && filters.maxPrice === range.max
                                 ? 'bg-[#fdf2f8] text-[#d53f8c]'

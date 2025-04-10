@@ -252,10 +252,50 @@ export default function Shop() {
   // Hàm này giờ chỉ nhận và truyền trực tiếp Partial<ShopProductFilters>
   // Component ShopFilters sẽ chịu trách nhiệm gửi đúng cấu trúc này
   const handleFilterChange = (newFilters: Partial<ShopProductFilters>) => {
-    // Ví dụ: Nếu ShopFilters vẫn gửi cấu trúc cũ, bạn cần map ở đây.
-    // Nhưng lý tưởng nhất là sửa ShopFilters để gửi đúng cấu trúc.
-    // Giả sử ShopFilters đã được sửa hoặc sẽ được sửa:
-    setFilters(newFilters); // Gọi hàm setFilters từ context với các thay đổi
+    console.log('handleFilterChange called with:', newFilters);
+    
+    // Xử lý đặc biệt cho categoryId vì có vấn đề với việc bỏ tích
+    if ('categoryId' in newFilters) {
+      console.log('Phát hiện thay đổi categoryId:', newFilters.categoryId);
+      
+      // Nếu categoryId chuyển từ định nghĩa sang undefined
+      if (newFilters.categoryId === undefined && filters.categoryId !== undefined) {
+        console.log('CÓ THAY ĐỔI: Bỏ lọc theo danh mục');
+        
+        // Tạo một bản sao mới của filters hiện tại
+        const updatedFilters = { ...filters };
+        // Xóa categoryId khỏi bản sao
+        delete updatedFilters.categoryId;
+        
+        console.log('updatedFilters sau khi xóa categoryId:', updatedFilters);
+        // Cập nhật filters với phiên bản mới không có categoryId
+        setFilters(updatedFilters);
+        return;
+      }
+    }
+    
+    // Nếu đang xóa eventId hoặc campaignId, cần cập nhật URL
+    if (newFilters.eventId === undefined && filters.eventId !== undefined || 
+        newFilters.campaignId === undefined && filters.campaignId !== undefined) {
+      // Xóa tham số eventId/campaignId khỏi URL
+      const url = new URL(window.location.href);
+      
+      if (newFilters.eventId === undefined && filters.eventId !== undefined) {
+        url.searchParams.delete('eventId');
+        url.searchParams.delete('eventName');
+      }
+      
+      if (newFilters.campaignId === undefined && filters.campaignId !== undefined) {
+        url.searchParams.delete('campaignId');
+        url.searchParams.delete('campaignName');
+      }
+      
+      // Cập nhật URL mà không làm refresh trang
+      router.replace(url.toString(), undefined, { shallow: true });
+    }
+    
+    // Gọi hàm setFilters từ context với các thay đổi
+    setFilters(newFilters);
   };
 
   // Hàm xử lý thay đổi trang (sử dụng changePage từ context)
@@ -265,8 +305,9 @@ export default function Shop() {
   };
 
   // Hàm xử lý tìm kiếm (sử dụng setFilters từ context)
-  const handleSearch = (term: string) => {
-    setFilters({ search: term }); // Cập nhật filter search
+  const handleSearch = (searchTerm: string) => {
+    console.log('handleSearch called with:', searchTerm);
+    setFilters({ search: searchTerm });
   };
 
   // Breadcrumb cho trang
@@ -344,7 +385,6 @@ export default function Shop() {
           {/* Sidebar filters - Truyền filters và setFilters từ context */}
           <div className="md:w-64 shrink-0">
             <ShopFilters
-              // Removed comments inside JSX props
               filters={filters}
               onFilterChange={handleFilterChange}
               onSearch={handleSearch}
@@ -475,25 +515,35 @@ export default function Shop() {
                 {/* Nút xóa tất cả bộ lọc */}
                 <button
                   className="text-[#d53f8c] hover:underline text-sm"
-                  onClick={() => setFilters({ // Reset về giá trị mặc định của context
-                    search: undefined,
-                    brandId: undefined,
-                    categoryId: undefined,
-                    status: undefined,
-                    minPrice: undefined,
-                    maxPrice: undefined,
-                    tags: undefined,
-                    skinTypes: undefined,
-                    concerns: undefined,
-                    isBestSeller: undefined,
-                    isNew: undefined,
-                    isOnSale: undefined,
-                    hasGifts: undefined,
-                    eventId: undefined,
-                    campaignId: undefined,
-                    sortBy: undefined, // Hoặc giá trị mặc định như 'createdAt'
-                    sortOrder: undefined // Hoặc giá trị mặc định như 'desc'
-                  })}
+                  onClick={() => {
+                    // Reset tất cả filter về undefined
+                    setFilters({
+                      search: undefined,
+                      brandId: undefined,
+                      categoryId: undefined,
+                      status: undefined,
+                      minPrice: undefined,
+                      maxPrice: undefined,
+                      tags: undefined,
+                      skinTypes: undefined,
+                      concerns: undefined,
+                      isBestSeller: undefined,
+                      isNew: undefined,
+                      isOnSale: undefined,
+                      hasGifts: undefined,
+                      eventId: undefined,
+                      campaignId: undefined,
+                      sortBy: undefined,
+                      sortOrder: undefined
+                    });
+                    
+                    // Cập nhật URL để xóa tất cả tham số
+                    const url = new URL(window.location.href);
+                    // Lưu lại đường dẫn cơ bản '/shop'
+                    const pathname = url.pathname;
+                    // Xóa tất cả tham số query
+                    router.replace(pathname, undefined, { shallow: true });
+                  }}
                 >
                   Xóa tất cả bộ lọc
                 </button>
@@ -534,25 +584,35 @@ export default function Shop() {
                 <p className="mt-2 text-gray-500 mb-4">Vui lòng thử lại với các bộ lọc khác hoặc xóa một số bộ lọc.</p>
                 <button
                   className="bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1] text-white px-4 py-2 rounded-md transition-colors"
-                  onClick={() => setFilters({ // Reset về giá trị mặc định của context
-                    search: undefined,
-                    brandId: undefined,
-                    categoryId: undefined,
-                    status: undefined,
-                    minPrice: undefined,
-                    maxPrice: undefined,
-                    tags: undefined,
-                    skinTypes: undefined,
-                    concerns: undefined,
-                    isBestSeller: undefined,
-                    isNew: undefined,
-                    isOnSale: undefined,
-                    hasGifts: undefined,
-                    eventId: undefined,
-                    campaignId: undefined,
-                    sortBy: undefined,
-                    sortOrder: undefined
-                  })}
+                  onClick={() => {
+                    // Reset tất cả filter về undefined
+                    setFilters({
+                      search: undefined,
+                      brandId: undefined,
+                      categoryId: undefined,
+                      status: undefined,
+                      minPrice: undefined,
+                      maxPrice: undefined,
+                      tags: undefined,
+                      skinTypes: undefined,
+                      concerns: undefined,
+                      isBestSeller: undefined,
+                      isNew: undefined,
+                      isOnSale: undefined,
+                      hasGifts: undefined,
+                      eventId: undefined,
+                      campaignId: undefined,
+                      sortBy: undefined,
+                      sortOrder: undefined
+                    });
+                    
+                    // Cập nhật URL để xóa tất cả tham số
+                    const url = new URL(window.location.href);
+                    // Lưu lại đường dẫn cơ bản '/shop'
+                    const pathname = url.pathname;
+                    // Xóa tất cả tham số query
+                    router.replace(pathname, undefined, { shallow: true });
+                  }}
                 >
                   Xóa tất cả bộ lọc
                 </button>

@@ -200,12 +200,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         // Append filters to params
         Object.entries(currentFilters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            // Kiểm tra trường hợp campaignId="undefined" (string)
-            if (key === 'campaignId' && value === 'undefined') {
-              // Bỏ qua giá trị 'undefined' dạng chuỗi
-              return;
-            }
+          if (value !== undefined && value !== null && value !== '' && value !== 'undefined') {
             // Ensure boolean values are correctly stringified
             if (typeof value === 'boolean') {
               params.append(key, value.toString());
@@ -215,7 +210,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
           }
         });
 
-        console.log('Gửi request API đến:', `${API_URL}/products/light?${params.toString()}`);
+        const requestURL = `${API_URL}/products/light?${params.toString()}`;
+        console.log('Gửi request API đến:', requestURL);
+        console.log('Chi tiết params:', Object.fromEntries(params.entries()));
         const response = await axios.get<LightProductsApiResponse>(`${API_URL}/products/light`, { params });
         console.log('Nhận response từ API:', response.status, response.statusText);
 
@@ -294,15 +291,28 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Function to update filters and trigger fetch
   const setFilters = useCallback((newFilters: Partial<ShopProductFilters>, skipFetch: boolean = false) => {
+    console.log('setFilters called with:', newFilters, 'skipFetch:', skipFetch);
+    console.log('Current filters before update:', filters);
+    
+    // Xử lý đặc biệt cho các key có giá trị undefined
+    Object.keys(newFilters).forEach(key => {
+      if (newFilters[key as keyof ShopProductFilters] === undefined) {
+        console.log(`Removing ${key} from filters`);
+      }
+    });
+    
     const updatedFilters = { ...filters, ...newFilters };
+    console.log('Updated filters after merge:', updatedFilters);
+    
     // Reset page to 1 when filters change
     setCurrentPage(1);
     setFiltersState(updatedFilters);
     
     // Chỉ gọi fetchProducts nếu không được yêu cầu bỏ qua
     if (!skipFetch) {
+      console.log('Calling fetchProducts with new filters');
       // Fetch products with the new filters and reset page
-      fetchProducts(1, itemsPerPage, updatedFilters);
+      fetchProducts(1, itemsPerPage, updatedFilters, true); // Force refresh to ensure data is reloaded
     }
   }, [filters, itemsPerPage, fetchProducts]);
 
