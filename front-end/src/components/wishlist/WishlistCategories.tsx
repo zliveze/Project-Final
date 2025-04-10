@@ -28,6 +28,7 @@ const WishlistCategories: React.FC<WishlistCategoriesProps> = ({ categories }) =
           <Link 
             key={category.id} 
             href={`/shop?category=${category.slug}`}
+            replace={true}
             className="group"
           >
             <div className="bg-white rounded-lg shadow-sm overflow-hidden h-full border border-gray-100 hover:shadow-md transition-shadow duration-300">

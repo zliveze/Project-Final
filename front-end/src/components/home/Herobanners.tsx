@@ -95,7 +95,7 @@ export default function Herobanners() {
   const handleBannerClick = (href: string, campaignId: string) => {
     event?.preventDefault()
     localStorage.setItem('currentCampaign', campaignId)
-    router.push(href)
+    router.replace(href)
   }
 
   // Cấu hình animation cho các phần tử văn bản

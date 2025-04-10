@@ -1,9 +1,9 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart, FiStar, FiArrowRight } from 'react-icons/fi';
 import { toast } from 'react-toastify';
-import { ProductContext } from '@/contexts';
+import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 
 // Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
 interface Product {
@@ -39,28 +39,27 @@ interface RecommendedProductsProps {
 }
 
 const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) => {
-  const productContext = useContext(ProductContext);
+  const shopProductContext = useShopProduct();
   
+  // Hàm placeholder khi context thiếu phương thức
+  const placeholderAction = (action: string) => {
+    return () => {
+      console.warn(`Chức năng ${action} chưa được triển khai.`);
+      toast.error(`Chức năng ${action} tạm thời không khả dụng`, {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      return Promise.resolve(false);
+    };
+  };
+
   // Sử dụng các hàm từ context hoặc tạo hàm placeholder nếu context không tồn tại
-  const addToCart = productContext?.addToCart || ((productId: string, quantity: number) => {
-    console.warn('ProductContext không được tìm thấy. Không thể thêm vào giỏ hàng.');
-    toast.error('Chức năng thêm vào giỏ hàng tạm thời không khả dụng', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light"
-    });
-    return Promise.resolve(false);
-  });
+  const addToCart = shopProductContext.addToCart || 
+    ((productId: string, quantity: number) => placeholderAction('thêm vào giỏ hàng')());
   
-  const addToWishlist = productContext?.addToWishlist || ((productId: string) => {
-    console.warn('ProductContext không được tìm thấy. Không thể thêm vào danh sách yêu thích.');
-    toast.error('Chức năng thêm vào danh sách yêu thích tạm thời không khả dụng', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light"
-    });
-    return Promise.resolve(false);
-  });
+  const addToWishlist = shopProductContext.addToWishlist || 
+    ((productId: string) => placeholderAction('thêm vào danh sách yêu thích')());
   
   // Lấy ảnh đại diện cho sản phẩm
   const getProductImage = (product: Product) => {
@@ -101,6 +100,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
         <h2 className="text-2xl font-bold text-gray-800">Có thể bạn cũng thích</h2>
         <Link 
           href="/shop" 
+          replace={true}
           className="flex items-center text-pink-600 hover:underline text-sm font-medium group transition-all duration-200"
         >
           <span>Xem thêm</span>

@@ -35,7 +35,7 @@ interface ApiCampaign {
 }
 
 const ShopBanner = () => {
-  const { fetchActiveEvents } = useEvents();
+  const eventsContext = useEvents();
   const { products } = useShopProduct();
   const [currentPromotions, setCurrentPromotions] = useState<DisplayPromotion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,22 +49,33 @@ const ShopBanner = () => {
       try {
         setLoading(true);
         
-        // Lấy tất cả events đang active
-        const activeEvents = await fetchActiveEvents();
-        console.log('Đã tải', activeEvents.length, 'sự kiện đang hoạt động');
+        let displayEvents: DisplayPromotion[] = [];
         
-        // Tạo DisplayPromotion từ tất cả Events đang active, không cần lọc
-        const displayEvents: DisplayPromotion[] = activeEvents.map(event => ({
-          id: event._id,
-          title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
-          name: event.title, // Lưu tên đầy đủ
-          description: event.products.length > 0 
-            ? `Cho ${event.products.length} sản phẩm` 
-            : event.description || 'Sự kiện đặc biệt',
-          code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
-          icon: getIconForEvent(event),
-          type: 'event'
-        }));
+        // Kiểm tra xem fetchActiveEvents có tồn tại không
+        if (eventsContext && typeof eventsContext.fetchActiveEvents === 'function') {
+          try {
+            // Lấy tất cả events đang active
+            const activeEvents = await eventsContext.fetchActiveEvents();
+            console.log('Đã tải', activeEvents.length, 'sự kiện đang hoạt động');
+            
+            // Tạo DisplayPromotion từ tất cả Events đang active, không cần lọc
+            displayEvents = activeEvents.map(event => ({
+              id: event._id,
+              title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
+              name: event.title, // Lưu tên đầy đủ
+              description: event.products.length > 0 
+                ? `Cho ${event.products.length} sản phẩm` 
+                : event.description || 'Sự kiện đặc biệt',
+              code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
+              icon: getIconForEvent(event),
+              type: 'event'
+            }));
+          } catch (eventError) {
+            console.error('Lỗi khi tải sự kiện:', eventError);
+          }
+        } else {
+          console.warn('fetchActiveEvents không khả dụng');
+        }
         
         // Lấy campaigns đang active từ API riêng
         try {
@@ -127,7 +138,7 @@ const ShopBanner = () => {
     };
     
     loadPromotions();
-  }, [fetchActiveEvents]);
+  }, [eventsContext]);
 
   // Hàm hỗ trợ để xác định icon dựa trên event
   const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' | 'percent' => {

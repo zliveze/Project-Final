@@ -26,11 +26,16 @@ const parseColorString = (colorString?: string): { name: string, code: string } 
   if (!colorString) return { name: '', code: '' };
   
   // Màu có định dạng "Tên màu "#mã-màu""
-  const regex = /^(.*?)\s*"(#[0-9a-fA-F]{6})"$/;
+  const regex = /^(.*?)(?:\s*"(#[0-9a-fA-F]{6})")?$/;
   const match = colorString.match(regex);
   
-  if (match && match.length === 3) {
-    return { name: match[1].trim(), code: match[2] };
+  if (match) {
+    // match[1] sẽ luôn là tên màu
+    // match[2] sẽ là mã màu nếu có, undefined nếu không có
+    return { 
+      name: match[1].trim(), 
+      code: match[2] || '' 
+    };
   }
   
   return { name: colorString, code: '' };
@@ -211,10 +216,19 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
                   `}
                   title={color}
                 >
-                  <span 
-                    className="h-6 w-6 rounded-full mr-2" 
-                    style={{ backgroundColor: code || '#cccccc' }}
-                  />
+                  {code ? (
+                    <span 
+                      className="h-6 w-6 rounded-full mr-2" 
+                      style={{ backgroundColor: code }}
+                    />
+                  ) : (
+                    <span 
+                      className="h-6 w-6 rounded-full mr-2 bg-gray-200 flex items-center justify-center text-xs"
+                      title="Mã màu không hợp lệ"
+                    >
+                      ?
+                    </span>
+                  )}
                   <span className="text-xs font-medium">{name}</span>
                 </button>
               );

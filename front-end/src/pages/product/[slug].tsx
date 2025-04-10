@@ -16,7 +16,7 @@ import ProductInventory from '@/components/product/ProductInventory';
 import ProductCategories, { CategoryWithImage } from '@/components/product/ProductCategories'; // Import CategoryWithImage
 import ProductPromotions from '@/components/product/ProductPromotions';
 import DefaultLayout from '@/layout/DefaultLayout';
-import { ProductContext } from '@/contexts';
+import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { BrandWithLogo } from '@/components/product/ProductInfo'; // Import BrandWithLogo
 
 interface ProductPageProps {
@@ -51,7 +51,16 @@ const ProductPage: React.FC<ProductPageProps> = ({
 }) => {
   // ... (rest of component logic remains the same for now)
   const router = useRouter();
-  const productContext = useContext(ProductContext);
+  const shopProductContext = useShopProduct();
+
+  // Tạo một function tạm thời cho wishlist khi API chưa có
+  const temporaryAddToWishlist = async (productId: string) => {
+    console.warn('Chức năng wishlist chưa được triển khai trong API.');
+    return Promise.resolve(false);
+  };
+
+  // Sử dụng addToWishlist từ context hoặc function tạm thời
+  const addToWishlist = shopProductContext.addToWishlist || temporaryAddToWishlist;
 
   // State for the currently selected variant
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(() => {
@@ -163,12 +172,6 @@ const ProductPage: React.FC<ProductPageProps> = ({
   }, [selectedVariant, product?.images, product?.variants, product?.name]);
 
 
-  const addToWishlist = productContext?.addToWishlist || ((productId: string) => {
-    console.warn('ProductContext không được tìm thấy. Không thể thêm vào danh sách yêu thích.');
-    return Promise.resolve(false);
-  });
-  
-  // Xử lý thêm vào danh sách yêu thích
   const handleAddToWishlist = async (product: any) => {
     await addToWishlist(product._id);
   };

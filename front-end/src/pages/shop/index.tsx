@@ -9,8 +9,8 @@ import { BreadcrumItem } from '@/components/common/Breadcrum';
 import { useShopProduct, ShopProductFilters } from '@/contexts/user/shop/ShopProductContext';
 // Import kiểu LightProduct từ context mới
 import { LightProduct } from '@/contexts/user/shop/ShopProductContext';
-import { useCategory } from '@/contexts/CategoryContext';
-import { useBrands } from '@/contexts/BrandContext';
+import { useCategories } from '@/contexts/user/categories/CategoryContext';
+import { useBrands } from '@/contexts/user/brands/BrandContext';
 import { useRouter } from 'next/router';
 
 // Sử dụng lại interface Product từ context mới nếu cần, hoặc dùng LightProduct trực tiếp
@@ -79,7 +79,7 @@ export default function Shop() {
   const router = useRouter();
 
   // Thêm context cho danh mục và thương hiệu
-  const { categories } = useCategory();
+  const { categories } = useCategories();
   const { brands } = useBrands();
   
   // Thêm xử lý URL parameters

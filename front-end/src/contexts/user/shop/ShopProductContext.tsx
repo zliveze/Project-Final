@@ -105,6 +105,8 @@ interface ShopProductContextType {
   changePage: (newPage: number) => void;
   changeLimit: (newLimit: number) => void;
   fetchCampaign: (campaignId: string) => Promise<void>;
+  addToWishlist?: (productId: string) => Promise<boolean>;
+  addToCart?: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
 }
 
 // API configuration
@@ -136,6 +138,8 @@ export const useShopProduct = (): ShopProductContextType => {
       changePage: () => { console.warn('ShopProductProvider not available.'); },
       changeLimit: () => { console.warn('ShopProductProvider not available.'); },
       fetchCampaign: async () => { console.warn('ShopProductProvider not available.'); },
+      addToWishlist: async () => { console.warn('ShopProductProvider not available.'); return false; },
+      addToCart: async () => { console.warn('ShopProductProvider not available.'); return false; }
     };
   }
   return context;
@@ -403,6 +407,16 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     changePage,
     changeLimit,
     fetchCampaign,
+    addToWishlist: async (productId: string) => {
+      // Tạm thời implement giả cho method này
+      console.warn('addToWishlist chưa được triển khai. ProductId:', productId);
+      return Promise.resolve(false);
+    },
+    addToCart: async (productId: string, quantity: number, variantId?: string) => {
+      // Tạm thời implement giả cho method này
+      console.warn('addToCart chưa được triển khai. ProductId:', productId, 'quantity:', quantity, 'variantId:', variantId);
+      return Promise.resolve(false);
+    }
   };
 
   return (

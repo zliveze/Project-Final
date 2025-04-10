@@ -94,7 +94,9 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
               <CategoryProvider>
                 <BranchProvider>
                   <CampaignProvider>
-                    {children}
+                    <UserContextProvider>
+                      {children}
+                    </UserContextProvider>
                   </CampaignProvider>
                 </BranchProvider>
               </CategoryProvider>
@@ -119,7 +121,9 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
                     <CampaignProvider>
                       <ProductProvider>
                         <EventsProvider>
-                          {children}
+                          <UserContextProvider>
+                            {children}
+                          </UserContextProvider>
                         </EventsProvider>
                       </ProductProvider>
                     </CampaignProvider>
@@ -140,7 +144,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   }
   
   if (currentPageType === 'shop' || currentPageType === 'product_detail') {
-    providers = <EventsProvider><UserContextProvider>{providers}</UserContextProvider></EventsProvider>;
+    providers = <EventsProvider>{providers}</EventsProvider>;
   }
   
   if (currentPageType === 'voucher') {

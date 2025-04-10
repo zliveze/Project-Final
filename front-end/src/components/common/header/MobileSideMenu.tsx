@@ -180,6 +180,14 @@ export default function MobileSideMenu({
               {/* Links */}
               <div className="px-4 py-2">
                 <Link 
+                  href="/shop" 
+                  replace={true}
+                  className="flex items-center py-3 border-b"
+                  onClick={onClose}
+                >
+                  <span>CỬA HÀNG</span>
+                </Link>
+                <Link 
                   href="/thuong-hieu" 
                   className="flex items-center py-3 border-b"
                   onClick={onClose}
