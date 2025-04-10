@@ -5,10 +5,18 @@ import ShopFilters from '../../components/shop/ShopFilters';
 import ShopBanner from '../../components/shop/ShopBanner';
 import ShopPagination from '../../components/shop/ShopPagination';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
-import { useProduct } from '../../contexts';
+// Import hook mới cho shop
+import { useShopProduct, ShopProductFilters } from '@/contexts/user/shop/ShopProductContext';
+// Import kiểu LightProduct từ context mới
+import { LightProduct } from '@/contexts/user/shop/ShopProductContext';
 
-interface Product {
-  _id: string;
+// Sử dụng lại interface Product từ context mới nếu cần, hoặc dùng LightProduct trực tiếp
+// interface Product { ... } // Có thể xóa nếu LightProduct đủ dùng
+
+// Xóa interface Filters cũ
+/*
+interface Filters {
+  categories: string[];
   name: string;
   slug: string;
   price: number;
@@ -44,116 +52,68 @@ interface Filters {
   hasFreeShipping: boolean;
   hasGifts: boolean;
   colors: string[];
-  volume: string[];
 }
+*/
 
 export default function Shop() {
-  const productContext = useProduct();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  // Sử dụng hook mới
+  const {
+    products, // Sử dụng trực tiếp products từ context (đã là LightProduct[])
+    loading,
+    error, // Có thể sử dụng để hiển thị thông báo lỗi
+    currentPage,
+    totalPages,
+    filters, // Lấy filters từ context
+    setFilters, // Lấy hàm setFilters từ context
+    changePage, // Lấy hàm changePage từ context
+  } = useShopProduct();
+
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const [filters, setFilters] = useState<Filters>({
-    categories: [],
-    brands: [],
-    priceRange: [0, 5000000],
-    skinType: [],
-    concerns: [],
-    sortBy: 'popularity',
-    rating: 0,
-    hasPromotion: false,
-    hasFreeShipping: false,
-    hasGifts: false,
-    colors: [],
-    volume: []
-  });
 
-  // Fetch products using API
-  useEffect(() => {
-    // Fetch products from API
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        
-        // Use the efficient API endpoint
-        await productContext.fetchLightProducts(
-          currentPage,
-          12, // Increased limit for better display
-          searchTerm,
-          filters.brands.length > 0 ? filters.brands[0] : '',
-          filters.categories.length > 0 ? filters.categories[0] : '',
-          undefined,
-          filters.priceRange[0],
-          filters.priceRange[1],
-          undefined,
-          filters.skinType.join(','),
-          filters.concerns.join(','),
-          filters.sortBy === 'best_seller' ? true : undefined,
-          filters.sortBy === 'new_arrivals' ? true : undefined,
-          filters.hasPromotion ? true : undefined,
-          filters.hasGifts ? true : undefined,
-          filters.sortBy === 'price_asc' ? 'price' : 
-          filters.sortBy === 'price_desc' ? 'price' : 
-          filters.sortBy === 'newest' ? 'createdAt' : 
-          filters.sortBy === 'popularity' ? 'reviews.reviewCount' : 'createdAt',
-          
-          filters.sortBy === 'price_asc' ? 'asc' : 'desc'
-        );
-
-        // Dữ liệu sản phẩm đã được cập nhật bởi context
-        setProducts(productContext.products);
-        setTotalPages(productContext.totalPages);
-
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [currentPage, searchTerm, filters, productContext]);
-
-  // Effect để đếm số bộ lọc đang active
+  // Effect để đếm số bộ lọc đang active (sử dụng filters từ context)
   useEffect(() => {
     let count = 0;
-    if (filters.categories.length > 0) count++;
-    if (filters.brands.length > 0) count++;
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000000) count++;
-    if (filters.skinType.length > 0) count++;
-    if (filters.concerns.length > 0) count++;
-    if (filters.rating > 0) count++;
-    if (filters.hasPromotion) count++;
-    if (filters.hasFreeShipping) count++;
+    if (filters.categoryId) count++; // Thay categories -> categoryId
+    if (filters.brandId) count++; // Thay brands -> brandId
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++; // Thay priceRange
+    if (filters.skinTypes) count++; // Thay skinType
+    if (filters.concerns) count++; // Thay concerns
+    // if (filters.rating > 0) count++; // Rating chưa có trong context filters
+    if (filters.isOnSale) count++; // Thay hasPromotion -> isOnSale
+    // if (filters.hasFreeShipping) count++; // FreeShipping chưa có
     if (filters.hasGifts) count++;
-    if (filters.colors.length > 0) count++;
-    if (filters.volume.length > 0) count++;
-    
+    // if (filters.colors?.length > 0) count++; // Colors chưa có
+    // if (filters.volume?.length > 0) count++; // Volume chưa có
+
     setActiveFiltersCount(count);
   }, [filters]);
 
-  const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-    setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
+  // Hàm xử lý thay đổi filter (sử dụng setFilters từ context)
+  // Hàm này giờ chỉ nhận và truyền trực tiếp Partial<ShopProductFilters>
+  // Component ShopFilters sẽ chịu trách nhiệm gửi đúng cấu trúc này
+  const handleFilterChange = (newFilters: Partial<ShopProductFilters>) => {
+    // Ví dụ: Nếu ShopFilters vẫn gửi cấu trúc cũ, bạn cần map ở đây.
+    // Nhưng lý tưởng nhất là sửa ShopFilters để gửi đúng cấu trúc.
+    // Giả sử ShopFilters đã được sửa hoặc sẽ được sửa:
+    setFilters(newFilters); // Gọi hàm setFilters từ context với các thay đổi
   };
 
+  // Hàm xử lý thay đổi trang (sử dụng changePage từ context)
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    changePage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Hàm xử lý tìm kiếm (sử dụng setFilters từ context)
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
+    setFilters({ search: term }); // Cập nhật filter search
   };
 
   // Breadcrumb cho trang
+  // Breadcrumb cho trang
   const breadcrumbs: BreadcrumItem[] = [
     { label: 'Trang chủ', href: '/' },
-    { label: 'Cửa hàng', href: '/shop', active: true }
+    { label: 'Cửa hàng', href: '/shop' }, // Removed 'active: true'
   ];
 
   return (
@@ -162,146 +122,148 @@ export default function Shop() {
       
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Sidebar filters */}
+          {/* Sidebar filters - Truyền filters và setFilters từ context */}
           <div className="md:w-64 shrink-0">
-            <ShopFilters 
-              filters={filters} 
+            <ShopFilters
+              // Removed comments inside JSX props
+              filters={filters}
               onFilterChange={handleFilterChange}
               onSearch={handleSearch}
             />
           </div>
-          
+
           {/* Main content */}
           <div className="flex-grow">
-            {/* Bộ lọc đang active */}
+            {/* Bộ lọc đang active - Cập nhật để sử dụng filters từ context */}
             {activeFiltersCount > 0 && (
               <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white rounded-lg shadow-sm">
                 <span className="text-sm font-medium text-gray-700 mr-2">
                   Bộ lọc ({activeFiltersCount}):
                 </span>
-                
-                {filters.categories.length > 0 && (
+
+                {/* Ví dụ cập nhật cho brandId */}
+                {filters.brandId && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Danh mục ({filters.categories.length})
-                    <button 
+                    Thương hiệu: {filters.brandId} {/* Cần lấy tên thương hiệu nếu có */}
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ categories: [] })}
+                      onClick={() => setFilters({ brandId: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {filters.brands.length > 0 && (
+                 {/* Ví dụ cập nhật cho categoryId */}
+                 {filters.categoryId && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Thương hiệu ({filters.brands.length})
-                    <button 
+                    Danh mục: {filters.categoryId} {/* Cần lấy tên danh mục nếu có */}
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ brands: [] })}
+                      onClick={() => setFilters({ categoryId: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {filters.skinType.length > 0 && (
+                 {/* Ví dụ cập nhật cho price */}
+                 {(filters.minPrice !== undefined || filters.maxPrice !== undefined) && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Loại da ({filters.skinType.length})
-                    <button 
+                    Giá: {filters.minPrice?.toLocaleString() ?? '0'}đ - {filters.maxPrice?.toLocaleString() ?? '∞'}đ
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ skinType: [] })}
+                      onClick={() => setFilters({ minPrice: undefined, maxPrice: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {filters.concerns.length > 0 && (
+                 {/* Ví dụ cập nhật cho skinTypes */}
+                 {filters.skinTypes && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    Vấn đề ({filters.concerns.length})
-                    <button 
+                    Loại da: {filters.skinTypes.split(',').join(', ')}
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ concerns: [] })}
+                      onClick={() => setFilters({ skinTypes: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {(filters.priceRange[0] > 0 || filters.priceRange[1] < 5000000) && (
+                 {/* Ví dụ cập nhật cho concerns */}
+                 {filters.concerns && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    {filters.priceRange[0].toLocaleString()}đ - {filters.priceRange[1].toLocaleString()}đ
-                    <button 
+                    Vấn đề da: {filters.concerns.split(',').join(', ')}
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ priceRange: [0, 5000000] })}
+                      onClick={() => setFilters({ concerns: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {filters.rating > 0 && (
-                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
-                    {filters.rating}+ sao
-                    <button 
-                      className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ rating: 0 })}
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                
-                {filters.hasPromotion && (
+                 {/* Ví dụ cập nhật cho isOnSale */}
+                 {filters.isOnSale && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
                     Đang giảm giá
-                    <button 
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ hasPromotion: false })}
+                      onClick={() => setFilters({ isOnSale: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                {filters.hasGifts && (
+                 {/* Ví dụ cập nhật cho hasGifts */}
+                 {filters.hasGifts && (
                   <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
                     Có quà tặng
-                    <button 
+                    <button
                       className="ml-2 text-gray-500 hover:text-gray-700"
-                      onClick={() => handleFilterChange({ hasGifts: false })}
+                      onClick={() => setFilters({ hasGifts: undefined })}
                     >
                       ×
                     </button>
                   </div>
                 )}
-                
-                <button 
+
+                {/* Nút xóa tất cả bộ lọc */}
+                <button
                   className="text-[#d53f8c] hover:underline text-sm"
-                  onClick={() => handleFilterChange({
-                    categories: [],
-                    brands: [],
-                    priceRange: [0, 5000000],
-                    skinType: [],
-                    concerns: [],
-                    sortBy: 'popularity',
-                    rating: 0,
-                    hasPromotion: false,
-                    hasFreeShipping: false,
-                    hasGifts: false,
-                    colors: [],
-                    volume: []
+                  onClick={() => setFilters({ // Reset về giá trị mặc định của context
+                    search: undefined,
+                    brandId: undefined,
+                    categoryId: undefined,
+                    status: undefined,
+                    minPrice: undefined,
+                    maxPrice: undefined,
+                    tags: undefined,
+                    skinTypes: undefined,
+                    concerns: undefined,
+                    isBestSeller: undefined,
+                    isNew: undefined,
+                    isOnSale: undefined,
+                    hasGifts: undefined,
+                    sortBy: undefined, // Hoặc giá trị mặc định như 'createdAt'
+                    sortOrder: undefined // Hoặc giá trị mặc định như 'desc'
                   })}
                 >
                   Xóa tất cả bộ lọc
                 </button>
               </div>
             )}
-            
-            {/* Danh sách sản phẩm */}
+
+            {/* Hiển thị lỗi nếu có */}
+            {error && (
+              <div className="text-center py-12 bg-red-100 text-red-700 rounded-lg mb-4">
+                <p>Đã xảy ra lỗi: {error}</p>
+              </div>
+            )}
+
+            {/* Danh sách sản phẩm - Sử dụng loading và products từ context */}
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
-                {Array(24).fill(null).map((_, index) => (
+                {/* Skeleton loading */}
+                {Array(12).fill(null).map((_, index) => ( // Hiển thị skeleton dựa trên itemsPerPage
                   <div key={index} className="h-full">
                     <div className="bg-white rounded-sm shadow-sm animate-pulse h-full flex flex-col">
                       <div className="relative pt-[100%] bg-gray-300"></div>
@@ -322,21 +284,24 @@ export default function Shop() {
                 <div className="text-5xl mb-4">😕</div>
                 <p className="text-lg text-gray-600 font-medium">Không tìm thấy sản phẩm nào phù hợp với bộ lọc của bạn.</p>
                 <p className="mt-2 text-gray-500 mb-4">Vui lòng thử lại với các bộ lọc khác hoặc xóa một số bộ lọc.</p>
-                <button 
+                <button
                   className="bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1] text-white px-4 py-2 rounded-md transition-colors"
-                  onClick={() => handleFilterChange({
-                    categories: [],
-                    brands: [],
-                    priceRange: [0, 5000000],
-                    skinType: [],
-                    concerns: [],
-                    sortBy: 'popularity',
-                    rating: 0,
-                    hasPromotion: false,
-                    hasFreeShipping: false,
-                    hasGifts: false,
-                    colors: [],
-                    volume: []
+                  onClick={() => setFilters({ // Reset về giá trị mặc định của context
+                    search: undefined,
+                    brandId: undefined,
+                    categoryId: undefined,
+                    status: undefined,
+                    minPrice: undefined,
+                    maxPrice: undefined,
+                    tags: undefined,
+                    skinTypes: undefined,
+                    concerns: undefined,
+                    isBestSeller: undefined,
+                    isNew: undefined,
+                    isOnSale: undefined,
+                    hasGifts: undefined,
+                    sortBy: undefined,
+                    sortOrder: undefined
                   })}
                 >
                   Xóa tất cả bộ lọc
@@ -344,35 +309,38 @@ export default function Shop() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
-                {products.map((product) => (
-                  <div key={product._id} className="h-full">
+                {/* Map qua products từ context */}
+                {products.map((product: LightProduct) => (
+                  <div key={product.id} className="h-full">
                     <ProductCardShop
-                      id={product._id}
+                      id={product.id}
                       name={product.name}
-                      image={product.images && product.images[0]?.url || '/images/product-placeholder.jpg'}
+                      // Sử dụng imageUrl từ LightProduct
+                      image={product.imageUrl || '/images/product-placeholder.jpg'}
                       price={product.currentPrice}
                       originalPrice={product.price}
                       rating={product.reviews?.averageRating || 0}
                       ratingCount={product.reviews?.reviewCount || 0}
-                      soldCount={Math.floor(Math.random() * 100) + 10}
+                      soldCount={Math.floor(Math.random() * 100) + 10} // Giữ lại random nếu chưa có API
                       discount={product.currentPrice < product.price ? Math.round(((product.price - product.currentPrice) / product.price) * 100) : undefined}
                       slug={product.slug}
                       flashSale={product.flags?.isOnSale ? {
                         isActive: true,
-                        endTime: new Date(Date.now() + 86400000).toISOString(),
-                        soldPercent: Math.floor(Math.random() * 80) + 20
+                        endTime: new Date(Date.now() + 86400000).toISOString(), // Giữ lại logic tạm thời
+                        soldPercent: Math.floor(Math.random() * 80) + 20 // Giữ lại random nếu chưa có API
                       } : undefined}
                     />
                   </div>
                 ))}
               </div>
             )}
-            
+
+            {/* Pagination - Sử dụng currentPage, totalPages, changePage từ context */}
             {!loading && products.length > 0 && (
-              <ShopPagination 
-                currentPage={currentPage} 
-                totalPages={totalPages} 
-                onPageChange={handlePageChange} 
+              <ShopPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange} // Sử dụng handlePageChange đã được cập nhật
               />
             )}
           </div>
@@ -380,4 +348,4 @@ export default function Shop() {
       </div>
     </DefaultLayout>
   );
-} 
+}

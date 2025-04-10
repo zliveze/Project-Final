@@ -40,7 +40,9 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
                 </div>
               )}
             </div>
-            
+            <Link href="/shop" className="h-10 flex items-center text-sm hover:text-pink-600">
+              CỬA HÀNG
+            </Link>
             <Link href="/thuong-hieu" className="h-10 flex items-center text-sm hover:text-pink-600">
               THƯƠNG HIỆU
             </Link>

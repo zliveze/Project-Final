@@ -7,7 +7,8 @@ import { BannerProvider } from './BannerContext';
 import { BrandProvider, useBrands } from './BrandContext';
 import { CategoryProvider } from './CategoryContext';
 import { BranchProvider } from './BranchContext';
-import { ProductProvider, ProductContext } from './ProductContext';
+import { ProductProvider } from './ProductContext'; // Admin Product Provider
+import { ShopProductProvider } from './user/shop/ShopProductContext'; // User Shop Product Provider
 import { VoucherProvider } from './VoucherContext';
 import { EventsProvider } from './EventsContext';
 import { CampaignProvider } from './CampaignContext'; // Import CampaignProvider
@@ -48,69 +49,43 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
       router.events.off('routeChangeStart', handleRouteChange);
     };
   }, [router]);
-  
-  // Xác định sẽ dùng ProductProvider cho trang admin/products, shop và trang chi tiết sản phẩm
-  const isAdminProductsPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/admin/products') || 
-      (router.pathname && router.pathname.startsWith('/admin/products')));
-  
-  const isShopPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/shop') || 
-      (router.pathname && router.pathname.startsWith('/shop')));
-  
-  const isProductDetailPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/product') || 
-      (router.pathname && router.pathname.startsWith('/product')));
-  
-  // Kiểm tra nếu đang ở trang events
-  const isEventsPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/admin/events') || 
-      (router.pathname && router.pathname.startsWith('/admin/events')));
-  
-  // Sử dụng ProductProvider nếu ở trang admin/products, shop, trang chi tiết sản phẩm hoặc trang events
-  const useProductProvider = isAdminProductsPage || isShopPage || isProductDetailPage || isEventsPage || shouldUseProductProvider;
-  
-  // Kiểm tra nếu đang ở trang voucher để sử dụng VoucherProvider
-  const isVoucherPage = typeof window !== 'undefined' && 
-    (window.location.pathname.startsWith('/admin/vouchers') || 
-      (router.pathname && router.pathname.startsWith('/admin/vouchers')));
-  
-  // Tạo hàm để quyết định bọc children bằng Provider phù hợp
-  const wrapWithProviders = (children: React.ReactNode) => {
-    let wrappedChildren = children;
-    
-    // Bọc với VoucherProvider nếu ở trang voucher
-    if (isVoucherPage) {
-      wrappedChildren = (
-        <VoucherProvider>
-          {wrappedChildren}
-        </VoucherProvider>
-      );
+  // --- Logic xác định trang ---
+  const [currentPageType, setCurrentPageType] = useState<'admin' | 'shop' | 'product_detail' | 'voucher' | 'event' | 'campaign' | 'other'>('other');
+
+  useEffect(() => {
+    const checkPath = (path: string) => {
+      if (path.startsWith('/admin/products')) return 'admin';
+      if (path.startsWith('/admin/events')) return 'event';
+      if (path.startsWith('/admin/campaigns')) return 'campaign';
+      if (path.startsWith('/admin/vouchers')) return 'voucher';
+      if (path.startsWith('/shop')) return 'shop';
+      if (path.startsWith('/product')) return 'product_detail';
+      return 'other';
+    };
+
+    const handleRouteChange = (url: string) => {
+      setCurrentPageType(checkPath(url));
+    };
+
+    // Initial check
+    if (typeof window !== 'undefined') {
+      setCurrentPageType(checkPath(window.location.pathname));
+    } else if (router.pathname) {
+      setCurrentPageType(checkPath(router.pathname));
     }
-    
-    // Bọc với ProductProvider trước nếu cần
-    if (useProductProvider) {
-      wrappedChildren = (
-        <ProductProvider>
-          {wrappedChildren}
-        </ProductProvider>
-      );
-    }
-    
-    // Sau đó bọc với EventsProvider nếu ở trang events
-    if (isEventsPage) {
-      wrappedChildren = (
-        <EventsProvider>
-          {wrappedChildren}
-        </EventsProvider>
-      );
-    }
-    
-    return wrappedChildren;
-  };
-  
-  // ProductProvider có điều kiện, các provider khác giữ nguyên
-  return (
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+    router.events.on('routeChangeStart', handleRouteChange); // Check on start too for faster updates
+
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+      router.events.off('routeChangeStart', handleRouteChange);
+    };
+  }, [router]);
+
+  // --- Render Providers based on page type ---
+  // Base providers applied to all pages
+  let providers = (
     <AuthProvider>
       <AdminAuthProvider>
         <NotificationProvider>
@@ -118,9 +93,8 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
             <BrandProvider>
               <CategoryProvider>
                 <BranchProvider>
-                  {/* Wrap with CampaignProvider */}
-                  <CampaignProvider> 
-                    {wrapWithProviders(children)}
+                  <CampaignProvider>
+                    {children}
                   </CampaignProvider>
                 </BranchProvider>
               </CategoryProvider>
@@ -130,6 +104,23 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
       </AdminAuthProvider>
     </AuthProvider>
   );
+
+  // Conditionally wrap with specific providers
+  if (currentPageType === 'admin' || currentPageType === 'event' || currentPageType === 'campaign') {
+    providers = <ProductProvider>{providers}</ProductProvider>; // Admin Product Provider
+  }
+  if (currentPageType === 'shop' || currentPageType === 'product_detail') {
+    providers = <ShopProductProvider>{providers}</ShopProductProvider>; // User Shop Product Provider
+  }
+  if (currentPageType === 'voucher') {
+    providers = <VoucherProvider>{providers}</VoucherProvider>;
+  }
+  if (currentPageType === 'event') {
+    providers = <EventsProvider>{providers}</EventsProvider>;
+  }
+  // Note: CampaignProvider is already included in the base providers
+
+  return providers;
 };
 
 export { useAuth } from './AuthContext';
@@ -139,8 +130,9 @@ export { useBanner } from './BannerContext';
 export { useBrands } from './BrandContext';
 export { useCategory } from './CategoryContext';
 export { useBranches } from './BranchContext';
-export { useProduct } from './ProductContext';
-export { ProductContext } from './ProductContext';
+export { useProduct } from './ProductContext'; // Admin Product Context hook
+// export { ProductContext } from './ProductContext'; // No need to export context itself usually
+export { useShopProduct } from './user/shop/ShopProductContext'; // User Shop Product Context hook
 export { useVoucher } from './VoucherContext';
 export { useEvents } from './EventsContext';
 export { useCampaign } from './CampaignContext'; // Export useCampaign
