@@ -148,6 +148,9 @@ export const useShopProduct = (): ShopProductContextType => {
 // Thêm biến tĩnh ở mức module để lưu yêu cầu cuối cùng 
 let lastRequestKey: string = '';
 let debounceTimer: NodeJS.Timeout | null = null;
+// Thêm cache kết quả
+const resultsCache: { [key: string]: { timestamp: number, data: LightProductsApiResponse } } = {};
+const CACHE_TTL = 60000; // 60 giây cache
 
 // Provider component
 export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -174,6 +177,37 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Kiểm tra nếu yêu cầu này giống với yêu cầu cuối cùng và không yêu cầu refresh
     if (!forceRefresh && requestKey === lastRequestKey) {
       console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
+      return;
+    }
+    
+    // Kiểm tra cache
+    if (!forceRefresh && resultsCache[requestKey] && 
+        (Date.now() - resultsCache[requestKey].timestamp) < CACHE_TTL) {
+      console.log('Sử dụng kết quả từ cache cho:', requestKey);
+      
+      const cachedData = resultsCache[requestKey].data;
+      // Xử lý dữ liệu từ cache
+      const productsWithId = cachedData.products.map(p => {
+        const product = { ...p, id: p._id };
+        
+        if (product.promotion) {
+          if (product.promotion.startDate) {
+            product.promotion.startDate = new Date(product.promotion.startDate);
+          }
+          if (product.promotion.endDate) {
+            product.promotion.endDate = new Date(product.promotion.endDate);
+          }
+        }
+        
+        return product;
+      });
+      
+      setProducts(productsWithId);
+      setTotalProducts(cachedData.total);
+      setCurrentPage(cachedData.page);
+      setItemsPerPage(cachedData.limit);
+      setTotalPages(cachedData.totalPages);
+      console.log('Đã sử dụng dữ liệu từ cache');
       return;
     }
 
@@ -221,6 +255,12 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         console.log('Nhận response từ API:', response.status, response.statusText);
 
         if (response.data && response.data.products) {
+           // Lưu kết quả vào cache
+           resultsCache[requestKey] = {
+             timestamp: Date.now(),
+             data: response.data
+           };
+           
            // Đảm bảo sản phẩm có thông tin chi tiết promotion đầy đủ
            const productsWithId = response.data.products.map(p => {
              // Đảm bảo mỗi sản phẩm có id dựa trên _id

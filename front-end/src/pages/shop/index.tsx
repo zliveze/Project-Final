@@ -93,20 +93,17 @@ export default function Shop() {
       const eventId = searchParams.get('eventId');
       if (eventId) {
         newFilters.eventId = eventId;
-        console.log(`Đã tìm thấy eventId ${eventId} từ URL params`);
       }
       
       // Xử lý eventName nếu có
       const eventName = searchParams.get('eventName');
       if (eventName) {
-        console.log(`Tìm kiếm với eventName: ${eventName}`);
         // Sử dụng eventId nếu đã có trong URL
         if (eventId) {
-          console.log(`Sử dụng eventId ${eventId} từ URL với eventName ${eventName}`);
+          // Đã có eventId, không cần tìm kiếm thêm
         } 
         // Nếu không tìm thấy eventId, tìm qua danh sách sản phẩm
         else if (products.length > 0) {
-          console.log(`Đang tìm kiếm sản phẩm theo eventName: ${eventName} trong ${products.length} sản phẩm`);
           const productsWithEvent = products.filter(
             (product: LightProduct) => product.promotion && 
                       product.promotion.type === 'event' && 
@@ -118,10 +115,7 @@ export default function Shop() {
             const foundEventId = productsWithEvent[0].promotion?.id;
             if (foundEventId) {
               newFilters.eventId = foundEventId;
-              console.log(`Tìm thấy eventId ${foundEventId} từ tên "${eventName}"`);
             }
-          } else {
-            console.log(`Không tìm thấy event với tên "${eventName}" trong danh sách sản phẩm hiện tại`);
           }
         }
       }
@@ -130,13 +124,11 @@ export default function Shop() {
       const campaignId = searchParams.get('campaignId');
       if (campaignId && campaignId !== 'undefined') {
         newFilters.campaignId = campaignId;
-        console.log(`Đã tìm thấy campaignId ${campaignId} từ URL params`);
       }
       
       // Xử lý campaignName nếu có
       const campaignName = searchParams.get('campaignName');
       if (campaignName) {
-        console.log(`Tìm kiếm với campaignName: ${campaignName}`);
         if (products.length > 0) {
           const productsWithCampaign = products.filter(
             (product: LightProduct) => product.promotion && 
@@ -149,10 +141,7 @@ export default function Shop() {
             const foundCampaignId = productsWithCampaign[0].promotion?.id;
             if (foundCampaignId && foundCampaignId !== 'undefined') {
               newFilters.campaignId = foundCampaignId;
-              console.log(`Tìm thấy campaignId ${foundCampaignId} từ tên "${campaignName}"`);
             }
-          } else {
-            console.log(`Không tìm thấy campaign với tên "${campaignName}" trong danh sách sản phẩm hiện tại`);
           }
         }
       }
@@ -173,7 +162,6 @@ export default function Shop() {
       
       // Nếu đã xử lý refresh này rồi, bỏ qua
       if (forceRefresh && isRefreshProcessed) {
-        console.log('Bỏ qua refresh đã được xử lý:', refresh);
         return;
       }
       
@@ -184,12 +172,8 @@ export default function Shop() {
           return filters[key as keyof ShopProductFilters] !== value;
         });
         
-        console.log('Cần cập nhật filters:', needsUpdate, 'Filters mới:', newFilters, 'Buộc refresh:', forceRefresh);
-        
         if (needsUpdate || forceRefresh) {
           if (forceRefresh) {
-            console.log('Buộc tải lại dữ liệu do tham số refresh:', refresh);
-            
             // Lưu giá trị refresh đã xử lý vào sessionStorage
             sessionStorage.setItem('processed_refresh', refresh || '');
             
@@ -198,103 +182,46 @@ export default function Shop() {
             
             // Gọi trực tiếp fetchProducts với forceRefresh=true để bỏ qua kiểm tra trùng lặp
             fetchProducts(1, itemsPerPage, combinedFilters, true);
-            
-            // Cập nhật state filters mà không gọi lại fetchProducts
-            setFilters(combinedFilters, true);
-            
-            // Sau khi xử lý refresh, xóa tham số refresh khỏi URL để tránh gọi API lặp lại
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('refresh');
-            window.history.replaceState({}, '', newUrl.toString());
           } else {
-            // Cập nhật filters thông thường 
+            // Áp dụng filters mới khi có thay đổi
             setFilters(newFilters);
           }
         }
       }
     };
-    
-    // Nếu router.isReady thì mới xử lý URL parameters
-    if (router.isReady) {
-      handleUrlParams();
-    }
-  }, [
-    setFilters,
-    filters, 
-    products,
-    router.isReady,
-    router.query,  // Thêm router.query để useEffect chạy lại khi query thay đổi
-    itemsPerPage,
-    fetchProducts
-  ]);
 
-  // Effect để đếm số bộ lọc đang active (sử dụng filters từ context)
+    // Xử lý params ngay khi component được mount hoặc URL thay đổi
+    handleUrlParams();
+    
+    // Lắng nghe sự kiện route change để xử lý URL params khi điều hướng
+    const handleRouteChange = () => {
+      handleUrlParams();
+    };
+    
+    router.events.on('routeChangeComplete', handleRouteChange);
+    
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [filters, products, router, setFilters, itemsPerPage, fetchProducts]);
+
+  // Đếm số bộ lọc đang hoạt động
   useEffect(() => {
     let count = 0;
-    if (filters.categoryId) count++; // Thay categories -> categoryId
-    if (filters.brandId) count++; // Thay brands -> brandId
-    if (filters.eventId) count++; // Thêm đếm eventId
-    if (filters.campaignId) count++; // Thêm đếm campaignId
-    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++; // Thay priceRange
-    if (filters.skinTypes) count++; // Thay skinType
-    if (filters.concerns) count++; // Thay concerns
-    // if (filters.rating > 0) count++; // Rating chưa có trong context filters
-    if (filters.isOnSale) count++; // Thay hasPromotion -> isOnSale
-    // if (filters.hasFreeShipping) count++; // FreeShipping chưa có
-    if (filters.hasGifts) count++;
-    // if (filters.colors?.length > 0) count++; // Colors chưa có
-    // if (filters.volume?.length > 0) count++; // Volume chưa có
-
+    
+    // Đếm số bộ lọc đang áp dụng
+    Object.keys(filters).forEach(key => {
+      const value = filters[key as keyof ShopProductFilters];
+      if (value !== undefined && value !== null && value !== '') {
+        count++;
+      }
+    });
+    
     setActiveFiltersCount(count);
   }, [filters]);
 
-  // Hàm xử lý thay đổi filter (sử dụng setFilters từ context)
-  // Hàm này giờ chỉ nhận và truyền trực tiếp Partial<ShopProductFilters>
-  // Component ShopFilters sẽ chịu trách nhiệm gửi đúng cấu trúc này
+  // Hàm xử lý thay đổi bộ lọc
   const handleFilterChange = (newFilters: Partial<ShopProductFilters>) => {
-    console.log('handleFilterChange called with:', newFilters);
-    
-    // Xử lý đặc biệt cho categoryId vì có vấn đề với việc bỏ tích
-    if ('categoryId' in newFilters) {
-      console.log('Phát hiện thay đổi categoryId:', newFilters.categoryId);
-      
-      // Nếu categoryId chuyển từ định nghĩa sang undefined
-      if (newFilters.categoryId === undefined && filters.categoryId !== undefined) {
-        console.log('CÓ THAY ĐỔI: Bỏ lọc theo danh mục');
-        
-        // Tạo một bản sao mới của filters hiện tại
-        const updatedFilters = { ...filters };
-        // Xóa categoryId khỏi bản sao
-        delete updatedFilters.categoryId;
-        
-        console.log('updatedFilters sau khi xóa categoryId:', updatedFilters);
-        // Cập nhật filters với phiên bản mới không có categoryId
-        setFilters(updatedFilters);
-        return;
-      }
-    }
-    
-    // Nếu đang xóa eventId hoặc campaignId, cần cập nhật URL
-    if (newFilters.eventId === undefined && filters.eventId !== undefined || 
-        newFilters.campaignId === undefined && filters.campaignId !== undefined) {
-      // Xóa tham số eventId/campaignId khỏi URL
-      const url = new URL(window.location.href);
-      
-      if (newFilters.eventId === undefined && filters.eventId !== undefined) {
-        url.searchParams.delete('eventId');
-        url.searchParams.delete('eventName');
-      }
-      
-      if (newFilters.campaignId === undefined && filters.campaignId !== undefined) {
-        url.searchParams.delete('campaignId');
-        url.searchParams.delete('campaignName');
-      }
-      
-      // Cập nhật URL mà không làm refresh trang
-      router.replace(url.toString(), undefined, { shallow: true });
-    }
-    
-    // Gọi hàm setFilters từ context với các thay đổi
     setFilters(newFilters);
   };
 

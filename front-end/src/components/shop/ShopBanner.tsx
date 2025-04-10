@@ -34,6 +34,11 @@ interface ApiCampaign {
   }>;
 }
 
+// Cache cho promotions để tránh nhiều lần gọi API
+let promotionsCache: DisplayPromotion[] | null = null;
+let lastCacheTimestamp = 0;
+const CACHE_TTL = 300000; // 5 phút cache
+
 const ShopBanner = () => {
   const eventsContext = useEvents();
   const { products } = useShopProduct();
@@ -47,6 +52,13 @@ const ShopBanner = () => {
   useEffect(() => {
     const loadPromotions = async () => {
       try {
+        // Kiểm tra cache
+        if (promotionsCache && (Date.now() - lastCacheTimestamp < CACHE_TTL)) {
+          setCurrentPromotions(promotionsCache);
+          setLoading(false);
+          return;
+        }
+        
         setLoading(true);
         
         let displayEvents: DisplayPromotion[] = [];
@@ -100,38 +112,66 @@ const ShopBanner = () => {
           
           if (allPromotions.length > 0) {
             // Giới hạn hiển thị tối đa 3 promotions
-            setCurrentPromotions(allPromotions.slice(0, 3));
+            const promotionsToDisplay = allPromotions.slice(0, 3);
+            setCurrentPromotions(promotionsToDisplay);
+            
+            // Cập nhật cache
+            promotionsCache = promotionsToDisplay;
+            lastCacheTimestamp = Date.now();
           } else {
             // Fallback nếu không có sự kiện hay chiến dịch
-            setCurrentPromotions([
+            const fallbackPromotions: DisplayPromotion[] = [
               { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
               { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
               { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-            ]);
+            ];
+            
+            setCurrentPromotions(fallbackPromotions);
+            
+            // Cập nhật cache với fallback promotions
+            promotionsCache = fallbackPromotions;
+            lastCacheTimestamp = Date.now();
           }
         } catch (campaignError) {
           console.error('Lỗi khi tải chiến dịch:', campaignError);
           
           // Vẫn hiển thị events nếu có
           if (displayEvents.length > 0) {
-            setCurrentPromotions(displayEvents.slice(0, 3));
+            const promotionsToDisplay = displayEvents.slice(0, 3);
+            setCurrentPromotions(promotionsToDisplay);
+            
+            // Cập nhật cache
+            promotionsCache = promotionsToDisplay;
+            lastCacheTimestamp = Date.now();
           } else {
             // Fallback khi không tải được cả events và campaigns
-            setCurrentPromotions([
+            const fallbackPromotions: DisplayPromotion[] = [
               { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
               { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
               { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-            ]);
+            ];
+            
+            setCurrentPromotions(fallbackPromotions);
+            
+            // Cập nhật cache với fallback promotions
+            promotionsCache = fallbackPromotions;
+            lastCacheTimestamp = Date.now();
           }
         }
       } catch (err) {
         console.error('Lỗi khi tải sự kiện và chiến dịch:', err);
         // Fallback khi có lỗi
-        setCurrentPromotions([
+        const fallbackPromotions: DisplayPromotion[] = [
           { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
           { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
           { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-        ]);
+        ];
+        
+        setCurrentPromotions(fallbackPromotions);
+        
+        // Cập nhật cache với fallback promotions
+        promotionsCache = fallbackPromotions;
+        lastCacheTimestamp = Date.now();
       } finally {
         setLoading(false);
       }
