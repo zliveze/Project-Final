@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FiTrash2, FiMinus, FiPlus } from 'react-icons/fi';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 interface CartItemProps {
   _id: string; // Keep _id if CartPage still passes variantId as _id
@@ -75,7 +76,7 @@ const CartItem: React.FC<CartItemProps> = ({
         <Link href={`/products/${slug}`}>
           <div className="relative w-full h-full">
             <Image
-              src={image.url}
+              src={formatImageUrl(image.url)}
               alt={image.alt}
               fill
               className="object-cover rounded-md"
@@ -91,13 +92,13 @@ const CartItem: React.FC<CartItemProps> = ({
             <Link href={`/brands/${brand.slug}`} className="text-xs text-gray-500 hover:text-pink-600">
               {brand.name}
             </Link>
-            
+
             <Link href={`/products/${slug}`}>
               <h3 className="text-sm font-medium text-gray-800 line-clamp-2 hover:text-pink-600 transition-colors">
                 {name}
               </h3>
             </Link>
-            
+
             {/* Hiển thị tùy chọn đã chọn */}
             {selectedOptions && (
               <div className="mt-1 flex flex-wrap gap-2">
@@ -113,7 +114,7 @@ const CartItem: React.FC<CartItemProps> = ({
                 )}
               </div>
             )}
-            
+
             {/* Trạng thái tồn kho */}
             {!inStock && (
               <div className="mt-1">
@@ -123,7 +124,7 @@ const CartItem: React.FC<CartItemProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Giá và số lượng - hiển thị trên mobile */}
           <div className="mt-2 md:hidden">
             <div className="flex justify-between items-center">

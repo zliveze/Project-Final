@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { FiTrash2, FiShoppingCart, FiEye } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 // Định nghĩa kiểu dữ liệu cho sản phẩm trong wishlist
 interface WishlistItemProps {
@@ -47,7 +48,7 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
       });
       return;
     }
-    
+
     // Thêm vào giỏ hàng (sẽ được xử lý bởi context hoặc API call)
     toast.success('Đã thêm sản phẩm vào giỏ hàng', {
       position: "bottom-right",
@@ -63,13 +64,13 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
       <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md">
         <Link href={`/products/${slug}`}>
           <div className="w-full h-full relative">
-            <Image 
-              src={image.url} 
-              alt={image.alt} 
+            <Image
+              src={formatImageUrl(image.url)}
+              alt={image.alt}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
-            
+
             {/* Badge giảm giá nếu có */}
             {currentPrice < price && (
               <div className="absolute top-0 right-0 bg-pink-500 text-white text-xs font-medium px-1.5 py-0.5">
@@ -79,7 +80,7 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
           </div>
         </Link>
       </div>
-      
+
       {/* Thông tin sản phẩm */}
       <div className="flex-1 min-w-0">
         <Link href={`/products/${slug}`} className="block group-hover:text-pink-600 transition-colors">
@@ -88,20 +89,20 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
         <Link href={`/brands/${brand.slug}`} className="text-sm text-gray-500 hover:text-pink-600">
           {brand.name}
         </Link>
-        
+
         {/* Giá */}
         <div className="mt-1 flex items-center">
           <span className="text-pink-600 font-semibold">
             {new Intl.NumberFormat('vi-VN').format(currentPrice)}đ
           </span>
-          
+
           {currentPrice < price && (
             <span className="ml-2 text-gray-400 line-through text-sm">
               {new Intl.NumberFormat('vi-VN').format(price)}đ
             </span>
           )}
         </div>
-        
+
         {/* Trạng thái */}
         <div className="mt-1">
           {inStock ? (
@@ -115,31 +116,31 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
           )}
         </div>
       </div>
-      
+
       {/* Các nút tương tác */}
       <div className="flex flex-row sm:flex-col gap-2 mt-2 sm:mt-0">
-        <button 
+        <button
           onClick={handleAddToCart}
           disabled={!inStock}
           className={`p-2 rounded-full ${
-            inStock 
-              ? 'bg-pink-600 text-white hover:bg-pink-700 shadow-sm' 
+            inStock
+              ? 'bg-pink-600 text-white hover:bg-pink-700 shadow-sm'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
           title="Thêm vào giỏ hàng"
         >
           <FiShoppingCart className="w-5 h-5" />
         </button>
-        
-        <Link 
+
+        <Link
           href={`/products/${slug}`}
           className="p-2 rounded-full bg-purple-100 text-purple-600 hover:bg-purple-200 shadow-sm transition-colors"
           title="Xem chi tiết"
         >
           <FiEye className="w-5 h-5" />
         </Link>
-        
-        <button 
+
+        <button
           onClick={() => onRemove(_id)}
           className="p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-100 shadow-sm transition-colors"
           title="Xóa khỏi danh sách yêu thích"
@@ -151,4 +152,4 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
   );
 };
 
-export default WishlistItem; 
+export default WishlistItem;

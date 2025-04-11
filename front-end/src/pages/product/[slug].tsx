@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { FiArrowLeft } from 'react-icons/fi';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 // Components
 import ProductSEO from '@/components/product/ProductSEO';
@@ -107,7 +108,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
         typeof img === 'object' && img !== null && typeof img.url === 'string'
       )
       .map((img: any): ImageType => ({
-        url: img.url,
+        url: formatImageUrl(img.url),
         alt: img.alt || product.name,
         isPrimary: img.isPrimary ?? false,
         // No variantName for base images
@@ -133,7 +134,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
 
           if (url) {
             return {
-              url: url,
+              url: formatImageUrl(url),
               alt: alt || product.name,
               isPrimary: isPrimary ?? false,
               variantName: variantName, // Add the generated variant name
@@ -207,7 +208,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
               initialImageUrl={initialImageUrl}
               productName={product.name}
             />
-            
+
             {/* Thông tin nhanh về sản phẩm */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-medium text-gray-800 mb-3">Thông tin nhanh:</h3>
@@ -259,8 +260,8 @@ const ProductPage: React.FC<ProductPageProps> = ({
               gifts={product.gifts || []}
               reviews={product.reviews || { averageRating: 0, reviewCount: 0 }}
               // Pass state and handler down
-              selectedVariant={selectedVariant} 
-              onSelectVariant={handleSelectVariant} 
+              selectedVariant={selectedVariant}
+              onSelectVariant={handleSelectVariant}
             />
           </div>
         </div>
@@ -269,20 +270,20 @@ const ProductPage: React.FC<ProductPageProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Tồn kho theo chi nhánh */}
           <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductInventory 
-              inventory={product.inventory || []} 
-              branches={branches} 
+            <ProductInventory
+              inventory={product.inventory || []}
+              branches={branches}
             />
           </div>
-          
+
           {/* Khuyến mãi đang áp dụng */}
           <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductPromotions 
-              events={events} 
-              campaigns={campaigns} 
+            <ProductPromotions
+              events={events}
+              campaigns={campaigns}
             />
           </div>
-          
+
           {/* Danh mục và tags - Pass specific product categories */}
           <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
             <ProductCategories
@@ -332,17 +333,17 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const cookies = context.req.cookies;
   const token = cookies.token || '';
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  
+
   try {
     // Lấy thông tin sản phẩm từ API
     const productRes = await fetch(`${API_URL}/products/slug/${slug}`);
-    
+
     if (!productRes.ok) {
       return {
         notFound: true,
       };
     }
-    
+
     const product = await productRes.json();
 
     // --- LOGGING: Check fetched product and variant data ---
@@ -393,20 +394,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // Lấy danh sách đánh giá từ API
     const reviewsRes = await fetch(`${API_URL}/reviews/product/${product._id}`);
     const reviewsData = reviewsRes.ok ? await reviewsRes.json() : { data: [], total: 0 };
-    
+
     // Lấy sản phẩm gợi ý (từ sản phẩm liên quan hoặc cùng danh mục)
     const relatedIds = product.relatedProducts || [];
     let recommendedProductsQuery = '';
-    
+
     if (relatedIds.length > 0) {
       recommendedProductsQuery = `relatedTo=${product._id}`;
     } else if (product.categoryIds && product.categoryIds.length > 0) {
       recommendedProductsQuery = `categoryId=${product.categoryIds[0]}&exclude=${product._id}`;
     }
-    
+
     const recommendedRes = await fetch(`${API_URL}/products/light?${recommendedProductsQuery}&limit=6`);
     const recommendedData = recommendedRes.ok ? await recommendedRes.json() : { data: [] };
-    
+
     // Lấy danh sách chi nhánh
     const branchesRes = await fetch(`${API_URL}/branches`); // Fetch all branches for inventory
     let branchesData = []; // Default to empty array
@@ -433,40 +434,40 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // Lấy danh sách sự kiện và chiến dịch đang hoạt động
     const eventsRes = await fetch(`${API_URL}/events/active`);
     const events = eventsRes.ok ? await eventsRes.json() : [];
-    
+
     const campaignsRes = await fetch(`${API_URL}/campaigns/active`);
     const campaigns = campaignsRes.ok ? await campaignsRes.json() : [];
-    
+
     // Kiểm tra xem người dùng đã đăng nhập và đã mua sản phẩm và đã đánh giá hay chưa
     let isAuthenticated = false;
     let hasPurchased = false;
     let hasReviewed = false;
-    
+
     if (token) {
       try {
         // Kiểm tra token hợp lệ
         const verifyRes = await fetch(`${API_URL}/auth/verify`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         if (verifyRes.ok) {
           isAuthenticated = true;
-          
+
           // Kiểm tra đã mua sản phẩm chưa
           const purchaseRes = await fetch(`${API_URL}/orders/check-purchased?productId=${product._id}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          
+
           if (purchaseRes.ok) {
             const { purchased } = await purchaseRes.json();
             hasPurchased = purchased;
           }
-          
+
           // Kiểm tra đã đánh giá chưa
           const reviewCheckRes = await fetch(`${API_URL}/reviews/check-reviewed?productId=${product._id}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          
+
           if (reviewCheckRes.ok) {
             const { reviewed } = await reviewCheckRes.json();
             hasReviewed = reviewed;
@@ -476,7 +477,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         console.error('Error verifying authentication:', error);
       }
     }
-    
+
     return {
       props: {
         product,
@@ -495,7 +496,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   } catch (error) {
     console.error('Error fetching product data:', error);
-    
+
     return {
       notFound: true,
     };

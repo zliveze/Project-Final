@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { FiHeart, FiShoppingCart, FiStar, FiArrowRight } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 // Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
 interface Product {
@@ -40,7 +41,7 @@ interface RecommendedProductsProps {
 
 const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) => {
   const shopProductContext = useShopProduct();
-  
+
   // Hàm placeholder khi context thiếu phương thức
   const placeholderAction = (action: string) => {
     return () => {
@@ -55,12 +56,12 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
   };
 
   // Sử dụng các hàm từ context hoặc tạo hàm placeholder nếu context không tồn tại
-  const addToCart = shopProductContext.addToCart || 
+  const addToCart = shopProductContext.addToCart ||
     ((productId: string, quantity: number) => placeholderAction('thêm vào giỏ hàng')());
-  
-  const addToWishlist = shopProductContext.addToWishlist || 
+
+  const addToWishlist = shopProductContext.addToWishlist ||
     ((productId: string) => placeholderAction('thêm vào danh sách yêu thích')());
-  
+
   // Lấy ảnh đại diện cho sản phẩm
   const getProductImage = (product: Product) => {
     if (product.image && product.image.url) {
@@ -69,7 +70,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
         alt: product.image.alt || product.name
       };
     }
-    
+
     // Tìm ảnh primary nếu có
     if (product.images && product.images.length > 0) {
       const primaryImage = product.images.find(img => img.isPrimary);
@@ -79,14 +80,14 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
           alt: primaryImage.alt || product.name
         };
       }
-      
+
       // Nếu không có ảnh primary, lấy ảnh đầu tiên
       return {
         url: product.images[0].url,
         alt: product.images[0].alt || product.name
       };
     }
-    
+
     // Ảnh mặc định nếu không có ảnh
     return {
       url: 'https://via.placeholder.com/300x300?text=No+Image',
@@ -98,8 +99,8 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Có thể bạn cũng thích</h2>
-        <Link 
-          href="/shop" 
+        <Link
+          href="/shop"
           replace={true}
           className="flex items-center text-pink-600 hover:underline text-sm font-medium group transition-all duration-200"
         >
@@ -107,37 +108,37 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
           <FiArrowRight className="ml-1 group-hover:translate-x-1 transition-transform duration-200" />
         </Link>
       </div>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
         {products.map((product) => {
           const inStock = product.status === 'active';
           const imageData = getProductImage(product);
           const rating = product.reviews?.averageRating || 0;
           const reviewCount = product.reviews?.reviewCount || 0;
-          
+
           return (
-            <div 
-              key={product._id} 
+            <div
+              key={product._id}
               className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
             >
               {/* Ảnh sản phẩm */}
               <div className="relative h-52 overflow-hidden">
                 <Link href={`/product/${product.slug}`}>
                   <Image
-                    src={imageData.url}
+                    src={formatImageUrl(imageData.url)}
                     alt={imageData.alt}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </Link>
-                
+
                 {/* Badge cho sản phẩm mới */}
                 {product.isNew && (
                   <div className="absolute top-3 left-3 bg-purple-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                     Mới
                   </div>
                 )}
-                
+
                 {/* Badge cho sản phẩm hết hàng */}
                 {!inStock && (
                   <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
@@ -146,7 +147,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
                     </span>
                   </div>
                 )}
-                
+
                 {/* Các nút tương tác */}
                 <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <button
@@ -156,7 +157,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
                   >
                     <FiHeart className="w-4 h-4" />
                   </button>
-                  
+
                   <button
                     onClick={() => addToCart(product._id, 1)}
                     disabled={!inStock}
@@ -171,26 +172,26 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
                   </button>
                 </div>
               </div>
-              
+
               {/* Thông tin sản phẩm */}
               <div className="p-4">
                 {/* Thương hiệu */}
                 {product.brand && (
-                  <Link 
+                  <Link
                     href={`/brands/${product.brand.slug}`}
                     className="text-xs text-pink-600 font-medium hover:underline"
                   >
                     {product.brand.name}
                   </Link>
                 )}
-                
+
                 {/* Tên sản phẩm */}
                 <Link href={`/product/${product.slug}`}>
                   <h3 className="mt-1 text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors duration-200">
                     {product.name}
                   </h3>
                 </Link>
-                
+
                 {/* Đánh giá */}
                 {rating > 0 && (
                   <div className="flex items-center mt-1">
@@ -207,28 +208,28 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
                     </span>
                   </div>
                 )}
-                
+
                 {/* Giá */}
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-end gap-1">
                     <span className="text-sm font-bold text-pink-600">
                       {product.currentPrice?.toLocaleString('vi-VN') || product.price?.toLocaleString('vi-VN')}đ
                     </span>
-                    
+
                     {product.price > (product.currentPrice || 0) && product.currentPrice && (
                       <span className="text-xs text-gray-400 line-through">
                         {product.price.toLocaleString('vi-VN')}đ
                       </span>
                     )}
                   </div>
-                  
+
                   {product.price > (product.currentPrice || 0) && product.currentPrice && (
                     <span className="text-xs font-medium text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-full">
                       -{Math.round(((product.price - product.currentPrice) / product.price) * 100)}%
                     </span>
                   )}
                 </div>
-                
+
                 {/* Nút mua hàng (hiển thị khi hover) */}
                 <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <button
@@ -252,4 +253,4 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
   );
 };
 
-export default RecommendedProducts; 
+export default RecommendedProducts;

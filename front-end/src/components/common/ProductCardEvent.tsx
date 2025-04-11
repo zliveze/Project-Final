@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 interface ProductCardEventProps {
   id: number;
@@ -26,13 +27,13 @@ const ProductCardEvent = React.memo(({
   remainingCount = 20
 }: ProductCardEventProps) => {
   return (
-    <Link 
+    <Link
       href={`/product/${id}`}
       className="block bg-white rounded-xl p-3 cursor-pointer hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-gray-100"
     >
       <div className="aspect-square relative mb-3">
         <Image
-          src={image}
+          src={formatImageUrl(image)}
           alt={name}
           fill
           className="object-contain"
@@ -48,7 +49,7 @@ const ProductCardEvent = React.memo(({
           </div>
         )}
       </div>
-      
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-1">
@@ -63,20 +64,20 @@ const ProductCardEvent = React.memo(({
             </span>
           )}
         </div>
-        
+
         <h3 className="text-[13px] text-gray-700 line-clamp-2 min-h-[40px] font-medium">
           {name}
         </h3>
-        
+
         <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-          <div 
-            className="bg-gradient-to-r from-pink-500 to-purple-600 h-1.5 relative" 
+          <div
+            className="bg-gradient-to-r from-pink-500 to-purple-600 h-1.5 relative"
             style={{width: `${discount}%`}}
           >
             <div className="w-full h-full opacity-20 bg-[url('/images/pattern-wave.png')] bg-repeat-x animate-wave absolute inset-0"></div>
           </div>
         </div>
-        
+
         <div className="flex items-center justify-between">
           <div className="text-[11px] text-gray-500">
             Đã bán: <span className="text-pink-600 font-medium">{soldCount}</span>
@@ -92,4 +93,4 @@ const ProductCardEvent = React.memo(({
 
 ProductCardEvent.displayName = 'ProductCardEvent';
 
-export default ProductCardEvent; 
+export default ProductCardEvent;

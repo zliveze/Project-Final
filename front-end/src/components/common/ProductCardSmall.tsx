@@ -1,6 +1,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { formatImageUrl } from '@/utils/imageUtils'
 
 interface ProductCardSmallProps {
   id: string
@@ -52,7 +53,7 @@ export default function ProductCardSmall({
         {/* Product Image */}
         <div className="relative aspect-square bg-white p-2">
           <Image
-            src={image}
+            src={formatImageUrl(image)}
             alt={name}
             fill
             className="object-contain p-2"

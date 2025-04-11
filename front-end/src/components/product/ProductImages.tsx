@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
+import { formatImageUrl } from '@/utils/imageUtils';
 
 // Export ImageType
 export interface ImageType {
@@ -61,7 +62,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
   const handlePrevImage = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (images.length <= 1) return;
-    
+
     const newIndex = (currentIndex - 1 + images.length) % images.length;
     setCurrentIndex(newIndex);
     setMainImage(images[newIndex]);
@@ -70,7 +71,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
   const handleNextImage = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (images.length <= 1) return;
-    
+
     const newIndex = (currentIndex + 1) % images.length;
     setCurrentIndex(newIndex);
     setMainImage(images[newIndex]);
@@ -78,11 +79,11 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomed) return;
-    
+
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
-    
+
     setZoomPosition({ x, y });
   };
 
@@ -94,7 +95,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
   return (
     <div className="grid grid-cols-1 gap-4">
       {/* Ảnh chính */}
-      <div 
+      <div
         className={`relative h-[450px] md:h-[550px] w-full rounded-lg overflow-hidden border border-gray-200 group ${
           isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
         }`}
@@ -103,45 +104,45 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
         onMouseLeave={() => isZoomed && setIsZoomed(false)}
       >
         <Image
-          src={mainImage.url}
+          src={formatImageUrl(mainImage.url)}
           alt={mainImage.alt || productName}
           fill
           className={`object-contain transition-transform duration-300 ${
-            isZoomed 
-              ? 'scale-150' 
+            isZoomed
+              ? 'scale-150'
               : 'group-hover:scale-105'
           }`}
           style={
-            isZoomed 
-              ? { 
+            isZoomed
+              ? {
                   transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
                 }
               : undefined
           }
           priority
         />
-        
+
         {/* Nút zoom */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button 
+          <button
             className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors"
             onClick={handleZoomToggle}
           >
             <FiZoomIn className="w-5 h-5" />
           </button>
         </div>
-        
+
         {/* Nút điều hướng */}
         {images.length > 1 && (
           <>
-            <button 
+            <button
               className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
               onClick={handlePrevImage}
             >
               <FiChevronLeft className="w-5 h-5" />
             </button>
-            
-            <button 
+
+            <button
               className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
               onClick={handleNextImage}
             >
@@ -158,8 +159,8 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
             <div
               key={index}
               className={`relative h-20 w-20 flex-shrink-0 cursor-pointer rounded-md border-2 overflow-hidden transition-all duration-200 hover:shadow-md ${
-                mainImage.url === image.url 
-                  ? 'border-[#d53f8c] shadow-md scale-105' 
+                mainImage.url === image.url
+                  ? 'border-[#d53f8c] shadow-md scale-105'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
               onClick={() => {
@@ -168,7 +169,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
               }}
             >
               <Image
-                src={image.url}
+                src={formatImageUrl(image.url)}
                 alt={image.alt || `${productName} - Ảnh ${index + 1}`}
                 fill
                 className="object-cover"

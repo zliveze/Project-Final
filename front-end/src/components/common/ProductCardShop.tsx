@@ -2,6 +2,7 @@ import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FiStar } from 'react-icons/fi'
+import { formatImageUrl } from '@/utils/imageUtils'
 
 interface ProductCardProps {
   id: string
@@ -54,13 +55,13 @@ export default function ProductCardShop({
         <div className="relative pt-[100%]">
           {/* Product Image */}
           <Image
-            src={image}
+            src={formatImageUrl(image)}
             alt={name}
             fill
             className="object-cover rounded-t-sm"
             sizes="(max-width: 768px) 50vw, 33vw"
           />
-          
+
           {/* Discount Badge */}
           {discount && discount > 0 && (
             <div className="absolute top-3 right-3 bg-pink-500 text-white text-sm font-medium px-2 py-1 rounded">
@@ -135,7 +136,7 @@ export default function ProductCardShop({
             {flashSale?.isActive && flashSale.soldPercent > 0 ? (
               <>
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-pink-500 h-full rounded-full transition-all duration-300"
                     style={{ width: `${flashSale.soldPercent}%` }}
                   />
