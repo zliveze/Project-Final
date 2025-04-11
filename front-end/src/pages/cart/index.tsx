@@ -6,7 +6,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context
-import { useCart, CartProduct } from '@/contexts/user/cart/CartContext'; // Import useCart and CartProduct
+import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
 
 // Components
 import CartItem from '@/components/cart/CartItem';
@@ -37,13 +37,13 @@ interface RecommendedProduct {
 
 const CartPage: NextPage = () => {
   const router = useRouter();
-  const { 
-    cartItems, 
-    isLoading, 
+  const {
+    cartItems,
+    isLoading,
     error, // Get error state from context
     subtotal, // Get subtotal directly from context
     itemCount, // Get itemCount directly from context
-    updateCartItem, 
+    debouncedUpdateCartItem,
     removeCartItem,
     // addItemToCart // Keep if needed for RecommendedProducts later
   } = useCart();
@@ -52,15 +52,15 @@ const CartPage: NextPage = () => {
   const [voucherCode, setVoucherCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
-  
+
   // State for recommended products (temporary, fetch later)
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]); 
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
 
   // Fetch recommended products (example, replace with actual API call)
   useEffect(() => {
     const fetchRecommended = async () => {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500)); 
+      await new Promise(resolve => setTimeout(resolve, 500));
       // Set temporary recommended products data here if needed for UI
       setRecommendedProducts([
         // Add some sample RecommendedProduct data if you want to display them
@@ -83,10 +83,10 @@ const CartPage: NextPage = () => {
   }, [subtotal, voucherCode, isLoading]);
 
 
-  // Xử lý cập nhật số lượng sản phẩm - Use context function
+  // Xử lý cập nhật số lượng sản phẩm - Use debounced context function
   // Note: CartItem component should pass variantId as 'id' prop
-  const handleUpdateQuantity = (variantId: string, quantity: number) => {
-    updateCartItem(variantId, quantity); 
+  const handleUpdateQuantity = (variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
+    debouncedUpdateCartItem(variantId, quantity, showToast, selectedBranchId);
     // Toast messages are handled within the context now
   };
 
@@ -106,7 +106,7 @@ const CartPage: NextPage = () => {
       setDiscount(Math.round(subtotal * 0.1));
       setVoucherCode(code);
       // Recalculate shipping if discount changes subtotal boundary
-      setShipping((subtotal * 0.9) > 500000 ? 0 : 30000); 
+      setShipping((subtotal * 0.9) > 500000 ? 0 : 30000);
       toast.success('Đã áp dụng mã giảm giá YUMIN10', {
         position: "bottom-right",
         autoClose: 3000,
@@ -129,7 +129,7 @@ const CartPage: NextPage = () => {
       setDiscount(0);
       setVoucherCode('');
       // Recalculate shipping based on original subtotal
-      setShipping(subtotal > 500000 ? 0 : 30000); 
+      setShipping(subtotal > 500000 ? 0 : 30000);
       toast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn', {
         position: "bottom-right",
         autoClose: 3000,
@@ -151,7 +151,7 @@ const CartPage: NextPage = () => {
         toast.error(`Sản phẩm "${outOfStockItems[0].name}" đã hết hàng. Vui lòng xóa khỏi giỏ hàng để tiếp tục.`);
         return;
     }
-    
+
     router.push('/payments'); // Navigate to payments page
     // Optional: Add success toast after navigation if needed, but usually handled on the next page
     // toast.success('Đang chuyển đến trang thanh toán...', { ... });
@@ -223,6 +223,8 @@ const CartPage: NextPage = () => {
                         selectedOptions={item.selectedOptions}
                         inStock={item.inStock}
                         maxQuantity={item.maxQuantity}
+                        branchInventory={item.branchInventory || []}
+                        selectedBranchId={item.selectedBranchId}
                         onUpdateQuantity={handleUpdateQuantity} // Pass context function
                         onRemove={handleRemoveItem} // Pass context function
                       />
@@ -254,7 +256,7 @@ const CartPage: NextPage = () => {
               <RecommendedProducts
                 products={recommendedProducts as any[]}
                 // Remove onAddToWishlist prop if not supported by the component
-                // onAddToWishlist={handleAddToWishlist} 
+                // onAddToWishlist={handleAddToWishlist}
               />
             </div>
           )}

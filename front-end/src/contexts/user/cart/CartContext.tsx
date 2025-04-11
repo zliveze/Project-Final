@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { toast } from 'react-toastify';
 // Import dependencies thực tế
 import { useAuth } from '@/contexts/AuthContext'; // Điều chỉnh đường dẫn nếu cần
@@ -89,6 +89,8 @@ export interface CartProduct {
   };
   inStock: boolean; // Trạng thái tồn kho (tính từ PopulatedProduct.inventory)
   maxQuantity: number; // Số lượng tối đa có thể mua (tính từ PopulatedProduct.inventory)
+  branchInventory?: Array<{ branchId: string; quantity: number }>; // Tồn kho theo chi nhánh
+  selectedBranchId?: string; // Chi nhánh đã chọn (nếu có)
 }
 
 interface CartContextType {
@@ -99,7 +101,8 @@ interface CartContextType {
   error: string | null;
   fetchCart: () => Promise<void>;
   addItemToCart: (productId: string, variantId: string | undefined, quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined variantId
-  updateCartItem: (variantId: string, quantity: number) => Promise<boolean>;
+  updateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>;
+  debouncedUpdateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
   removeCartItem: (variantId: string) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
 }
@@ -170,11 +173,36 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return null; // Bỏ qua item nếu không lấy được chi tiết
           }
 
-          // Calculate stock (example: sum inventory across all branches for this product)
-          // TODO: Refine stock logic based on specific requirements (e.g., specific branch)
+          // Calculate stock by summing inventory across all branches
           const totalStock = productData.inventory?.reduce((sum, inv) => sum + inv.quantity, 0) || 0;
 
+          // Store branch-specific inventory for later use
+          const branchInventory = productData.inventory?.map(inv => ({
+            branchId: inv.branchId.toString(),
+            quantity: inv.quantity
+          })) || [];
+
           // 3. Kết hợp dữ liệu từ BackendCartItem, PopulatedProduct, và EmbeddedVariant
+
+          // Enhance selectedOptions with more detailed information from the variant if not provided
+          let enhancedOptions = item.selectedOptions || {};
+
+          // If we have variant options but no selectedOptions from the cart item,
+          // create a more detailed selectedOptions object from the variant data
+          if (Object.keys(enhancedOptions).length === 0 && embeddedVariant.options) {
+            if (embeddedVariant.options.color) {
+              enhancedOptions['Color'] = embeddedVariant.options.color;
+            }
+
+            if (embeddedVariant.options.sizes && embeddedVariant.options.sizes.length > 0) {
+              enhancedOptions['Size'] = embeddedVariant.options.sizes[0];
+            }
+
+            if (embeddedVariant.options.shades && embeddedVariant.options.shades.length > 0) {
+              enhancedOptions['Shade'] = embeddedVariant.options.shades[0];
+            }
+          }
+
           return {
             _id: item.variantId,
             productId: productData._id,
@@ -184,7 +212,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             price: item.price, // Giá tại thời điểm thêm
             originalPrice: embeddedVariant.price, // Giá gốc của variant (có thể cần thêm trường originalPrice vào schema ProductVariant)
             quantity: item.quantity,
-            selectedOptions: item.selectedOptions,
+            selectedOptions: enhancedOptions,
             image: { // Lấy ảnh đầu tiên của variant hoặc product
               url: embeddedVariant.images?.[0]?.url || productData.images?.[0]?.url || '/placeholder.jpg',
               alt: embeddedVariant.images?.[0]?.alt || productData.name,
@@ -193,9 +221,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               name: productData.brandId.name,
               slug: productData.brandId.slug,
             },
-            // TODO: Refine inStock and maxQuantity based on actual inventory logic
+            // Store inventory information
             inStock: totalStock > 0,
             maxQuantity: totalStock,
+            branchInventory: branchInventory,
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
@@ -272,25 +301,65 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateCartItem = async (variantId: string, quantity: number): Promise<boolean> => {
+  // Debounce function to prevent rapid API calls
+  const debounce = (callback: Function, delay: number) => {
+    const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+    return (...args: any[]) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    };
+  };
+
+  // Queue for pending updates to prevent conflicting API calls
+  const pendingUpdates = useRef<Record<string, number>>({});
+
+  const updateCartItem = async (variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string): Promise<boolean> => {
      if (!isAuthenticated) return false;
 
      // Tìm item hiện tại để lấy thông tin gốc (nếu cần rollback)
      const currentItem = cartItems.find(item => item.variantId === variantId);
      if (!currentItem) return false; // Không tìm thấy item
 
+     // Ensure quantity is within valid range
+     const validQuantity = Math.max(1, Math.min(quantity, currentItem.maxQuantity));
+
+     // If requested quantity exceeds max, show a warning
+     if (quantity > currentItem.maxQuantity && showToast) {
+       toast.info(`Số lượng tối đa có thể mua là ${currentItem.maxQuantity}`, {
+         position: "bottom-right",
+         autoClose: 2000,
+         hideProgressBar: true,
+       });
+     }
+
+     // If quantity hasn't changed, do nothing
+     if (currentItem.quantity === validQuantity && !selectedBranchId) return true;
+
+     // Store this update in the pending queue
+     pendingUpdates.current[variantId] = validQuantity;
+
      // Optimistic UI update: Cập nhật state ngay lập tức
      const originalItems = [...cartItems];
      setCartItems(prevItems =>
        prevItems.map(item =>
          item.variantId === variantId
-           ? { ...item, quantity: Math.max(1, Math.min(quantity, item.maxQuantity)) } // Đảm bảo số lượng hợp lệ
+           ? {
+               ...item,
+               quantity: validQuantity,
+               selectedBranchId: selectedBranchId || item.selectedBranchId
+             } // Đảm bảo số lượng hợp lệ và lưu chi nhánh đã chọn
            : item
        )
      );
 
     try {
-      const dto = { quantity };
+      const dto = { quantity: validQuantity };
       // Gọi API PATCH bằng fetch - encode variantId to handle special characters
       const encodedVariantId = encodeURIComponent(variantId);
       const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
@@ -302,17 +371,24 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           body: JSON.stringify(dto),
       });
 
-       if (!response.ok) {
-           const errorData = await response.json().catch(() => ({ message: response.statusText }));
-           throw new Error(errorData.message || 'Failed to update cart item');
-       }
+      // Remove from pending updates after API call completes
+      delete pendingUpdates.current[variantId];
 
-       // const responseData: BackendCart = await response.json(); // Backend returns the updated cart
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: response.statusText }));
+          throw new Error(errorData.message || 'Failed to update cart item');
+      }
 
-       // API thành công, fetch lại giỏ hàng để đảm bảo đồng bộ hoàn toàn
-       await fetchAndPopulateCart();
-       toast.success('Đã cập nhật số lượng sản phẩm');
-       return true;
+      // Only show toast if explicitly requested
+      if (showToast) {
+        toast.success('Đã cập nhật số lượng sản phẩm', {
+          autoClose: 2000,
+          hideProgressBar: true,
+          position: "bottom-right"
+        });
+      }
+
+      return true;
 
     } catch (err: any) {
       console.error('Lỗi khi cập nhật giỏ hàng:', err.message);
@@ -324,6 +400,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     }
   };
+
+  // Create a debounced version of updateCartItem
+  const debouncedUpdateCartItem = useCallback(
+    debounce((variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
+      updateCartItem(variantId, quantity, showToast, selectedBranchId);
+    }, 500), // 500ms debounce delay
+    [updateCartItem]
+  );
 
   const removeCartItem = async (variantId: string): Promise<boolean> => {
     if (!isAuthenticated) return false;
@@ -417,6 +501,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fetchCart: fetchAndPopulateCart,
         addItemToCart,
         updateCartItem,
+        debouncedUpdateCartItem,
         removeCartItem,
         clearCart
     }}>

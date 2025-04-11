@@ -10,17 +10,17 @@ import { BreadcrumItem } from '@/components/common/Breadcrum';
 const PaymentSuccessPage: NextPage = () => {
   const [orderNumber, setOrderNumber] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
-  
+
   useEffect(() => {
     // Tạo mã đơn hàng ngẫu nhiên
     const randomOrderNumber = `YM${Math.floor(100000 + Math.random() * 900000)}`;
     setOrderNumber(randomOrderNumber);
-    
+
     // Tính ngày giao hàng dự kiến (3-5 ngày từ hiện tại)
     const today = new Date();
     const deliveryDate = new Date(today);
     deliveryDate.setDate(today.getDate() + 3 + Math.floor(Math.random() * 3)); // 3-5 ngày
-    
+
     // Format ngày giao hàng
     const day = deliveryDate.getDate();
     const month = deliveryDate.getMonth() + 1;
@@ -51,7 +51,7 @@ const PaymentSuccessPage: NextPage = () => {
                 <FiCheckCircle className="w-10 h-10 text-pink-600" />
               </div>
             </div>
-            
+
             {/* Tiêu đề */}
             <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-800 mb-2">
               Đặt hàng thành công!
@@ -59,7 +59,7 @@ const PaymentSuccessPage: NextPage = () => {
             <p className="text-center text-gray-600 mb-8">
               Cảm ơn bạn đã mua sắm tại YUMIN. Đơn hàng của bạn đã được xác nhận.
             </p>
-            
+
             {/* Thông tin đơn hàng */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="flex flex-col md:flex-row justify-between mb-4">
@@ -72,7 +72,7 @@ const PaymentSuccessPage: NextPage = () => {
                   <p className="font-semibold">{estimatedDelivery}</p>
                 </div>
               </div>
-              
+
               <div className="border-t border-gray-200 pt-4">
                 <p className="text-sm text-gray-500 mb-2">Trạng thái đơn hàng</p>
                 <div className="relative">
@@ -80,7 +80,7 @@ const PaymentSuccessPage: NextPage = () => {
                   <div className="h-1 bg-gray-200 rounded-full">
                     <div className="h-1 bg-pink-50 rounded-full w-1/4"></div>
                   </div>
-                  
+
                   {/* Các bước */}
                   <div className="flex justify-between mt-2">
                     <div className="flex flex-col items-center">
@@ -111,7 +111,7 @@ const PaymentSuccessPage: NextPage = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Thông tin thêm */}
             <div className="mb-8">
               <p className="text-gray-600 mb-4">
@@ -121,7 +121,7 @@ const PaymentSuccessPage: NextPage = () => {
                 Nếu bạn có bất kỳ câu hỏi nào về đơn hàng, vui lòng liên hệ với chúng tôi qua email <a href="mailto:support@yumin.vn" className="text-[#306E51] hover:underline">support@yumin.vn</a> hoặc gọi đến số <a href="tel:1900123456" className="text-[#306E51] hover:underline">1900 123 456</a>.
               </p>
             </div>
-            
+
             {/* Các nút hành động */}
             <div className="flex flex-col md:flex-row gap-4">
               <Link href="/" className="flex-1">
@@ -137,13 +137,13 @@ const PaymentSuccessPage: NextPage = () => {
                 </button>
               </Link>
             </div>
-            
+
             {/* Sản phẩm gợi ý */}
             <div className="mt-12">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Có thể bạn cũng thích</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {recommendedProducts.map((product) => (
-                  <Link key={product.id} href={`/products/${product.slug}`} className="group">
+                  <Link key={product.id} href={`/product/${product.slug}`} className="group">
                     <div className="bg-white border border-gray-100 rounded-lg overflow-hidden">
                       <div className="relative h-32 overflow-hidden">
                         <Image
@@ -205,4 +205,4 @@ const recommendedProducts = [
   },
 ];
 
-export default PaymentSuccessPage; 
+export default PaymentSuccessPage;

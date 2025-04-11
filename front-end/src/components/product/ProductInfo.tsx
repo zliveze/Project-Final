@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiTag } from 'react-icons/fi'; // Added FiTag
+import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import ProductVariants, { Variant } from './ProductVariants'; // Variant is already imported
 import Link from 'next/link';
 import Image from 'next/image';
 // Remove checkAuth import if no longer needed elsewhere in the file
-// import { checkAuth } from '@/utils/auth'; 
-import { useRouter } from 'next/router'; // Import useRouter for potential redirect
+// import { checkAuth } from '@/utils/auth';
+// import { useRouter } from 'next/router'; // Import useRouter for potential redirect
 
 // Context Hooks
 import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
@@ -83,11 +83,11 @@ interface ProductInfoProps {
   };
   // Add props for selected variant state management
   selectedVariant: Variant | null;
-  onSelectVariant: (variant: Variant | null) => void; 
+  onSelectVariant: (variant: Variant | null) => void;
 }
 
 // Re-export Variant type for use in [slug].tsx
-export type { Variant }; 
+export type { Variant };
 
 const ProductInfo: React.FC<ProductInfoProps> = ({
   _id,
@@ -98,18 +98,17 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   currentPrice,
   status,
   brand,
-  cosmetic_info,
+  // cosmetic_info not used directly in this component
   variants,
   flags,
   gifts,
   reviews,
   // Destructure the new props
-  selectedVariant, 
-  onSelectVariant, 
+  selectedVariant,
+  onSelectVariant,
 }) => {
   const { addItemToCart } = useCart(); // Get addItemToCart from context
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth(); // Get isAuthenticated and isLoading
-  const router = useRouter(); // Get router instance
   const [quantity, setQuantity] = useState(1);
   const [showGifts, setShowGifts] = useState(false);
 
@@ -125,7 +124,11 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   };
 
   const inStock = status === 'active';
-  const discount = price > currentPrice ? Math.round(((price - currentPrice) / price) * 100) : 0;
+
+  // Use the selected variant's price if available, otherwise use the base product price
+  const displayPrice = selectedVariant?.price || price;
+  const displayCurrentPrice = selectedVariant?.price || currentPrice;
+  const discount = displayPrice > displayCurrentPrice ? Math.round(((displayPrice - displayCurrentPrice) / displayPrice) * 100) : 0;
 
   // Xử lý thay đổi số lượng
   const handleQuantityChange = (value: number) => {
@@ -141,7 +144,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   // Xử lý thêm vào giỏ hàng - Use context function
   const handleAddToCart = async () => {
     // Basic check based on overall product status
-    if (!inStock) { 
+    if (!inStock) {
        toast.error('Sản phẩm hiện đang hết hàng', {
         position: "bottom-right",
         autoClose: 3000,
@@ -150,7 +153,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       });
        return;
     }
-    
+
     // Note: Detailed stock check for the specific variant should happen in the backend/context.
 
     // Kiểm tra đăng nhập bằng isAuthenticated từ context, chỉ khi không còn loading
@@ -180,7 +183,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         toast.error('Đã xảy ra lỗi, không thể xác định phiên bản sản phẩm.');
         return;
     }
-    
+
     // Construct options object for the backend DTO based on selectedVariant
     const optionsForBackend: Record<string, string> = {};
     if (selectedVariant?.options?.color) {
@@ -189,20 +192,19 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     }
     // Assuming the first selected size/shade is what we send (adjust if multiple selections are possible)
     if (selectedVariant?.options?.sizes && selectedVariant.options.sizes.length > 0) {
-        optionsForBackend['Size'] = selectedVariant.options.sizes[0]; 
+        optionsForBackend['Size'] = selectedVariant.options.sizes[0];
     }
     if (selectedVariant?.options?.shades && selectedVariant.options.shades.length > 0) {
         optionsForBackend['Shade'] = selectedVariant.options.shades[0];
     }
 
     // Call the context function based on whether variants exist
-    let success = false; // Declare success variable
 
     if (variants && variants.length > 0) {
         // Variants exist, variantIdToAdd must be a string here due to earlier check
         if (variantIdToAdd) {
              // Explicitly ensure variantIdToAdd is not undefined before passing
-             success = await addItemToCart(
+             await addItemToCart(
                 _id, // productId
                 variantIdToAdd as string, // Assert as string to satisfy TypeScript
                 quantity,
@@ -216,7 +218,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         }
     } else {
         // No variants exist, explicitly pass undefined
-        success = await addItemToCart(
+        await addItemToCart(
             _id, // productId
             undefined, // Explicitly pass undefined for variantId
             quantity,
@@ -242,7 +244,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         // router.push('/auth/login');
         return;
     }
-    
+
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
@@ -319,11 +321,11 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       {/* Giá */}
       <div className="flex items-end space-x-3 mt-2">
         <span className="text-2xl md:text-3xl font-bold text-[#d53f8c]">
-          {currentPrice.toLocaleString('vi-VN')}đ
+          {displayCurrentPrice.toLocaleString('vi-VN')}đ
         </span>
         {discount > 0 && (
           <>
-            <span className="text-lg text-gray-400 line-through">{price.toLocaleString('vi-VN')}đ</span>
+            <span className="text-lg text-gray-400 line-through">{displayPrice.toLocaleString('vi-VN')}đ</span>
             <span className="text-sm font-medium text-red-500 bg-red-50 px-2 py-1 rounded-full">-{discount}%</span>
           </>
         )}

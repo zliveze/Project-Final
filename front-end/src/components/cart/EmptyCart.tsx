@@ -9,25 +9,25 @@ const EmptyCart: React.FC = () => {
       <div className="w-32 h-32 bg-pink-50 rounded-full flex items-center justify-center mb-6">
         <FiShoppingBag className="w-16 h-16 text-pink-500 opacity-50" />
       </div>
-      
+
       <h2 className="text-2xl font-semibold text-gray-800 mb-2">Giỏ hàng của bạn đang trống</h2>
       <p className="text-gray-600 mb-8 max-w-md">
         Có vẻ như bạn chưa thêm bất kỳ sản phẩm nào vào giỏ hàng. Hãy khám phá các sản phẩm của chúng tôi và tìm thấy những gì phù hợp với bạn.
       </p>
-      
+
       <Link href="/shop">
         <button className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-3 rounded-md hover:opacity-90 transition-opacity font-medium">
           Tiếp tục mua sắm
         </button>
       </Link>
-      
+
       {/* Gợi ý sản phẩm phổ biến */}
       <div className="mt-12 w-full max-w-4xl">
         <h3 className="text-lg font-medium text-gray-800 mb-4">Sản phẩm phổ biến</h3>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {popularProducts.map((product) => (
-            <Link key={product.id} href={`/products/${product.slug}`} className="group">
+            <Link key={product.id} href={`/product/${product.slug}`} className="group">
               <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="relative h-40 overflow-hidden">
                   <Image
@@ -86,4 +86,4 @@ const popularProducts = [
   },
 ];
 
-export default EmptyCart; 
+export default EmptyCart;

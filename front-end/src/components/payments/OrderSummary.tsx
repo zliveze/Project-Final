@@ -39,7 +39,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Tóm tắt đơn hàng</h2>
-      
+
       {/* Danh sách sản phẩm */}
       <div className="max-h-80 overflow-y-auto mb-4 pr-2">
         {items.map((item) => (
@@ -56,7 +56,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
               </div>
             </div>
             <div className="ml-3 flex-grow">
-              <Link href={`/products/${item.slug}`} className="text-sm font-medium text-gray-800 hover:text-pink-600 line-clamp-2">
+              <Link href={`/product/${item.slug}`} className="text-sm font-medium text-gray-800 hover:text-pink-600 line-clamp-2">
                 {item.name}
               </Link>
               <div className="flex justify-between mt-1">
@@ -71,21 +71,21 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </div>
         ))}
       </div>
-      
+
       {/* Thông tin giá */}
       <div className="space-y-3 mb-6">
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Tạm tính</span>
           <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(subtotal)}đ</span>
         </div>
-        
+
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">
             Giảm giá {voucherCode && <span className="text-orange-500">({voucherCode})</span>}
           </span>
           <span className="text-orange-500">-{new Intl.NumberFormat('vi-VN').format(discount)}đ</span>
         </div>
-        
+
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Phí vận chuyển</span>
           {shipping > 0 ? (
@@ -94,7 +94,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <span className="text-green-600">Miễn phí</span>
           )}
         </div>
-        
+
         <div className="border-t border-gray-200 pt-3 flex justify-between">
           <span className="font-semibold">Tổng cộng</span>
           <span className="text-pink-600 font-semibold text-lg">
@@ -102,7 +102,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </span>
         </div>
       </div>
-      
+
       {/* Nút đặt hàng */}
       <button
         onClick={onPlaceOrder}
@@ -128,7 +128,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           </>
         )}
       </button>
-      
+
       {/* Thông tin bổ sung */}
       <div className="mt-4 text-xs text-gray-500">
         <p>Bằng cách nhấn "Đặt hàng", bạn đồng ý với <Link href="/terms" className="text-pink-600 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-pink-600 hover:underline">Chính sách bảo mật</Link> của chúng tôi.</p>
@@ -137,4 +137,4 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   );
 };
 
-export default OrderSummary; 
+export default OrderSummary;
