@@ -3,17 +3,17 @@ import { Document, Schema as MongooseSchema, Types } from 'mongoose'; // Import 
 import { User } from '../../users/schemas/user.schema'; // Assuming you have a User schema
 import { Product } from '../../products/schemas/product.schema'; // Assuming you have a Product schema
 // Remove unused Variant import
-// import { Variant } from '../../products/schemas/variant.schema'; 
+// import { Variant } from '../../products/schemas/variant.schema';
 
 export type CartDocument = Cart & Document;
 
 @Schema({ _id: false }) // No separate _id for subdocument
 export class CartItem { // Add export here
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true }) // Use Types.ObjectId
-  productId: Types.ObjectId; 
+  productId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Variant', required: true }) // Use Types.ObjectId
-  variantId: Types.ObjectId; 
+  @Prop({ type: String, required: true }) // Changed to String to support custom variant IDs
+  variantId: string;
 
   @Prop({ required: true, min: 1 })
   quantity: number;

@@ -7,7 +7,7 @@ import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { Product, ProductDocument, ProductVariant, VariantOptions } from '../products/schemas/product.schema'; // Import ProductVariant and VariantOptions
 // Remove unused Variant import if not needed elsewhere
-// import { Variant, VariantDocument } from '../products/schemas/variant.schema'; 
+// import { Variant, VariantDocument } from '../products/schemas/variant.schema';
 import { User, UserDocument } from '../users/schemas/user.schema'; // Assuming User schema exists
 
 @Injectable()
@@ -35,19 +35,19 @@ export class CartsService {
     // Adjust populate for variantId if it's embedded (it won't populate from a separate collection)
     const cart = await this.cartModel.findOne({ userId }).populate({
         path: 'items.productId',
-        model: 'Product', 
+        model: 'Product',
         select: 'name slug images variants inventory brandId', // Add brandId
         populate: { // Populate brand details from Product
             path: 'brandId',
             model: 'Brand',
-            select: 'name slug' 
+            select: 'name slug'
         }
       });
       // Remove populate for variantId as it's embedded
       // .populate({
       //   path: 'items.variantId',
-      //   model: 'Variant', 
-      //   select: 'options price stock sku', 
+      //   model: 'Variant',
+      //   select: 'options price stock sku',
       // });
 
     if (cart) {
@@ -86,13 +86,16 @@ export class CartsService {
     console.log(`[CartsService] addItemToCart START - userId: ${userId}, DTO:`, addToCartDto);
     const { productId, variantId, quantity, selectedOptions } = addToCartDto;
 
-    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(productId) || !Types.ObjectId.isValid(variantId)) {
-        console.error(`[CartsService] Invalid IDs provided - User: ${userId}, Product: ${productId}, Variant: ${variantId}`);
-        throw new BadRequestException('ID người dùng, sản phẩm hoặc biến thể không hợp lệ.');
+    // Only validate userId and productId as MongoDB ObjectIDs
+    // variantId can be a custom string format (e.g., "new-1234567890")
+    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(productId)) {
+        console.error(`[CartsService] Invalid IDs provided - User: ${userId}, Product: ${productId}`);
+        throw new BadRequestException('ID người dùng hoặc sản phẩm không hợp lệ.');
     }
     const objectIdUserId = new Types.ObjectId(userId);
     const objectIdProductId = new Types.ObjectId(productId);
-    const objectIdVariantId = new Types.ObjectId(variantId);
+    // Don't convert variantId to ObjectId if it's a custom format
+    // We'll use the string value directly when searching for the variant
 
     // 1. Validate Product and find the specific Variant within it
     console.log(`[CartsService] Finding product with ID: ${objectIdProductId}`);
@@ -104,7 +107,12 @@ export class CartsService {
     console.log(`[CartsService] Product FOUND. Finding variant with variantId: ${variantId} within product.`);
 
     // Find the variant within the product's embedded array
-    const variant = product.variants.find(v => v.variantId?.toString() === variantId);
+    // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
+    const variant = product.variants.find(v => {
+        // Convert both to string for comparison
+        const variantIdStr = v.variantId?.toString() || '';
+        return variantIdStr === variantId;
+    });
 
     if (!variant) {
         console.error(`[CartsService] addItemToCart: Variant NOT FOUND with variantId: ${variantId} within product ID: ${productId}`);
@@ -120,9 +128,9 @@ export class CartsService {
     console.log(`[CartsService] Cart found or created. Cart ID: ${cart._id}`);
 
     // 3. Check stock BEFORE modifying cart
-     console.log(`[CartsService] Checking existing item index for variantId: ${objectIdVariantId}`);
+     console.log(`[CartsService] Checking existing item index for variantId: ${variantId}`);
      const existingItemIndex = cart.items.findIndex(
-      (item) => item.variantId?.toString() === objectIdVariantId.toString()
+      (item) => item.variantId?.toString() === variantId || item.variantId === variantId
     );
     console.log(`[CartsService] Existing item index: ${existingItemIndex}`);
 
@@ -152,23 +160,24 @@ export class CartsService {
       console.log(`[CartsService] Adding new item.`);
       // Convert variant.options (VariantOptions) to Record<string, string>
       const optionsForCart: Record<string, string> = {};
-      if (selectedOptions) { 
+      if (selectedOptions) {
           console.log(`[CartsService] Using selectedOptions from DTO:`, selectedOptions);
           Object.assign(optionsForCart, selectedOptions);
-      } else if (variant.options) { 
+      } else if (variant.options) {
           console.log(`[CartsService] Using options from found variant:`, variant.options);
           if (variant.options.color) {
               const colorName = variant.options.color.split('"')[0].trim();
-              optionsForCart['Color'] = colorName || variant.options.color; 
+              optionsForCart['Color'] = colorName || variant.options.color;
           }
-          if (variant.options.sizes && variant.options.sizes.length > 0) optionsForCart['Size'] = variant.options.sizes[0]; 
-          if (variant.options.shades && variant.options.shades.length > 0) optionsForCart['Shade'] = variant.options.shades[0]; 
+          if (variant.options.sizes && variant.options.sizes.length > 0) optionsForCart['Size'] = variant.options.sizes[0];
+          if (variant.options.shades && variant.options.shades.length > 0) optionsForCart['Shade'] = variant.options.shades[0];
       }
       console.log(`[CartsService] Final optionsForCart:`, optionsForCart);
 
+      // Create a new cart item with the variant ID as a string
       const newItem: CartItem = {
-        productId: objectIdProductId, // Remove 'as any'
-        variantId: objectIdVariantId,
+        productId: objectIdProductId,
+        variantId: variantId, // Use the original variantId string
         quantity,
         selectedOptions: optionsForCart, // Use the converted/provided options
         price: variant.price, // Use price from embedded variant
@@ -220,8 +229,8 @@ export class CartsService {
     console.log(`[CartsService] updateCartItem START - userId: ${userId}, variantId: ${variantId}, DTO:`, updateCartItemDto);
     const { quantity } = updateCartItemDto;
 
-    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(variantId)) {
-        throw new BadRequestException('ID người dùng hoặc biến thể không hợp lệ.');
+    if (!Types.ObjectId.isValid(userId)) {
+        throw new BadRequestException('ID người dùng không hợp lệ.');
     }
      if (quantity <= 0) {
         console.log(`[CartsService] Quantity <= 0, removing item instead.`);
@@ -229,7 +238,7 @@ export class CartsService {
     }
 
     const objectIdUserId = new Types.ObjectId(userId);
-    const objectIdVariantId = new Types.ObjectId(variantId);
+    // Don't convert variantId to ObjectId - use the string value directly
 
     // 1. Find cart
     console.log(`[CartsService] Finding cart for userId: ${objectIdUserId}`);
@@ -240,9 +249,9 @@ export class CartsService {
     console.log(`[CartsService] Cart found. Cart ID: ${cart._id}`);
 
     // 2. Find item index
-    console.log(`[CartsService] Finding item index for variantId: ${objectIdVariantId}`);
+    console.log(`[CartsService] Finding item index for variantId: ${variantId}`);
     const itemIndex = cart.items.findIndex(
-      (item) => item.variantId?.toString() === objectIdVariantId.toString()
+      (item) => item.variantId === variantId
     );
 
     if (itemIndex === -1) {
@@ -255,16 +264,21 @@ export class CartsService {
     const productContainingVariant = await this.productModel.findOne({ _id: cart.items[itemIndex].productId });
     if (!productContainingVariant) {
         console.error(`[CartsService] Product NOT FOUND for item in cart. ProductId: ${cart.items[itemIndex].productId}`);
-        cart.items.splice(itemIndex, 1); 
+        cart.items.splice(itemIndex, 1);
         await cart.save();
         throw new NotFoundException(`Sản phẩm gốc của mục trong giỏ hàng không tồn tại. Mục đã bị xóa.`);
     }
     console.log(`[CartsService] Product containing variant found. Finding variant within product...`);
 
-    const variant = productContainingVariant.variants.find(v => v.variantId?.toString() === variantId);
+    // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
+    const variant = productContainingVariant.variants.find(v => {
+        // Convert both to string for comparison
+        const variantIdStr = v.variantId?.toString() || '';
+        return variantIdStr === variantId;
+    });
     if (!variant) {
         console.error(`[CartsService] Variant NOT FOUND within product. VariantId: ${variantId}`);
-        cart.items.splice(itemIndex, 1); 
+        cart.items.splice(itemIndex, 1);
         await cart.save();
         throw new NotFoundException(`Biến thể với ID ${variantId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
     }
@@ -281,7 +295,7 @@ export class CartsService {
     console.log(`[CartsService] Updating quantity for item at index ${itemIndex} to ${quantity}`);
     cart.items[itemIndex].quantity = quantity;
     // Optionally update price if needed (use price from embedded variant)
-    cart.items[itemIndex].price = variant.price; 
+    cart.items[itemIndex].price = variant.price;
     console.log(`[CartsService] Item updated:`, cart.items[itemIndex]);
 
     // 5. Recalculate total amount
@@ -324,11 +338,11 @@ export class CartsService {
   // Remove item from cart
   async removeItemFromCart(userId: string, variantId: string): Promise<CartDocument> {
      console.log(`[CartsService] removeItemFromCart START - userId: ${userId}, variantId: ${variantId}`);
-     if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(variantId)) {
-        throw new BadRequestException('ID người dùng hoặc biến thể không hợp lệ.');
+     if (!Types.ObjectId.isValid(userId)) {
+        throw new BadRequestException('ID người dùng không hợp lệ.');
     }
     const objectIdUserId = new Types.ObjectId(userId);
-    const objectIdVariantId = new Types.ObjectId(variantId);
+    // Don't convert variantId to ObjectId - use the string value directly
 
     console.log(`[CartsService] Finding cart for userId: ${objectIdUserId}`);
     const cart = await this.cartModel.findOne({ userId: objectIdUserId });
@@ -338,9 +352,9 @@ export class CartsService {
     console.log(`[CartsService] Cart found. Cart ID: ${cart._id}`);
 
     const initialLength = cart.items.length;
-    console.log(`[CartsService] Filtering items to remove variantId: ${objectIdVariantId}`);
+    console.log(`[CartsService] Filtering items to remove variantId: ${variantId}`);
     cart.items = cart.items.filter(
-      (item) => item.variantId?.toString() !== objectIdVariantId.toString()
+      (item) => item.variantId !== variantId
     );
 
     if (cart.items.length === initialLength) {

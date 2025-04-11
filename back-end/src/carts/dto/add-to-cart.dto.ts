@@ -19,7 +19,7 @@ export class AddToCartDto {
     type: String,
   })
   @IsNotEmpty({ message: 'ID biến thể không được để trống' })
-  @IsMongoId({ message: 'ID biến thể không hợp lệ' })
+  // Removed IsMongoId validation to allow custom variant IDs
   variantId: string;
 
   @ApiProperty({

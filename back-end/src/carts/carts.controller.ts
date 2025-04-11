@@ -26,7 +26,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { Cart } from './schemas/cart.schema'; // Import Cart schema for response type documentation
-import { MongoIdValidationPipe } from '../common/pipes/mongo-id-validation.pipe.js'; // Add .js extension
+import { VariantId } from '../common/decorators/variant-id.decorator';
 
 @ApiTags('Carts (User)') // Group endpoints under 'Carts (User)' tag in Swagger
 @ApiBearerAuth() // Indicate that endpoints require Bearer token authentication
@@ -76,9 +76,11 @@ export class CartsController {
   @ApiResponse({ status: 404, description: 'Giỏ hàng hoặc sản phẩm không tồn tại trong giỏ hàng.' })
   async updateCartItem(
     @Req() req: AuthenticatedRequest,
-    @Param('variantId', MongoIdValidationPipe) variantId: string, // Use custom pipe
+    @VariantId() variantId: string, // Use custom decorator to bypass validation
     @Body() updateCartItemDto: UpdateCartItemDto,
   ): Promise<Cart> {
+    // Decode the URL-encoded variantId
+    variantId = decodeURIComponent(variantId);
     const userId = req.user.userId;
     return this.cartsService.updateCartItem(userId, variantId, updateCartItemDto);
   }
@@ -92,8 +94,10 @@ export class CartsController {
   @HttpCode(HttpStatus.OK) // Can also use 204 No Content if not returning the cart
   async removeItemFromCart(
     @Req() req: AuthenticatedRequest,
-    @Param('variantId', MongoIdValidationPipe) variantId: string, // Use custom pipe
+    @VariantId() variantId: string, // Use custom decorator to bypass validation
   ): Promise<Cart> {
+    // Decode the URL-encoded variantId
+    variantId = decodeURIComponent(variantId);
     const userId = req.user.userId;
     return this.cartsService.removeItemFromCart(userId, variantId);
   }

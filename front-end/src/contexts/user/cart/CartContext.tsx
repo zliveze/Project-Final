@@ -41,7 +41,7 @@ interface PopulatedProduct {
 // --- Helper function to get Auth Headers ---
 const getAuthHeaders = (): HeadersInit => {
     // Ensure this runs only on the client-side
-    if (typeof window === 'undefined') return {}; 
+    if (typeof window === 'undefined') return {};
     const token = localStorage.getItem('accessToken');
     if (!token) return {};
     return { 'Authorization': `Bearer ${token}` };
@@ -160,7 +160,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               return null;
           }
           // Cast to the populated product type (adjust if your actual populated type differs)
-          const productData = item.productId as PopulatedProduct; 
+          const productData = item.productId as PopulatedProduct;
 
           // Find the specific embedded variant within the populated product data
           const embeddedVariant = productData.variants?.find(v => v.variantId?.toString() === item.variantId);
@@ -169,15 +169,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.warn(`Could not find embedded variant details for variantId: ${item.variantId} in product ${productData._id}. Item will be skipped.`);
             return null; // Bỏ qua item nếu không lấy được chi tiết
           }
-          
+
           // Calculate stock (example: sum inventory across all branches for this product)
           // TODO: Refine stock logic based on specific requirements (e.g., specific branch)
           const totalStock = productData.inventory?.reduce((sum, inv) => sum + inv.quantity, 0) || 0;
 
           // 3. Kết hợp dữ liệu từ BackendCartItem, PopulatedProduct, và EmbeddedVariant
           return {
-            _id: item.variantId, 
-            productId: productData._id, 
+            _id: item.variantId,
+            productId: productData._id,
             variantId: item.variantId,
             name: productData.name, // Lấy tên từ product
             slug: productData.slug, // Lấy slug từ product
@@ -194,8 +194,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               slug: productData.brandId.slug,
             },
             // TODO: Refine inStock and maxQuantity based on actual inventory logic
-            inStock: totalStock > 0, 
-            maxQuantity: totalStock, 
+            inStock: totalStock > 0,
+            maxQuantity: totalStock,
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
@@ -206,7 +206,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Lọc bỏ các item bị lỗi (null)
       const populatedItems = (await Promise.all(populatedItemsPromises)).filter((item): item is CartProduct => item !== null);
-      
+
       // Kiểm tra nếu có item bị loại bỏ do lỗi
       if (populatedItems.length < backendCart.items.length) {
           toast.warn('Một vài sản phẩm trong giỏ hàng không thể hiển thị do lỗi dữ liệu.');
@@ -236,7 +236,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     }
     // Optional: Add loading state specific to this action
-    // setIsLoadingAdd(true); 
+    // setIsLoadingAdd(true);
     try {
       const dto = { productId, variantId, quantity, selectedOptions: options };
       // Gọi API POST bằng fetch
@@ -253,14 +253,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const errorData = await response.json().catch(() => ({ message: response.statusText }));
           throw new Error(errorData.message || 'Failed to add item to cart');
       }
-      
+
       // const responseData: BackendCart = await response.json(); // Backend returns the updated cart
 
       // API thành công, fetch lại toàn bộ giỏ hàng để cập nhật UI với dữ liệu mới nhất
-      await fetchAndPopulateCart(); 
+      await fetchAndPopulateCart();
       toast.success('Đã thêm sản phẩm vào giỏ hàng');
       return true;
-       
+
      } catch (err: any) {
       console.error('Lỗi khi thêm vào giỏ hàng:', err.message);
       const message = err.message || 'Thêm vào giỏ hàng thất bại. Có thể sản phẩm đã hết hàng hoặc số lượng không hợp lệ.';
@@ -274,7 +274,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateCartItem = async (variantId: string, quantity: number): Promise<boolean> => {
      if (!isAuthenticated) return false;
-     
+
      // Tìm item hiện tại để lấy thông tin gốc (nếu cần rollback)
      const currentItem = cartItems.find(item => item.variantId === variantId);
      if (!currentItem) return false; // Không tìm thấy item
@@ -283,7 +283,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      const originalItems = [...cartItems];
      setCartItems(prevItems =>
        prevItems.map(item =>
-         item.variantId === variantId 
+         item.variantId === variantId
            ? { ...item, quantity: Math.max(1, Math.min(quantity, item.maxQuantity)) } // Đảm bảo số lượng hợp lệ
            : item
        )
@@ -291,8 +291,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       const dto = { quantity };
-      // Gọi API PATCH bằng fetch
-      const response = await fetch(`${API_URL}/carts/items/${variantId}`, {
+      // Gọi API PATCH bằng fetch - encode variantId to handle special characters
+      const encodedVariantId = encodeURIComponent(variantId);
+      const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
           method: 'PATCH',
           headers: {
               'Content-Type': 'application/json',
@@ -300,50 +301,51 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           },
           body: JSON.stringify(dto),
       });
-       
+
        if (!response.ok) {
            const errorData = await response.json().catch(() => ({ message: response.statusText }));
            throw new Error(errorData.message || 'Failed to update cart item');
        }
-       
+
        // const responseData: BackendCart = await response.json(); // Backend returns the updated cart
 
        // API thành công, fetch lại giỏ hàng để đảm bảo đồng bộ hoàn toàn
-       await fetchAndPopulateCart(); 
+       await fetchAndPopulateCart();
        toast.success('Đã cập nhật số lượng sản phẩm');
        return true;
-       
+
     } catch (err: any) {
       console.error('Lỗi khi cập nhật giỏ hàng:', err.message);
       const message = err.message || 'Cập nhật giỏ hàng thất bại. Số lượng có thể không hợp lệ.';
       toast.error(message);
       setError(message);
       // Rollback optimistic update nếu API thất bại
-      setCartItems(originalItems); 
+      setCartItems(originalItems);
       return false;
     }
   };
 
   const removeCartItem = async (variantId: string): Promise<boolean> => {
     if (!isAuthenticated) return false;
-    
+
     // Optimistic UI update
     const originalItems = [...cartItems];
     setCartItems(prevItems => prevItems.filter(item => item.variantId !== variantId));
 
     try {
-      // Gọi API DELETE bằng fetch
-      const response = await fetch(`${API_URL}/carts/items/${variantId}`, {
+      // Gọi API DELETE bằng fetch - encode variantId to handle special characters
+      const encodedVariantId = encodeURIComponent(variantId);
+      const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
           method: 'DELETE',
           headers: {
               ...getAuthHeaders(),
           },
       });
-       
+
        // API có thể trả về giỏ hàng mới (status 200) hoặc không (status 204)
        if (response.ok) { // Checks for 2xx status codes
          // Fetch lại giỏ hàng để đảm bảo đồng bộ
-         await fetchAndPopulateCart(); 
+         await fetchAndPopulateCart();
          toast.info('Đã xóa sản phẩm khỏi giỏ hàng');
          return true;
        } else {
@@ -356,17 +358,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error(message);
       setError(message);
       // Rollback optimistic update
-      setCartItems(originalItems); 
+      setCartItems(originalItems);
       return false;
     }
   };
 
   const clearCart = async (): Promise<boolean> => {
     if (!isAuthenticated) return false;
-    
+
     // Optimistic UI update
     const originalItems = [...cartItems];
-    setCartItems([]); 
+    setCartItems([]);
     // setIsLoading(true); // Có thể thêm loading indicator
 
     try {
@@ -376,7 +378,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           headers: {
               ...getAuthHeaders(),
           },
-      }); 
+      });
 
       if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -393,7 +395,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error(message);
       setError(message);
       // Rollback optimistic update
-      setCartItems(originalItems); 
+      setCartItems(originalItems);
       // setIsLoading(false);
       return false;
     }
@@ -406,17 +408,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const subtotal = cartItems.reduce((sum: number, item: CartProduct) => sum + item.price * item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ 
-        cartItems, 
-        itemCount, 
-        subtotal, 
-        isLoading, 
-        error, 
-        fetchCart: fetchAndPopulateCart, 
-        addItemToCart, 
-        updateCartItem, 
-        removeCartItem, 
-        clearCart 
+    <CartContext.Provider value={{
+        cartItems,
+        itemCount,
+        subtotal,
+        isLoading,
+        error,
+        fetchCart: fetchAndPopulateCart,
+        addItemToCart,
+        updateCartItem,
+        removeCartItem,
+        clearCart
     }}>
       {children}
     </CartContext.Provider>
