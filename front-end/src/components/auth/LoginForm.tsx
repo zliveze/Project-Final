@@ -22,10 +22,10 @@ const LoginForm = () => {
     e.preventDefault();
     setLoading(true);
     setNeedVerification(false);
-    
+
     try {
       const result = await login(email, password);
-      
+
       if (result.success) {
         toast.success('Đăng nhập thành công!');
         router.push('/');
@@ -46,14 +46,16 @@ const LoginForm = () => {
     // Xử lý đăng nhập bằng Google
     try {
       // Chuyển hướng người dùng đến backend API endpoint để bắt đầu quá trình OAuth
-      const googleAuthUrl = `${API_URL}/auth/google/login`;
-      
+      // Thêm tham số redirect_uri để chỉ định URL callback của frontend
+      const frontendCallbackUrl = `${window.location.origin}/auth/google-callback`;
+      const googleAuthUrl = `${API_URL}/auth/google/login?redirect_uri=${encodeURIComponent(frontendCallbackUrl)}`;
+
       console.log('Chuyển hướng đến:', googleAuthUrl);
       toast.info('Đang chuyển hướng đến trang đăng nhập Google...');
-      
+
       // Chuyển hướng đến Google OAuth (sẽ được xử lý bởi Passport ở backend)
       window.location.href = googleAuthUrl;
-      
+
     } catch (error) {
       console.error('Lỗi khi bắt đầu đăng nhập Google:', error);
       toast.error('Không thể bắt đầu quá trình đăng nhập Google.');
@@ -63,10 +65,10 @@ const LoginForm = () => {
   const handleResendVerification = async () => {
     setResendLoading(true);
     setResendSuccess(false);
-    
+
     try {
       const success = await resendVerificationEmail(email);
-      
+
       if (success) {
         setResendSuccess(true);
         toast.success('Email xác minh đã được gửi lại! Vui lòng kiểm tra hộp thư của bạn.');
@@ -228,4 +230,4 @@ const LoginForm = () => {
   );
 };
 
-export default LoginForm; 
+export default LoginForm;

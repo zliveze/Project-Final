@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       // Gọi API đăng nhập trực tiếp
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, phone: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       // Gọi API đăng ký trực tiếp
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -145,10 +145,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      
+
       // Gọi API đăng xuất trực tiếp
       const token = localStorage.getItem('accessToken');
-      
+
       if (token) {
         await fetch(`${API_URL}/auth/logout`, {
           method: 'POST',
@@ -157,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         });
       }
-      
+
       // Xóa thông tin đăng nhập khỏi localStorage và cookie
       removeToken('accessToken');
       removeToken('refreshToken');
@@ -176,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       console.log('Gọi API forgot-password với URL:', `${API_URL}/auth/forgot-password`);
-      
+
       const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: {
@@ -198,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (token: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       // Gọi API đặt lại mật khẩu trực tiếp
       const response = await fetch(`${API_URL}/auth/reset-password`, {
         method: 'POST',
@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Backend sẽ xử lý việc trao đổi code lấy token và thông tin user
       // Frontend chỉ cần gọi endpoint callback của backend với code nhận được
       // Endpoint này nên là GET và code nằm trong query param
-      const googleCallbackUrl = `${API_URL}/auth/google/callback?code=${code}`;
+      const googleCallbackUrl = `${API_URL}/auth/callback/google?code=${code}`;
       console.log('Gọi API Backend:', googleCallbackUrl);
 
       const response = await fetch(googleCallbackUrl, {
@@ -270,6 +270,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(data.user);
       setIsAuthenticated(true);
       console.log('Đăng nhập Google thành công!');
+
+      // Redirect to profile page after successful login
+      // window.location.href = '/profile';
+
       return true;
     } catch (error) {
       console.error('Lỗi trong hàm googleLogin:', error);
@@ -283,7 +287,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resendVerificationEmail = async (email: string) => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch(`${API_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: {

@@ -18,7 +18,7 @@ interface RequestWithUser extends Request {
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
   private readonly clientUrl: string;
-  
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService
@@ -85,15 +85,25 @@ export class AuthController {
   // Khởi tạo quá trình xác thực Google
   @Get('google/login')
   @UseGuards(GoogleAuthGuard)
-  googleLogin() {
+  googleLogin(@Query('redirect_uri') redirectUri: string, @Req() req: any) {
+    // Lưu redirect_uri vào session để sử dụng sau khi xác thực
+    if (redirectUri) {
+      if (req.session) {
+        (req.session as any).redirectUri = redirectUri;
+        this.logger.log(`Saving redirect URI to session: ${redirectUri}`);
+      } else {
+        this.logger.warn('Session not available, cannot save redirect URI');
+      }
+    }
+
     // Passport sẽ tự động chuyển hướng đến Google
     return { message: 'Google authentication initiated' };
   }
 
   // Callback URL sau khi xác thực Google
-  @Get('google/callback') // Đổi route thành 'google/callback'
+  @Get('callback/google') // Đổi route thành 'callback/google' để khớp với URL trong Google OAuth
   @UseGuards(GoogleAuthGuard)
-  googleCallback(@Req() req: RequestWithUser, @Res() res: Response) { // Giữ lại @Res để có thể tùy chỉnh response nếu cần, nhưng sẽ trả về JSON
+  googleCallback(@Req() req: RequestWithUser, @Res() res: Response) { // Giữ lại @Res để có thể tùy chỉnh response
     this.logger.log('Google callback received');
     this.logger.debug(`User from Google Strategy: ${JSON.stringify(req.user)}`);
 
@@ -105,18 +115,24 @@ export class AuthController {
         return res.status(500).json({ message: 'Lỗi xử lý xác thực Google.' });
     }
 
-    // Trả về thông tin user và tokens dưới dạng JSON cho frontend xử lý
-    this.logger.log('Returning user and tokens as JSON response.');
-    return res.status(200).json({
-        accessToken: req.user.accessToken,
-        refreshToken: req.user.refreshToken, // Đảm bảo refreshToken được trả về từ strategy/service nếu có
-        user: req.user.user
-    });
+    // Lấy redirect_uri từ session nếu có
+    let redirectUrl = 'http://localhost:3000/auth/google-callback'; // Mặc định
 
-    // Không sử dụng redirect nữa, frontend sẽ xử lý response JSON
-    // const { accessToken, refreshToken, user } = req.user;
-    // const redirectUrl = `${this.clientUrl}/auth/google-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
-    // return res.redirect(redirectUrl);
+    if (req.session && (req.session as any).redirectUri) {
+      redirectUrl = (req.session as any).redirectUri;
+      this.logger.log(`Using redirect URI from session: ${redirectUrl}`);
+      // Xóa redirect_uri khỏi session sau khi sử dụng
+      delete (req.session as any).redirectUri;
+    } else {
+      this.logger.log('No redirect URI found in session, using default');
+    }
+
+    // Thêm các tham số vào URL redirect
+    const { accessToken, refreshToken, user } = req.user;
+    const finalRedirectUrl = `${redirectUrl}?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
+
+    this.logger.log(`Redirecting to: ${finalRedirectUrl}`);
+    return res.redirect(finalRedirectUrl);
   }
 
   // Phương thức thay thế khi không sử dụng OAuth trực tiếp (giữ nguyên)
@@ -124,7 +140,7 @@ export class AuthController {
   async googleAuth(@Body() googleAuthDto: GoogleAuthDto) {
     this.logger.log(`LƯU Ý: Chức năng demo đang được sử dụng thay vì OAuth thực tế với Google`);
     this.logger.log(`Nhận yêu cầu đăng nhập Google với token: ${googleAuthDto.token.substring(0, 10)}...`);
-    
+
     try {
       // DEMO MODE: Trong thực tế, chúng ta sẽ xác minh token với Google API
       const result = await this.authService.registerWithGoogle({
@@ -133,7 +149,7 @@ export class AuthController {
         name: 'Google User (Demo)',
         googleId: googleAuthDto.token, // Sử dụng token làm ID tạm thời
       });
-      
+
       this.logger.log('Đăng nhập bằng tài khoản Google demo thành công');
       return result;
     } catch (error) {
