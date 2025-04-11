@@ -156,8 +156,37 @@ export const useProductVariants = (
         console.log('Updated variant images:', updatedImages);
         return { ...prev, images: updatedImages };
       }
-      // Otherwise add it (toggle on) - Store just the identifier string
+      // Otherwise check if this image is already used by another variant
       else {
+        // Check if this image is already used by another variant
+        const isUsedByOtherVariant = formData.variants?.some(variant => {
+          // Skip the current variant being edited
+          if (prev.variantId && variant.variantId === prev.variantId) {
+            return false;
+          }
+
+          // Check if this image is used by another variant
+          return (variant.images || []).some(variantImage => {
+            // If variantImage is a string (publicId or id)
+            if (typeof variantImage === 'string') {
+              return variantImage === reliableIdentifier;
+            }
+            // If variantImage is an object with publicId or id
+            if (typeof variantImage === 'object' && variantImage !== null) {
+              const variantImageId = variantImage.publicId || variantImage.id;
+              return variantImageId === reliableIdentifier;
+            }
+            return false;
+          });
+        });
+
+        // If image is already used by another variant, don't allow selection
+        if (isUsedByOtherVariant) {
+          console.log(`[useProductVariants] Image ${reliableIdentifier} is already used by another variant. Selection prevented.`);
+          return prev; // Return unchanged state
+        }
+
+        // Otherwise add it (toggle on) - Store just the identifier string
         const imageIdentifier = imageObject.publicId || imageObject.id;
         if (!imageIdentifier) return prev; // Skip if no valid identifier
 
@@ -167,7 +196,7 @@ export const useProductVariants = (
         return { ...prev, images: updatedImages };
       }
     });
-  }, [allProductImages]); // Add allProductImages as a dependency
+  }, [allProductImages, formData.variants]); // Add formData.variants as a dependency
 
   // Lưu biến thể (sử dụng currentVariantData)
   const handleSaveVariant = useCallback(() => { // No argument needed now

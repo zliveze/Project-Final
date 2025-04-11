@@ -127,6 +127,7 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
             currentVariant={currentVariantData} // Pass the form's current data
             editingVariantIndex={editingVariantIndex} // Pass the index or null
             images={formData.images || []} // Pass all product images for selection
+            allVariants={formData.variants || []} // Pass all variants to check which images are already used
             handleVariantChange={handleVariantChange as any} // Type cast to fix compatibility issue
             handleVariantImageSelect={handleVariantImageSelect}
             handleSaveVariant={handleSaveVariant}

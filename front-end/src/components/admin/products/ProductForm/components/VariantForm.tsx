@@ -11,6 +11,7 @@ interface VariantFormProps {
   currentVariant: ExtendedProductVariant;
   editingVariantIndex: number | null;
   images: ProductImage[];
+  allVariants: ProductVariant[]; // Add all variants to check which images are already used
   handleVariantChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // Allow TextAreaEvent
   handleVariantImageSelect: (imageId: string) => void;
   handleSaveVariant: () => void;
@@ -24,6 +25,7 @@ const VariantForm: React.FC<VariantFormProps> = ({
   currentVariant,
   editingVariantIndex,
   images,
+  allVariants,
   handleVariantChange,
   handleVariantImageSelect,
   handleSaveVariant,
@@ -282,7 +284,29 @@ const VariantForm: React.FC<VariantFormProps> = ({
                 return false;
               });
 
-              console.log(`[VariantForm] Image ${imageKey}, isSelected: ${isSelected}`, {
+              // Check if this image is already used by another variant
+              const isUsedByOtherVariant = allVariants.some(variant => {
+                // Skip the current variant being edited
+                if (currentVariant.variantId && variant.variantId === currentVariant.variantId) {
+                  return false;
+                }
+
+                // Check if this image is used by another variant
+                return (variant.images || []).some(variantImage => {
+                  // If variantImage is a string (publicId or id)
+                  if (typeof variantImage === 'string') {
+                    return variantImage === imageIdentifier;
+                  }
+                  // If variantImage is an object with publicId or id
+                  if (typeof variantImage === 'object' && variantImage !== null) {
+                    const variantImageId = variantImage.publicId || variantImage.id;
+                    return variantImageId === imageIdentifier;
+                  }
+                  return false;
+                });
+              });
+
+              console.log(`[VariantForm] Image ${imageKey}, isSelected: ${isSelected}, isUsedByOtherVariant: ${isUsedByOtherVariant}`, {
                 imageId: image.id,
                 imagePublicId: image.publicId,
                 variantImages: currentVariant.images
@@ -301,14 +325,21 @@ const VariantForm: React.FC<VariantFormProps> = ({
               return (
                 <div
                   key={imageKey}
-                  className={`relative border rounded-md cursor-pointer p-1 group transition-all duration-200 ${
+                  className={`relative border rounded-md ${isUsedByOtherVariant && !isSelected ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} p-1 group transition-all duration-200 ${
                     isSelected
                       ? 'border-pink-500 ring-2 ring-pink-500 shadow-md transform scale-105'
-                      : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
+                      : isUsedByOtherVariant
+                        ? 'border-gray-300 bg-gray-100'
+                        : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
                   }`}
                   onClick={() => {
-                    console.log(`Selecting image: ${imageIdentifier}`);
-                    handleVariantImageSelect(imageIdentifier || '');
+                    // Only allow selection if not used by another variant or already selected
+                    if (!isUsedByOtherVariant || isSelected) {
+                      console.log(`Selecting image: ${imageIdentifier}`);
+                      handleVariantImageSelect(imageIdentifier || '');
+                    } else {
+                      console.log(`Image ${imageIdentifier} is already used by another variant`);
+                    }
                   }}
                 >
                   <div className="relative">
@@ -322,10 +353,17 @@ const VariantForm: React.FC<VariantFormProps> = ({
                       }}
                     />
 
-                    {/* Selection indicator - just the checkmark, no overlay */}
+                    {/* Selection indicator - checkmark or used by other variant indicator */}
                     {isSelected && (
                       <div className="absolute top-1 right-1 bg-pink-500 rounded-full p-0.5 shadow-sm z-10">
                         <FiCheck className="text-white w-4 h-4" />
+                      </div>
+                    )}
+                    {isUsedByOtherVariant && !isSelected && (
+                      <div className="absolute inset-0 bg-gray-200 bg-opacity-50 flex items-center justify-center">
+                        <span className="text-xs text-gray-700 font-medium px-1 py-0.5 bg-white bg-opacity-75 rounded">
+                          Đã sử dụng
+                        </span>
                       </div>
                     )}
                   </div>
