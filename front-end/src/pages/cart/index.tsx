@@ -5,6 +5,9 @@ import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Context
+import { useCart, CartProduct } from '@/contexts/user/cart/CartContext'; // Import useCart and CartProduct
+
 // Components
 import CartItem from '@/components/cart/CartItem';
 import CartSummary from '@/components/cart/CartSummary';
@@ -12,33 +15,9 @@ import EmptyCart from '@/components/cart/EmptyCart';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
 import DefaultLayout from '@/layout/DefaultLayout';
 
-// Định nghĩa kiểu dữ liệu cho sản phẩm trong giỏ hàng
-interface CartProduct {
-  _id: string;
-  productId: string;
-  variantId?: string;
-  name: string;
-  slug: string;
-  price: number;
-  originalPrice?: number;
-  quantity: number;
-  selectedOptions?: {
-    color?: string;
-    size?: string;
-  };
-  image: {
-    url: string;
-    alt: string;
-  };
-  brand: {
-    name: string;
-    slug: string;
-  };
-  inStock: boolean;
-  maxQuantity: number;
-}
+// Interface CartProduct is now imported from CartContext
 
-// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
+// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý (Keep for RecommendedProducts)
 interface RecommendedProduct {
   _id: string;
   name: string;
@@ -56,222 +35,78 @@ interface RecommendedProduct {
   inStock: boolean;
 }
 
-// Dữ liệu mẫu cho giỏ hàng
-const sampleCartData: CartProduct[] = [
-  {
-    _id: '1',
-    productId: 'p1',
-    name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
-    slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
-    price: 405000,
-    originalPrice: 450000,
-    quantity: 1,
-    selectedOptions: {
-      size: '50ml',
-    },
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Kem Chống Nắng La Roche-Posay'
-    },
-    brand: {
-      name: 'La Roche-Posay',
-      slug: 'la-roche-posay'
-    },
-    inStock: true,
-    maxQuantity: 5
-  },
-  {
-    _id: '2',
-    productId: 'p2',
-    name: 'Serum Vitamin C Klairs Freshly Juiced Vitamin Drop',
-    slug: 'serum-vitamin-c-klairs-freshly-juiced-vitamin-drop',
-    price: 320000,
-    quantity: 2,
-    selectedOptions: {
-      size: '35ml',
-    },
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Serum Vitamin C Klairs'
-    },
-    brand: {
-      name: 'Klairs',
-      slug: 'klairs'
-    },
-    inStock: true,
-    maxQuantity: 10
-  },
-  {
-    _id: '3',
-    productId: 'p3',
-    name: 'Nước Tẩy Trang Bioderma Sensibio H2O',
-    slug: 'nuoc-tay-trang-bioderma-sensibio-h2o',
-    price: 350000,
-    originalPrice: 390000,
-    quantity: 1,
-    selectedOptions: {
-      size: '500ml',
-    },
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Nước Tẩy Trang Bioderma'
-    },
-    brand: {
-      name: 'Bioderma',
-      slug: 'bioderma'
-    },
-    inStock: false,
-    maxQuantity: 5
-  }
-];
-
-// Dữ liệu mẫu cho sản phẩm gợi ý
-const sampleRecommendedProducts: RecommendedProduct[] = [
-  {
-    _id: '4',
-    name: 'Kem Dưỡng Ẩm CeraVe Moisturizing Cream',
-    slug: 'kem-duong-am-cerave-moisturizing-cream',
-    price: 350000,
-    currentPrice: 315000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Kem Dưỡng Ẩm CeraVe'
-    },
-    brand: {
-      name: 'CeraVe',
-      slug: 'cerave'
-    },
-    inStock: true
-  },
-  {
-    _id: '5',
-    name: 'Sữa Rửa Mặt Cosrx Low pH Good Morning Gel Cleanser',
-    slug: 'sua-rua-mat-cosrx-low-ph-good-morning-gel-cleanser',
-    price: 220000,
-    currentPrice: 198000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Sữa Rửa Mặt Cosrx'
-    },
-    brand: {
-      name: 'COSRX',
-      slug: 'cosrx'
-    },
-    inStock: true
-  },
-  {
-    _id: '6',
-    name: 'Toner Some By Mi AHA-BHA-PHA 30 Days Miracle',
-    slug: 'toner-some-by-mi-aha-bha-pha-30-days-miracle',
-    price: 280000,
-    currentPrice: 252000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Toner Some By Mi'
-    },
-    brand: {
-      name: 'Some By Mi',
-      slug: 'some-by-mi'
-    },
-    inStock: true
-  },
-  {
-    _id: '7',
-    name: 'Mặt Nạ Ngủ Môi Laneige Lip Sleeping Mask',
-    slug: 'mat-na-ngu-moi-laneige-lip-sleeping-mask',
-    price: 290000,
-    currentPrice: 290000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Mặt Nạ Ngủ Môi Laneige'
-    },
-    brand: {
-      name: 'Laneige',
-      slug: 'laneige'
-    },
-    inStock: false
-  }
-];
-
 const CartPage: NextPage = () => {
   const router = useRouter();
-  
-  // State để lưu trữ danh sách sản phẩm trong giỏ hàng
-  const [cartItems, setCartItems] = useState<CartProduct[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { 
+    cartItems, 
+    isLoading, 
+    error, // Get error state from context
+    subtotal, // Get subtotal directly from context
+    itemCount, // Get itemCount directly from context
+    updateCartItem, 
+    removeCartItem,
+    // addItemToCart // Keep if needed for RecommendedProducts later
+  } = useCart();
+
+  // State for voucher and shipping (keep local for now)
   const [voucherCode, setVoucherCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
+  
+  // State for recommended products (temporary, fetch later)
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]); 
 
-  // Giả lập việc tải dữ liệu từ API
+  // Fetch recommended products (example, replace with actual API call)
   useEffect(() => {
-    // Trong thực tế, đây sẽ là một API call để lấy giỏ hàng của người dùng
-    const fetchCart = async () => {
-      try {
-        // Giả lập thời gian tải
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setCartItems(sampleCartData);
-        setRecommendedProducts(sampleRecommendedProducts);
-        
-        // Tính phí vận chuyển (miễn phí nếu tổng giá trị > 500.000đ)
-        const subtotal = sampleCartData.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        setShipping(subtotal > 500000 ? 0 : 30000);
-      } catch (error) {
-        console.error('Lỗi khi tải giỏ hàng:', error);
-        toast.error('Không thể tải giỏ hàng. Vui lòng thử lại sau.');
-      } finally {
-        setIsLoading(false);
-      }
+    const fetchRecommended = async () => {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500)); 
+      // Set temporary recommended products data here if needed for UI
+      setRecommendedProducts([
+        // Add some sample RecommendedProduct data if you want to display them
+        // Example:
+        { _id: 'rec1', name: 'Recommended Item 1', slug: 'rec-item-1', price: 100000, currentPrice: 90000, image: { url: '/placeholder.jpg', alt: 'Rec 1'}, brand: { name: 'Brand Rec', slug: 'brand-rec'}, inStock: true },
+      ]);
     };
-
-    fetchCart();
+    fetchRecommended();
   }, []);
 
-  // Xử lý cập nhật số lượng sản phẩm
-  const handleUpdateQuantity = (id: string, quantity: number) => {
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item._id === id ? { ...item, quantity } : item
-      )
-    );
-    
-    // Cập nhật phí vận chuyển
-    updateShippingFee();
-    
-    toast.success('Đã cập nhật số lượng sản phẩm', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
+
+  // Calculate shipping based on subtotal from context
+  useEffect(() => {
+    // Only calculate shipping if not using FREESHIP voucher and cart is loaded
+    if (!isLoading && voucherCode.toUpperCase() !== 'FREESHIP') {
+      setShipping(subtotal > 500000 ? 0 : 30000);
+    } else if (voucherCode.toUpperCase() === 'FREESHIP') {
+      setShipping(0); // Ensure shipping is 0 if FREESHIP is applied
+    }
+  }, [subtotal, voucherCode, isLoading]);
+
+
+  // Xử lý cập nhật số lượng sản phẩm - Use context function
+  // Note: CartItem component should pass variantId as 'id' prop
+  const handleUpdateQuantity = (variantId: string, quantity: number) => {
+    updateCartItem(variantId, quantity); 
+    // Toast messages are handled within the context now
   };
 
-  // Xử lý xóa sản phẩm khỏi giỏ hàng
-  const handleRemoveItem = (id: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item._id !== id));
-    
-    // Cập nhật phí vận chuyển
-    updateShippingFee();
-    
-    toast.info('Đã xóa sản phẩm khỏi giỏ hàng', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#f3e8ff', color: '#8b5cf6', borderLeft: '4px solid #8b5cf6' }
-    });
+  // Xử lý xóa sản phẩm khỏi giỏ hàng - Use context function
+  // Note: CartItem component should pass variantId as 'id' prop
+  const handleRemoveItem = (variantId: string) => {
+    removeCartItem(variantId);
+    // Toast messages are handled within the context now
   };
 
-  // Xử lý áp dụng mã giảm giá
+  // Xử lý áp dụng mã giảm giá (Keep local logic for now)
   const handleApplyVoucher = (code: string) => {
     // Trong thực tế, mã này sẽ được gửi đến server để kiểm tra tính hợp lệ
     // Đây chỉ là mã mẫu để demo
     if (code.toUpperCase() === 'YUMIN10') {
-      // Giảm 10% cho toàn bộ đơn hàng
-      const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      // Giảm 10% cho toàn bộ đơn hàng - Use subtotal from context
       setDiscount(Math.round(subtotal * 0.1));
       setVoucherCode(code);
-      
+      // Recalculate shipping if discount changes subtotal boundary
+      setShipping((subtotal * 0.9) > 500000 ? 0 : 30000); 
       toast.success('Đã áp dụng mã giảm giá YUMIN10', {
         position: "bottom-right",
         autoClose: 3000,
@@ -280,9 +115,9 @@ const CartPage: NextPage = () => {
       });
     } else if (code.toUpperCase() === 'FREESHIP') {
       // Miễn phí vận chuyển
-      setShipping(0);
+      setShipping(0); // Set shipping directly
       setVoucherCode(code);
-      
+      setDiscount(0); // Reset other discounts if applying freeship
       toast.success('Đã áp dụng mã miễn phí vận chuyển', {
         position: "bottom-right",
         autoClose: 3000,
@@ -290,6 +125,11 @@ const CartPage: NextPage = () => {
         style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
       });
     } else {
+      // Reset discount and voucher if invalid
+      setDiscount(0);
+      setVoucherCode('');
+      // Recalculate shipping based on original subtotal
+      setShipping(subtotal > 500000 ? 0 : 30000); 
       toast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn', {
         position: "bottom-right",
         autoClose: 3000,
@@ -299,84 +139,25 @@ const CartPage: NextPage = () => {
     }
   };
 
-  // Xử lý thêm vào giỏ hàng từ phần sản phẩm đề xuất
-  const handleAddToCart = (product: RecommendedProduct) => {
-    // Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
-    const existingItemIndex = cartItems.findIndex(item => item.productId === product._id);
-    
-    if (existingItemIndex >= 0) {
-      // Nếu đã có, tăng số lượng
-      const updatedItems = [...cartItems];
-      updatedItems[existingItemIndex] = {
-        ...updatedItems[existingItemIndex],
-        quantity: Math.min(updatedItems[existingItemIndex].quantity + 1, 10) // Giả sử tối đa 10 sản phẩm
-      };
-      setCartItems(updatedItems);
-    } else {
-      // Nếu chưa có, thêm mới sản phẩm vào giỏ hàng
-      const newItem: CartProduct = {
-        _id: `temp_${Date.now()}`, // ID tạm thời, trong thực tế sẽ từ server
-        productId: product._id,
-        name: product.name,
-        slug: product.slug,
-        price: product.currentPrice,
-        originalPrice: product.price > product.currentPrice ? product.price : undefined,
-        quantity: 1,
-        image: {
-          url: product.image.url,
-          alt: product.image.alt
-        },
-        brand: {
-          name: product.brand.name,
-          slug: product.brand.slug
-        },
-        inStock: product.inStock,
-        maxQuantity: 10 // Giả định tối đa 10 sản phẩm
-      };
-      
-      setCartItems(prevItems => [...prevItems, newItem]);
+  // Xử lý nút thanh toán (Keep as is)
+  const handleProceedToCheckout = () => {
+    if (itemCount === 0) {
+        toast.warn('Giỏ hàng của bạn đang trống.');
+        return;
+    }
+    // Check if any item is out of stock
+    const outOfStockItems = cartItems.filter(item => !item.inStock);
+    if (outOfStockItems.length > 0) {
+        toast.error(`Sản phẩm "${outOfStockItems[0].name}" đã hết hàng. Vui lòng xóa khỏi giỏ hàng để tiếp tục.`);
+        return;
     }
     
-    // Cập nhật phí vận chuyển
-    updateShippingFee();
-    
-    toast.success('Đã thêm sản phẩm vào giỏ hàng', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
+    router.push('/payments'); // Navigate to payments page
+    // Optional: Add success toast after navigation if needed, but usually handled on the next page
+    // toast.success('Đang chuyển đến trang thanh toán...', { ... });
   };
 
-  // Xử lý thêm vào wishlist
-  const handleAddToWishlist = (product: RecommendedProduct) => {
-    toast.success('Đã thêm sản phẩm vào danh sách yêu thích', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
-  };
-
-  // Cập nhật phí vận chuyển
-  const updateShippingFee = () => {
-    const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    setShipping(subtotal > 500000 ? 0 : 30000);
-  };
-
-  // Xử lý nút thanh toán
-  const handleProceedToCheckout = () => {
-    router.push('/payments');
-    toast.success('Đang chuyển đến trang thanh toán...', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
-  };
-
-  // Tính toán tổng tiền
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Tính toán tổng tiền (sử dụng subtotal từ context)
   const total = subtotal - discount + shipping;
 
   // Render UI
@@ -393,12 +174,20 @@ const CartPage: NextPage = () => {
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold text-gray-800 mb-6">Giỏ hàng</h1>
 
+          {/* Display general error message from context */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+              <strong className="font-bold">Lỗi!</strong>
+              <span className="block sm:inline"> {error}</span>
+            </div>
+          )}
+
           {isLoading ? (
             // Loading state
             <div className="flex justify-center items-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
             </div>
-          ) : cartItems.length === 0 ? (
+          ) : itemCount === 0 ? ( // Use itemCount from context
             // Empty cart
             <EmptyCart />
           ) : (
@@ -411,7 +200,7 @@ const CartPage: NextPage = () => {
                     <div className="flex justify-between items-center">
                       <h2 className="text-lg font-semibold text-gray-800">Sản phẩm</h2>
                       <span className="text-sm text-gray-600">
-                        {cartItems.length} sản phẩm
+                        {itemCount} sản phẩm {/* Use itemCount from context */}
                       </span>
                     </div>
                   </div>
@@ -420,10 +209,22 @@ const CartPage: NextPage = () => {
                   <div className="space-y-1">
                     {cartItems.map(item => (
                       <CartItem
-                        key={item._id}
-                        {...item}
-                        onUpdateQuantity={handleUpdateQuantity}
-                        onRemove={handleRemoveItem}
+                        key={item.variantId} // Use variantId as key
+                        _id={item.variantId} // Pass variantId as _id prop for CartItem internal use if needed
+                        productId={item.productId}
+                        variantId={item.variantId}
+                        name={item.name}
+                        slug={item.slug}
+                        image={item.image}
+                        brand={item.brand}
+                        price={item.price}
+                        originalPrice={item.originalPrice}
+                        quantity={item.quantity}
+                        selectedOptions={item.selectedOptions}
+                        inStock={item.inStock}
+                        maxQuantity={item.maxQuantity}
+                        onUpdateQuantity={handleUpdateQuantity} // Pass context function
+                        onRemove={handleRemoveItem} // Pass context function
                       />
                     ))}
                   </div>
@@ -433,25 +234,27 @@ const CartPage: NextPage = () => {
               {/* Cart Summary Section */}
               <div className="lg:col-span-1">
                 <CartSummary
-                  subtotal={subtotal}
-                  discount={discount}
-                  shipping={shipping}
-                  total={total}
-                  itemCount={cartItems.length}
-                  voucherCode={voucherCode}
-                  onApplyVoucher={handleApplyVoucher}
-                  onProceedToCheckout={handleProceedToCheckout}
+                  subtotal={subtotal} // Use subtotal from context
+                  discount={discount} // Use local state discount
+                  shipping={shipping} // Use local state shipping
+                  total={total} // Use calculated total
+                  itemCount={itemCount} // Use itemCount from context
+                  voucherCode={voucherCode} // Use local state voucherCode
+                  onApplyVoucher={handleApplyVoucher} // Pass local handler
+                  onProceedToCheckout={handleProceedToCheckout} // Pass local handler
                 />
               </div>
             </div>
           )}
 
           {/* Recommended Products Section */}
-          {!isLoading && (
+          {/* Consider fetching recommended products based on cart items */}
+          {!isLoading && recommendedProducts.length > 0 && (
             <div className="mt-16">
               <RecommendedProducts
                 products={recommendedProducts as any[]}
-                onAddToWishlist={handleAddToWishlist}
+                // Remove onAddToWishlist prop if not supported by the component
+                // onAddToWishlist={handleAddToWishlist} 
               />
             </div>
           )}
@@ -461,4 +264,4 @@ const CartPage: NextPage = () => {
   );
 };
 
-export default CartPage; 
+export default CartPage;

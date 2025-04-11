@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { FiTrash2, FiMinus, FiPlus } from 'react-icons/fi';
 
 interface CartItemProps {
-  _id: string;
+  _id: string; // Keep _id if CartPage still passes variantId as _id
   productId: string;
-  variantId?: string;
+  variantId: string; // Make variantId required
   name: string;
   slug: string;
   image: {
@@ -31,8 +31,9 @@ interface CartItemProps {
 }
 
 const CartItem: React.FC<CartItemProps> = ({
-  _id,
+  _id, // Keep _id if needed, but variantId is the primary identifier now
   productId,
+  variantId, // Destructure variantId
   name,
   slug,
   image,
@@ -46,17 +47,17 @@ const CartItem: React.FC<CartItemProps> = ({
   onUpdateQuantity,
   onRemove
 }) => {
-  // Xử lý tăng số lượng
+  // Xử lý tăng số lượng - Pass variantId
   const handleIncreaseQuantity = () => {
     if (quantity < maxQuantity) {
-      onUpdateQuantity(_id, quantity + 1);
+      onUpdateQuantity(variantId, quantity + 1); // Use variantId
     }
   };
 
-  // Xử lý giảm số lượng
+  // Xử lý giảm số lượng - Pass variantId
   const handleDecreaseQuantity = () => {
     if (quantity > 1) {
-      onUpdateQuantity(_id, quantity - 1);
+      onUpdateQuantity(variantId, quantity - 1); // Use variantId
     }
   };
 
@@ -148,7 +149,7 @@ const CartItem: React.FC<CartItemProps> = ({
                 </button>
               </div>
               <button
-                onClick={() => onRemove(_id)}
+                onClick={() => onRemove(variantId)} // Use variantId
                 className="ml-4 p-2 text-gray-400 hover:text-pink-600 transition-colors"
                 title="Xóa sản phẩm"
               >
@@ -203,7 +204,7 @@ const CartItem: React.FC<CartItemProps> = ({
 
         {/* Nút xóa */}
         <button
-          onClick={() => onRemove(_id)}
+          onClick={() => onRemove(variantId)} // Use variantId
           className="p-2 text-gray-400 hover:text-pink-600 transition-colors"
           title="Xóa sản phẩm"
         >
@@ -214,4 +215,4 @@ const CartItem: React.FC<CartItemProps> = ({
   );
 };
 
-export default CartItem; 
+export default CartItem;

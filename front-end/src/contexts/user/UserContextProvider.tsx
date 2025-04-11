@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
-import { CategoryProvider } from './categories/CategoryContext';
-import { BrandProvider } from './brands/BrandContext';
-import { ShopProductProvider } from './shop/ShopProductContext';
+import { CategoryProvider } from './categories/CategoryContext'; // Assuming path is correct
+import { BrandProvider } from './brands/BrandContext'; // Assuming path is correct
+import { ShopProductProvider } from './shop/ShopProductContext'; // Assuming path is correct
+import { CartProvider } from './cart/CartContext'; // Import CartProvider
 
 interface UserContextProviderProps {
   children: ReactNode;
@@ -13,14 +14,16 @@ interface UserContextProviderProps {
  */
 export const UserContextProvider: React.FC<UserContextProviderProps> = ({ children }) => {
   return (
-    <CategoryProvider>
+    <CategoryProvider> {/* Keep existing providers */}
       <BrandProvider>
         <ShopProductProvider>
-          {children}
+          <CartProvider> {/* Wrap children with CartProvider */}
+            {children}
+          </CartProvider>
         </ShopProductProvider>
       </BrandProvider>
     </CategoryProvider>
   );
 };
 
-export default UserContextProvider; 
+export default UserContextProvider;

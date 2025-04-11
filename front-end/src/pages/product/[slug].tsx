@@ -345,6 +345,15 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     
     const product = await productRes.json();
 
+    // --- LOGGING: Check fetched product and variant data ---
+    console.log(`getServerSideProps: Fetched product with ID: ${product._id}`);
+    if (product.variants && product.variants.length > 0) {
+      console.log(`getServerSideProps: Variants found:`, product.variants.map((v: any) => ({ variantId: v.variantId, sku: v.sku, options: v.options })));
+    } else {
+      console.log(`getServerSideProps: No variants found for this product.`);
+    }
+    // --- END LOGGING ---
+
     // --- Fetch Full Brand Details ---
     let fullBrand = null;
     if (product.brandId) {

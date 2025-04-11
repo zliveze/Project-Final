@@ -18,6 +18,7 @@ import { ProductsModule } from './products/products.module';
 import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersModule
 import { EventsModule } from './events/events.module'; // Import EventsModule
 import { CampaignsModule } from './campaigns/campaigns.module'; // Import CampaignsModule
+import { CartsModule } from './carts/carts.module'; // Import CartsModule
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { CampaignsModule } from './campaigns/campaigns.module'; // Import Campai
     VouchersModule, // Add VouchersModule here
     EventsModule, // Add EventsModule here
     CampaignsModule, // Add CampaignsModule here
+    CartsModule, // Add CartsModule here
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,6 +7,7 @@ import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 import { ProductsAdminController } from './products-admin.controller';
 import { Product, ProductSchema } from './schemas/product.schema';
+import { Variant, VariantSchema } from './schemas/variant.schema'; // Import Variant schema
 import { CloudinaryModule } from '../cloudinary';
 import { EventsModule } from '../events/events.module'; // Import EventsModule
 import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
@@ -15,6 +16,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module'; // Import Campa
   imports: [
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
+      { name: Variant.name, schema: VariantSchema }, // Register Variant schema
     ]),
     CloudinaryModule,
     EventsModule, // Add EventsModule here
@@ -67,6 +69,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module'; // Import Campa
   ],
   controllers: [ProductsController, ProductsAdminController],
   providers: [ProductsService],
-  exports: [ProductsService],
+  // Export MongooseModule to make ProductModel and VariantModel available to other modules
+  exports: [ProductsService, MongooseModule],
 })
 export class ProductsModule {}
