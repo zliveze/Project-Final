@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { FiArrowLeft } from 'react-icons/fi';
@@ -17,7 +17,7 @@ import ProductInventory from '@/components/product/ProductInventory';
 import ProductCategories, { CategoryWithImage } from '@/components/product/ProductCategories'; // Import CategoryWithImage
 import ProductPromotions from '@/components/product/ProductPromotions';
 import DefaultLayout from '@/layout/DefaultLayout';
-import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
+// import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { BrandWithLogo } from '@/components/product/ProductInfo'; // Import BrandWithLogo
 
 interface ProductPageProps {
@@ -52,21 +52,41 @@ const ProductPage: React.FC<ProductPageProps> = ({
 }) => {
   // ... (rest of component logic remains the same for now)
   const router = useRouter();
-  const shopProductContext = useShopProduct();
+  // We'll use the ShopProductContext if needed in the future
+  // const shopProductContext = useShopProduct();
 
-  // Tạo một function tạm thời cho wishlist khi API chưa có
-  const temporaryAddToWishlist = async (productId: string) => {
-    console.warn('Chức năng wishlist chưa được triển khai trong API.');
-    return Promise.resolve(false);
-  };
+  // Process variants to include total stock information
+  const processedVariants = React.useMemo(() => {
+    if (!product?.variants?.length) return [];
 
-  // Sử dụng addToWishlist từ context hoặc function tạm thời
-  const addToWishlist = shopProductContext.addToWishlist || temporaryAddToWishlist;
+    return product.variants.map((variant: any) => {
+      // Get variant inventory from product.variantInventory
+      const variantInventory = product.variantInventory?.filter(
+        (inv: any) => inv.variantId === variant.variantId
+      ) || [];
+
+      // Calculate total stock across all branches for this variant
+      const totalStock = variantInventory.reduce(
+        (sum: number, inv: any) => sum + (inv.quantity || 0),
+        0
+      );
+
+      // Log for debugging
+      console.log(`Variant ${variant.variantId} (${variant.options?.color || 'unknown'}) has totalStock: ${totalStock}`);
+      console.log('Inventory details:', variantInventory);
+
+      return {
+        ...variant,
+        inventory: variantInventory,
+        totalStock
+      };
+    });
+  }, [product?.variants, product?.variantInventory]);
 
   // State for the currently selected variant
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(() => {
-    // Initialize with the first variant if available
-    return product?.variants?.length > 0 ? product.variants[0] : null;
+    // Initialize with the first processed variant if available
+    return processedVariants.length > 0 ? processedVariants[0] : null;
   });
 
   // Handler to update the selected variant state
@@ -173,10 +193,6 @@ const ProductPage: React.FC<ProductPageProps> = ({
   }, [selectedVariant, product?.images, product?.variants, product?.name]);
 
 
-  const handleAddToWishlist = async (product: any) => {
-    await addToWishlist(product._id);
-  };
-
   return (
     <DefaultLayout>
       {/* SEO - Pass all categories for now, might refine later */}
@@ -255,13 +271,14 @@ const ProductPage: React.FC<ProductPageProps> = ({
               status={product.status || 'active'}
               brand={fullBrand} // Pass the full brand object
               cosmetic_info={product.cosmetic_info || {}}
-              variants={product.variants || []}
+              variants={processedVariants}
               flags={product.flags || {}}
               gifts={product.gifts || []}
               reviews={product.reviews || { averageRating: 0, reviewCount: 0 }}
               // Pass state and handler down
               selectedVariant={selectedVariant}
               onSelectVariant={handleSelectVariant}
+              branches={branches}
             />
           </div>
         </div>

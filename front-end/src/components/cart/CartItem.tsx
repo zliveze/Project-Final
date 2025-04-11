@@ -1,9 +1,10 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiTrash2, FiMinus, FiPlus } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiMapPin } from 'react-icons/fi';
 import { formatImageUrl } from '@/utils/imageUtils';
 import BranchSelectionModal from './BranchSelectionModal';
+import { useBranches } from '@/hooks/useBranches';
 
 interface CartItemProps {
   _id: string; // Keep _id if CartPage still passes variantId as _id
@@ -25,7 +26,7 @@ interface CartItemProps {
   selectedOptions?: Record<string, string>; // Changed to Record to support all option types
   inStock: boolean;
   maxQuantity: number;
-  branchInventory?: Array<{ branchId: string; quantity: number }>; // Add branch inventory
+  branchInventory?: Array<{ branchId: string; quantity: number; branchName?: string }>; // Add branch inventory with name
   selectedBranchId?: string; // Add selected branch
   onUpdateQuantity: (id: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
   onRemove: (id: string) => void;
@@ -51,21 +52,37 @@ const CartItem: React.FC<CartItemProps> = ({
 }) => {
   // State for branch selection modal
   const [showBranchModal, setShowBranchModal] = React.useState(false);
-  const [selectedBranch, setSelectedBranch] = React.useState<string | null>(selectedBranchId || null);
-  // Calculate the maximum quantity available in a single branch
-  const maxSingleBranchQuantity = branchInventory.length > 0
-    ? Math.max(...branchInventory.map(b => b.quantity))
-    : maxQuantity;
+  // Use the branches hook to get branch information
+  const { getBranchName, error: branchError, preloadBranches } = useBranches();
+
+  // If there's an error loading branches, log it but continue with fallback branch names
+  React.useEffect(() => {
+    // Preload branches when component mounts
+    preloadBranches();
+
+    if (branchError) {
+      console.warn('Error loading branches, using fallback branch names:', branchError);
+    }
+  }, [branchError, preloadBranches]);
+  // We'll use the branch inventory directly when needed
 
   // Xử lý tăng số lượng - Pass variantId
   const handleIncreaseQuantity = () => {
-    // If we're within the limits of a single branch, just increase
-    if (quantity < maxSingleBranchQuantity) {
-      onUpdateQuantity(variantId, quantity + 1, false);
+    // If we have a selected branch, check against that branch's inventory
+    if (selectedBranchId) {
+      const branchStock = branchInventory.find(b => b.branchId === selectedBranchId)?.quantity || 0;
+
+      // If we can increase within this branch's inventory
+      if (quantity < branchStock) {
+        onUpdateQuantity(variantId, quantity + 1, false, selectedBranchId);
+      } else {
+        // Show branch selection modal to let user choose another branch
+        setShowBranchModal(true);
+      }
     }
-    // If we're exceeding a single branch but still within total inventory
-    else if (quantity < maxQuantity) {
-      // Show branch selection modal without automatically increasing quantity
+    // If no branch is selected yet
+    else if (branchInventory.length > 0) {
+      // Always show branch selection modal first
       setShowBranchModal(true);
     }
     // If we're at the maximum total inventory
@@ -97,30 +114,26 @@ const CartItem: React.FC<CartItemProps> = ({
 
   // Handle branch selection
   const handleSelectBranch = (branchId: string) => {
-    setSelectedBranch(branchId);
     setShowBranchModal(false);
 
     // Find the selected branch's inventory
     const selectedBranchInventory = branchInventory.find(b => b.branchId === branchId);
 
     if (selectedBranchInventory) {
-      // Only increase quantity if it's within the selected branch's limit
-      const newQuantity = Math.min(quantity + 1, selectedBranchInventory.quantity);
+      // Set the quantity to 1 or keep current quantity if it's within the branch's limit
+      const newQuantity = Math.min(quantity || 1, selectedBranchInventory.quantity);
 
-      // Only update if the quantity actually changes
-      if (newQuantity > quantity) {
-        // Pass the selected branch ID to the update function
-        onUpdateQuantity(variantId, newQuantity, false, branchId);
-      } else {
-        // Show a toast notification if we can't increase the quantity
-        import('react-toastify').then(({ toast }) => {
-          toast.info(`Chi nhánh này chỉ còn ${selectedBranchInventory.quantity} sản phẩm`, {
-            position: "bottom-right",
-            autoClose: 2000,
-            hideProgressBar: true,
-          });
+      // Pass the selected branch ID to the update function
+      onUpdateQuantity(variantId, newQuantity, false, branchId);
+
+      // Show a toast notification about the branch selection
+      import('react-toastify').then(({ toast }) => {
+        toast.success(`Đã chọn ${selectedBranchInventory.branchName || `Chi nhánh ${branchId.substring(0, 6)}...`}`, {
+          position: "bottom-right",
+          autoClose: 2000,
+          hideProgressBar: true,
         });
-      }
+      });
     }
   };
 
@@ -130,9 +143,13 @@ const CartItem: React.FC<CartItemProps> = ({
       <BranchSelectionModal
         isOpen={showBranchModal}
         onClose={() => setShowBranchModal(false)}
-        branchInventory={branchInventory.map(b => ({ ...b, name: `Chi nhánh ${b.branchId.substring(0, 6)}...` }))}
+        branchInventory={branchInventory.map(b => ({
+          ...b,
+          name: b.branchName || getBranchName(b.branchId)
+        }))}
         currentQuantity={quantity}
         maxQuantity={maxQuantity}
+        initialBranchId={selectedBranchId}
         onSelectBranch={handleSelectBranch}
       />
       {/* Ảnh sản phẩm */}
@@ -163,11 +180,38 @@ const CartItem: React.FC<CartItemProps> = ({
               </h3>
             </Link>
 
+            {/* Hiển thị chi nhánh đã chọn */}
+            <div className="mt-1 flex items-center gap-2">
+              {selectedBranchId ? (
+                <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100">
+                  <FiMapPin className="text-pink-500 mr-1" size={14} />
+                  <span className="text-xs font-medium text-pink-700">
+                    {branchInventory.find(b => b.branchId === selectedBranchId)?.branchName ||
+                     getBranchName(selectedBranchId)}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-xs text-orange-500 font-medium">
+                  Chưa chọn chi nhánh
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowBranchModal(true)}
+                className="text-xs text-blue-500 hover:text-blue-700 hover:underline"
+              >
+                {selectedBranchId ? 'Thay đổi' : 'Chọn chi nhánh'}
+              </button>
+            </div>
+
             {/* Hiển thị tùy chọn đã chọn */}
             {selectedOptions && Object.keys(selectedOptions).length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <div className="w-full text-xs text-gray-500 mb-1">Phiên bản đã chọn:</div>
                 {Object.entries(selectedOptions).map(([key, value]) => {
+                  // Skip selectedBranchId if it's in the options
+                  if (key === 'selectedBranchId') return null;
+
                   // Map option keys to Vietnamese labels
                   const optionLabels: Record<string, string> = {
                     'Color': 'Màu',
@@ -218,11 +262,21 @@ const CartItem: React.FC<CartItemProps> = ({
             ) : (
               <div className="mt-1">
                 <span className="text-xs text-gray-500">
-                  Còn lại: <span className={`font-medium ${maxQuantity < 5 ? 'text-orange-500' : 'text-green-600'}`}>{maxQuantity}</span> sản phẩm
-                  {branchInventory.length > 1 && (
-                    <span className="ml-1 text-xs text-blue-500">
-                      (tổng từ {branchInventory.length} chi nhánh)
-                    </span>
+                  {selectedBranchId ? (
+                    <>
+                      Số lượng kho: <span className={`font-medium ${(branchInventory.find(b => b.branchId === selectedBranchId)?.quantity || 0) < 5 ? 'text-orange-500' : 'text-green-600'}`}>
+                        {branchInventory.find(b => b.branchId === selectedBranchId)?.quantity || 0}
+                      </span> sản phẩm
+                    </>
+                  ) : (
+                    <>
+                      Còn lại: <span className={`font-medium ${maxQuantity < 5 ? 'text-orange-500' : 'text-green-600'}`}>{maxQuantity}</span> sản phẩm
+                      {branchInventory.length > 1 && (
+                        <span className="ml-1 text-xs text-blue-500">
+                          (tổng từ {branchInventory.length} chi nhánh)
+                        </span>
+                      )}
+                    </>
                   )}
                 </span>
               </div>

@@ -203,6 +203,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           }
 
+          // Extract selectedBranchId from selectedOptions if it exists
+          const selectedBranchId = item.selectedOptions?.selectedBranchId;
+
+          // Create a copy of enhancedOptions without selectedBranchId
+          const displayOptions = { ...enhancedOptions };
+          delete displayOptions.selectedBranchId;
+
           return {
             _id: item.variantId,
             productId: productData._id,
@@ -212,7 +219,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             price: item.price, // Giá tại thời điểm thêm
             originalPrice: embeddedVariant.price, // Giá gốc của variant (có thể cần thêm trường originalPrice vào schema ProductVariant)
             quantity: item.quantity,
-            selectedOptions: enhancedOptions,
+            selectedOptions: displayOptions,
             image: { // Lấy ảnh đầu tiên của variant hoặc product
               url: embeddedVariant.images?.[0]?.url || productData.images?.[0]?.url || '/placeholder.jpg',
               alt: embeddedVariant.images?.[0]?.alt || productData.name,
@@ -225,6 +232,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             inStock: totalStock > 0,
             maxQuantity: totalStock,
             branchInventory: branchInventory,
+            selectedBranchId: selectedBranchId, // Add selectedBranchId from options
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
@@ -359,7 +367,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      );
 
     try {
-      const dto = { quantity: validQuantity };
+      // Create DTO with quantity and selectedBranchId if provided
+      const dto: any = { quantity: validQuantity };
+
+      // Add selectedBranchId to the DTO if it's provided
+      if (selectedBranchId) {
+        dto.selectedOptions = { selectedBranchId };
+      }
+
       // Gọi API PATCH bằng fetch - encode variantId to handle special characters
       const encodedVariantId = encodeURIComponent(variantId);
       const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {

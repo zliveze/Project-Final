@@ -1,7 +1,7 @@
 // back-end/src/carts/dto/update-cart-item.dto.ts
-import { IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, Min, IsObject, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateCartItemDto {
   @ApiProperty({
@@ -15,4 +15,14 @@ export class UpdateCartItemDto {
   @IsNotEmpty({ message: 'Số lượng không được để trống' })
   @Type(() => Number)
   quantity: number;
+
+  @ApiPropertyOptional({
+    description: 'Các tùy chọn đã chọn (ví dụ: màu sắc, kích thước, chi nhánh)',
+    example: { selectedBranchId: '60d5ec49f8d3e7e7d8f1e8a1' },
+    type: Object,
+    required: false,
+  })
+  @IsObject({ message: 'Tùy chọn phải là một đối tượng' })
+  @IsOptional() // Options might not always be present
+  selectedOptions?: Record<string, string>;
 }

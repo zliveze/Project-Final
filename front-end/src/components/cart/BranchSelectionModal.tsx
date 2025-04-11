@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { FiMapPin, FiCheck } from 'react-icons/fi';
+import { useBranches } from '@/hooks/useBranches';
 
 interface BranchInventory {
   branchId: string;
@@ -13,6 +15,7 @@ interface BranchSelectionModalProps {
   currentQuantity: number;
   maxQuantity: number;
   onSelectBranch: (branchId: string) => void;
+  initialBranchId?: string; // Add initialBranchId prop
 }
 
 const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
@@ -21,14 +24,45 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   branchInventory,
   currentQuantity,
   maxQuantity,
-  onSelectBranch
+  onSelectBranch,
+  initialBranchId
 }) => {
   if (!isOpen) return null;
+
+  // Use the branches hook to get branch information
+  const { getBranchName, preloadBranches } = useBranches();
+
+  // Preload branches when modal opens
+  useEffect(() => {
+    preloadBranches();
+  }, [preloadBranches]);
+
+  // State for selected branch - initialize with initialBranchId if provided
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(initialBranchId || null);
+
+  // Update selectedBranchId when initialBranchId changes
+  useEffect(() => {
+    if (initialBranchId) {
+      setSelectedBranchId(initialBranchId);
+    }
+  }, [initialBranchId]);
 
   // Sort branches by available quantity (highest first)
   const sortedBranches = [...branchInventory]
     .sort((a, b) => b.quantity - a.quantity)
     .filter(branch => branch.quantity > 0);
+
+  // Handle branch selection
+  const handleSelectBranch = (branchId: string) => {
+    setSelectedBranchId(branchId);
+  };
+
+  // Handle confirm selection
+  const handleConfirm = () => {
+    if (selectedBranchId) {
+      onSelectBranch(selectedBranchId);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -38,9 +72,8 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
         </div>
 
         <div className="px-6 py-4">
-          <p className="text-sm text-gray-600 mb-4">
-            Bạn đang muốn tăng số lượng lên <span className="font-medium">{currentQuantity + 1}</span> sản phẩm.
-            Vui lòng chọn chi nhánh để tiếp tục.
+          <p className="text-sm text-gray-600 mb-2">
+            Vui lòng chọn chi nhánh để mua sản phẩm này.
           </p>
           <p className="text-xs text-blue-600 mb-4">
             Lưu ý: Số lượng tối đa bạn có thể mua từ mỗi chi nhánh phụ thuộc vào tồn kho của chi nhánh đó.
@@ -50,29 +83,28 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
             {sortedBranches.map((branch) => (
               <div
                 key={branch.branchId}
-                className={`border rounded-md p-3 transition-colors ${branch.quantity > currentQuantity ? 'border-gray-200 hover:border-pink-300 cursor-pointer' : 'border-gray-200 bg-gray-50 cursor-not-allowed'}`}
-                onClick={() => branch.quantity > currentQuantity ? onSelectBranch(branch.branchId) : null}
+                className={`border rounded-md p-3 transition-colors ${selectedBranchId === branch.branchId ? 'border-pink-300 bg-pink-50' : 'border-gray-200 hover:border-pink-300 cursor-pointer'}`}
+                onClick={() => handleSelectBranch(branch.branchId)}
               >
                 <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-medium text-gray-800">
-                      {branch.name || `Chi nhánh ${branch.branchId.substring(0, 6)}...`}
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      Còn lại: <span className={`font-medium ${branch.quantity > currentQuantity ? 'text-green-600' : 'text-orange-500'}`}>{branch.quantity}</span> sản phẩm
-                    </p>
-                    {branch.quantity <= currentQuantity && (
-                      <p className="text-xs text-red-500 mt-1">
-                        Không đủ số lượng để tăng thêm
+                  <div className="flex items-center">
+                    <span className="text-pink-500 mr-2">
+                      <FiMapPin size={16} />
+                    </span>
+                    <div>
+                      <h4 className="font-medium text-gray-800">
+                        {branch.name || getBranchName(branch.branchId)}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        Số lượng kho: <span className={`font-medium ${branch.quantity < 5 ? 'text-orange-500' : 'text-green-600'}`}>{branch.quantity}</span> sản phẩm
                       </p>
-                    )}
+                    </div>
                   </div>
-                  <button
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${branch.quantity > currentQuantity ? 'bg-pink-100 text-pink-600 hover:bg-pink-200' : 'bg-gray-100 text-gray-400'}`}
-                    disabled={branch.quantity <= currentQuantity}
-                  >
-                    {branch.quantity > currentQuantity ? 'Chọn' : 'Không đủ'}
-                  </button>
+                  {selectedBranchId === branch.branchId && (
+                    <span className="text-pink-600">
+                      <FiCheck size={18} />
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -80,17 +112,24 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
 
           {sortedBranches.length === 0 && (
             <div className="text-center py-4 text-gray-500">
-              Không có chi nhánh nào có đủ số lượng sản phẩm
+              Không có chi nhánh nào có sản phẩm này trong kho
             </div>
           )}
         </div>
 
-        <div className="px-6 py-3 bg-gray-50 flex justify-end">
+        <div className="px-6 py-3 bg-gray-50 flex justify-between">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
           >
             Đóng
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedBranchId}
+            className={`px-4 py-2 rounded-md transition-colors ${selectedBranchId ? 'bg-pink-500 text-white hover:bg-pink-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+          >
+            Xác nhận
           </button>
         </div>
       </div>

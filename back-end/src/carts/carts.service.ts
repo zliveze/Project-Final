@@ -227,7 +227,7 @@ export class CartsService {
   // Update item quantity in cart
   async updateCartItem(userId: string, variantId: string, updateCartItemDto: UpdateCartItemDto): Promise<CartDocument> {
     console.log(`[CartsService] updateCartItem START - userId: ${userId}, variantId: ${variantId}, DTO:`, updateCartItemDto);
-    const { quantity } = updateCartItemDto;
+    const { quantity, selectedOptions } = updateCartItemDto;
 
     if (!Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('ID người dùng không hợp lệ.');
@@ -291,11 +291,22 @@ export class CartsService {
     //   throw new BadRequestException(`Không đủ hàng tồn kho cho biến thể ${variant.options?.color || variantId}. Chỉ còn ${variant.stock}.`);
     // }
 
-    // 4. Update quantity
+    // 4. Update quantity and selectedOptions
     console.log(`[CartsService] Updating quantity for item at index ${itemIndex} to ${quantity}`);
     cart.items[itemIndex].quantity = quantity;
     // Optionally update price if needed (use price from embedded variant)
     cart.items[itemIndex].price = variant.price;
+
+    // Update selectedOptions if provided
+    if (selectedOptions) {
+      console.log(`[CartsService] Updating selectedOptions:`, selectedOptions);
+      // Merge existing options with new options
+      cart.items[itemIndex].selectedOptions = {
+        ...cart.items[itemIndex].selectedOptions,
+        ...selectedOptions
+      };
+    }
+
     console.log(`[CartsService] Item updated:`, cart.items[itemIndex]);
 
     // 5. Recalculate total amount
