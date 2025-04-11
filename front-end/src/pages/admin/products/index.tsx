@@ -100,7 +100,7 @@ function AdminProducts({
 
   // State để theo dõi sản phẩm đang mở rộng chi tiết
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
-  
+
   // Hàm toggle chi tiết sản phẩm
   const toggleProductDetails = (id: string) => {
     setExpandedProduct(prev => prev === id ? null : id);
@@ -174,10 +174,10 @@ function AdminProducts({
   const handleEdit = async (id: string): Promise<boolean> => {
     try {
       console.log('Đang mở modal sửa sản phẩm với ID:', id);
-      
+
       // Hiển thị toast loading trước
       const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
-      
+
       try {
         // Thay vì lấy từ danh sách, gọi API để lấy thông tin chi tiết sản phẩm
         // Sửa đường dẫn API - loại bỏ /api phía trước vì đó là routing của Next.js
@@ -187,13 +187,13 @@ function AdminProducts({
             'Content-Type': 'application/json'
           }
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch product details: ${response.status}`);
         }
-        
+
         const productDetails = await response.json();
-        
+
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
         console.log('Đã tải thông tin chi tiết sản phẩm:', productDetails);
@@ -201,25 +201,25 @@ function AdminProducts({
         // Cập nhật dữ liệu và hiển thị modal
         setSelectedProduct(productDetails);
         setShowEditProductModal(true);
-        
+
         toast.success(`Đang sửa sản phẩm: ${productDetails.name}`, {
           duration: 2000,
           icon: <FiEdit className="text-blue-500" />
         });
-        
+
         return true;
       } catch (fetchError) {
         console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
-        
+
         // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
         const productInList = products.find(p => p.id === id);
-        
+
         if (!productInList) {
           toast.dismiss(loadingToast);
           toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
           return false;
         }
-        
+
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
         console.log('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách:', productInList);
@@ -227,12 +227,12 @@ function AdminProducts({
         // Cập nhật dữ liệu và hiển thị modal
         setSelectedProduct(productInList);
         setShowEditProductModal(true);
-        
+
         toast.success(`Đang sửa sản phẩm: ${productInList.name}`, {
           duration: 2000,
           icon: <FiEdit className="text-blue-500" />
         });
-        
+
         return true;
       }
     } catch (error: any) {
@@ -251,25 +251,54 @@ function AdminProducts({
 
       const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
 
-      // Tìm sản phẩm trong danh sách hiện tại hoặc tải từ API nếu cần
-      const productInList = products.find(p => p.id === id);
-      
-      if (!productInList) {
-        toast.dismiss(loadingToast);
-        toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-        return false;
-      }
-      
-      toast.dismiss(loadingToast);
-      console.log('Đã tìm thấy sản phẩm:', productInList);
+      try {
+        // Thử lấy dữ liệu chi tiết từ API trước
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+        });
 
-      setSelectedProduct(productInList);
-      setShowProductDetailModal(true);
-      toast.success(`Đang xem sản phẩm: ${productInList.name}`, {
-        duration: 2000,
-        icon: <FiEye className="text-gray-500" />
-      });
-      
+        if (!response.ok) {
+          throw new Error(`API responded with status: ${response.status}`);
+        }
+
+        const productDetails = await response.json();
+
+        toast.dismiss(loadingToast);
+        console.log('Đã tải thông tin chi tiết sản phẩm:', productDetails);
+
+        setSelectedProduct(productDetails);
+        setShowProductDetailModal(true);
+        toast.success(`Đang xem sản phẩm: ${productDetails.name}`, {
+          duration: 2000,
+          icon: <FiEye className="text-gray-500" />
+        });
+
+        return true;
+      } catch (fetchError) {
+        console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
+
+        // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
+        const productInList = products.find(p => p.id === id);
+
+        if (!productInList) {
+          toast.dismiss(loadingToast);
+          toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
+          return false;
+        }
+
+        toast.dismiss(loadingToast);
+        console.log('Sử dụng sản phẩm từ danh sách:', productInList);
+
+        setSelectedProduct(productInList);
+        setShowProductDetailModal(true);
+        toast.success(`Đang xem sản phẩm: ${productInList.name}`, {
+          duration: 2000,
+          icon: <FiEye className="text-gray-500" />
+        });
+      }
+
       return true;
     } catch (error: any) {
       toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
@@ -283,7 +312,7 @@ function AdminProducts({
   const handleDelete = (id: string): Promise<boolean> => {
     // Tìm sản phẩm trong danh sách để hiển thị thông tin xác nhận
     const product = products.find(p => p.id === id);
-    
+
     if (product) {
       setSelectedProduct(product);
       setProductToDelete(id); // Thiết lập ID sản phẩm cần xóa
@@ -291,7 +320,7 @@ function AdminProducts({
     } else {
       toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
     }
-    
+
     // Trả về Promise để tương thích với interface
     return Promise.resolve(true);
   };
@@ -486,10 +515,10 @@ function AdminProducts({
           console.error('Failed to parse error response:', parseError);
          }
          // Log the specific error before throwing
-         console.error("Backend error details:", errorMessage); 
+         console.error("Backend error details:", errorMessage);
          throw new Error(errorMessage);
        }
- 
+
        const createdProduct = await response.json();
       console.log('Sản phẩm đã được tạo thành công:', createdProduct);
 
@@ -565,11 +594,11 @@ function AdminProducts({
         duration: 3000
       });
        // Log the caught error object as well for more context
-       console.error("Error during product creation fetch:", error); 
+       console.error("Error during product creation fetch:", error);
        throw error;
      }
    };
- 
+
    const handleUpdateProduct = async (updatedProduct: any) => {
     console.log('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
@@ -598,11 +627,11 @@ function AdminProducts({
 
       // Xác định ID sản phẩm, ưu tiên id trước, sau đó mới dùng _id
       const productId = productDataForPatch.id || productDataForPatch._id;
-      
+
       if (!productId) {
         throw new Error('Không tìm thấy ID sản phẩm');
       }
-      
+
       // Xóa id và _id khỏi dữ liệu gửi đi để tránh lỗi
       delete productDataForPatch.id;
       delete productDataForPatch._id;
@@ -724,7 +753,7 @@ function AdminProducts({
 
         // Sử dụng hàm bulkDelete từ hook
         const success = await bulkDelete();
-        
+
         if (success) {
           // Thông báo thành công
           toast.dismiss(loadingToast);
@@ -732,7 +761,7 @@ function AdminProducts({
             duration: 3000,
             icon: <FiCheck className="text-green-500" />
           });
-          
+
           return true;
         } else {
           toast.dismiss(loadingToast);
@@ -761,7 +790,7 @@ function AdminProducts({
 
       // Sử dụng hàm bulkSetStatus từ hook
       const success = await bulkSetStatus(newStatus);
-      
+
       if (success) {
         // Thông báo thành công
         toast.dismiss(loadingToast);
@@ -769,7 +798,7 @@ function AdminProducts({
           duration: 3000,
           icon: <FiCheck className="text-green-500" />
         });
-        
+
         return true;
       } else {
         toast.dismiss(loadingToast);
@@ -796,7 +825,7 @@ function AdminProducts({
 
       // Sử dụng hàm bulkSetFlag từ hook
       const success = await bulkSetFlag(flagName, flagValue);
-      
+
       if (success) {
         // Thông báo thành công
         toast.dismiss(loadingToast);
@@ -804,7 +833,7 @@ function AdminProducts({
           duration: 3000,
           icon: <FiCheck className="text-green-500" />
         });
-        
+
         return true;
       } else {
         toast.dismiss(loadingToast);
@@ -826,23 +855,23 @@ function AdminProducts({
     try {
       // Hiển thị toast loading
       const loadingToast = toast.loading('Đang nhân bản sản phẩm...');
-      
+
       try {
         // Sử dụng context API để gọi phương thức clone
         const clonedProduct = await cloneProduct(id);
-        
+
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
         console.log('Sản phẩm đã được nhân bản thành công:', clonedProduct);
-        
+
         // Làm mới danh sách để hiển thị sản phẩm mới
         await fetchProducts();
-        
+
         toast.success(`Đã nhân bản thành công sản phẩm: ${clonedProduct.name}`, {
           duration: 3000,
           icon: <FiCheck className="text-green-500" />
         });
-        
+
         return true;
       } catch (error: any) {
         // Xử lý lỗi khi gọi API clone
@@ -869,7 +898,7 @@ function AdminProducts({
 
   // Thêm state và handler cho cleanupBase64
   const [isCleaningBase64, setIsCleaningBase64] = useState(false);
-  
+
   // Handler để dọn dẹp dữ liệu base64
   const handleCleanupBase64 = async () => {
     try {

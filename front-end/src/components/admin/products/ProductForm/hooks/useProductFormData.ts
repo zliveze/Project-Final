@@ -9,7 +9,7 @@ export const useProductFormData = (initialData?: any) => {
   const initializeData = useCallback((data: any): ProductFormData => {
     // Tạo một bản sao của dữ liệu hoặc đối tượng trống nếu data là null/undefined
     const result = { ...(data || {}) } as ProductFormData;
-    
+
     // Đảm bảo các trường cơ bản tồn tại
     result.name = result.name || '';
     result.sku = result.sku || '';
@@ -18,16 +18,65 @@ export const useProductFormData = (initialData?: any) => {
     result.currentPrice = result.currentPrice || 0;
     result.status = result.status || 'active';
     result.brandId = result.brandId || '';
-    
+
     // Đảm bảo các mảng cơ bản tồn tại
     result.categoryIds = Array.isArray(result.categoryIds) ? result.categoryIds : [];
     result.tags = Array.isArray(result.tags) ? result.tags : [];
-    
+
     // Khởi tạo luôn tất cả các trường để tránh việc render nhiều lần
     result.description = result.description || { short: '', full: '' };
     result.flags = result.flags || { isBestSeller: false, isNew: true, isOnSale: false, hasGifts: false };
-    result.variants = Array.isArray(result.variants) ? result.variants : [];
-    
+    // Process variants and ensure their images are properly formatted
+    if (Array.isArray(result.variants)) {
+      result.variants = result.variants.map(variant => {
+        // Process variant images to ensure they have proper structure
+        let processedImages = [];
+        if (Array.isArray(variant.images)) {
+          processedImages = variant.images.map(img => {
+            // If image is already an object with url, keep it as is
+            if (typeof img === 'object' && img !== null && img.url) {
+              return img;
+            }
+
+            // If image is a string ID, try to find the corresponding image in product images
+            if (typeof img === 'string') {
+              const matchingImage = Array.isArray(result.images) ?
+                result.images.find(productImg =>
+                  productImg.id === img ||
+                  productImg.publicId === img ||
+                  (typeof productImg.id === 'string' && img.includes(productImg.id)) ||
+                  (typeof productImg.publicId === 'string' && img.includes(productImg.publicId))
+                ) : null;
+
+              if (matchingImage) {
+                return matchingImage;
+              }
+
+              // If it's a URL string, create an image object
+              if (img.startsWith('http') || img.startsWith('/')) {
+                return { url: img, id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}` };
+              }
+
+              // Otherwise, keep the ID string
+              return img;
+            }
+
+            return img;
+          });
+        }
+
+        return {
+          ...variant,
+          // Ensure variant has a name
+          name: variant.name || `Biến thể ${variant.options?.color || ''} ${variant.options?.sizes?.[0] || ''}`.trim(),
+          // Use processed images
+          images: processedImages
+        };
+      });
+    } else {
+      result.variants = [];
+    }
+
     // Xử lý đặc biệt cho images - đảm bảo các ảnh đã có đều có giá trị preview trùng với url
     if (Array.isArray(result.images)) {
       result.images = result.images.map(image => ({
@@ -38,9 +87,10 @@ export const useProductFormData = (initialData?: any) => {
     } else {
       result.images = [];
     }
-    
+
     result.inventory = Array.isArray(result.inventory) ? result.inventory : [];
-    
+    result.variantInventory = Array.isArray(result.variantInventory) ? result.variantInventory : [];
+
     // Đảm bảo seo tồn tại và có các thuộc tính cần thiết
     const defaultSeo: ProductSeo = {
       metaTitle: '',
@@ -48,7 +98,7 @@ export const useProductFormData = (initialData?: any) => {
       keywords: []
     };
     result.seo = result.seo || defaultSeo;
-    
+
     // Đảm bảo cosmetic_info tồn tại và có các thuộc tính cần thiết
     result.cosmetic_info = result.cosmetic_info || {
       skinType: [],
@@ -59,21 +109,21 @@ export const useProductFormData = (initialData?: any) => {
       usage: '',
       madeIn: ''
     };
-    
+
     // Đảm bảo gifts tồn tại
     result.gifts = Array.isArray(result.gifts) ? result.gifts : [];
-    
+
     // Đảm bảo các mảng liên quan tồn tại
     result.relatedProducts = Array.isArray(result.relatedProducts) ? result.relatedProducts : [];
     result.relatedEvents = Array.isArray(result.relatedEvents) ? result.relatedEvents : [];
     result.relatedCampaigns = Array.isArray(result.relatedCampaigns) ? result.relatedCampaigns : [];
-    
+
     return result;
   }, []);
 
   // Khởi tạo dữ liệu trước với memo để tránh tính toán lại
-  const initialFormData = useMemo(() => 
-    initializeData(initialData || {}), 
+  const initialFormData = useMemo(() =>
+    initializeData(initialData || {}),
     [initialData, initializeData]
   );
 
@@ -101,7 +151,7 @@ export const useProductFormData = (initialData?: any) => {
   // Xử lý thay đổi input
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     // Xử lý cho nested objects (dùng dot notation trong name để xác định path)
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -118,7 +168,7 @@ export const useProductFormData = (initialData?: any) => {
         }
         return prev;
       });
-    } 
+    }
     // Xử lý cho trường price
     else if (name === 'price' || name === 'currentPrice') {
       const numValue = parseFloat(value) || 0;
@@ -126,7 +176,7 @@ export const useProductFormData = (initialData?: any) => {
         ...prev,
         [name]: numValue
       }));
-      
+
       // Tự động cập nhật currentPrice khi price thay đổi nếu chúng bằng nhau trước đó
       if (name === 'price' && formData.price === formData.currentPrice) {
         setFormData(prev => ({
@@ -155,7 +205,7 @@ export const useProductFormData = (initialData?: any) => {
   // Xử lý thay đổi checkbox
   const handleCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
-    
+
     // Xử lý cho nested objects (dùng dot notation trong name để xác định path)
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -186,7 +236,7 @@ export const useProductFormData = (initialData?: any) => {
     const selectedValues = Array.from(options)
       .filter(option => option.selected)
       .map(option => option.value);
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: selectedValues
@@ -211,4 +261,4 @@ export const useProductFormData = (initialData?: any) => {
   };
 };
 
-export default useProductFormData; 
+export default useProductFormData;

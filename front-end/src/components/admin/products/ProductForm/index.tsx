@@ -3,12 +3,12 @@ import { Tab } from '@headlessui/react';
 import { FiSave, FiX } from 'react-icons/fi';
 
 // Import các types
-import { 
-  ProductFormProps, 
-  ProductFormData, 
-  BrandItem, 
-  CategoryItem, 
-  BranchItem 
+import {
+  ProductFormProps,
+  ProductFormData,
+  BrandItem,
+  CategoryItem,
+  BranchItem
 } from './types';
 
 // Import các custom hooks
@@ -58,7 +58,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   // State để theo dõi tab hiện tại
   const [currentTab, setCurrentTab] = useState(0);
-  
+
   // Sử dụng custom hook để quản lý form data
   const {
     formData,
@@ -119,7 +119,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleCloseBranchModal,
     getTotalInventory,
     getInStockBranchesCount,
-    getLowStockBranchesCount
+    getLowStockBranchesCount,
+    // Variant inventory methods
+    selectedBranchForVariants,
+    branchVariants,
+    handleSelectBranchForVariants,
+    handleClearBranchSelection,
+    handleVariantInventoryChange
   } = useProductInventory(formData, setFormData);
 
   // Sử dụng custom hook để quản lý quà tặng
@@ -136,21 +142,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   // Sử dụng BrandContext để lấy danh sách thương hiệu thực
   const { brands: backendBrands, loading: brandsLoading, fetchBrands } = useBrands();
-  
+
   // Sử dụng CategoryContext để lấy danh sách danh mục thực
   const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
-  
+
   // Sử dụng BranchContext để lấy danh sách chi nhánh thực
   const { branches: backendBranches, loading: branchesLoading, fetchBranches } = useBranches();
-  
+
   // Chuyển đổi định dạng cho phù hợp với component
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [branches, setBranches] = useState<BranchItem[]>([]);
-  
+
   // Sử dụng ref để theo dõi xem đã gọi API chưa
   const hasCalledAPI = useRef(false);
-  
+
   // Memoize hàm fetch data để tránh gọi lại nhiều lần
   const fetchData = useCallback(() => {
     // Chỉ gọi API khi chưa gọi trước đó và cần thiết
@@ -161,12 +167,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
       hasCalledAPI.current = true;
     }
   }, [fetchBrands, fetchCategories, fetchBranches]);
-  
+
   // Fetch brands, categories và branches khi component mount
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-  
+
   // Khi brands từ backend thay đổi, cập nhật state
   useEffect(() => {
     if (backendBrands && backendBrands.length > 0) {
@@ -178,7 +184,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setBrands(formattedBrands);
     }
   }, [backendBrands]);
-  
+
   // Khi categories từ backend thay đổi, cập nhật state
   useEffect(() => {
     if (backendCategories && backendCategories.length > 0) {
@@ -233,11 +239,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate các trường bắt buộc
     const requiredFields = ['name', 'sku', 'brandId'];
     const missingFields = requiredFields.filter(field => !formData[field as keyof ProductFormData]);
-    
+
     if (missingFields.length > 0) {
       alert(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
       return;
@@ -251,7 +257,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       dataToSubmit.slug = slugify(dataToSubmit.name);
       console.log(`Generated slug: ${dataToSubmit.slug}`); // Log generated slug
     }
-    
+
     // Submit dữ liệu form nếu hợp lệ
     onSubmit(dataToSubmit);
   };
@@ -260,10 +266,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tab.Group onChange={handleTabChange}>
           <Tab.List className="flex p-1 space-x-1 bg-gray-100 rounded-lg">
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -271,10 +277,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           >
             Thông tin cơ bản
           </Tab>
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -282,10 +288,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           >
             Hình ảnh & Biến thể
           </Tab>
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -293,10 +299,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           >
             Thông tin mỹ phẩm
           </Tab>
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -304,10 +310,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           >
             SEO & Mô tả
           </Tab>
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -315,10 +321,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           >
             Tồn kho
           </Tab>
-          <Tab 
+          <Tab
             className={({ selected }) =>
               `w-full py-2.5 text-sm font-medium rounded-md
-              ${selected 
+              ${selected
                 ? 'bg-white text-pink-600 shadow'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'
               }`
@@ -341,7 +347,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               categories={categories}
             />
           </Tab.Panel>
-          
+
           <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <ImagesAndVariantsTab
               formData={formData}
@@ -369,7 +375,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               isViewMode={isViewMode}
             />
           </Tab.Panel>
-          
+
           <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <CosmeticInfoTab
               formData={formData}
@@ -381,7 +387,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               isViewMode={isViewMode}
             />
           </Tab.Panel>
-          
+
           <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <SeoDescriptionTab
               formData={formData}
@@ -391,7 +397,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               isViewMode={isViewMode}
             />
           </Tab.Panel>
-          
+
           <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <InventoryTab
               formData={formData}
@@ -407,9 +413,15 @@ const ProductForm: React.FC<ProductFormProps> = ({
               getLowStockBranchesCount={getLowStockBranchesCount}
               isViewMode={isViewMode}
               branches={branches}
+              // Variant inventory props
+              selectedBranchForVariants={selectedBranchForVariants}
+              branchVariants={branchVariants}
+              handleSelectBranchForVariants={handleSelectBranchForVariants}
+              handleClearBranchSelection={handleClearBranchSelection}
+              handleVariantInventoryChange={handleVariantInventoryChange}
             />
           </Tab.Panel>
-          
+
           <Tab.Panel className="p-4 bg-white rounded-xl shadow">
             <GiftsTab
               formData={formData}

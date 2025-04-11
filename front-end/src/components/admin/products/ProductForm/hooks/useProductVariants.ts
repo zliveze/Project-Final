@@ -2,14 +2,18 @@ import { useState, useCallback } from 'react';
 import { ProductFormData, ProductVariant, ProductImage } from '../types';
 
 // Define the extended type within the hook or import if defined elsewhere
-type ExtendedProductVariant = ProductVariant & { name?: string };
+type ExtendedProductVariant = Omit<ProductVariant, 'images' | 'name'> & {
+  name?: string;
+  images?: (string | ProductImage)[];
+};
 
 // Helper to create a default empty variant structure using the extended type
 const createDefaultVariant = (): ExtendedProductVariant => ({
   variantId: `new-${Date.now()}`, // Temporary ID for new variant
+  name: '', // Add default name field
   sku: '',
   price: 0,
-  options: { 
+  options: {
     color: '',
     shades: [],
     sizes: []
@@ -66,13 +70,13 @@ export const useProductVariants = (
         const optionKey = name.split('.')[1];
         // Ensure options object exists
         const currentOptions = prev.options || { color: '', shades: [], sizes: [] };
-        
+
         // Handle arrays for shades and sizes (convert comma-separated string to array)
         if (optionKey === 'shades' || optionKey === 'sizes') {
-          const arrayValue = typeof parsedValue === 'string' 
+          const arrayValue = typeof parsedValue === 'string'
             ? parsedValue.split(',').map(item => item.trim()).filter(item => item !== '')
             : parsedValue;
-            
+
           return {
             ...prev,
             options: {
@@ -81,7 +85,7 @@ export const useProductVariants = (
             }
           };
         }
-        
+
         return {
           ...prev,
           options: {
@@ -95,54 +99,71 @@ export const useProductVariants = (
     });
   }, []);
 
-  // Handler for selecting/deselecting images in VariantForm (stores full image objects)
-  // Now accepts either publicId or id
+  // Handler for selecting/deselecting images in VariantForm
+  // Accepts either publicId or id and toggles selection
   const handleVariantImageSelect = useCallback((identifier: string) => {
+    if (!identifier) {
+      console.warn(`[useProductVariants] Empty identifier provided to handleVariantImageSelect`);
+      return;
+    }
+
     // Find the full image object using either publicId or id
-    const imageObject = allProductImages.find(img => img.publicId === identifier || img.id === identifier);
-    
+    const imageObject = allProductImages.find(img =>
+      img.publicId === identifier || img.id === identifier
+    );
+
     if (!imageObject) {
       console.warn(`[useProductVariants] Image with identifier ${identifier} not found in allProductImages.`);
-      return; 
+      return;
     }
-    
+
     // Use a reliable identifier from the found object for comparisons (prefer publicId)
     const reliableIdentifier = imageObject.publicId || imageObject.id;
     if (!reliableIdentifier) {
-        console.warn(`[useProductVariants] Found image object for ${identifier} lacks both publicId and id.`);
-        return;
+      console.warn(`[useProductVariants] Found image object for ${identifier} lacks both publicId and id.`);
+      return;
     }
+
+    // Log for debugging
+    console.log(`[useProductVariants] Processing image selection:`, {
+      identifier,
+      reliableIdentifier,
+      imageObject
+    });
 
     setCurrentVariantData(prev => {
       if (!prev) return null;
-      
-      // Ensure prev.images is always an array of ProductImage objects
-      const currentImageObjects = (Array.isArray(prev.images) ? prev.images : [])
-        .map(imgOrId => {
-          // If it's an ID/publicId string, find the corresponding object
-          if (typeof imgOrId === 'string') { 
-            return allProductImages.find(img => img.publicId === imgOrId || img.id === imgOrId);
-          }
-          // If it's already an object (potentially missing id/publicId if old data), keep it
-          if (typeof imgOrId === 'object' && imgOrId !== null) {
-            return imgOrId;
-          }
-          return undefined; // Invalid data
-        })
-        .filter((img): img is ProductImage => img !== null && img !== undefined); // Filter out invalid entries
 
-      // Check if the image object already exists using the reliable identifier
-      const exists = currentImageObjects.some(img => (img.publicId || img.id) === reliableIdentifier);
-      
-      if (exists) {
-        // Remove the image object by filtering based on the reliable identifier
-        const updatedImages = currentImageObjects.filter(img => (img.publicId || img.id) !== reliableIdentifier);
-        // console.log(`[useProductVariants] Removing image ${reliableIdentifier}. New images:`, updatedImages);
+      // Ensure prev.images is always an array
+      const currentImages = Array.isArray(prev.images) ? [...prev.images] : [];
+      console.log('Current variant images before update:', currentImages);
+
+      // Check if the image already exists in the array
+      const existingIndex = currentImages.findIndex(img => {
+        if (typeof img === 'string') {
+          return img === reliableIdentifier;
+        } else if (typeof img === 'object' && img !== null) {
+          return (img.publicId || img.id) === reliableIdentifier;
+        }
+        return false;
+      });
+
+      // If image already exists, remove it (toggle off)
+      if (existingIndex !== -1) {
+        const updatedImages = [...currentImages];
+        updatedImages.splice(existingIndex, 1);
+        console.log(`[useProductVariants] Removing image ${reliableIdentifier}`);
+        console.log('Updated variant images:', updatedImages);
         return { ...prev, images: updatedImages };
-      } else {
-        // Add the full image object
-        const updatedImages = [...currentImageObjects, imageObject];
-        // console.log(`[useProductVariants] Adding image ${reliableIdentifier}. New images:`, updatedImages);
+      }
+      // Otherwise add it (toggle on) - Store just the identifier string
+      else {
+        const imageIdentifier = imageObject.publicId || imageObject.id;
+        if (!imageIdentifier) return prev; // Skip if no valid identifier
+
+        const updatedImages = [...currentImages, imageIdentifier];
+        console.log(`[useProductVariants] Adding image identifier: ${imageIdentifier}`);
+        console.log('Updated variant images:', updatedImages);
         return { ...prev, images: updatedImages };
       }
     });
@@ -164,18 +185,102 @@ export const useProductVariants = (
     // Make a clean copy of currentVariantData
     const finalVariantData = { ...currentVariantData };
 
+    // Process images to ensure they have the correct format for saving
+    if (finalVariantData.images && Array.isArray(finalVariantData.images)) {
+      // For saving to the backend, we want to store just the publicId or id as strings
+      // This ensures compatibility with the backend and prevents the temp-id issue
+      const processedImages: string[] = [];
+
+      console.log('Processing variant images for saving:', finalVariantData.images);
+
+      // Process each image
+      finalVariantData.images.forEach((img: any) => {
+        // If it's already a string
+        if (typeof img === 'string') {
+          // If it's a temporary ID that starts with 'temp-', we need to find the real image
+          if (img.startsWith('temp-')) {
+            // Find the corresponding image in allProductImages
+            // First try exact match
+            let realImage = allProductImages.find(productImg =>
+              productImg.id === img ||
+              (typeof productImg.id === 'string' && productImg.id === img)
+            );
+
+            // If no exact match, try partial match
+            if (!realImage) {
+              realImage = allProductImages.find(productImg =>
+                (typeof productImg.id === 'string' && typeof img === 'string' &&
+                 (productImg.id.includes(img) || img.includes(productImg.id)))
+              );
+
+              if (realImage) {
+                console.log(`Found partial ID match: ${img} ~ ${realImage.id}`);
+              }
+            }
+
+            if (realImage && realImage.publicId) {
+              processedImages.push(realImage.publicId);
+              console.log(`Converted temp ID ${img} to publicId ${realImage.publicId}`);
+            } else {
+              // Try to find by matching with product images by publicId
+              const matchingImage = allProductImages.find(productImg => {
+                // Try exact publicId match
+                if (productImg.publicId === img) {
+                  return true;
+                }
+
+                // Try partial match with publicId
+                if (typeof img === 'string' && typeof productImg.publicId === 'string') {
+                  return productImg.publicId.includes(img) || img.includes(productImg.publicId);
+                }
+                return false;
+              });
+
+              if (matchingImage && matchingImage.publicId) {
+                processedImages.push(matchingImage.publicId);
+                console.log(`Found matching image for ${img}: ${matchingImage.publicId}`);
+              } else {
+                // Last resort: just use the string as is
+                console.warn(`Could not find real image for ID ${img}, using as-is`);
+                processedImages.push(img);
+              }
+            }
+          } else {
+            // It's already a valid ID (publicId or id), keep it
+            processedImages.push(img);
+            console.log(`Using existing image ID: ${img}`);
+          }
+        }
+        // If it's an object with publicId or id
+        else if (typeof img === 'object' && img !== null) {
+          const imageId = img.publicId || img.id;
+          if (imageId) {
+            processedImages.push(imageId);
+            console.log(`Using image ID from object: ${imageId}`);
+          }
+        }
+      });
+
+      // Replace the images array with just the string IDs
+      finalVariantData.images = processedImages as any;
+      console.log('Final processed variant images:', processedImages);
+    }
+
     try {
+      // Cast finalVariantData to ProductVariant to satisfy TypeScript
+      const typedVariantData = finalVariantData as unknown as ProductVariant;
+
       if (editingVariant) {
         // Editing existing: Replace in formData.variants
         const updatedVariants = (formData.variants || []).map(v =>
-          v.variantId === editingVariant.variantId ? finalVariantData : v
+          v.variantId === editingVariant.variantId ? typedVariantData : v
         );
         setFormData(prev => ({ ...prev, variants: updatedVariants }));
       } else {
         // Adding new: Append to formData.variants
         setFormData(prev => ({
           ...prev,
-          variants: [...(prev.variants || []), finalVariantData]
+          variants: [...(prev.variants || []), typedVariantData]
         }));
       }
       handleCancelVariant(); // Close form on success
@@ -185,7 +290,7 @@ export const useProductVariants = (
     } finally {
       setIsVariantProcessing(false);
     }
-  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant]); // Keep dependencies as they were
+  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant, allProductImages]); // Added allProductImages
 
   // Xóa biến thể
   const handleDeleteVariant = useCallback((variantId: string) => {
@@ -197,7 +302,7 @@ export const useProductVariants = (
     const updatedVariants = (formData.variants || []).filter(
       variant => variant.variantId !== variantId
     );
-    
+
     setFormData(prev => ({
       ...prev,
       variants: updatedVariants

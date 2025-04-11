@@ -64,7 +64,7 @@ export interface Product {
     alt?: string;       // Mô tả hình ảnh
     publicId?: string;  // ID công khai của Cloudinary
     isPrimary?: boolean; // Có phải hình ảnh chính hay không
-    
+
     // Các trường dưới đây chỉ được sử dụng ở client, KHÔNG được gửi đến server
     file?: File;         // File hình ảnh được tải lên, chỉ tồn tại ở client
     preview?: string;    // URL tạm thời để hiển thị xem trước, chỉ tồn tại ở client
@@ -196,6 +196,7 @@ interface ProductContextType {
   updateProduct: (id: string, productData: Partial<Product>) => Promise<Product>;
   deleteProduct: (id: string) => Promise<void>;
   updateInventory: (id: string, branchId: string, quantity: number) => Promise<Product>;
+  updateVariantInventory: (id: string, branchId: string, variantId: string, quantity: number) => Promise<Product>;
   updateProductFlags: (id: string, flags: any) => Promise<Product>;
   addVariant: (id: string, variantData: any) => Promise<Product>;
   updateVariant: (id: string, variantId: string, variantData: any) => Promise<Product>;
@@ -226,17 +227,17 @@ interface ProductContextType {
   removeFromCart: (cartItemId: string) => Promise<boolean>;
   updateCartQuantity: (cartItemId: string, quantity: number) => Promise<boolean>;
   getCartItems: () => Promise<any[]>;
-  
+
   // Phương thức tương tác với wishlist
   addToWishlist: (productId: string) => Promise<boolean>;
   removeFromWishlist: (productId: string) => Promise<boolean>;
   getWishlistItems: () => Promise<any[]>;
-  
+
   // Phương thức tương tác với đánh giá
   addReview: (
-    productId: string, 
-    rating: number, 
-    content: string, 
+    productId: string,
+    rating: number,
+    content: string,
     images?: File[]
   ) => Promise<boolean>;
   getProductReviews: (productId: string, page?: number, limit?: number) => Promise<any>;
@@ -249,11 +250,11 @@ export { ProductContext };
 // Hook to use the context
 export const useProduct = () => {
   const context = useContext(ProductContext);
-  
+
   // Nếu context không tồn tại, trả về một mock context thay vì ném lỗi
   if (!context) {
     console.warn('useProduct được gọi bên ngoài ProductProvider. Trả về mock context.');
-    
+
     // Tạo một mock context với các phương thức không có chức năng
     return {
       products: [],
@@ -266,13 +267,13 @@ export const useProduct = () => {
       apiHealthStatus: 'online' as const,
       checkApiHealth: async () => true,
       statistics: null,
-      uploadProductImage: async () => { 
+      uploadProductImage: async () => {
         console.warn('ProductProvider không khả dụng trên trang này');
-        return { url: '', publicId: '', width: 0, height: 0, format: '' }; 
+        return { url: '', publicId: '', width: 0, height: 0, format: '' };
       },
       fetchProducts: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
       fetchLightProducts: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
-      fetchProductById: async () => { 
+      fetchProductById: async () => {
         console.warn('ProductProvider không khả dụng trên trang này');
         return {} as Product;
       },
@@ -369,11 +370,11 @@ export const useProduct = () => {
 // Provider component
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [apiHealthStatus, setApiHealthStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-  
+
   // Sử dụng hooks mới cho API
-  const { 
-    products: adminProducts, 
-    loading, 
+  const {
+    products: adminProducts,
+    loading,
     error,
     totalItems: totalProducts,
     totalPages,
@@ -382,10 +383,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     fetchProducts: fetchAdminProducts,
     checkApiHealth,
   } = useProductAdmin();
-  
+
   // Sử dụng hook thống kê
-  const { 
-    statistics, 
+  const {
+    statistics,
     fetchStatistics: fetchApiStatistics
   } = useApiStats();
 
@@ -419,13 +420,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
     const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
     const isLoginPage = window.location.pathname.includes('/admin/auth/login');
-    
+
     if (isLoggedOut || !adminToken || isLoginPage) {
       console.log('Người dùng đã đăng xuất hoặc đang ở trang đăng nhập, không kiểm tra kết nối API');
       setApiHealthStatus('online'); // Đặt status thành online để ẩn thông báo
       return true; // Trả về true để không hiển thị lỗi
     }
-    
+
     // Đặt trạng thái thành 'online' trước khi kiểm tra để tránh hiển thị thông báo không cần thiết
     // nếu sản phẩm đã tải thành công
     if (products && products.length > 0) {
@@ -433,7 +434,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     } else {
       setApiHealthStatus('checking');
     }
-    
+
     try {
       const isHealthy = await checkApiHealth();
       setApiHealthStatus(isHealthy ? 'online' : 'offline');
@@ -547,7 +548,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const data = await response.json();
-      
+
       // Sử dụng cách fetch giống với fetchAdminProducts
       // kết quả sẽ cập nhật qua hook useProductAdmin
       await fetchAdminProducts({
@@ -569,7 +570,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         sortBy,
         sortOrder
       });
-      
+
     } catch (error: any) {
       console.error('Error fetching light products:', error);
     }
@@ -620,7 +621,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   ) => {
     try {
       console.log(`Đang chuẩn bị tải lên ảnh cho sản phẩm ID: ${productId}, tên file: ${file.name}, kích thước: ${file.size} bytes, isPrimary: ${isPrimary}`);
-      
+
       // Kiểm tra xem file có hợp lệ không
       if (!file || !(file instanceof File)) {
         throw new Error('Không phải là file hợp lệ');
@@ -641,7 +642,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       formData.append('isPrimary', isPrimary.toString());
 
       console.log(`Đang gửi yêu cầu đến ${API_URL}/admin/products/${productId}/upload-image`);
-      
+
       const response = await fetch(`${API_URL}/admin/products/${productId}/upload-image`, {
         method: 'POST',
         headers: {
@@ -659,13 +660,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const result = await response.json();
-      
+
       // Kiểm tra kết quả xem có phải URL base64 không
       if (result.url && result.url.startsWith('data:image')) {
         console.error('Lỗi: API trả về URL dạng base64');
         throw new Error('API trả về URL dạng base64');
       }
-      
+
       console.log('Tải lên thành công với kết quả:', result);
       return result;
     } catch (error: any) {
@@ -718,12 +719,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const newProduct = await response.json();
       console.log('Sản phẩm mới đã được tạo với ID:', newProduct.id);
-      
+
       // Tải lên các hình ảnh có file nhưng chưa có URL
       const imagesWithFile = images?.filter(img => img.file) || [];
       if (imagesWithFile.length > 0) {
         console.log(`Tìm thấy ${imagesWithFile.length} hình ảnh cần tải lên Cloudinary`);
-        
+
         // Upload các hình ảnh lên Cloudinary using Promise.allSettled
         const uploadPromises = imagesWithFile
           .filter(image => image.file)
@@ -770,23 +771,23 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       // Tách hình ảnh ra khỏi dữ liệu ban đầu
       const { images, ...dataToSend } = productData;
-      
+
       // Loại bỏ hoàn toàn các hình ảnh, chỉ giữ lại các hình ảnh đã có URL từ Cloudinary
       const validImages = images?.filter(img => img.url && !img.url.startsWith('data:') && img.url.startsWith('http')) || [];
-      
+
       // Loại bỏ các thuộc tính không cần thiết của ảnh như file, preview
       const cleanedImages = validImages.map(({url, alt, publicId, isPrimary}) => ({
         url, alt, publicId, isPrimary
       }));
-      
+
       // Chuẩn bị dữ liệu để gửi lên server
       const dataWithCleanedImages = {
         ...dataToSend,
         images: cleanedImages
       };
-      
+
       console.log(`Đang cập nhật sản phẩm ID: ${id}...`);
-      
+
       const response = await fetch(`${API_URL}/admin/products/${id}`, {
         method: 'PATCH',
         headers: {
@@ -802,12 +803,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const updatedProduct = await response.json();
       console.log('Sản phẩm đã được cập nhật thành công');
-      
+
       // Tải lên các hình ảnh có file nhưng chưa có URL
       const imagesWithFile = images?.filter(img => img.file) || [];
       if (imagesWithFile.length > 0) {
         console.log(`Tìm thấy ${imagesWithFile.length} hình ảnh cần tải lên Cloudinary`);
-        
+
         // Upload các hình ảnh lên Cloudinary
         for (const image of imagesWithFile) {
           if (image.file) {
@@ -821,13 +822,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           }
         }
       }
-      
+
       // Fetch lại sản phẩm để có dữ liệu mới nhất với URL hình ảnh
       const freshProduct = await fetchProductById(id);
-      
+
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
-      
+
       return freshProduct;
     } catch (error: any) {
       console.error('Error updating product:', error);
@@ -875,13 +876,41 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const updatedProduct = await response.json();
-      
+
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
-      
+
       return updatedProduct;
     } catch (error: any) {
       console.error('Error updating inventory:', error);
+      throw error;
+    }
+  }, [fetchAdminProducts]);
+
+  // Phương thức POST để cập nhật tồn kho biến thể sản phẩm
+  const updateVariantInventory = useCallback(async (id: string, branchId: string, variantId: string, quantity: number): Promise<Product> => {
+    try {
+      const response = await fetch(`${API_URL}/admin/products/${id}/inventory/${branchId}/variant/${variantId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ quantity })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update variant inventory: ${response.status}`);
+      }
+
+      const updatedProduct = await response.json();
+
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+
+      return updatedProduct;
+    } catch (error: any) {
+      console.error('Error updating variant inventory:', error);
       throw error;
     }
   }, [fetchAdminProducts]);
@@ -903,10 +932,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const updatedProduct = await response.json();
-      
+
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
-      
+
       return updatedProduct;
     } catch (error: any) {
       console.error('Error updating product flags:', error);
@@ -1001,7 +1030,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const cleanupBase64Images = useCallback(async (): Promise<{ success: boolean; message: string; count: number }> => {
     try {
       console.log('Đang gửi yêu cầu dọn dẹp dữ liệu base64...');
-      
+
       const response = await fetch(`${API_URL}/admin/products/cleanup-base64`, {
         method: 'POST',
         headers: {
@@ -1035,17 +1064,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (product.images && product.images.some(img => img.url && img.url.startsWith('data:'))) {
           return true;
         }
-        
+
         // Kiểm tra trong variants
         if (product.variants) {
-          return product.variants.some(variant => 
+          return product.variants.some(variant =>
             variant.images && variant.images.some(img => img.url && img.url.startsWith('data:'))
           );
         }
-        
+
         return false;
       });
-      
+
       // Nếu có dữ liệu base64, thực hiện dọn dẹp
       if (hasBase64Images) {
         console.log('Phát hiện dữ liệu base64 trong sản phẩm, tiến hành dọn dẹp tự động...');
@@ -1121,13 +1150,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const data = await response.json();
       console.log("Kết quả API trả về:", data);
-      
+
       // Kiểm tra cấu trúc dữ liệu và thông báo lỗi nếu không đúng định dạng
       if (!data.items && !data.data) {
         console.error("API trả về dữ liệu không đúng cấu trúc:", data);
         throw new Error("API response is missing expected data structure");
       }
-      
+
       return {
         products: data.items || data.data || [],
         total: data.total || 0,
@@ -1145,12 +1174,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       // Kiểm tra sức khỏe API
       await handleCheckApiHealth();
-      
+
       const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
       if (!token) {
         throw new Error('Bạn cần đăng nhập để thực hiện thao tác này');
       }
-      
+
       const response = await fetch(`${API_URL}/admin/products/${id}/clone`, {
         method: 'POST',
         headers: {
@@ -1158,11 +1187,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           'Content-Type': 'application/json'
         }
       });
-      
+
       // Lưu trữ dữ liệu phản hồi
       let responseData;
       const responseText = await response.text();
-      
+
       try {
         // Cố gắng phân tích dữ liệu JSON nếu có
         responseData = responseText ? JSON.parse(responseText) : {};
@@ -1170,15 +1199,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
         responseData = { message: responseText || 'Phản hồi không phải JSON hợp lệ' };
       }
-      
+
       if (!response.ok) {
         console.error('Lỗi khi nhân bản sản phẩm:', responseData);
         throw new Error(responseData?.message || `Lỗi khi nhân bản sản phẩm: ${response.status}`);
       }
-      
+
       // Cập nhật cache nếu cần
       clearProductCache();
-      
+
       // Lưu ý: Không cần phải gọi response.json() nữa vì đã đọc và phân tích văn bản phản hồi
       // Chuyển đổi dữ liệu thành cấu trúc Product
       return responseData;
@@ -1192,12 +1221,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const addToCart = useCallback(async (productId: string, quantity: number, variantId?: string) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng');
         return false;
       }
-      
+
       const response = await fetch(`${API_URL}/cart/add`, {
         method: 'POST',
         headers: {
@@ -1210,19 +1239,19 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           variantId: variantId || null,
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể thêm vào giỏ hàng');
         return false;
       }
-      
+
       toast.success('Đã thêm sản phẩm vào giỏ hàng');
-      
+
       // Dispatch event để cập nhật UI
       const event = new CustomEvent('cart:updated');
       window.dispatchEvent(event);
-      
+
       return true;
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -1230,35 +1259,35 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const removeFromCart = useCallback(async (cartItemId: string) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
         return false;
       }
-      
+
       const response = await fetch(`${API_URL}/cart/remove/${cartItemId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể xóa sản phẩm khỏi giỏ hàng');
         return false;
       }
-      
+
       toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
-      
+
       // Dispatch event để cập nhật UI
       const event = new CustomEvent('cart:updated');
       window.dispatchEvent(event);
-      
+
       return true;
     } catch (error) {
       console.error('Error removing from cart:', error);
@@ -1266,16 +1295,16 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const updateCartQuantity = useCallback(async (cartItemId: string, quantity: number) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
         return false;
       }
-      
+
       const response = await fetch(`${API_URL}/cart/update-quantity/${cartItemId}`, {
         method: 'PATCH',
         headers: {
@@ -1284,17 +1313,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         },
         body: JSON.stringify({ quantity }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể cập nhật số lượng sản phẩm');
         return false;
       }
-      
+
       // Dispatch event để cập nhật UI
       const event = new CustomEvent('cart:updated');
       window.dispatchEvent(event);
-      
+
       return true;
     } catch (error) {
       console.error('Error updating cart quantity:', error);
@@ -1302,25 +1331,25 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const getCartItems = useCallback(async () => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         return [];
       }
-      
+
       const response = await fetch(`${API_URL}/cart`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         return [];
       }
-      
+
       const data = await response.json();
       return data.items || [];
     } catch (error) {
@@ -1328,17 +1357,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return [];
     }
   }, []);
-  
+
   // Phương thức tương tác với wishlist
   const addToWishlist = useCallback(async (productId: string) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để thêm sản phẩm vào danh sách yêu thích');
         return false;
       }
-      
+
       const response = await fetch(`${API_URL}/wishlist/add`, {
         method: 'POST',
         headers: {
@@ -1347,25 +1376,25 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         },
         body: JSON.stringify({ productId }),
       });
-      
+
       if (!response.ok) {
         // Kiểm tra nếu sản phẩm đã có trong wishlist
         if (response.status === 409) {
           toast.info('Sản phẩm đã có trong danh sách yêu thích của bạn');
           return true;
         }
-        
+
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể thêm vào danh sách yêu thích');
         return false;
       }
-      
+
       toast.success('Đã thêm sản phẩm vào danh sách yêu thích');
-      
+
       // Dispatch event để cập nhật UI
       const event = new CustomEvent('wishlist:updated');
       window.dispatchEvent(event);
-      
+
       return true;
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -1373,35 +1402,35 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const removeFromWishlist = useCallback(async (productId: string) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để thực hiện thao tác này');
         return false;
       }
-      
+
       const response = await fetch(`${API_URL}/wishlist/remove/${productId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể xóa sản phẩm khỏi danh sách yêu thích');
         return false;
       }
-      
+
       toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích');
-      
+
       // Dispatch event để cập nhật UI
       const event = new CustomEvent('wishlist:updated');
       window.dispatchEvent(event);
-      
+
       return true;
     } catch (error) {
       console.error('Error removing from wishlist:', error);
@@ -1409,25 +1438,25 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const getWishlistItems = useCallback(async () => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         return [];
       }
-      
+
       const response = await fetch(`${API_URL}/wishlist`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         return [];
       }
-      
+
       const data = await response.json();
       return data.items || [];
     } catch (error) {
@@ -1435,33 +1464,33 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return [];
     }
   }, []);
-  
+
   // Phương thức tương tác với đánh giá
   const addReview = useCallback(async (
-    productId: string, 
-    rating: number, 
-    content: string, 
+    productId: string,
+    rating: number,
+    content: string,
     images?: File[]
   ) => {
     try {
       const token = Cookies.get('token');
-      
+
       if (!token) {
         toast.error('Bạn cần đăng nhập để gửi đánh giá');
         return false;
       }
-      
+
       const formData = new FormData();
       formData.append('productId', productId);
       formData.append('rating', rating.toString());
       formData.append('content', content);
-      
+
       if (images && images.length > 0) {
         images.forEach(image => {
           formData.append('reviewImages', image);
         });
       }
-      
+
       const response = await fetch(`${API_URL}/reviews`, {
         method: 'POST',
         headers: {
@@ -1469,13 +1498,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         },
         body: formData,
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Không thể gửi đánh giá');
         return false;
       }
-      
+
       toast.success('Đánh giá của bạn đã được gửi thành công');
       return true;
     } catch (error) {
@@ -1484,17 +1513,17 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return false;
     }
   }, []);
-  
+
   const getProductReviews = useCallback(async (productId: string, page = 1, limit = 10) => {
     try {
       const response = await fetch(
         `${API_URL}/reviews/product/${productId}?page=${page}&limit=${limit}`
       );
-      
+
       if (!response.ok) {
         return { data: [], total: 0, totalPages: 0 };
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error fetching product reviews:', error);
@@ -1525,6 +1554,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateProduct,
     deleteProduct,
     updateInventory,
+    updateVariantInventory,
     updateProductFlags,
     addVariant,
     updateVariant,
@@ -1570,6 +1600,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         updateProduct,
         deleteProduct,
         updateInventory,
+        updateVariantInventory,
         updateProductFlags,
         addVariant,
         updateVariant,
@@ -1592,7 +1623,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     >
       {children}
       {apiHealthStatus === 'offline' && (
-        <ApiStatusAlert 
+        <ApiStatusAlert
           status="offline"
           onRetry={handleCheckApiHealth}
           hasLoadedData={products && products.length > 0}

@@ -253,33 +253,40 @@ const VariantForm: React.FC<VariantFormProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {images.map((image, idx) => {
               // Use publicId as a more reliable key if available, fallback to id or index
-              const imageKey = image.publicId || image.id || `image-${idx}`; 
-              
+              const imageKey = image.publicId || image.id || `image-${idx}`;
+
               // --- DEBUGGING V2 ---
-              // console.log(`[VariantForm V2] Rendering Image Key: ${imageKey}`, { 
-              //   id: image.id, 
+              // console.log(`[VariantForm V2] Rendering Image Key: ${imageKey}`, {
+              //   id: image.id,
               //   publicId: image.publicId,
-              //   url: image.url, 
-              //   preview: image.preview 
+              //   url: image.url,
+              //   preview: image.preview
               // });
               // console.log(`[VariantForm V2] Current Variant Images State:`, JSON.stringify(currentVariant.images)); // Stringify for better object view
               // --- END DEBUGGING ---
 
-              // Check selection using publicId as the primary identifier
+              // Get reliable identifiers for comparison
+              const imageIdentifier = image.publicId || image.id;
+
+              // Check selection using publicId or id as the identifier
               const isSelected = (currentVariant.images || []).some(variantImage => {
-                // Prioritize publicId for comparison if both objects have it
-                if (image.publicId && typeof variantImage === 'object' && variantImage !== null && variantImage.publicId) {
-                  return image.publicId === variantImage.publicId;
+                // If variantImage is a string (publicId or id)
+                if (typeof variantImage === 'string') {
+                  return variantImage === imageIdentifier;
                 }
-                // Fallback to ID comparison (handles string IDs or objects with id)
-                const variantImageId = typeof variantImage === 'string' 
-                  ? variantImage 
-                  : (typeof variantImage === 'object' && variantImage !== null ? variantImage.id : undefined);
-                // Use optional chaining for image.id as it might be undefined
-                return image.id && variantImageId && image.id === variantImageId; 
+                // If variantImage is an object with publicId or id
+                if (typeof variantImage === 'object' && variantImage !== null) {
+                  const variantImageId = variantImage.publicId || variantImage.id;
+                  return variantImageId === imageIdentifier;
+                }
+                return false;
               });
-              
-              // console.log(`[VariantForm V2] Image Key: ${imageKey}, Is Selected: ${isSelected}`);
+
+              console.log(`[VariantForm] Image ${imageKey}, isSelected: ${isSelected}`, {
+                imageId: image.id,
+                imagePublicId: image.publicId,
+                variantImages: currentVariant.images
+              });
 
               // Determine the correct src, prioritizing url
               const imageSrc = image.url || image.preview;
@@ -293,30 +300,35 @@ const VariantForm: React.FC<VariantFormProps> = ({
 
               return (
                 <div
-                  key={imageKey} 
-                  className={`relative border rounded-md cursor-pointer p-1 group ${ 
-                    isSelected ? 'border-pink-500 ring-2 ring-pink-200' : 'border-gray-200 hover:border-gray-400' 
+                  key={imageKey}
+                  className={`relative border rounded-md cursor-pointer p-1 group transition-all duration-200 ${
+                    isSelected
+                      ? 'border-pink-500 ring-2 ring-pink-500 shadow-md transform scale-105'
+                      : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
                   }`}
-                  // Pass publicId if available, otherwise fallback to id for selection handler
-                  onClick={() => handleVariantImageSelect(image.publicId || image.id || '')} 
+                  onClick={() => {
+                    console.log(`Selecting image: ${imageIdentifier}`);
+                    handleVariantImageSelect(imageIdentifier || '');
+                  }}
                 >
-                  <img
-                    src={imageSrc} 
-                    alt={image.alt || `Variant Image ${idx}`} 
-                    className="w-full h-16 object-cover rounded"
-                    // Add error handling for images if needed
-                    onError={(e) => { 
-                      console.error("Image failed to load:", image.url || image.preview);
-                      // Optionally set a placeholder image source
-                      // e.currentTarget.src = '/placeholder-image.png'; 
-                    }}
-                  />
-                  {/* Chỉ hiển thị dấu check khi đã chọn, không có overlay tối */}
-                  {isSelected && (
-                    <div className="absolute top-1 right-1 bg-pink-500 rounded-full p-0.5">
-                      <FiCheck className="text-white w-4 h-4" />
-                    </div>
-                  )}
+                  <div className="relative">
+                    {/* The actual image */}
+                    <img
+                      src={imageSrc}
+                      alt={image.alt || `Variant Image ${idx}`}
+                      className="w-full h-16 object-cover rounded transition-all"
+                      onError={() => {
+                        console.error("Image failed to load:", image.url || image.preview);
+                      }}
+                    />
+
+                    {/* Selection indicator - just the checkmark, no overlay */}
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 bg-pink-500 rounded-full p-0.5 shadow-sm z-10">
+                        <FiCheck className="text-white w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

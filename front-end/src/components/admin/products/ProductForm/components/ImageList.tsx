@@ -19,8 +19,8 @@ interface ImageListProps {
 /**
  * Component hiển thị danh sách hình ảnh của sản phẩm
  */
-const ImageList: React.FC<ImageListProps> = ({ 
-  images = [], 
+const ImageList: React.FC<ImageListProps> = ({
+  images = [],
   onRemove,
   onSetPrimary,
   onAltChange,
@@ -38,7 +38,7 @@ const ImageList: React.FC<ImageListProps> = ({
 
   if (!images || images.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500">
+      <div className="p-4 text-center text-gray-500 border border-dashed border-gray-300 rounded-md">
         {isUploading ? 'Đang xử lý hình ảnh...' : 'Chưa có hình ảnh nào'}
       </div>
     );
@@ -52,24 +52,24 @@ const ImageList: React.FC<ImageListProps> = ({
         </div>
       )}
       {images.map((image, index) => (
-        <div 
-          key={index} 
+        <div
+          key={index}
           className="relative group border rounded-md p-2 hover:shadow-sm"
         >
           <div className="relative pt-[100%] bg-gray-100">
-            <img 
-              src={image.preview || image.url} 
-              alt={image.alt || productName || 'Product image'} 
+            <img
+              src={image.preview || image.url}
+              alt={image.alt || productName || 'Product image'}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            
+
             {image.isPrimary && (
               <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full">
                 <FiStar size={16} />
               </div>
             )}
           </div>
-          
+
           {!isViewMode && setPrimaryImage && (
             <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
@@ -94,18 +94,25 @@ const ImageList: React.FC<ImageListProps> = ({
               </button>
             </div>
           )}
-          
+
           <div className="mt-2">
             <div className="relative">
-              <input
-                type="text"
-                value={image.alt || ''}
-                onChange={(e) => changeAltText && changeAltText(image.id || '', e.target.value)}
-                className="w-full text-sm p-1 border-b border-transparent focus:border-blue-500 outline-none"
-                placeholder="Thêm mô tả"
-                disabled={isViewMode}
-              />
-              <FiEdit size={12} className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              {isViewMode ? (
+                <div className="w-full text-sm p-1 text-gray-500">
+                  {image.alt || 'Không có mô tả'}
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={image.alt || ''}
+                    onChange={(e) => changeAltText && changeAltText(image.id || '', e.target.value)}
+                    className="w-full text-sm p-1 border-b border-transparent focus:border-blue-500 outline-none"
+                    placeholder="Thêm mô tả"
+                  />
+                  <FiEdit size={12} className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </>
+              )}
             </div>
             {image.file && (
               <div className="mt-1 text-xs text-gray-500 italic">
@@ -119,4 +126,4 @@ const ImageList: React.FC<ImageListProps> = ({
   );
 };
 
-export default ImageList; 
+export default ImageList;

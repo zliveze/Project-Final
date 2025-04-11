@@ -64,14 +64,23 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
   handleVariantImageSelect
 }) => {
   // Determine if we are editing based on editingVariant prop
-  const editingVariantIndex = editingVariant ? formData.variants.findIndex(v => v.variantId === editingVariant.variantId) : null;
+  const editingVariantIndex = editingVariant && formData.variants ?
+    formData.variants.findIndex(v => v.variantId === editingVariant.variantId) : null;
+
+  // Debug log to check data in view mode
+  if (isViewMode) {
+    console.log('ImagesAndVariantsTab - View Mode Data:', {
+      images: formData.images || [],
+      variants: formData.variants || []
+    });
+  }
 
   return (
     <div className="space-y-8">
       {/* Quản lý hình ảnh */}
       <div>
         <h3 className="text-lg font-medium mb-4">Hình ảnh sản phẩm</h3>
-        
+
         {/* Khu vực tải lên hình ảnh */}
         {!isViewMode && (
           <ImageUploader
@@ -83,10 +92,10 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
             handleDrop={handleDrop}
           />
         )}
-        
+
         {/* Hiển thị danh sách hình ảnh */}
         <ImageList
-          images={formData.images}
+          images={formData.images || []}
           productName={formData.name}
           isViewMode={isViewMode}
           handleRemoveImage={handleRemoveImage}
@@ -94,7 +103,7 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
           handleImageAltChange={handleImageAltChange}
         />
       </div>
-      
+
       {/* Quản lý biến thể */}
       {/* Quản lý biến thể */}
       <div>
@@ -117,19 +126,19 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
             // Pass props expected by VariantForm
             currentVariant={currentVariantData} // Pass the form's current data
             editingVariantIndex={editingVariantIndex} // Pass the index or null
-            images={formData.images} // Pass all product images for selection
-            handleVariantChange={handleVariantChange}
+            images={formData.images || []} // Pass all product images for selection
+            handleVariantChange={handleVariantChange as any} // Type cast to fix compatibility issue
             handleVariantImageSelect={handleVariantImageSelect}
             handleSaveVariant={handleSaveVariant}
             handleCancelVariant={handleCancelVariant}
             // Consider adding isLoading prop to VariantForm if needed for button state
           />
         )}
-        
+
         {/* Danh sách biến thể */}
         <VariantList
-          variants={formData.variants}
-          images={formData.images} // Pass images if VariantList needs them for display
+          variants={formData.variants || []}
+          images={formData.images || []} // Pass images if VariantList needs them for display
           isViewMode={isViewMode}
           handleEditVariant={handleOpenEditVariant} // Pass the correct edit handler
           handleRemoveVariant={handleDeleteVariant} // Pass the correct remove handler

@@ -43,6 +43,9 @@ export interface ProductFormData {
   // Tồn kho
   inventory: InventoryItem[];
 
+  // Tồn kho biến thể
+  variantInventory?: VariantInventoryItem[];
+
   // Quà tặng kèm
   gifts: GiftItem[];
 
@@ -90,11 +93,11 @@ export interface ProductVariant {
   sku?: string;
   options: {
     color: string;
-    shade: string;
-    size: string;
+    shades: string[];
+    sizes: string[];
   };
   price: number;
-  images: string[];
+  images: (string | ProductImage)[];
 }
 
 // Thông tin mỹ phẩm
@@ -118,6 +121,15 @@ export interface CosmeticInfo {
 export interface InventoryItem {
   branchId: string;
   branchName: string;
+  quantity: number;
+  lowStockThreshold: number;
+}
+
+// Tồn kho biến thể
+export interface VariantInventoryItem {
+  branchId: string;
+  branchName: string;
+  variantId: string;
   quantity: number;
   lowStockThreshold: number;
 }
@@ -165,4 +177,4 @@ export interface CategoryItem {
 export interface BranchItem {
   id: string;
   name: string;
-} 
+}

@@ -626,6 +626,94 @@ export class ProductsService {
     }
   }
 
+  async updateVariantInventory(id: string, branchId: string, variantId: string, quantity: number): Promise<ProductResponseDto> {
+    try {
+      const product = await this.productModel.findById(id);
+
+      if (!product) {
+        throw new NotFoundException(`Không tìm thấy sản phẩm với ID: ${id}`);
+      }
+
+      // Check if variant exists
+      const variantExists = product.variants.some(variant => variant.variantId.toString() === variantId);
+      if (!variantExists) {
+        throw new NotFoundException(`Không tìm thấy biến thể với ID: ${variantId} trong sản phẩm này`);
+      }
+
+      // Initialize variantInventory array if it doesn't exist
+      if (!product.variantInventory) {
+        product.variantInventory = [];
+      }
+
+      // Find the inventory entry for the variant in the branch
+      const inventoryIndex = product.variantInventory.findIndex(
+        inv => inv.branchId.toString() === branchId && inv.variantId.toString() === variantId
+      );
+
+      // Store old quantity for calculating the difference
+      const oldQuantity = inventoryIndex !== -1 ? product.variantInventory[inventoryIndex].quantity : 0;
+
+      if (inventoryIndex === -1) {
+        // Add new inventory entry if it doesn't exist
+        product.variantInventory.push({
+          branchId: new Types.ObjectId(branchId),
+          variantId: new Types.ObjectId(variantId),
+          quantity,
+          lowStockThreshold: 5
+        });
+      } else {
+        // Update existing inventory entry
+        product.variantInventory[inventoryIndex].quantity = quantity;
+      }
+
+      // Find the branch inventory entry
+      const branchInventoryIndex = product.inventory.findIndex(
+        inv => inv.branchId.toString() === branchId
+      );
+
+      // Calculate the difference in variant quantity
+      const quantityDifference = quantity - oldQuantity;
+
+      // Update branch inventory
+      if (branchInventoryIndex !== -1) {
+        // Update existing branch inventory
+        product.inventory[branchInventoryIndex].quantity += quantityDifference;
+        // Ensure quantity is not negative
+        if (product.inventory[branchInventoryIndex].quantity < 0) {
+          product.inventory[branchInventoryIndex].quantity = 0;
+        }
+      } else {
+        // Add new branch inventory if it doesn't exist
+        product.inventory.push({
+          branchId: new Types.ObjectId(branchId),
+          quantity: Math.max(0, quantityDifference), // Ensure quantity is not negative
+          lowStockThreshold: 5
+        });
+      }
+
+      // Update product status based on total inventory
+      const totalInventory = product.inventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0
+      );
+
+      if (totalInventory === 0 && product.status !== 'discontinued') {
+        product.status = 'out_of_stock';
+      } else if (totalInventory > 0 && product.status === 'out_of_stock') {
+        product.status = 'active';
+      }
+
+      // Log the inventory update for debugging
+      this.logger.log(`Updated variant inventory: Product ${id}, Branch ${branchId}, Variant ${variantId}, Quantity ${quantity}, Branch Total: ${product.inventory.find(inv => inv.branchId.toString() === branchId)?.quantity}`);
+
+      const updatedProduct = await product.save();
+      return this.mapProductToResponseDto(updatedProduct);
+    } catch (error) {
+      this.logger.error(`Error updating variant inventory: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   async updateProductFlags(id: string, flags: any): Promise<ProductResponseDto> {
     try {
       const product = await this.productModel.findById(id);

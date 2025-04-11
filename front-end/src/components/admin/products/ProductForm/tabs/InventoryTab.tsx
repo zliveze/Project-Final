@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiAlertCircle } from 'react-icons/fi';
-import { ProductFormData, BranchItem } from '../types';
+import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck } from 'react-icons/fi';
+import { ProductFormData, BranchItem, ProductVariant } from '../types';
 
 // Thêm style cho animation
 const notificationAnimation = `
@@ -88,6 +88,12 @@ interface InventoryTabProps {
   getInStockBranchesCount: () => number;
   getLowStockBranchesCount: () => number;
   branches: BranchItem[]; // Danh sách chi nhánh từ dữ liệu store
+  // Variant inventory props
+  selectedBranchForVariants?: string | null;
+  branchVariants?: Array<ProductVariant & {quantity: number, name?: string}>;
+  handleSelectBranchForVariants?: (branchId: string) => void;
+  handleClearBranchSelection?: () => void;
+  handleVariantInventoryChange?: (variantId: string, quantity: number) => void;
 }
 
 /**
@@ -106,29 +112,35 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   getTotalInventory,
   getInStockBranchesCount,
   getLowStockBranchesCount,
-  branches
+  branches,
+  // Variant inventory props
+  selectedBranchForVariants,
+  branchVariants = [],
+  handleSelectBranchForVariants,
+  handleClearBranchSelection,
+  handleVariantInventoryChange
 }) => {
   // State cho phân trang chi nhánh
   const [currentPage, setCurrentPage] = useState(1);
   const branchesPerPage = 5;
-  
+
   // Tính toán tổng số trang
   const totalPages = Math.ceil(availableBranches.length / branchesPerPage);
-  
+
   // Lấy chi nhánh cho trang hiện tại
   const getCurrentPageBranches = () => {
     const startIndex = (currentPage - 1) * branchesPerPage;
     const endIndex = startIndex + branchesPerPage;
     return availableBranches.slice(startIndex, endIndex);
   };
-  
+
   // Xử lý chuyển trang
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
   };
-  
+
   const handlePrevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
@@ -137,7 +149,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
   // State để theo dõi chi nhánh đang được chọn
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  
+
   // State để theo dõi chi nhánh mới được thêm vào
   const [newlyAddedBranch, setNewlyAddedBranch] = useState<string | null>(null);
 
@@ -151,14 +163,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
   // Sửa kiểu ref cho các hàng trong bảng
   const tableRowsRef = React.useRef<{[key: string]: HTMLTableRowElement | null}>({});
-  
+
   // Hàm callback để lưu ref
   const setRowRef = (element: HTMLTableRowElement | null, id: string) => {
     if (element) {
       tableRowsRef.current[id] = element;
     }
   };
-  
+
   // Effect để cuộn đến chi nhánh mới khi được thêm vào
   useEffect(() => {
     if (newlyAddedBranch && tableRowsRef.current[newlyAddedBranch]) {
@@ -175,13 +187,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   // Cập nhật hàm xử lý khi chọn chi nhánh
   const handleSelectBranch = (branchId: string, branchName: string) => {
     setSelectedBranch(branchId);
-    
+
     // Thêm chi nhánh và ghi nhớ chi nhánh mới thêm
     setTimeout(() => {
       handleAddBranch(branchId, branchName);
       setSelectedBranch(null);
       setNewlyAddedBranch(branchId);
-      
+
       // Hiển thị thông báo
       setNotification({
         show: true,
@@ -189,12 +201,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
         branchName: branchName,
         isLeaving: false
       });
-      
+
       // Tự động ẩn thông báo
       setTimeout(() => {
         // Bắt đầu animation ẩn
         setNotification(prev => ({...prev, isLeaving: true}));
-        
+
         // Ẩn thông báo hoàn toàn sau khi animation kết thúc
         setTimeout(() => {
           setNotification({
@@ -205,7 +217,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           });
         }, 300); // Thời gian của animation
       }, 3000);
-      
+
       // Tăng thời gian hiệu ứng từ 3000ms lên 5000ms (5 giây)
       setTimeout(() => {
         setNewlyAddedBranch(null);
@@ -229,7 +241,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     if (!formData.inventory || !Array.isArray(formData.inventory)) {
       return [];
     }
-    
+
     return formData.inventory.map(item => {
       // Kiểm tra xem đây có phải là chi nhánh mới được thêm vào hay không
       const isNew = item.branchId === newlyAddedBranch;
@@ -247,7 +259,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   const handleCloseNotification = () => {
     // Bắt đầu animation ẩn
     setNotification(prev => ({...prev, isLeaving: true}));
-    
+
     // Ẩn thông báo hoàn toàn sau khi animation kết thúc
     setTimeout(() => {
       setNotification({
@@ -263,7 +275,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     <div className="space-y-6">
       {/* Thêm style cho animation */}
       <style>{notificationAnimation}</style>
-      
+
       {/* Thông báo thành công */}
       {notification.show && (
         <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] bg-green-50 border-l-4 border-green-500 border-t border-r border-b border-green-200 text-green-700 px-4 py-3 rounded-md shadow-2xl flex items-center justify-between max-w-md animate-pulse ${notification.isLeaving ? 'animate-slideOutTop' : 'animate-slideInTop'}`}>
@@ -274,8 +286,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
               <p className="text-sm font-medium text-green-700">{notification.branchName}</p>
             </div>
           </div>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="text-green-500 hover:text-green-700 transition-colors"
             onClick={handleCloseNotification}
           >
@@ -283,7 +295,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           </button>
         </div>
       )}
-      
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Quản lý tồn kho</h3>
         {!isViewMode && (
@@ -304,19 +316,93 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           <p className="text-2xl font-bold text-gray-900">{getTotalInventory().toLocaleString()}</p>
           <p className="text-xs text-gray-500 mt-1">Tổng số sản phẩm trong kho</p>
         </div>
-        
+
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Chi nhánh còn hàng</h4>
           <p className="text-2xl font-bold text-green-600">{getInStockBranchesCount()}</p>
           <p className="text-xs text-gray-500 mt-1">Số chi nhánh có tồn kho &gt; 0</p>
         </div>
-        
+
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Chi nhánh sắp hết hàng</h4>
           <p className="text-2xl font-bold text-yellow-600">{getLowStockBranchesCount()}</p>
           <p className="text-xs text-gray-500 mt-1">Số chi nhánh có tồn kho thấp hơn ngưỡng</p>
         </div>
       </div>
+
+      {/* Panel quản lý tồn kho biến thể */}
+      {selectedBranchForVariants && formData.variants && formData.variants.length > 0 && (
+        <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-md font-medium text-blue-800">
+              Quản lý tồn kho biến thể cho chi nhánh: {getInventoryWithNames().find(item => item.branchId === selectedBranchForVariants)?.branchName}
+            </h4>
+            <button
+              type="button"
+              onClick={handleClearBranchSelection}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              <FiX className="inline mr-1" /> Đóng
+            </button>
+          </div>
+
+          {branchVariants.length > 0 ? (
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                      Biến thể
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Thông tin
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Số lượng
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {branchVariants.map((variant) => (
+                    <tr key={variant.variantId || ''}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                        {variant.name || `Biến thể ${variant.options?.color || ''}`}
+                      </td>
+                      <td className="py-4 px-3 text-sm text-gray-500">
+                        <div className="flex flex-col space-y-1">
+                          {variant.options?.color && (
+                            <span className="text-xs">Màu: <span className="font-medium">{variant.options.color}</span></span>
+                          )}
+                          {variant.options?.shades && variant.options.shades.length > 0 && (
+                            <span className="text-xs">Tông màu: <span className="font-medium">{variant.options.shades.join(', ')}</span></span>
+                          )}
+                          {variant.options?.sizes && variant.options.sizes.length > 0 && (
+                            <span className="text-xs">Kích thước: <span className="font-medium">{variant.options.sizes.join(', ')}</span></span>
+                          )}
+                          <span className="text-xs">Giá: <span className="font-medium">{(variant.price || 0).toLocaleString()} đ</span></span>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <input
+                          type="number"
+                          value={variant.quantity}
+                          onChange={(e) => handleVariantInventoryChange?.(variant.variantId || '', parseInt(e.target.value) || 0)}
+                          min="0"
+                          className="w-20 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 border border-dashed border-gray-300 rounded-md bg-white">
+              Không có biến thể nào cho sản phẩm này
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Danh sách tồn kho theo chi nhánh */}
       {formData.inventory && formData.inventory.length > 0 ? (
@@ -345,7 +431,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {getInventoryWithNames().map((item, index) => (
-                <tr 
+                <tr
                   key={item.branchId}
                   ref={(el) => setRowRef(el, item.branchId)}
                   className={item.isNew ? "bg-pink-100 transition-all duration-1000 animate-pulse" : ""}
@@ -360,26 +446,32 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                           </span>
                         </span>
                       )}
+                      {!isViewMode && formData.variants && formData.variants.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectBranchForVariants?.(item.branchId)}
+                          className="ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Quản lý tồn kho biến thể
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    <div className="flex items-center">
+                      <span className="font-medium">{item.quantity}</span>
+                      {formData.variants && formData.variants.length > 0 && (
+                        <span className="ml-2 text-xs text-gray-400 italic">
+                          (Tính từ tổng biến thể)
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {!isViewMode ? (
-                      <input 
-                        type="number" 
-                        value={item.quantity} 
-                        onChange={(e) => handleInventoryChange(index, 'quantity', e.target.value)}
-                        min="0"
-                        className="w-20 border-gray-300 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-                      />
-                    ) : (
-                      item.quantity
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {!isViewMode ? (
-                      <input 
-                        type="number" 
-                        value={item.lowStockThreshold} 
+                      <input
+                        type="number"
+                        value={item.lowStockThreshold}
                         onChange={(e) => handleInventoryChange(index, 'lowStockThreshold', e.target.value)}
                         min="0"
                         className="w-20 border-gray-300 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
@@ -430,16 +522,16 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
         <div className="fixed inset-0 z-[1000] flex items-center justify-center">
           {/* Backdrop mờ */}
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px]" onClick={handleCloseBranchModal} />
-          
+
           {/* Modal content */}
-          <div 
+          <div
             className="relative bg-white rounded-lg shadow-lg max-w-md w-full p-0 z-[1001]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-3 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Thêm chi nhánh</h3>
-              <button 
+              <button
                 onClick={handleCloseBranchModal}
                 className="text-gray-400 hover:text-gray-500"
               >
@@ -450,14 +542,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             {/* Content */}
             <div className="p-6">
               <p className="text-sm text-gray-500 mb-4">Chọn chi nhánh để thêm vào danh sách tồn kho:</p>
-              
+
               {availableBranches.length > 0 ? (
                 <>
                   <ul className="mb-4 max-h-[300px] overflow-y-auto">
                     {getCurrentPageBranches().map((branch) => {
                       // Kiểm tra xem chi nhánh này đã được thêm vào inventory chưa
                       const isAlreadyAdded = formData.inventory?.some(item => item.branchId === branch.id);
-                      
+
                       return (
                         <li key={branch.id} className="py-2 border-b border-gray-100 last:border-b-0">
                           <button
@@ -465,10 +557,10 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                             onClick={() => !isAlreadyAdded && handleSelectBranch(branch.id, branch.name)}
                             disabled={isAlreadyAdded}
                             className={`w-full text-left py-2 px-3 rounded-md flex items-center justify-between transition-colors duration-200 ${
-                              isAlreadyAdded 
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                : selectedBranch === branch.id 
-                                  ? 'bg-pink-50 text-pink-600 ring-2 ring-pink-300' 
+                              isAlreadyAdded
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : selectedBranch === branch.id
+                                  ? 'bg-pink-50 text-pink-600 ring-2 ring-pink-300'
                                   : 'hover:bg-gray-50 hover:text-pink-600'
                             }`}
                           >
@@ -487,7 +579,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       );
                     })}
                   </ul>
-                  
+
                   {/* Bộ điều hướng phân trang */}
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between border-t border-gray-200 pt-3">
@@ -496,25 +588,25 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                         onClick={handlePrevPage}
                         disabled={currentPage === 1}
                         className={`flex items-center text-sm font-medium ${
-                          currentPage === 1 
-                            ? 'text-gray-300 cursor-not-allowed' 
+                          currentPage === 1
+                            ? 'text-gray-300 cursor-not-allowed'
                             : 'text-pink-600 hover:text-pink-700'
                         }`}
                       >
                         <FiChevronLeft className="mr-1" /> Trước
                       </button>
-                      
+
                       <span className="text-sm text-gray-600">
                         Trang {currentPage} / {totalPages}
                       </span>
-                      
+
                       <button
                         type="button"
                         onClick={handleNextPage}
                         disabled={currentPage === totalPages}
                         className={`flex items-center text-sm font-medium ${
-                          currentPage === totalPages 
-                            ? 'text-gray-300 cursor-not-allowed' 
+                          currentPage === totalPages
+                            ? 'text-gray-300 cursor-not-allowed'
                             : 'text-pink-600 hover:text-pink-700'
                         }`}
                       >
@@ -547,4 +639,4 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   );
 };
 
-export default InventoryTab; 
+export default InventoryTab;

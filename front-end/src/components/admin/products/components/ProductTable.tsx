@@ -223,20 +223,16 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       {product.brand}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                      {product.currentPrice !== product.originalPrice ? (
-                        <div className="flex flex-col">
-                          <span className="text-pink-600 font-medium">
-                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.currentPrice)}
-                          </span>
+                      <div className="flex flex-col">
+                        <span className="text-pink-600 font-medium">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.currentPrice)}
+                        </span>
+                        {product.currentPrice !== product.originalPrice && (
                           <span className="text-gray-400 text-xs line-through">
                             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.originalPrice)}
                           </span>
-                        </div>
-                      ) : (
-                        <span>
-                          {product.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.price)) : '0đ'}
-                        </span>
-                      )}
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.stock || 0}

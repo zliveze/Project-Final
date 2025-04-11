@@ -58,7 +58,7 @@ export default function ProductCardSmall({
             className="object-contain p-2"
             sizes="(max-width: 768px) 40vw, 20vw"
           />
-          
+
           {/* SL Badge */}
           <div className="absolute bottom-1 right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center">
             <div className="text-[10px] font-medium text-pink-500">
@@ -74,9 +74,11 @@ export default function ProductCardSmall({
             <span className="text-base font-bold text-pink-600">
               {formatPrice(price)}đ
             </span>
-            <span className="text-[10px] text-gray-400 line-through">
-              {formatPrice(originalPrice)}đ
-            </span>
+            {originalPrice > price && (
+              <span className="text-[10px] text-gray-400 line-through">
+                {formatPrice(originalPrice)}đ
+              </span>
+            )}
           </div>
 
           {/* Product Name */}
@@ -88,7 +90,7 @@ export default function ProductCardSmall({
           {flashSale?.isActive && (
             <div className="mt-2">
               <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-pink-500 rounded-full transition-all duration-300"
                   style={{ width: `${flashSale.soldPercent}%` }}
                 />

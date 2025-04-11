@@ -1,13 +1,13 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  Query, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
   Logger,
   UploadedFile,
   UseInterceptors,
@@ -21,8 +21,8 @@ import { Model } from 'mongoose'; // Import Model
 import { Product, ProductDocument } from './schemas/product.schema'; // Import Product schema/document
 import { ProductsService } from './products.service';
 import {
-  CreateProductDto, 
-  UpdateProductDto, 
+  CreateProductDto,
+  UpdateProductDto,
   QueryProductDto,
   ProductResponseDto,
   PaginatedProductsResponseDto,
@@ -49,10 +49,10 @@ export class ProductsAdminController {
   @Post()
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Create a new product' })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'The product has been successfully created', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 201,
+    description: 'The product has been successfully created',
+    type: ProductResponseDto
   })
   async create(@Body() createProductDto: CreateProductDto): Promise<ProductResponseDto> {
     return this.productsService.create(createProductDto);
@@ -61,10 +61,10 @@ export class ProductsAdminController {
   @Get()
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Get all products with filtering and pagination' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Returns paginated products', 
-    type: PaginatedProductsResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated products',
+    type: PaginatedProductsResponseDto
   })
   async findAll(@Query() queryDto: QueryProductDto): Promise<PaginatedProductsResponseDto> {
     return this.productsService.findAll(queryDto);
@@ -73,10 +73,10 @@ export class ProductsAdminController {
   @Get('list')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Get products in optimized format for admin UI' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Returns paginated products optimized for admin UI', 
-    type: AdminListProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated products optimized for admin UI',
+    type: AdminListProductResponseDto
   })
   async findAllForAdmin(@Query() queryDto: QueryProductDto): Promise<AdminListProductResponseDto> {
     return this.productsService.findAllForAdmin(queryDto);
@@ -93,10 +93,10 @@ export class ProductsAdminController {
   @Get(':id')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Get a product by ID' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Returns a product', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'Returns a product',
+    type: ProductResponseDto
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
@@ -106,14 +106,14 @@ export class ProductsAdminController {
   @Patch(':id')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Update a product' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The product has been successfully updated', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The product has been successfully updated',
+    type: ProductResponseDto
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async update(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto
   ): Promise<ProductResponseDto> {
     return this.productsService.update(id, updateProductDto);
@@ -122,9 +122,9 @@ export class ProductsAdminController {
   @Delete(':id')
   @AdminRoles('superadmin')
   @ApiOperation({ summary: 'Delete a product' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The product has been successfully deleted' 
+  @ApiResponse({
+    status: 200,
+    description: 'The product has been successfully deleted'
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async remove(@Param('id') id: string) {
@@ -134,10 +134,10 @@ export class ProductsAdminController {
   @Post(':id/inventory/:branchId')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Update product inventory for a specific branch' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The inventory has been successfully updated', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The inventory has been successfully updated',
+    type: ProductResponseDto
   })
   async updateInventory(
     @Param('id') id: string,
@@ -147,13 +147,30 @@ export class ProductsAdminController {
     return this.productsService.updateInventory(id, branchId, quantity);
   }
 
+  @Post(':id/inventory/:branchId/variant/:variantId')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Update inventory for a specific variant in a specific branch' })
+  @ApiResponse({
+    status: 200,
+    description: 'The variant inventory has been successfully updated',
+    type: ProductResponseDto
+  })
+  async updateVariantInventory(
+    @Param('id') id: string,
+    @Param('branchId') branchId: string,
+    @Param('variantId') variantId: string,
+    @Body('quantity') quantity: number
+  ): Promise<ProductResponseDto> {
+    return this.productsService.updateVariantInventory(id, branchId, variantId, quantity);
+  }
+
   @Patch(':id/flags')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Update product flags' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The flags have been successfully updated', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The flags have been successfully updated',
+    type: ProductResponseDto
   })
   async updateFlags(
     @Param('id') id: string,
@@ -165,10 +182,10 @@ export class ProductsAdminController {
   @Post(':id/variants')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Add a new variant to a product' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The variant has been successfully added', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The variant has been successfully added',
+    type: ProductResponseDto
   })
   async addVariant(
     @Param('id') id: string,
@@ -180,10 +197,10 @@ export class ProductsAdminController {
   @Patch(':id/variants/:variantId')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Update a product variant' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The variant has been successfully updated', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The variant has been successfully updated',
+    type: ProductResponseDto
   })
   async updateVariant(
     @Param('id') id: string,
@@ -196,10 +213,10 @@ export class ProductsAdminController {
   @Delete(':id/variants/:variantId')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Remove a product variant' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'The variant has been successfully removed', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 200,
+    description: 'The variant has been successfully removed',
+    type: ProductResponseDto
   })
   async removeVariant(
     @Param('id') id: string,
@@ -227,14 +244,14 @@ export class ProductsAdminController {
 
       this.logger.log(`Received image upload request: ${image.originalname}, size: ${image.size}, mimetype: ${image.mimetype}`);
       this.logger.log(`File path: ${image.path}, destination: ${image.destination}`);
-      
+
       // Kiểm tra thư mục upload có tồn tại không
       const fs = require('fs');
       if (!fs.existsSync(image.path)) {
         this.logger.error(`File path does not exist: ${image.path}`);
         throw new Error(`File không tồn tại tại đường dẫn: ${image.path}`);
       }
-      
+
       // Upload image to Cloudinary
       this.logger.log(`Uploading to Cloudinary from path: ${image.path}`);
       const result = await this.cloudinaryService.uploadImageFile(image.path, {
@@ -282,10 +299,10 @@ export class ProductsAdminController {
   @Post(':id/clone')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Nhân bản sản phẩm' })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Sản phẩm đã được nhân bản thành công', 
-    type: ProductResponseDto 
+  @ApiResponse({
+    status: 201,
+    description: 'Sản phẩm đã được nhân bản thành công',
+    type: ProductResponseDto
   })
   @ApiResponse({ status: 404, description: 'Không tìm thấy sản phẩm' })
   async cloneProduct(@Param('id') id: string): Promise<ProductResponseDto> {

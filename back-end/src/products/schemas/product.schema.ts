@@ -58,6 +58,21 @@ export class ProductInventory {
   lowStockThreshold: number;
 }
 
+// Schema for variant inventory
+export class VariantInventory {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch' })
+  branchId: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  variantId: Types.ObjectId;
+
+  @Prop({ required: true, default: 0 })
+  quantity: number;
+
+  @Prop({ default: 5 })
+  lowStockThreshold: number;
+}
+
 // Schema for product description
 export class ProductDescription {
   @Prop()
@@ -247,6 +262,9 @@ export class Product {
 
   @Prop({ type: [ProductInventory], default: [] })
   inventory: ProductInventory[];
+
+  @Prop({ type: [VariantInventory], default: [] })
+  variantInventory: VariantInventory[];
 
   @Prop({ type: ProductReviews, default: {} })
   reviews: ProductReviews;
