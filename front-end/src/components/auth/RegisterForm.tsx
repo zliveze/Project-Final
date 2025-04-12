@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FaGoogle } from 'react-icons/fa';
-import { toast } from 'react-toastify';
+import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface RegisterFormProps {
@@ -33,13 +33,13 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Kiểm tra mật khẩu xác nhận
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Mật khẩu xác nhận không khớp!');
+      showErrorToast('Mật khẩu xác nhận không khớp!');
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -50,17 +50,17 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
         formData.phone,
         formData.password
       );
-      
+
       if (success) {
         setRegistered(true);
         setRegisteredEmail(formData.email);
-        toast.success('Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.');
+        showSuccessToast('Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.');
       } else {
-        toast.error('Đăng ký thất bại. Vui lòng thử lại sau.');
+        showErrorToast('Đăng ký thất bại. Vui lòng thử lại sau.');
       }
     } catch (error) {
       console.error('Lỗi đăng ký:', error);
-      toast.error('Đăng ký thất bại. Vui lòng thử lại sau.');
+      showErrorToast('Đăng ký thất bại. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
@@ -73,16 +73,16 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       // Giả lập token cho demo
       const demoToken = 'google-demo-token-' + Date.now();
       const success = await googleLogin(demoToken);
-      
+
       if (success) {
-        toast.success('Đăng nhập Google thành công!');
+        showSuccessToast('Đăng nhập Google thành công!');
         router.push('/');
       } else {
-        toast.error('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
+        showErrorToast('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
       }
     } catch (error) {
       console.error('Lỗi đăng nhập Google:', error);
-      toast.error('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
+      showErrorToast('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
@@ -91,7 +91,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
       <h2 className="text-2xl font-bold text-center text-pink-600 mb-6">Đăng ký tài khoản</h2>
-      
+
       {registered ? (
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -102,7 +102,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
           <h3 className="text-lg leading-6 font-medium text-gray-900">Đăng ký thành công!</h3>
           <div className="mt-2 px-2">
             <p className="text-sm text-gray-500">
-              Chúng tôi đã gửi một email đến <span className="font-medium">{registeredEmail}</span>. 
+              Chúng tôi đã gửi một email đến <span className="font-medium">{registeredEmail}</span>.
               Vui lòng kiểm tra hộp thư của bạn và nhấp vào liên kết xác minh để hoàn tất quá trình đăng ký.
             </p>
           </div>
@@ -268,4 +268,4 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   );
 };
 
-export default RegisterForm; 
+export default RegisterForm;

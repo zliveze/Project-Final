@@ -88,7 +88,9 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const addToWishlist = async (productId: string, variantId: string) => {
         if (!isAuthenticated) {
-            toast.error('Vui lòng đăng nhập để thêm vào danh sách yêu thích.');
+            toast.error('Vui lòng đăng nhập để thêm vào danh sách yêu thích.', {
+                position: "bottom-right"
+            });
             return;
         }
 
@@ -98,19 +100,25 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         // Validate inputs
         if (!productId) {
             console.error('Missing productId in addToWishlist');
-            toast.error('Lỗi: Thiếu thông tin sản phẩm');
+            toast.error('Lỗi: Thiếu thông tin sản phẩm', {
+                position: "bottom-right"
+            });
             return;
         }
 
         if (!variantId) {
             console.error('Missing variantId in addToWishlist');
-            toast.error('Lỗi: Thiếu thông tin biến thể sản phẩm');
+            toast.error('Lỗi: Thiếu thông tin biến thể sản phẩm', {
+                position: "bottom-right"
+            });
             return;
         }
 
         // Prevent adding if already exists locally (optimistic update)
         if (isItemInWishlist(productId, variantId)) {
-             toast.info('Sản phẩm này đã có trong danh sách yêu thích.');
+             toast.info('Sản phẩm này đã có trong danh sách yêu thích.', {
+                 position: "bottom-right"
+             });
              return;
         }
 

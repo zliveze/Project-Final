@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { toast } from 'react-toastify';
+import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ResetPasswordFormProps {
@@ -22,11 +22,11 @@ const ResetPasswordForm = ({ token, onSuccess }: ResetPasswordFormProps) => {
   // Lấy token từ query nếu không được truyền vào qua props
   useEffect(() => {
     const { token: queryToken } = router.query;
-    
+
     // Kiểm tra tính hợp lệ của token (giả lập)
     if (!token && !queryToken) {
       setTokenValid(false);
-      toast.error('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+      showErrorToast('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
     }
   }, [router.query, token]);
 
@@ -40,33 +40,33 @@ const ResetPasswordForm = ({ token, onSuccess }: ResetPasswordFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Kiểm tra mật khẩu xác nhận
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Mật khẩu xác nhận không khớp!');
+      showErrorToast('Mật khẩu xác nhận không khớp!');
       return;
     }
-    
+
     setLoading(true);
     const resetToken = token || router.query.token as string;
 
     try {
       // Gọi API đặt lại mật khẩu thông qua AuthContext
       const success = await resetPassword(resetToken, formData.password);
-      
+
       if (success) {
-        toast.success('Đặt lại mật khẩu thành công! Vui lòng đăng nhập với mật khẩu mới.');
+        showSuccessToast('Đặt lại mật khẩu thành công! Vui lòng đăng nhập với mật khẩu mới.');
         if (onSuccess) {
           onSuccess();
         } else {
           router.push('/auth/login');
         }
       } else {
-        toast.error('Đặt lại mật khẩu thất bại. Vui lòng thử lại sau.');
+        showErrorToast('Đặt lại mật khẩu thất bại. Vui lòng thử lại sau.');
       }
     } catch (error) {
       console.error('Lỗi đặt lại mật khẩu:', error);
-      toast.error('Đặt lại mật khẩu thất bại. Vui lòng thử lại sau.');
+      showErrorToast('Đặt lại mật khẩu thất bại. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ const ResetPasswordForm = ({ token, onSuccess }: ResetPasswordFormProps) => {
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
       <h2 className="text-2xl font-bold text-center text-pink-600 mb-6">Đặt lại mật khẩu</h2>
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -149,4 +149,4 @@ const ResetPasswordForm = ({ token, onSuccess }: ResetPasswordFormProps) => {
   );
 };
 
-export default ResetPasswordForm; 
+export default ResetPasswordForm;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiMapPin } from 'react-icons/fi';
-import { ToastContainer } from 'react-toastify';
-import { toast } from 'react-toastify';
+// Use standardized toast utility
+import { showSuccessToast, showErrorToast, showInfoToast } from '@/utils/toast';
 import ProductVariants, { Variant as ImportedVariant } from './ProductVariants'; // Import the Variant interface
 
 // Extend the imported Variant interface to include totalStock
@@ -785,8 +785,6 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             onSelectBranch={handleSelectBranch}
           />
         )}
-
-        <ToastContainer />
 
         {/* Button yêu thích */}
         <button

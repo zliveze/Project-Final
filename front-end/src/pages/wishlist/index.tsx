@@ -331,19 +331,7 @@ const WishlistPage: NextPage = () => {
         </div>
       </main>
 
-      {/* Toast Container */}
-      <ToastContainer
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      {/* Toast Container is now in DefaultLayout */}
     </DefaultLayout>
   );
 };

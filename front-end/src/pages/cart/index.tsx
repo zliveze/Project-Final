@@ -245,7 +245,7 @@ const CartPage: NextPage = () => {
         <meta name="description" content="Giỏ hàng của bạn tại YUMIN Beauty - Mỹ phẩm chính hãng" />
       </Head>
 
-      <ToastContainer />
+      {/* Toast Container is now in DefaultLayout */}
 
       <div className="bg-gray-50 min-h-screen py-8">
         <div className="container mx-auto px-4">

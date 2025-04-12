@@ -339,7 +339,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
         </div>
       </main>
 
-      <ToastContainer />
+      {/* Toast Container is now in DefaultLayout */}
     </DefaultLayout>
   );
 };

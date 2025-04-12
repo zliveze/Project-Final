@@ -1,8 +1,7 @@
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,15 +34,15 @@ const VerifyEmailPage: NextPage = () => {
 
         if (response.ok) {
           setVerified(true);
-          toast.success('Email của bạn đã được xác minh thành công!');
+          showSuccessToast('Email của bạn đã được xác minh thành công!');
         } else {
           setError(data.message || 'Xác minh email thất bại. Token không hợp lệ hoặc đã hết hạn.');
-          toast.error('Xác minh email thất bại. Token không hợp lệ hoặc đã hết hạn.');
+          showErrorToast('Xác minh email thất bại. Token không hợp lệ hoặc đã hết hạn.');
         }
       } catch (error) {
         console.error('Lỗi xác minh email:', error);
         setError('Đã xảy ra lỗi khi xác minh email của bạn.');
-        toast.error('Đã xảy ra lỗi khi xác minh email của bạn.');
+        showErrorToast('Đã xảy ra lỗi khi xác minh email của bạn.');
       } finally {
         setLoading(false);
       }
@@ -62,7 +61,7 @@ const VerifyEmailPage: NextPage = () => {
         <title>Xác minh Email | Shop Online</title>
         <meta name="description" content="Xác minh email tài khoản của bạn" />
       </Head>
-      
+
       <div className="py-8 sm:py-10 bg-gradient-to-b from-[#fdf2f8] to-[#f5f3ff] flex flex-col justify-center sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h1 className="text-center text-3xl font-extrabold text-pink-600 mb-1">YUMIN</h1>
@@ -89,15 +88,15 @@ const VerifyEmailPage: NextPage = () => {
                 </p>
                 <div className="mt-6">
                   {isAuthenticated ? (
-                    <Link 
-                      href="/account" 
+                    <Link
+                      href="/account"
                       className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
                     >
                       Đi đến trang tài khoản
                     </Link>
                   ) : (
-                    <Link 
-                      href="/auth/login" 
+                    <Link
+                      href="/auth/login"
                       className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
                     >
                       Đăng nhập ngay
@@ -115,8 +114,8 @@ const VerifyEmailPage: NextPage = () => {
                   {error || 'Đã xảy ra lỗi khi xác minh email của bạn. Token có thể đã hết hạn hoặc không hợp lệ.'}
                 </p>
                 <div className="mt-6">
-                  <Link 
-                    href="/auth/login" 
+                  <Link
+                    href="/auth/login"
                     className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
                   >
                     Quay lại trang đăng nhập
@@ -127,10 +126,8 @@ const VerifyEmailPage: NextPage = () => {
           </div>
         </div>
       </div>
-      
-      <ToastContainer position="top-right" autoClose={3000} />
     </DefaultLayout>
   );
 };
 
-export default VerifyEmailPage; 
+export default VerifyEmailPage;

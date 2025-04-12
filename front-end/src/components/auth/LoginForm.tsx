@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FaGoogle } from 'react-icons/fa';
-import { toast } from 'react-toastify';
+import { showSuccessToast, showErrorToast, showInfoToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Lấy API_URL từ biến môi trường cho mục đích debug
@@ -27,16 +27,16 @@ const LoginForm = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        toast.success('Đăng nhập thành công!');
+        showSuccessToast('Đăng nhập thành công!');
         router.push('/');
       } else if (result.needVerification) {
         setNeedVerification(true);
-        toast.error('Vui lòng xác minh email của bạn trước khi đăng nhập');
+        showErrorToast('Vui lòng xác minh email của bạn trước khi đăng nhập');
       } else {
-        toast.error('Email hoặc mật khẩu không chính xác');
+        showErrorToast('Email hoặc mật khẩu không chính xác');
       }
     } catch (error) {
-      toast.error('Đã xảy ra lỗi khi đăng nhập');
+      showErrorToast('Đã xảy ra lỗi khi đăng nhập');
     } finally {
       setLoading(false);
     }
@@ -51,14 +51,14 @@ const LoginForm = () => {
       const googleAuthUrl = `${API_URL}/auth/google/login?redirect_uri=${encodeURIComponent(frontendCallbackUrl)}`;
 
       console.log('Chuyển hướng đến:', googleAuthUrl);
-      toast.info('Đang chuyển hướng đến trang đăng nhập Google...');
+      showInfoToast('Đang chuyển hướng đến trang đăng nhập Google...');
 
       // Chuyển hướng đến Google OAuth (sẽ được xử lý bởi Passport ở backend)
       window.location.href = googleAuthUrl;
 
     } catch (error) {
       console.error('Lỗi khi bắt đầu đăng nhập Google:', error);
-      toast.error('Không thể bắt đầu quá trình đăng nhập Google.');
+      showErrorToast('Không thể bắt đầu quá trình đăng nhập Google.');
     }
   };
 
@@ -71,12 +71,12 @@ const LoginForm = () => {
 
       if (success) {
         setResendSuccess(true);
-        toast.success('Email xác minh đã được gửi lại! Vui lòng kiểm tra hộp thư của bạn.');
+        showSuccessToast('Email xác minh đã được gửi lại! Vui lòng kiểm tra hộp thư của bạn.');
       } else {
-        toast.error('Không thể gửi lại email xác minh. Vui lòng thử lại sau.');
+        showErrorToast('Không thể gửi lại email xác minh. Vui lòng thử lại sau.');
       }
     } catch (error) {
-      toast.error('Đã xảy ra lỗi khi gửi lại email xác minh');
+      showErrorToast('Đã xảy ra lỗi khi gửi lại email xác minh');
     } finally {
       setResendLoading(false);
     }

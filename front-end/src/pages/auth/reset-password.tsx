@@ -1,8 +1,6 @@
 import { NextPage, GetServerSideProps } from 'next';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
@@ -51,7 +49,7 @@ const ResetPasswordPage: NextPage<ResetPasswordPageProps> = ({ token }) => {
         <title>Đặt lại mật khẩu | Shop Online</title>
         <meta name="description" content="Đặt lại mật khẩu tài khoản của bạn" />
       </Head>
-      
+
       <div className="py-8 sm:py-10 bg-gradient-to-b from-[#fdf2f8] to-[#f5f3ff] flex flex-col justify-center sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h1 className="text-center text-3xl font-extrabold text-pink-600 mb-1">YUMIN</h1>
@@ -62,22 +60,20 @@ const ResetPasswordPage: NextPage<ResetPasswordPageProps> = ({ token }) => {
         </div>
 
         <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-          {isClient ? <ResetPasswordForm token={token} /> : 
+          {isClient ? <ResetPasswordForm token={token} /> :
             <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8 flex justify-center items-center h-96">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
             </div>
           }
         </div>
       </div>
-      
-      <ToastContainer position="top-right" autoClose={3000} />
     </DefaultLayout>
   );
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { token } = context.query;
-  
+
   if (!token) {
     return {
       redirect: {
@@ -86,7 +82,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       },
     };
   }
-  
+
   return {
     props: {
       token: token as string,
@@ -94,4 +90,4 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   };
 };
 
-export default ResetPasswordPage; 
+export default ResetPasswordPage;

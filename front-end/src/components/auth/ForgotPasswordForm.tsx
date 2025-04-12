@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { toast } from 'react-toastify';
+import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ForgotPasswordFormProps {
@@ -27,19 +27,19 @@ const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
       console.log("Bắt đầu gọi API forgotPassword");
       const success = await forgotPassword(email);
       console.log("Kết quả gọi API forgotPassword:", success);
-      
+
       if (success) {
-        toast.success('Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn!');
+        showSuccessToast('Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn!');
         setSubmitted(true);
         if (onSuccess) {
           onSuccess();
         }
       } else {
-        toast.error('Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
+        showErrorToast('Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
       }
     } catch (error) {
       console.error('Lỗi gửi email đặt lại mật khẩu:', error);
-      toast.error('Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
+      showErrorToast('Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
@@ -48,13 +48,13 @@ const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
       <h2 className="text-2xl font-bold text-center text-pink-600 mb-6">Quên mật khẩu</h2>
-      
+
       {!submitted ? (
         <>
           <p className="text-gray-600 text-center mb-6">
             Nhập địa chỉ email của bạn và chúng tôi sẽ gửi cho bạn hướng dẫn để đặt lại mật khẩu.
           </p>
-          
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -89,11 +89,11 @@ const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
             <p>Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến email của bạn.</p>
             <p className="mt-2">Vui lòng kiểm tra hộp thư đến và làm theo hướng dẫn.</p>
           </div>
-          
+
           <p className="text-gray-600 mt-4">
             Không nhận được email? Kiểm tra thư mục spam hoặc{' '}
-            <button 
-              onClick={() => setSubmitted(false)} 
+            <button
+              onClick={() => setSubmitted(false)}
               className="text-pink-600 hover:text-pink-500 font-medium"
             >
               thử lại
@@ -111,4 +111,4 @@ const ForgotPasswordForm = ({ onSuccess }: ForgotPasswordFormProps) => {
   );
 };
 
-export default ForgotPasswordForm; 
+export default ForgotPasswordForm;

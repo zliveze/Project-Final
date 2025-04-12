@@ -8,6 +8,7 @@ import { HeaderProvider } from '@/contexts/HeaderContext'
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { toast } from '@/utils/toast'
 
 interface DefaultLayoutProps {
   children: React.ReactNode;
@@ -17,63 +18,63 @@ interface DefaultLayoutProps {
 export default function DefaultLayout({ children, breadcrumItems }: DefaultLayoutProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  
+
   // Xử lý hydration mismatch bằng cách chỉ render sau khi component đã được mount
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   // Tạo breadcrumb items mặc định dựa trên đường dẫn hiện tại nếu không có items được truyền vào
   const getBreadcrumItems = (): BreadcrumItem[] => {
     if (breadcrumItems) return breadcrumItems;
-    
+
     const pathSegments = router.asPath.split('/').filter(segment => segment);
     const defaultItems: BreadcrumItem[] = [
       { label: 'Trang chủ', href: '/' }
     ];
-    
+
     // Xử lý các trường hợp đặc biệt
     if (pathSegments[0] === 'product') {
       // Nếu là trang chi tiết sản phẩm
       defaultItems.push({ label: 'Sản phẩm', href: '/shop' });
-      
+
       if (pathSegments.length > 1) {
         // Lấy tên sản phẩm từ slug
         const productName = pathSegments[1]
           .split('-')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
-        
+
         defaultItems.push({ label: productName });
       }
-      
+
       return defaultItems;
     }
-    
+
     // Nếu là trang danh mục (category)
     if (pathSegments[0] === 'category') {
       defaultItems.push({ label: 'Danh mục', href: '/categories' });
-      
+
       if (pathSegments.length > 1) {
         const categoryName = pathSegments[1]
           .split('-')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
-        
+
         defaultItems.push({ label: categoryName });
       }
-      
+
       return defaultItems;
     }
-    
+
     // Trường hợp mặc định cho các trang khác
     pathSegments.forEach((segment, index) => {
       // Xử lý các tham số query
       const cleanSegment = segment.split('?')[0];
-      
+
       // Chuyển đổi tên segment theo quy tắc riêng
       let label = '';
-      
+
       switch (cleanSegment) {
         case 'shop':
           label = 'Sản phẩm';
@@ -106,22 +107,22 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
       }
-      
+
       // Tạo href cho breadcrumb item
       let href: string | undefined;
-      
+
       // Nếu segment là "auth", không tạo href để người dùng không thể nhấp vào
       if (cleanSegment === 'auth') {
         href = undefined;
       } else {
-        href = index === pathSegments.length - 1 
-          ? undefined 
+        href = index === pathSegments.length - 1
+          ? undefined
           : `/${pathSegments.slice(0, index + 1).join('/')}`;
       }
-      
+
       defaultItems.push({ label, href });
     });
-    
+
     return defaultItems;
   };
 
@@ -142,7 +143,7 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
         </main>
         <Footer />
         <ToastContainer
-          position="top-right"
+          position="bottom-right"
           autoClose={3000}
           hideProgressBar={false}
           newestOnTop
@@ -151,6 +152,12 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
           pauseOnFocusLoss
           draggable
           pauseOnHover
+          style={{ zIndex: 9999 }}
+          toastStyle={{
+            marginBottom: '60px',
+            marginRight: '10px'
+          }}
+          theme="light"
         />
       </div>
     </HeaderProvider>
