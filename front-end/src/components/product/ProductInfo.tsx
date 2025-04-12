@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiMapPin } from 'react-icons/fi';
 // Use standardized toast utility
-import { showSuccessToast, showErrorToast, showInfoToast } from '@/utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '@/utils/toast';
 import ProductVariants, { Variant as ImportedVariant } from './ProductVariants'; // Import the Variant interface
 
 // Extend the imported Variant interface to include totalStock
@@ -298,17 +298,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // If variant is selected but out of stock (considering cart quantity)
     if (selectedVariant && maxQuantity === 0) {
       if (cartQuantity > 0) {
-        toast.warn(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Không thể thêm nữa.`, {
-          position: "bottom-right",
-          autoClose: 2000,
-          hideProgressBar: true
-        });
+        showWarningToast(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Không thể thêm nữa.`);
       } else {
-        toast.warn(`Phiên bản này hiện đang hết hàng`, {
-          position: "bottom-right",
-          autoClose: 2000,
-          hideProgressBar: true
-        });
+        showWarningToast(`Phiên bản này hiện đang hết hàng`);
       }
       return;
     }
@@ -375,11 +367,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         // Only adjust quantity if current selection exceeds available quantity
         if (quantity > availableBranchQuantity) {
           setQuantity(availableBranchQuantity);
-          toast.info(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchName(branchId)}`, {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true
-          });
+          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchName(branchId)}`);
         }
         // Otherwise, keep the user's selected quantity
       }
@@ -390,12 +378,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   const handleAddToCart = async () => {
     // Check if product or selected variant is out of stock
     if (!inStock) {
-       toast.error('Sản phẩm hiện đang hết hàng', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light",
-        style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
-      });
+       showErrorToast('Sản phẩm hiện đang hết hàng');
        return;
     }
 
@@ -406,19 +389,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         'chi nhánh này';
 
       if (cartQuantity > 0) {
-        toast.error(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Không thể thêm nữa từ ${selectedBranchName}.`, {
-          position: "bottom-right",
-          autoClose: 3000,
-          theme: "light",
-          style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
-        });
+        showErrorToast(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Không thể thêm nữa từ ${selectedBranchName}.`);
       } else {
-        toast.error(`Phiên bản này hiện đang hết hàng từ ${selectedBranchName}`, {
-          position: "bottom-right",
-          autoClose: 3000,
-          theme: "light",
-          style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
-        });
+        showErrorToast(`Phiên bản này hiện đang hết hàng từ ${selectedBranchName}`);
       }
       return;
     }
@@ -429,12 +402,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         (selectedVariant.inventory?.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)) :
         'chi nhánh này';
 
-      toast.error(`Chỉ còn có thể thêm ${maxQuantity} sản phẩm nữa vào giỏ hàng từ ${selectedBranchName}.`, {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light",
-        style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
-      });
+      showErrorToast(`Chỉ còn có thể thêm ${maxQuantity} sản phẩm nữa vào giỏ hàng từ ${selectedBranchName}.`);
       return;
     }
 
@@ -448,7 +416,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     // Kiểm tra đăng nhập bằng isAuthenticated từ context, chỉ khi không còn loading
     if (!isAuthLoading && !isAuthenticated) {
-        toast.info('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+        showInfoToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
         // Optional: Redirect to login page
         // router.push('/auth/login');
         return;
@@ -456,11 +424,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     // Ensure a variant is selected if variants exist
     if (variants && variants.length > 0 && !selectedVariant) {
-        toast.warn('Vui lòng chọn một phiên bản sản phẩm (màu sắc, kích thước,...)', {
-            position: "bottom-right",
-            autoClose: 3000,
-            theme: "light",
-        });
+        showWarningToast('Vui lòng chọn một phiên bản sản phẩm (màu sắc, kích thước,...)');
         return;
     }
 
@@ -470,7 +434,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // Double-check variantId requirement if variants exist
     if (variants && variants.length > 0 && !variantIdToAdd) {
         console.error("Lỗi logic: Có variants nhưng không có selectedVariant.variantId");
-        toast.error('Đã xảy ra lỗi, không thể xác định phiên bản sản phẩm.');
+        showErrorToast('Đã xảy ra lỗi, không thể xác định phiên bản sản phẩm.');
         return;
     }
 
@@ -510,7 +474,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         } else {
              // This case should ideally not be reached due to the check above, but added for safety
              console.error("Lỗi logic: Không thể thêm vào giỏ hàng vì thiếu variantId dù có variants.");
-             toast.error('Vui lòng chọn lại phiên bản sản phẩm.');
+             showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
              return; // Exit if variantId is missing when required
         }
     } else {
@@ -540,17 +504,13 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   const handleToggleWishlist = async () => {
     // Check login status
     if (!isAuthLoading && !isAuthenticated) {
-      toast.info('Vui lòng đăng nhập để quản lý danh sách yêu thích.');
+      showInfoToast('Vui lòng đăng nhập để quản lý danh sách yêu thích.');
       return;
     }
 
     // Check if a variant needs to be selected
     if (variants && variants.length > 0 && !selectedVariant) {
-      toast.warn('Vui lòng chọn một phiên bản sản phẩm để thêm/xóa khỏi yêu thích.', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light",
-      });
+      showWarningToast('Vui lòng chọn một phiên bản sản phẩm để thêm/xóa khỏi yêu thích.');
       return;
     }
 
@@ -561,7 +521,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // Check if variantId is required but missing
     if (variants && variants.length > 0 && !variantId) {
         console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
-        toast.error('Vui lòng chọn lại phiên bản sản phẩm.');
+        showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
         return;
     }
 
@@ -589,7 +549,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       navigator.share({ title: name, text: description.short, url: window.location.href });
     } else {
       navigator.clipboard.writeText(window.location.href);
-      toast.success('Đã sao chép đường dẫn sản phẩm', { /* ...styles */ });
+      showSuccessToast('Đã sao chép đường dẫn sản phẩm');
     }
   };
 

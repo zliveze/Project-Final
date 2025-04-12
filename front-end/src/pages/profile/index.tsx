@@ -2,8 +2,7 @@ import React, { useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+// Toast container is now in DefaultLayout
 
 import { useAuth } from '../../contexts/AuthContext'; // Import useAuth
 import { ProfileProvider, useProfile } from '../../contexts/user/ProfileContext';
@@ -137,17 +136,7 @@ const ProfilePage: NextPage = () => {
 
         <ProfileMain />
 
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
+
       </DefaultLayout>
     </ProfileProvider>
   );

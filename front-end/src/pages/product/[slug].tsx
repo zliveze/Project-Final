@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { FiArrowLeft } from 'react-icons/fi';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+// Toast container is now in DefaultLayout
 import { formatImageUrl } from '@/utils/imageUtils';
 
 // Components
