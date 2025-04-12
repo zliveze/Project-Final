@@ -19,13 +19,13 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
         <div className="hidden lg:flex items-center justify-between h-10">
           {/* Left side menu */}
           <div className="flex items-center space-x-8">
-            <div 
-              ref={menuRef} 
+            <div
+              ref={menuRef}
               className="relative"
               onMouseEnter={() => setShowCategories(true)}
               onMouseLeave={() => setShowCategories(false)}
             >
-              <button 
+              <button
                 className="flex items-center text-sm font-medium hover:text-pink-600 h-10"
                 aria-expanded={showCategories}
                 aria-haspopup="true"
@@ -33,24 +33,24 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
                 <FiMenu className="w-4 h-4 mr-2" />
                 DANH MỤC
               </button>
-              
+
               {showCategories && (
                 <div className="absolute top-10 left-0 min-w-[800px] z-50">
                   <CategoryMegaMenu categories={categories} />
                 </div>
               )}
             </div>
-            <Link href="/shop" replace={true} className="h-10 flex items-center text-sm hover:text-pink-600">
+            <Link href="/shop" className="h-10 flex items-center text-sm hover:text-pink-600">
               CỬA HÀNG
             </Link>
             <Link href="/thuong-hieu" className="h-10 flex items-center text-sm hover:text-pink-600">
               THƯƠNG HIỆU
             </Link>
-            
+
             <Link href="/hang-moi-ve" className="h-10 flex items-center text-sm hover:text-pink-600">
               HÀNG MỚI VỀ
             </Link>
-            
+
             <Link href="/ban-chay" className="h-10 flex items-center text-sm hover:text-pink-600">
               BÁN CHẠY
             </Link>
@@ -69,4 +69,4 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
       </div>
     </div>
   );
-} 
+}

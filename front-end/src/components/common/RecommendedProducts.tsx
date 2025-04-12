@@ -101,7 +101,6 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({ products }) =
         <h2 className="text-2xl font-bold text-gray-800">Có thể bạn cũng thích</h2>
         <Link
           href="/shop"
-          replace={true}
           className="flex items-center text-pink-600 hover:underline text-sm font-medium group transition-all duration-200"
         >
           <span>Xem thêm</span>

@@ -8,6 +8,7 @@ import { AdminUserProvider } from '@/contexts/AdminUserContext'
 import { useRouter } from 'next/router'
 import { NextPage } from 'next';
 import { ReactElement, ReactNode } from 'react';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 // Định nghĩa các type mới để hỗ trợ getLayout
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -27,7 +28,7 @@ const AdminWrapper = ({ children }: { children: React.ReactNode }) => {
   if (isAdminPage && !isAdminLoginPage) {
     return <AdminUserProvider>{children}</AdminUserProvider>;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -36,15 +37,16 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
   if (pageProps.error) {
     return <Error statusCode={pageProps.error.statusCode} title={pageProps.error.message} />;
   }
-  
+
   // Sử dụng getLayout nếu trang có định nghĩa nó, nếu không thì sử dụng layout mặc định
   const getLayout = Component.getLayout ?? ((page) => page);
-  
+
   return (
     <AppProviders>
       <AdminAuthProvider>
         <AdminWrapper>
           {getLayout(<Component {...pageProps} />)}
+          <LoadingOverlay />
         </AdminWrapper>
       </AdminAuthProvider>
       <Toaster position="top-right" />

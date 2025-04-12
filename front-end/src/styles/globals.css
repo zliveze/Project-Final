@@ -75,3 +75,35 @@ body {
 .duration-300 {
   transition-duration: 300ms;
 }
+
+/* Global page transition effect */
+#__next {
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.page-transitioning #__next {
+  opacity: 0.5;
+}
+
+/* Loading overlay */
+.global-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.global-loading-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}

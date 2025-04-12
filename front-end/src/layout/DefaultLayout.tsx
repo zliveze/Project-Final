@@ -8,7 +8,6 @@ import { HeaderProvider } from '@/contexts/HeaderContext'
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
-import { toast } from '@/utils/toast'
 
 interface DefaultLayoutProps {
   children: React.ReactNode;

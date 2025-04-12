@@ -45,7 +45,7 @@ const ShopBanner = () => {
   const [currentPromotions, setCurrentPromotions] = useState<DisplayPromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  
+
   // Thêm API URL
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -58,25 +58,25 @@ const ShopBanner = () => {
           setLoading(false);
           return;
         }
-        
+
         setLoading(true);
-        
+
         let displayEvents: DisplayPromotion[] = [];
-        
+
         // Kiểm tra xem fetchActiveEvents có tồn tại không
         if (eventsContext && typeof eventsContext.fetchActiveEvents === 'function') {
           try {
             // Lấy tất cả events đang active
             const activeEvents = await eventsContext.fetchActiveEvents();
             console.log('Đã tải', activeEvents.length, 'sự kiện đang hoạt động');
-            
+
             // Tạo DisplayPromotion từ tất cả Events đang active, không cần lọc
             displayEvents = activeEvents.map(event => ({
               id: event._id,
               title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
               name: event.title, // Lưu tên đầy đủ
-              description: event.products.length > 0 
-                ? `Cho ${event.products.length} sản phẩm` 
+              description: event.products.length > 0
+                ? `Cho ${event.products.length} sản phẩm`
                 : event.description || 'Sự kiện đặc biệt',
               code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
               icon: getIconForEvent(event),
@@ -88,33 +88,33 @@ const ShopBanner = () => {
         } else {
           console.warn('fetchActiveEvents không khả dụng');
         }
-        
+
         // Lấy campaigns đang active từ API riêng
         try {
           const response = await axios.get(`${API_URL}/campaigns/active`);
           const activeCampaigns: ApiCampaign[] = response.data;
           console.log('Đã tải', activeCampaigns.length, 'chiến dịch đang hoạt động');
-          
+
           // Tạo DisplayPromotion từ Campaigns
           const displayCampaigns: DisplayPromotion[] = activeCampaigns.map(campaign => ({
             id: campaign._id,
             title: campaign.title.length > 20 ? campaign.title.substring(0, 20) + '...' : campaign.title,
             name: campaign.title, // Lưu tên đầy đủ
-            description: campaign.products.length > 0 
-              ? `Cho ${campaign.products.length} sản phẩm` 
+            description: campaign.products.length > 0
+              ? `Cho ${campaign.products.length} sản phẩm`
               : campaign.description || 'Khuyến mãi đặc biệt',
             icon: 'percent',
             type: 'campaign'
           }));
-          
+
           // Kết hợp events và campaigns
           const allPromotions = [...displayEvents, ...displayCampaigns];
-          
+
           if (allPromotions.length > 0) {
             // Giới hạn hiển thị tối đa 3 promotions
             const promotionsToDisplay = allPromotions.slice(0, 3);
             setCurrentPromotions(promotionsToDisplay);
-            
+
             // Cập nhật cache
             promotionsCache = promotionsToDisplay;
             lastCacheTimestamp = Date.now();
@@ -125,21 +125,21 @@ const ShopBanner = () => {
               { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
               { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
             ];
-            
+
             setCurrentPromotions(fallbackPromotions);
-            
+
             // Cập nhật cache với fallback promotions
             promotionsCache = fallbackPromotions;
             lastCacheTimestamp = Date.now();
           }
         } catch (campaignError) {
           console.error('Lỗi khi tải chiến dịch:', campaignError);
-          
+
           // Vẫn hiển thị events nếu có
           if (displayEvents.length > 0) {
             const promotionsToDisplay = displayEvents.slice(0, 3);
             setCurrentPromotions(promotionsToDisplay);
-            
+
             // Cập nhật cache
             promotionsCache = promotionsToDisplay;
             lastCacheTimestamp = Date.now();
@@ -150,9 +150,9 @@ const ShopBanner = () => {
               { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
               { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
             ];
-            
+
             setCurrentPromotions(fallbackPromotions);
-            
+
             // Cập nhật cache với fallback promotions
             promotionsCache = fallbackPromotions;
             lastCacheTimestamp = Date.now();
@@ -166,9 +166,9 @@ const ShopBanner = () => {
           { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
           { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
         ];
-        
+
         setCurrentPromotions(fallbackPromotions);
-        
+
         // Cập nhật cache với fallback promotions
         promotionsCache = fallbackPromotions;
         lastCacheTimestamp = Date.now();
@@ -176,14 +176,14 @@ const ShopBanner = () => {
         setLoading(false);
       }
     };
-    
+
     loadPromotions();
   }, [eventsContext]);
 
   // Hàm hỗ trợ để xác định icon dựa trên event
   const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' | 'percent' => {
     const title = event.title.toLowerCase();
-    
+
     if (title.includes('gift') || title.includes('quà') || title.includes('tặng')) {
       return 'gift';
     } else if (title.includes('ship') || title.includes('vận chuyển') || title.includes('giao hàng')) {
@@ -192,7 +192,7 @@ const ShopBanner = () => {
       return 'tag'; // Default
     }
   };
-  
+
   // Xử lý khi click vào promotion
   const handlePromotionClick = (promotion: DisplayPromotion) => {
     if (promotion.type === 'event') {
@@ -200,13 +200,11 @@ const ShopBanner = () => {
       const eventName = promotion.name || promotion.title;
       const url = new URL('/shop', window.location.origin);
       url.searchParams.append('eventName', eventName);
-      
+
       if (promotion.id && promotion.id !== 'undefined') {
         url.searchParams.append('eventId', promotion.id);
       }
-      
-      // Thêm timestamp để đảm bảo router sẽ coi đây là một điều hướng mới
-      url.searchParams.append('refresh', Date.now().toString());
+
       console.log(`Chuyển hướng đến: ${url.toString()}`);
       router.push(url.toString());
     } else if (promotion.type === 'campaign') {
@@ -214,15 +212,13 @@ const ShopBanner = () => {
       const campaignName = promotion.name || promotion.title;
       const url = new URL('/shop', window.location.origin);
       url.searchParams.append('campaignName', campaignName);
-      
+
       // Thêm campaignId vào URL nếu có
       if (promotion.id && promotion.id !== 'undefined') {
         url.searchParams.append('campaignId', promotion.id);
         console.log(`Đang thêm campaignId ${promotion.id} vào URL`);
       }
-      
-      // Thêm timestamp để đảm bảo router sẽ coi đây là một điều hướng mới
-      url.searchParams.append('refresh', Date.now().toString());
+
       console.log(`Chuyển hướng đến campaign: ${url.toString()}`);
       router.push(url.toString());
     }
@@ -236,7 +232,7 @@ const ShopBanner = () => {
           <span className="w-1 h-5 bg-[#d53f8c] rounded mr-2"></span>
           Sự kiện đang diễn ra
         </h2>
-        
+
         {/* Danh sách sự kiện và chiến dịch */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loading ? (
@@ -255,8 +251,8 @@ const ShopBanner = () => {
             ))
           ) : (
             currentPromotions.map(promotion => (
-              <div 
-                key={`${promotion.type}-${promotion.id}`} 
+              <div
+                key={`${promotion.type}-${promotion.id}`}
                 className="bg-white rounded-lg shadow-sm p-4 flex items-center relative group"
               >
                 <div className="w-12 h-12 rounded-full bg-[#fdf2f8] flex items-center justify-center mr-4">
@@ -276,7 +272,7 @@ const ShopBanner = () => {
                     </span>
                   </div>
                 )}
-                <div 
+                <div
                   onClick={() => handlePromotionClick(promotion)}
                   className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-lg cursor-pointer"
                 >
@@ -293,4 +289,4 @@ const ShopBanner = () => {
   );
 };
 
-export default ShopBanner; 
+export default ShopBanner;
