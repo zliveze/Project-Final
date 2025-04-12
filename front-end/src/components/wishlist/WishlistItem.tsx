@@ -5,6 +5,7 @@ import { FiTrash2, FiShoppingCart, FiEye } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { formatImageUrl } from '@/utils/imageUtils';
 import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
+import { VariantOptions } from '@/contexts/user/wishlist/WishlistContext'; // Import VariantOptions interface
 
 // Updated props to receive productId and variantId
 interface WishlistItemProps {
@@ -25,7 +26,7 @@ interface WishlistItemProps {
   } | null; // Allow brand to be null
   inStock: boolean;
   onRemove: (productId: string, variantId: string) => void; // Updated onRemove signature
-  variantOptions?: any; // Optional variant options
+  variantOptions?: VariantOptions; // Optional variant options
 }
 
 const WishlistItem: React.FC<WishlistItemProps> = ({
@@ -113,20 +114,76 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
         <Link href={`/product/${slug}`} className="block group-hover:text-pink-600 transition-colors mt-0.5">
           <h3 className="text-sm sm:text-base font-medium text-gray-800 line-clamp-2">{displayName}</h3>
         </Link>
-         {/* Display Variant Options if available */}
+         {/* Display selected variant attributes */}
          {variantOptions && (
-            <div className="text-xs text-gray-500 mt-1 line-clamp-1">
-                {Object.entries(variantOptions)
-                    .map(([key, value]) => {
-                        if (key === 'color') {
-                             const colorMatch = (value as string).match(/^(.*?)(?:\s*"(#[0-9a-fA-F]{6})")?$/);
-                             return colorMatch ? colorMatch[1].trim() : value;
-                        }
-                        // Ensure value is treated as an array before joining
-                        return Array.isArray(value) ? value.join(', ') : value;
-                    })
-                    .filter(Boolean) // Remove empty values
-                    .join(' / ')}
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {/* Display all selected attributes as pills */}
+                {Object.entries(variantOptions).map(([key, value]) => {
+                    // Skip empty values
+                    if (!value || (Array.isArray(value) && value.length === 0)) return null;
+
+                    // Handle color specially to extract the color name without hex code
+                    if (key === 'color') {
+                        const colorMatch = (value as string).match(/^(.*?)(?:\s*"(#[0-9a-fA-F]{6})")?$/);
+                        const colorName = colorMatch ? colorMatch[1].trim() : value as string;
+                        const colorHex = colorMatch && colorMatch[2] ? colorMatch[2] : null;
+
+                        return (
+                            <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                {colorHex && (
+                                    <span
+                                        className="inline-block w-3 h-3 rounded-full mr-1 border border-gray-200"
+                                        style={{ backgroundColor: colorHex }}
+                                    ></span>
+                                )}
+                                {colorName}
+                            </div>
+                        );
+                    }
+
+                    // For sizes, display the selected size
+                    if (key === 'sizes' && Array.isArray(value) && value.length > 0) {
+                        return (
+                            <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                {value[0]} {/* Display first size */}
+                            </div>
+                        );
+                    }
+
+                    // For shades, display the selected shade
+                    if (key === 'shades' && Array.isArray(value) && value.length > 0) {
+                        return (
+                            <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                {value[0]} {/* Display first shade */}
+                            </div>
+                        );
+                    }
+
+                    // For shape
+                    if (key === 'shape' && value) {
+                        return (
+                            <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                Hình: {String(value)}
+                            </div>
+                        );
+                    }
+
+                    // For material
+                    if (key === 'material' && value) {
+                        return (
+                            <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                Chất liệu: {String(value)}
+                            </div>
+                        );
+                    }
+
+                    // For other attributes
+                    return (
+                        <div key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                            {Array.isArray(value) ? value[0] : String(value)}
+                        </div>
+                    );
+                })}
             </div>
         )}
 

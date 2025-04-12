@@ -287,7 +287,7 @@ const WishlistPage: NextPage = () => {
                     {wishlistItems.map((item: ContextWishlistItem) => ( // Use imported type
                       <WishlistItem
                         key={`${item.productId}-${item.variantId}`} // Use combined key
-                        _id={item.productId} // Pass productId as _id (assuming WishlistItem expects _id)
+                        productId={item.productId} // Pass productId correctly
                         variantId={item.variantId} // Pass variantId
                         name={item.name}
                         slug={item.slug}
@@ -296,6 +296,7 @@ const WishlistPage: NextPage = () => {
                         image={{ url: item.image, alt: item.name }} // Adapt image prop
                         brand={item.brand || { name: 'N/A', slug: '#' }} // Handle null brand
                         inStock={item.inStock}
+                        variantOptions={item.variantOptions} // Pass variant options
                         onRemove={() => handleRemoveItem(item.productId, item.variantId)} // Pass both IDs
                       />
                     ))}

@@ -3,6 +3,16 @@ import { toast } from 'react-toastify';
 import { UserApiService } from '../UserApiService'; // Assuming correct path
 import { useAuth } from '../../AuthContext'; // Assuming correct path
 
+// Define the structure of variant options
+export interface VariantOptions {
+    color?: string;        // Color with optional hex code: "Red \"#FF0000\""
+    sizes?: string[];      // Selected size(s)
+    shades?: string[];     // Selected shade(s)
+    shape?: string;        // Selected shape
+    material?: string;     // Selected material
+    [key: string]: any;    // Allow for other custom properties
+}
+
 // Define the structure of a wishlist item (matching backend response)
 export interface WishlistItem {
     productId: string; // Assuming backend returns string IDs after population
@@ -18,7 +28,7 @@ export interface WishlistItem {
         logo?: string; // Optional logo URL
     } | null;
     inStock: boolean;
-    variantOptions?: any; // Optional: Color, Size, etc.
+    variantOptions?: VariantOptions; // Optional: Color, Size, etc.
 }
 
 interface WishlistContextProps {
