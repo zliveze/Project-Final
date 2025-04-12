@@ -28,6 +28,9 @@ export interface User {
   phone: string;
   addresses: Address[];
   role: string;
+  customerLevel?: string; // Thêm cấp độ khách hàng
+  totalOrders?: number; // Tổng số đơn hàng
+  monthlyOrders?: number; // Số đơn hàng trong tháng
   wishlist?: Array<{ productId: string; variantId: string | null }>;
   createdAt: string;
   updatedAt?: string;

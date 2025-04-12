@@ -8,27 +8,28 @@ export const mockUser: User = {
   phone: '0987654321',
   addresses: [
     {
-      addressId: '1',
+      _id: '1',
       addressLine: '123 Đường Lê Lợi',
       city: 'TP. Hồ Chí Minh',
-      district: 'Quận 1',
-      ward: 'Phường Bến Nghé',
+      state: 'Quận 1',
       country: 'Việt Nam',
       postalCode: '70000',
       isDefault: true,
     },
     {
-      addressId: '2',
+      _id: '2',
       addressLine: '456 Đường Nguyễn Huệ',
       city: 'TP. Hồ Chí Minh',
-      district: 'Quận 3',
-      ward: 'Phường Bến Thành',
+      state: 'Quận 3',
       country: 'Việt Nam',
       postalCode: '70000',
       isDefault: false,
     },
   ],
   role: 'user',
+  customerLevel: 'Khách hàng vàng',
+  totalOrders: 12,
+  monthlyOrders: 5,
   wishlist: [
     { productId: '1', variantId: 'v1' },
     { productId: '2', variantId: null },
@@ -41,31 +42,53 @@ export const mockUser: User = {
 // Mock data cho wishlist items
 export const mockWishlistItems: WishlistItem[] = [
   {
-    _id: '1',
-    name: 'Kem dưỡng ẩm Neutrogena',
-    price: 250000,
-    discountPrice: 200000,
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+    productId: '1',
     variantId: 'v1',
-    options: {
+    name: 'Kem dưỡng ẩm Neutrogena',
+    slug: 'kem-duong-am-neutrogena',
+    price: 250000,
+    currentPrice: 200000,
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+    brand: {
+      name: 'Neutrogena',
+      slug: 'neutrogena',
+      logo: 'https://example.com/brands/neutrogena.png'
+    },
+    inStock: true,
+    variantOptions: {
       size: 'Full size',
     }
   },
   {
-    _id: '2',
+    productId: '2',
+    variantId: 'v2',
     name: 'Serum Vitamin C The Ordinary',
+    slug: 'serum-vitamin-c-the-ordinary',
     price: 450000,
+    currentPrice: 450000,
     image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-    variantId: null,
+    brand: {
+      name: 'The Ordinary',
+      slug: 'the-ordinary',
+      logo: 'https://example.com/brands/the-ordinary.png'
+    },
+    inStock: true,
   },
   {
-    _id: '3',
+    productId: '3',
+    variantId: 'v3',
     name: 'Son môi Dior Rouge',
+    slug: 'son-moi-dior-rouge',
     price: 850000,
-    discountPrice: 680000,
+    currentPrice: 680000,
     image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-    variantId: 'v2',
-    options: {
+    brand: {
+      name: 'Dior',
+      slug: 'dior',
+      logo: 'https://example.com/brands/dior.png'
+    },
+    inStock: true,
+    variantOptions: {
       shade: 'Ruby Red',
     }
   },
@@ -261,4 +284,4 @@ export const mockReviews: Review[] = [
     createdAt: '2023-05-25T15:30:00.000Z',
     isVerifiedPurchase: true,
   }
-]; 
+];

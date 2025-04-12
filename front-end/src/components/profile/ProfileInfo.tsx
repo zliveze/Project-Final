@@ -25,7 +25,7 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Giả lập cập nhật thông tin
     setTimeout(() => {
       if (onUpdate) {
@@ -49,15 +49,15 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
     if (!dateString) {
       return 'Không xác định';
     }
-    
+
     const date = new Date(dateString);
-    
+
     // Kiểm tra xem đối tượng Date có hợp lệ không
     if (isNaN(date.getTime())) {
       console.warn(`Invalid date value received: ${dateString}`);
       return 'Ngày không hợp lệ';
     }
-    
+
     try {
       return new Intl.DateTimeFormat('vi-VN', {
         year: 'numeric',
@@ -70,10 +70,50 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
     }
   };
 
+  // Hàm hiển thị màu dựa trên cấp độ khách hàng
+  const getLevelColor = (level: string | undefined): string => {
+    if (!level) return 'bg-gray-200 text-gray-700';
+
+    switch (level) {
+      case 'Khách hàng thân thiết':
+        return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'Khách hàng vàng':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'Khách hàng bạc':
+        return 'bg-gray-100 text-gray-800 border-gray-300';
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+    }
+  };
+
+  // Hàm hiển thị icon dựa trên cấp độ khách hàng
+  const getLevelIcon = (level: string | undefined): string => {
+    if (!level) return '🔵';
+
+    switch (level) {
+      case 'Khách hàng thân thiết':
+        return '💎';
+      case 'Khách hàng vàng':
+        return '🌟';
+      case 'Khách hàng bạc':
+        return '⭐';
+      default:
+        return '🔵';
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded p-6 border border-gray-200">
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800">Thông tin cá nhân</h2>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Thông tin cá nhân</h2>
+          {user.customerLevel && (
+            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 border ${getLevelColor(user.customerLevel)}`}>
+              <span className="mr-1">{getLevelIcon(user.customerLevel)}</span>
+              {user.customerLevel}
+            </div>
+          )}
+        </div>
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
@@ -130,7 +170,7 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
               className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
           </div>
-          
+
           <div className="pt-4">
             <button
               type="submit"
@@ -158,6 +198,24 @@ const ProfileInfo = ({ user, onUpdate }: ProfileInfoProps) => {
             <div className="bg-gray-50 p-4 rounded border border-gray-200">
               <p className="text-sm font-medium text-gray-600 mb-1">Ngày tham gia</p>
               <p className="text-md text-gray-900 font-medium">{formatDate(user.createdAt)}</p>
+            </div>
+            {/* Thêm cấp độ khách hàng */}
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Cấp độ khách hàng</p>
+              <div className="flex items-center">
+                <span className="mr-2">{getLevelIcon(user.customerLevel)}</span>
+                <p className="text-md text-gray-900 font-medium">{user.customerLevel || 'Khách hàng mới'}</p>
+              </div>
+            </div>
+            {/* Thêm số đơn hàng */}
+            <div className="bg-gray-50 p-4 rounded border border-gray-200">
+              <p className="text-sm font-medium text-gray-600 mb-1">Số đơn hàng</p>
+              <p className="text-md text-gray-900 font-medium">
+                {user.totalOrders !== undefined ? user.totalOrders : 0} đơn hàng
+                {user.monthlyOrders !== undefined && user.monthlyOrders > 0 && (
+                  <span className="text-sm text-gray-500 ml-2">({user.monthlyOrders} trong tháng này)</span>
+                )}
+              </p>
             </div>
           </div>
         </div>
