@@ -1,9 +1,38 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import { Brand } from '@/components/admin/brands/BrandForm';
+// Remove import from BrandForm if defined here now
+// import { Brand } from '@/components/admin/brands/BrandForm';
 import { useAdminAuth } from './AdminAuthContext';
 import toast from 'react-hot-toast';
+
+// Define and Export Brand interface here
+export interface Brand {
+  id?: string; // Use id primarily from API response (_id might be internal)
+  _id?: string; // Keep _id for potential internal use or older data
+  name: string;
+  slug?: string;
+  description?: string;
+  logo?: {
+    url: string;
+    alt?: string;
+    publicId?: string;
+  };
+  logoFile?: File; // For client-side handling before upload
+  origin?: string;
+  website?: string;
+  featured?: boolean;
+  status?: string;
+  socialMedia?: {
+    facebook?: string;
+    instagram?: string;
+    youtube?: string;
+  };
+  productCount?: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
 
 export interface BrandStatistics {
   total: number;
@@ -23,7 +52,8 @@ export interface BrandContextType {
     total: number;
     totalPages: number;
   };
-  fetchBrands: (page: number, limit: number) => Promise<void>;
+  // Update fetchBrands signature to accept filters
+  fetchBrands: (page: number, limit: number, filters?: Record<string, any>) => Promise<any>; // Return data for ItemSelectionModal
   fetchBrand: (id: string) => Promise<Brand | null>;
   createBrand: (brandData: Partial<Brand>) => Promise<Brand | null>;
   updateBrand: (id: string, brandData: Partial<Brand>) => Promise<Brand | null>;
@@ -744,4 +774,4 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
       {children}
     </BrandContext.Provider>
   );
-}; 
+};
