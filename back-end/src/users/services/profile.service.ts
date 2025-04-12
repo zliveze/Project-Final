@@ -80,26 +80,10 @@ export class ProfileService {
       }
     }
     
+    // Sau khi cập nhật, lấy lại thông tin người dùng mới nhất
     return this.usersService.findOne(userId);
   }
 
-  // Thêm sản phẩm vào wishlist
-  async addToWishlist(userId: string, productId: string): Promise<UserDocument> {
-    return this.usersService.addToWishlist(userId, productId);
-  }
-
-  // Xóa sản phẩm khỏi wishlist
-  async removeFromWishlist(userId: string, productId: string): Promise<UserDocument> {
-    return this.usersService.removeFromWishlist(userId, productId);
-  }
-
-  // Lấy danh sách wishlist
-  async getWishlist(userId: string): Promise<string[]> {
-    const user = await this.usersService.findOne(userId);
-    if (!user) {
-      throw new NotFoundException('Không tìm thấy người dùng');
-    }
-
-    return user.wishlist || [];
-  }
+  // Các phương thức liên quan đến wishlist đã được chuyển sang WishlistService
+  // và được gọi thông qua WishlistController.
 }

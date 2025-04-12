@@ -16,9 +16,10 @@ import Image from 'next/image';
 // import { useRouter } from 'next/router'; // Import useRouter for potential redirect
 
 // Context Hooks
-import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
-import { useBranches } from '@/hooks/useBranches'; // Import useBranches
+import { useCart } from '@/contexts/user/cart/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/user/wishlist/WishlistContext'; // Import useWishlist
+import { useBranches } from '@/hooks/useBranches';
 
 // Define Image structure for logo
 interface ImageType {
@@ -219,9 +220,15 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   onSelectVariant,
   branches = [],
 }) => {
-  const { addItemToCart, cartItems } = useCart(); // Get addItemToCart and cartItems from context
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth(); // Get isAuthenticated and isLoading
-  const { getBranchName, preloadBranches } = useBranches(); // Get branch information
+  const { addItemToCart, cartItems } = useCart();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const {
+    addToWishlist,
+    removeFromWishlist,
+    isItemInWishlist,
+    isLoading: isWishlistLoading // Get wishlist loading state
+  } = useWishlist(); // Use Wishlist context
+  const { getBranchName, preloadBranches } = useBranches();
   const [quantity, setQuantity] = useState(1);
   const [showGifts, setShowGifts] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
@@ -529,38 +536,50 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // }
   };
 
-  // Xử lý thêm vào danh sách yêu thích (Keep existing logic, but use isAuthenticated and isLoading)
-  const handleAddToWishlist = async () => {
-    // Kiểm tra đăng nhập bằng isAuthenticated từ context, chỉ khi không còn loading
+  // Xử lý thêm/xóa khỏi danh sách yêu thích using WishlistContext
+  const handleToggleWishlist = async () => {
+    // Check login status
     if (!isAuthLoading && !isAuthenticated) {
-        toast.info('Vui lòng đăng nhập để thêm sản phẩm vào danh sách yêu thích');
-        // Optional: Redirect to login page
-        // router.push('/auth/login');
+      toast.info('Vui lòng đăng nhập để quản lý danh sách yêu thích.');
+      return;
+    }
+
+    // Check if a variant needs to be selected
+    if (variants && variants.length > 0 && !selectedVariant) {
+      toast.warn('Vui lòng chọn một phiên bản sản phẩm để thêm/xóa khỏi yêu thích.', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light",
+      });
+      return;
+    }
+
+    // Get the required IDs
+    const productId = _id;
+    const variantId = selectedVariant?.variantId;
+
+    // Check if variantId is required but missing
+    if (variants && variants.length > 0 && !variantId) {
+        console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
+        toast.error('Vui lòng chọn lại phiên bản sản phẩm.');
         return;
     }
 
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-      const response = await fetch(`${API_URL}/wishlist/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ productId: _id })
-      });
-      if (response.ok) {
-        toast.success('Đã thêm sản phẩm vào danh sách yêu thích', { /* ...styles */ });
-        window.dispatchEvent(new CustomEvent('wishlist:updated'));
-      } else {
-        const errorData = await response.json();
-        if (response.status === 409) {
-          toast.info('Sản phẩm đã có trong danh sách yêu thích của bạn', { /* ...styles */ });
-        } else {
-          toast.error(errorData.message || 'Không thể thêm vào danh sách yêu thích', { /* ...styles */ });
-        }
-      }
-    } catch (error) {
-      console.error('Error adding to wishlist:', error);
-      toast.error('Đã xảy ra lỗi khi thêm vào danh sách yêu thích', { /* ...styles */ });
+    // Use the actual variantId (which is a string from the schema)
+    const targetVariantId = variantId as string; // Assert as string based on previous checks
+
+    const isInWishlist = isItemInWishlist(productId, targetVariantId);
+
+    // Disable button while processing
+    // Consider adding a specific loading state for the wishlist button if needed
+    if (isWishlistLoading) return;
+
+    if (isInWishlist) {
+      // Remove from wishlist
+      await removeFromWishlist(productId, targetVariantId);
+    } else {
+      // Add to wishlist
+      await addToWishlist(productId, targetVariantId);
     }
   };
 
@@ -573,6 +592,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       toast.success('Đã sao chép đường dẫn sản phẩm', { /* ...styles */ });
     }
   };
+
+  // Determine if the current selected variant is in the wishlist
+  const isCurrentVariantInWishlist = selectedVariant ? isItemInWishlist(_id, selectedVariant.variantId) : false;
+
 
   return (
     <div className="space-y-6">
@@ -609,7 +632,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           {reviews.reviewCount} đánh giá
         </Link>
         <span className="text-gray-400">|</span>
-        <span className="text-sm text-gray-600">SKU: {sku}</span>
+        <span className="text-sm text-gray-600">SKU: {selectedVariant?.sku || sku}</span> {/* Show variant SKU if selected */}
       </div>
 
       {/* Giá */}
@@ -767,10 +790,18 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
         {/* Button yêu thích */}
         <button
-          onClick={handleAddToWishlist}
-          className="h-12 border border-gray-300 rounded-md font-medium text-gray-700 hover:text-[#d53f8c] hover:border-[#d53f8c] transition-colors duration-300 flex items-center justify-center"
+          onClick={handleToggleWishlist} // Updated onClick handler
+          disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)} // Disable if loading or variant needed but not selected
+          className={`h-12 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center
+            ${isCurrentVariantInWishlist
+              ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
+              : 'border-gray-300 text-gray-700 hover:text-pink-600 hover:border-pink-600'}
+            ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
+            ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
+          `}
+          title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
         >
-          <FiHeart className="w-4 h-4" />
+          <FiHeart className={`w-4 h-4 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
         </button>
       </div>
 

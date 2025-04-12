@@ -40,98 +40,115 @@ describe('WishlistService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('getWishlistItems', () => {
+  // Updated describe block to match the actual method name 'getWishlist'
+  describe('getWishlist', () => {
     it('should throw NotFoundException if user not found', async () => {
       const nonExistentUserId = new Types.ObjectId().toString();
 
-      jest.spyOn(usersService, 'findOne').mockImplementation((): Promise<any> => {
-        return Promise.resolve(null);
-      });
+      // Mock findById on userModel instead of usersService.findOne for WishlistService
+      jest.spyOn(service['userModel'], 'findById').mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      } as any);
 
-      await expect(service.getWishlistItems(nonExistentUserId)).rejects.toThrow(NotFoundException);
+      await expect(service.getWishlist(nonExistentUserId)).rejects.toThrow(NotFoundException);
     });
 
     it('should return empty array if wishlist is empty', async () => {
       const userId = new Types.ObjectId().toString();
+      const mockUser = {
+        _id: userId,
+        wishlist: [],
+      };
 
-      jest.spyOn(usersService, 'findOne').mockImplementation(() => {
-        return Promise.resolve({
-          _id: userId,
-          wishlist: [],
-        } as any);
-      });
+       jest.spyOn(service['userModel'], 'findById').mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockUser),
+      } as any);
 
-      const result = await service.getWishlistItems(userId);
+
+      const result = await service.getWishlist(userId);
       expect(result).toEqual([]);
     });
+
+     // Add more tests for getWishlist, e.g., returning formatted items
   });
 
   describe('addToWishlist', () => {
     it('should throw NotFoundException if product not found', async () => {
       const userId = new Types.ObjectId().toString();
       const nonExistentProductId = new Types.ObjectId().toString();
+      const variantId = 'variant-123'; // Add variantId
 
-      // Create a mock Query object that returns null when exec() is called
-      const mockQuery = {
-        exec: jest.fn().mockResolvedValue(null),
+      // Mock findById on productModel to return null
+       jest.spyOn(service['productModel'], 'findById').mockReturnValue({
+         exec: jest.fn().mockResolvedValue(null),
+       } as any);
+
+
+      // Expect addToWishlist to throw NotFoundException, passing all 3 arguments
+      await expect(service.addToWishlist(userId, nonExistentProductId, variantId)).rejects.toThrow(NotFoundException);
+    });
+
+     it('should throw NotFoundException if variant not found in product', async () => {
+      const userId = new Types.ObjectId().toString();
+      const productId = new Types.ObjectId();
+      const nonExistentVariantId = 'non-existent-variant';
+      const mockProduct = {
+        _id: productId,
+        variants: [{ variantId: 'existing-variant-1' }] // Product exists but variant doesn't
       };
 
-      // Mock the exists method to return the mock Query
-      jest.spyOn(service['productModel'], 'exists').mockReturnValue(mockQuery as any);
+       jest.spyOn(service['productModel'], 'findById').mockReturnValue({
+         exec: jest.fn().mockResolvedValue(mockProduct),
+       } as any);
 
-      await expect(service.addToWishlist(userId, nonExistentProductId)).rejects.toThrow(NotFoundException);
+      await expect(service.addToWishlist(userId, productId, nonExistentVariantId)).rejects.toThrow(NotFoundException);
+    });
+
+     it('should call usersService.addToWishlist with correct parameters', async () => {
+        const userId = new Types.ObjectId().toString();
+        const productId = new Types.ObjectId();
+        const variantId = 'variant-123';
+        const mockProduct = { _id: productId, variants: [{ variantId: new Types.ObjectId(variantId) }] }; // Mock product with variant
+        const mockUser = { _id: userId, wishlist: [] }; // Mock user
+
+        jest.spyOn(service['productModel'], 'findById').mockReturnValue({ exec: jest.fn().mockResolvedValue(mockProduct) } as any);
+        jest.spyOn(usersService, 'addToWishlist').mockResolvedValue(mockUser as any); // Mock the underlying service call
+
+        await service.addToWishlist(userId, productId, variantId);
+
+        expect(usersService.addToWishlist).toHaveBeenCalledWith(userId, productId, variantId);
     });
   });
 
   describe('removeFromWishlist', () => {
     it('should call usersService.removeFromWishlist with correct parameters', async () => {
       const userId = new Types.ObjectId().toString();
-      const productId = new Types.ObjectId().toString();
+      const productId = new Types.ObjectId();
+      const variantId = 'variant-123'; // Add variantId
 
       const mockUser = {
         _id: userId,
-        wishlist: [productId],
+        wishlist: [{ productId, variantId }], // Wishlist contains the item
       };
 
-      jest.spyOn(usersService, 'removeFromWishlist').mockImplementation(() => {
-        return Promise.resolve(mockUser as any);
-      });
+      // Mock the usersService method directly
+      jest.spyOn(usersService, 'removeFromWishlist').mockResolvedValue(mockUser as any);
 
-      const result = await service.removeFromWishlist(userId, productId);
-      expect(usersService.removeFromWishlist).toHaveBeenCalledWith(userId, productId);
-      expect(result).toEqual(mockUser);
+      const result = await service.removeFromWishlist(userId, productId, variantId);
+
+      // Verify the underlying service method was called correctly
+      expect(usersService.removeFromWishlist).toHaveBeenCalledWith(userId, productId, variantId);
+      expect(result).toEqual(mockUser); // Check the returned user
     });
+
+     // Add tests for cases like item not found in wishlist if needed
   });
 
-  describe('clearWishlist', () => {
-    it('should throw NotFoundException if user not found', async () => {
-      const nonExistentUserId = new Types.ObjectId().toString();
-
-      jest.spyOn(usersService, 'findOne').mockImplementation((): Promise<any> => {
-        return Promise.resolve(null);
-      });
-
-      await expect(service.clearWishlist(nonExistentUserId)).rejects.toThrow(NotFoundException);
-    });
-
-    it('should clear the wishlist', async () => {
-      const userId = new Types.ObjectId().toString();
-      const mockUser = {
-        _id: userId,
-        wishlist: [new Types.ObjectId().toString(), new Types.ObjectId().toString()],
-        save: jest.fn().mockImplementation(function() {
-          this.wishlist = [];
-          return this;
-        }),
-      };
-
-      jest.spyOn(usersService, 'findOne').mockImplementation(() => {
-        return Promise.resolve(mockUser as any);
-      });
-
-      const result = await service.clearWishlist(userId);
-      expect(mockUser.save).toHaveBeenCalled();
-      expect(result.wishlist).toEqual([]);
-    });
-  });
+  // Removed describe block for 'clearWishlist' as the method doesn't exist
 });

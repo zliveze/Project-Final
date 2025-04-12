@@ -33,20 +33,25 @@ export interface User {
   updatedAt?: string;
 }
 
-// Type cho sản phẩm trong wishlist
+// Type cho sản phẩm trong wishlist (Updated to match WishlistContext and backend response)
 export interface WishlistItem {
-  _id: string;
-  name: string;
-  price: number;
-  discountPrice?: number;
-  image: string;
-  variantId?: string | null;
-  options?: {
-    size?: string;
-    shade?: string;
-    [key: string]: string | undefined;
-  };
+    productId: string; // Use productId from backend response
+    variantId: string;
+    name: string;
+    slug: string;
+    price: number;
+    currentPrice: number;
+    image: string; // URL of the image
+    brand: {
+        name: string;
+        slug: string;
+        logo?: string; // Optional logo URL
+    } | null;
+    inStock: boolean;
+    variantOptions?: any; // Optional: Color, Size, etc. from variant
+    // _id can be added if needed, but productId/variantId are the identifiers
 }
+
 
 // Type cho sản phẩm trong đơn hàng
 export interface OrderProduct {

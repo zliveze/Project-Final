@@ -3,6 +3,7 @@ import { NextPage } from 'next';
 import Head from 'next/head';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useRouter } from 'next/router'; // Import useRouter for redirection
 
 // Components
 import WishlistItem from '@/components/wishlist/WishlistItem';
@@ -12,28 +13,10 @@ import WishlistStats from '@/components/wishlist/WishlistStats';
 import WishlistCategories from '@/components/wishlist/WishlistCategories';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
 import DefaultLayout from '@/layout/DefaultLayout';
+import { useWishlist, WishlistItem as ContextWishlistItem } from '@/contexts/user/wishlist/WishlistContext'; // Import context hook and type
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to check authentication
 
-// Định nghĩa kiểu dữ liệu cho sản phẩm trong wishlist
-interface WishlistProduct {
-  _id: string;
-  variantId?: string;
-  name: string;
-  slug: string;
-  price: number;
-  currentPrice: number;
-  image: {
-    url: string;
-    alt: string;
-  };
-  brand: {
-    name: string;
-    slug: string;
-  };
-  inStock: boolean;
-  categoryIds?: string[];
-}
-
-// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
+// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý (Keep this if needed for recommended products)
 interface RecommendedProduct {
   _id: string;
   name: string;
@@ -54,7 +37,7 @@ interface RecommendedProduct {
   reviewCount?: number;
 }
 
-// Định nghĩa kiểu dữ liệu cho danh mục
+// Định nghĩa kiểu dữ liệu cho danh mục (Keep this if needed for categories section)
 interface Category {
   id: string;
   name: string;
@@ -63,62 +46,8 @@ interface Category {
   productCount: number;
 }
 
-// Dữ liệu mẫu cho wishlist
-const sampleWishlistData: WishlistProduct[] = [
-  {
-    _id: '1',
-    name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
-    slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
-    price: 450000,
-    currentPrice: 405000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Kem Chống Nắng La Roche-Posay'
-    },
-    brand: {
-      name: 'La Roche-Posay',
-      slug: 'la-roche-posay'
-    },
-    inStock: true,
-    categoryIds: ['suncare', 'skincare']
-  },
-  {
-    _id: '2',
-    name: 'Serum Vitamin C Klairs Freshly Juiced Vitamin Drop',
-    slug: 'serum-vitamin-c-klairs-freshly-juiced-vitamin-drop',
-    price: 320000,
-    currentPrice: 320000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Serum Vitamin C Klairs'
-    },
-    brand: {
-      name: 'Klairs',
-      slug: 'klairs'
-    },
-    inStock: true,
-    categoryIds: ['serum', 'skincare']
-  },
-  {
-    _id: '3',
-    name: 'Nước Tẩy Trang Bioderma Sensibio H2O',
-    slug: 'nuoc-tay-trang-bioderma-sensibio-h2o',
-    price: 390000,
-    currentPrice: 350000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Nước Tẩy Trang Bioderma'
-    },
-    brand: {
-      name: 'Bioderma',
-      slug: 'bioderma'
-    },
-    inStock: false,
-    categoryIds: ['cleanser', 'skincare']
-  }
-];
 
-// Dữ liệu mẫu cho sản phẩm gợi ý
+// Dữ liệu mẫu cho sản phẩm gợi ý (Keep for now, replace with API call later if needed)
 const sampleRecommendedProducts: RecommendedProduct[] = [
   {
     _id: '4',
@@ -139,233 +68,140 @@ const sampleRecommendedProducts: RecommendedProduct[] = [
     rating: 4.8,
     reviewCount: 124
   },
-  {
-    _id: '5',
-    name: 'Sữa Rửa Mặt Cosrx Low pH Good Morning Gel Cleanser',
-    slug: 'sua-rua-mat-cosrx-low-ph-good-morning-gel-cleanser',
-    price: 220000,
-    currentPrice: 198000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Sữa Rửa Mặt Cosrx'
-    },
-    brand: {
-      name: 'COSRX',
-      slug: 'cosrx'
-    },
-    inStock: true,
-    rating: 4.6,
-    reviewCount: 98
-  },
-  {
-    _id: '6',
-    name: 'Toner Some By Mi AHA-BHA-PHA 30 Days Miracle',
-    slug: 'toner-some-by-mi-aha-bha-pha-30-days-miracle',
-    price: 280000,
-    currentPrice: 252000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Toner Some By Mi'
-    },
-    brand: {
-      name: 'Some By Mi',
-      slug: 'some-by-mi'
-    },
-    inStock: true,
-    isNew: true,
-    rating: 4.5,
-    reviewCount: 87
-  },
-  {
-    _id: '7',
-    name: 'Mặt Nạ Ngủ Môi Laneige Lip Sleeping Mask',
-    slug: 'mat-na-ngu-moi-laneige-lip-sleeping-mask',
-    price: 290000,
-    currentPrice: 290000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Mặt Nạ Ngủ Môi Laneige'
-    },
-    brand: {
-      name: 'Laneige',
-      slug: 'laneige'
-    },
-    inStock: false,
-    rating: 4.9,
-    reviewCount: 156
-  }
+  // ... (other sample recommended products)
 ];
 
-// Dữ liệu mẫu cho danh mục
+// Dữ liệu mẫu cho danh mục (Keep for now, replace with API call later if needed)
 const sampleCategories: Category[] = [
   {
-    id: '1',
+    id: '1', // Use string IDs if they come from backend as strings
     name: 'Chăm sóc da',
     slug: 'skincare',
     image: 'https://images.unsplash.com/photo-1612817288484-6f916006741a',
     productCount: 120
   },
-  {
-    id: '2',
-    name: 'Chống nắng',
-    slug: 'suncare',
-    image: 'https://images.unsplash.com/photo-1612817288484-6f916006741a',
-    productCount: 45
-  },
-  {
-    id: '3',
-    name: 'Trang điểm',
-    slug: 'makeup',
-    image: 'https://images.unsplash.com/photo-1612817288484-6f916006741a',
-    productCount: 78
-  },
-  {
-    id: '4',
-    name: 'Chăm sóc tóc',
-    slug: 'haircare',
-    image: 'https://images.unsplash.com/photo-1612817288484-6f916006741a',
-    productCount: 36
-  }
+   // ... (other sample categories)
 ];
 
 const WishlistPage: NextPage = () => {
-  // State để lưu trữ danh sách sản phẩm yêu thích
-  const [wishlistItems, setWishlistItems] = useState<WishlistProduct[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    wishlistItems,
+    isLoading: isWishlistLoading, // Use loading state from context
+    error: wishlistError,
+    removeFromWishlist, // Use remove function from context
+    // fetchWishlist, // fetchWishlist is called inside the provider
+  } = useWishlist();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const router = useRouter();
 
-  // Giả lập việc tải dữ liệu từ API
+  // State for recommended products and categories (keep using sample data for now)
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>(sampleRecommendedProducts);
+  const [categories, setCategories] = useState<Category[]>(sampleCategories);
+
+  // Redirect if not authenticated after loading
   useEffect(() => {
-    // Trong thực tế, đây sẽ là một API call để lấy danh sách yêu thích của người dùng
-    const fetchWishlist = async () => {
-      try {
-        // Giả lập thời gian tải
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setWishlistItems(sampleWishlistData);
-        setRecommendedProducts(sampleRecommendedProducts);
-        setCategories(sampleCategories);
-      } catch (error) {
-        console.error('Lỗi khi tải danh sách yêu thích:', error);
-        toast.error('Không thể tải danh sách yêu thích. Vui lòng thử lại sau.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!isAuthLoading && !isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để xem danh sách yêu thích.');
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, isAuthLoading, router]);
 
-    fetchWishlist();
-  }, []);
-
-  // Xử lý xóa một sản phẩm khỏi wishlist
-  const handleRemoveItem = (id: string) => {
-    setWishlistItems(prevItems => prevItems.filter(item => item._id !== id));
-    toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
+  // Xử lý xóa một sản phẩm khỏi wishlist using context function
+  const handleRemoveItem = (productId: string, variantId: string) => {
+    removeFromWishlist(productId, variantId);
+    // Toast messages are handled by the context
   };
 
-  // Xử lý xóa tất cả sản phẩm khỏi wishlist
+  // Xử lý xóa tất cả sản phẩm khỏi wishlist (Needs backend implementation and context update)
   const handleClearAll = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi danh sách yêu thích?')) {
-      setWishlistItems([]);
-      toast.success('Đã xóa tất cả sản phẩm khỏi danh sách yêu thích', {
+      // TODO: Implement backend endpoint and context function for clearing all
+      // For now, just remove one by one locally and show toast
+      if (wishlistItems.length > 0) {
+        wishlistItems.forEach(item => removeFromWishlist(item.productId, item.variantId)); // Remove one by one for now
+        toast.success('Đã xóa tất cả sản phẩm khỏi danh sách yêu thích (tạm thời)', {
+            position: "bottom-right",
+            autoClose: 3000,
+            theme: "light",
+            style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
+        });
+      } else {
+         toast.info('Danh sách yêu thích của bạn hiện đang trống.');
+      }
+    }
+  };
+
+  // Xử lý thêm tất cả sản phẩm vào giỏ hàng (Needs CartContext integration)
+  const handleAddAllToCart = () => {
+    // TODO: Integrate with CartContext to add multiple items
+    const inStockItems = wishlistItems.filter(item => item.inStock);
+
+    if (inStockItems.length === 0) {
+      toast.warn('Không có sản phẩm nào còn hàng trong danh sách yêu thích.', {
         position: "bottom-right",
         autoClose: 3000,
         theme: "light",
-        style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-      });
-    }
-  };
-
-  // Xử lý thêm tất cả sản phẩm vào giỏ hàng
-  const handleAddAllToCart = () => {
-    // Lọc ra các sản phẩm còn hàng
-    const inStockItems = wishlistItems.filter(item => item.inStock);
-    
-    if (inStockItems.length === 0) {
-      toast.error('Không có sản phẩm nào còn hàng để thêm vào giỏ', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light"
       });
       return;
     }
-    
-    // Trong thực tế, đây sẽ là một API call để thêm sản phẩm vào giỏ hàng
-    toast.success(`Đã thêm ${inStockItems.length} sản phẩm vào giỏ hàng`, {
+
+    // Placeholder logic - replace with actual CartContext call
+    console.log("Adding items to cart:", inStockItems);
+    toast.info(`Đang thêm ${inStockItems.length} sản phẩm vào giỏ... (chưa hoạt động)`, {
       position: "bottom-right",
-      autoClose: 3000,
+      autoClose: 2000,
       theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
     });
+    // Example: await addMultipleItemsToCart(inStockItems.map(item => ({ productId: item.productId, variantId: item.variantId, quantity: 1 })));
   };
 
-  // Xử lý thêm sản phẩm gợi ý vào wishlist
+  // Xử lý thêm sản phẩm gợi ý vào wishlist (Use context function)
   const handleAddToWishlist = (product: RecommendedProduct) => {
-    // Kiểm tra xem sản phẩm đã có trong wishlist chưa
-    const isExist = wishlistItems.some(item => item._id === product._id);
-    
-    if (isExist) {
-      toast.info('Sản phẩm đã có trong danh sách yêu thích', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light"
-      });
-      return;
-    }
-    
-    // Thêm sản phẩm vào wishlist
-    const newWishlistItem: WishlistProduct = {
-      _id: product._id,
-      name: product.name,
-      slug: product.slug,
-      price: product.price,
-      currentPrice: product.currentPrice,
-      image: product.image,
-      brand: product.brand,
-      inStock: product.inStock
-    };
-    
-    setWishlistItems(prevItems => [...prevItems, newWishlistItem]);
-    
-    toast.success('Đã thêm sản phẩm vào danh sách yêu thích', {
-      position: "bottom-right",
-      autoClose: 3000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
+    // Assuming recommended products don't have variants for simplicity,
+    // or we need a way to select a variant first.
+    // For now, let's assume we add the base product or a default variant.
+    // We need the variantId for the backend. This needs clarification.
+    // **Temporary:** Show a warning that this feature needs variant selection.
+    toast.warn('Tính năng thêm từ gợi ý cần chọn biến thể (chưa hoàn thiện).');
+    // If a default variant logic exists or no variants:
+    // const defaultVariantId = 'some-default-id'; // Or determine based on product
+    // addToWishlist(product._id, defaultVariantId);
   };
 
   // Tính toán thống kê
   const calculateStats = () => {
-    // Tổng giá trị
-    const totalValue = wishlistItems.reduce((sum, item) => sum + item.price, 0);
-    
-    // Số tiền tiết kiệm
-    const savedAmount = wishlistItems.reduce((sum, item) => sum + (item.price - item.currentPrice), 0);
-    
-    // Đếm số lượng danh mục và thương hiệu
-    const uniqueCategories = new Set();
-    const uniqueBrands = new Set();
-    
+    // Tổng giá trị (using currentPrice)
+    const totalValue = wishlistItems.reduce((sum, item) => sum + item.currentPrice, 0);
+
+    // Số tiền tiết kiệm (difference between original price and current price)
+    const savedAmount = wishlistItems.reduce((sum, item) => {
+        const originalPrice = item.price; // Assuming item.price is the original price
+        const currentPrice = item.currentPrice;
+        return sum + (originalPrice > currentPrice ? originalPrice - currentPrice : 0);
+    }, 0);
+
+    // Đếm số lượng danh mục và thương hiệu độc nhất
+    const uniqueCategories = new Set<string>(); // Use Set<string> for type safety
+    const uniqueBrands = new Set<string>();
+
     wishlistItems.forEach(item => {
-      // Thêm danh mục
-      if (item.categoryIds) {
-        item.categoryIds.forEach(catId => uniqueCategories.add(catId));
-      }
-      
+      // Thêm danh mục (Assuming backend provides category info or IDs)
+      // This part needs adjustment based on actual data structure from getWishlist
+      // if (item.categoryIds) {
+      //   item.categoryIds.forEach(catId => uniqueCategories.add(catId));
+      // }
+
       // Thêm thương hiệu
-      uniqueBrands.add(item.brand.slug);
+      if (item.brand?.slug) {
+          uniqueBrands.add(item.brand.slug);
+      }
     });
-    
+
     return {
       totalValue,
       savedAmount,
       itemCount: wishlistItems.length,
-      categoryCount: uniqueCategories.size,
+      categoryCount: uniqueCategories.size, // Will be 0 until category data is handled
       brandCount: uniqueBrands.size
     };
   };
@@ -379,6 +215,16 @@ const WishlistPage: NextPage = () => {
   // Lấy thống kê
   const stats = calculateStats();
 
+  // Handle potential errors from context
+  useEffect(() => {
+      if (wishlistError) {
+          toast.error(`Lỗi tải wishlist: ${wishlistError}`);
+      }
+  }, [wishlistError]);
+
+  // Show loading indicator if either auth or wishlist is loading
+  const isLoading = isAuthLoading || isWishlistLoading;
+
   return (
     <DefaultLayout>
       <Head>
@@ -386,29 +232,29 @@ const WishlistPage: NextPage = () => {
         <meta name="description" content="Danh sách sản phẩm yêu thích của bạn tại YUMIN" />
       </Head>
 
-      <main className="min-h-screen bg-gray-50 pb-12">        
+      <main className="min-h-screen bg-gray-50 pb-12">
         <div className="container mx-auto px-4 py-6">
-          {isLoading ? (
+          {isLoading ? ( // Check combined loading state
             // Hiển thị skeleton loading
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-lg shadow-sm p-4 mb-6 animate-pulse">
                 <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/4"></div>
               </div>
-              
+
               {[1, 2, 3].map(i => (
-                <div key={i} className="flex items-center p-4 border-b border-gray-200 gap-4 bg-white animate-pulse">
-                  <div className="w-24 h-24 bg-gray-200 rounded-md"></div>
-                  <div className="flex-1">
+                <div key={i} className="flex items-center p-4 border-b border-gray-100 gap-4 bg-white animate-pulse">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-md flex-shrink-0"></div>
+                  <div className="flex-1 min-w-0">
                     <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/5 mb-2"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/6"></div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full"></div>
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full"></div>
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full"></div>
                   </div>
                 </div>
               ))}
@@ -416,21 +262,21 @@ const WishlistPage: NextPage = () => {
           ) : wishlistItems.length > 0 ? (
             <div className="max-w-6xl mx-auto">
               {/* Tóm tắt wishlist */}
-              <WishlistSummary 
+              <WishlistSummary
                 itemCount={wishlistItems.length}
                 onClearAll={handleClearAll}
                 onAddAllToCart={handleAddAllToCart}
               />
-              
+
               {/* Thống kê wishlist */}
-              <WishlistStats 
+              <WishlistStats
                 totalValue={stats.totalValue}
                 savedAmount={stats.savedAmount}
                 itemCount={stats.itemCount}
                 categoryCount={stats.categoryCount}
                 brandCount={stats.brandCount}
               />
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-8">
                   {/* Danh sách sản phẩm */}
@@ -438,44 +284,52 @@ const WishlistPage: NextPage = () => {
                     <h2 className="text-lg font-semibold text-gray-800 p-4 border-b border-gray-100">
                       Sản phẩm yêu thích ({wishlistItems.length})
                     </h2>
-                    {wishlistItems.map(item => (
-                      <WishlistItem 
-                        key={item._id}
-                        {...item}
-                        onRemove={handleRemoveItem}
+                    {wishlistItems.map((item: ContextWishlistItem) => ( // Use imported type
+                      <WishlistItem
+                        key={`${item.productId}-${item.variantId}`} // Use combined key
+                        _id={item.productId} // Pass productId as _id (assuming WishlistItem expects _id)
+                        variantId={item.variantId} // Pass variantId
+                        name={item.name}
+                        slug={item.slug}
+                        price={item.price}
+                        currentPrice={item.currentPrice}
+                        image={{ url: item.image, alt: item.name }} // Adapt image prop
+                        brand={item.brand || { name: 'N/A', slug: '#' }} // Handle null brand
+                        inStock={item.inStock}
+                        onRemove={() => handleRemoveItem(item.productId, item.variantId)} // Pass both IDs
                       />
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="lg:col-span-4">
                   {/* Danh mục phổ biến */}
                   <WishlistCategories categories={categories} />
                 </div>
               </div>
-              
+
               {/* Sản phẩm gợi ý */}
-              <RecommendedProducts 
+              <RecommendedProducts
                 products={recommendedProducts}
-                onAddToWishlist={handleAddToWishlist}
+                // onAddToWishlist prop removed as it doesn't exist on the component
               />
             </div>
           ) : (
             <>
               <EmptyWishlist />
-              
+
               {/* Hiển thị sản phẩm gợi ý ngay cả khi wishlist trống */}
               <div className="max-w-6xl mx-auto">
-                <RecommendedProducts 
+                <RecommendedProducts
                   products={recommendedProducts}
-                  onAddToWishlist={handleAddToWishlist}
+                 // onAddToWishlist prop removed as it doesn't exist on the component
                 />
               </div>
             </>
           )}
         </div>
       </main>
-      
+
       {/* Toast Container */}
       <ToastContainer
         position="bottom-right"
@@ -493,4 +347,4 @@ const WishlistPage: NextPage = () => {
   );
 };
 
-export default WishlistPage; 
+export default WishlistPage;

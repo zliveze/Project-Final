@@ -377,34 +377,181 @@ export class UsersService {
     return user.save();
   }
 
-  async addToWishlist(userId: string, productId: string): Promise<UserDocument> {
+  // Updated addToWishlist to handle { productId, variantId }
+  async addToWishlist(userId: string, productId: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
+    console.log('UsersService.addToWishlist called with:', { userId, productId: typeof productId === 'string' ? productId : productId.toString(), variantId });
+
+    // Validate inputs
+    if (!userId) {
+      console.error('userId is required');
+      throw new Error('userId is required');
+    }
+
+    if (!productId) {
+      console.error('productId is required');
+      throw new Error('productId is required');
+    }
+
+    if (!variantId) {
+      console.error('variantId is required');
+      throw new Error('variantId is required');
+    }
+
+    console.log('Finding user with ID:', userId);
     const user = await this.findOne(userId);
+    console.log('User found:', { id: user._id, name: user.name });
 
-    // Check if product is already in wishlist
+    let productObjectId;
+    try {
+      productObjectId = typeof productId === 'string' ? new Types.ObjectId(productId) : productId;
+      console.log('Converted productId to ObjectId:', productObjectId);
+    } catch (error) {
+      console.error('Error converting productId to ObjectId:', error);
+      throw new Error(`Invalid productId format: ${productId}`);
+    }
+
+    // Initialize or clean up wishlist
     if (!user.wishlist) {
+      console.log('Initializing empty wishlist array');
       user.wishlist = [];
+    } else {
+      // Clean up wishlist by filtering out invalid items
+      console.log('Original wishlist:', JSON.stringify(user.wishlist));
+
+      const validWishlistItems = user.wishlist.filter(item => {
+        // Check if item is a valid object with required properties
+        if (!item || typeof item !== 'object') {
+          console.log('Removing invalid wishlist item (not an object):', item);
+          return false;
+        }
+
+        // Check if item has valid productId
+        if (!item.productId || !(item.productId instanceof Types.ObjectId)) {
+          console.log('Removing invalid wishlist item (invalid productId):', item);
+          return false;
+        }
+
+        // Check if item has valid variantId
+        if (!item.variantId || typeof item.variantId !== 'string') {
+          console.log('Removing invalid wishlist item (invalid variantId):', item);
+          return false;
+        }
+
+        return true;
+      });
+
+      if (user.wishlist.length !== validWishlistItems.length) {
+        console.log(`Cleaned up wishlist: removed ${user.wishlist.length - validWishlistItems.length} invalid items`);
+        user.wishlist = validWishlistItems;
+        user.markModified('wishlist');
+      }
     }
 
-    if (!user.wishlist.includes(productId)) {
-      user.wishlist.push(productId);
-      return user.save();
+    console.log('Current wishlist after cleanup:', JSON.stringify(user.wishlist));
+
+    // Check if the specific product variant is already in the wishlist
+    // Use a safer approach to handle potential undefined values
+    console.log('Checking if item already exists in wishlist');
+    const existingItemIndex = user.wishlist.findIndex(item => {
+      // Check if item and item.productId exist before using equals
+      if (!item) {
+        console.log('Found null/undefined item in wishlist');
+        return false;
+      }
+
+      if (!item.productId) {
+        console.log('Found item with null/undefined productId in wishlist');
+        return false;
+      }
+
+      // Compare productId and variantId
+      const productIdMatch = item.productId.equals(productObjectId);
+      const variantIdMatch = item.variantId === variantId;
+      console.log('Comparing wishlist item:', {
+        itemProductId: item.productId.toString(),
+        targetProductId: productObjectId.toString(),
+        productIdMatch,
+        itemVariantId: item.variantId,
+        targetVariantId: variantId,
+        variantIdMatch
+      });
+
+      return productIdMatch && variantIdMatch;
+    });
+
+    console.log('Existing item index:', existingItemIndex);
+
+    if (existingItemIndex === -1) {
+      // Ensure both productId and variantId are properly set
+      if (!productObjectId) {
+        console.error('productObjectId is required');
+        throw new Error('productId is required');
+      }
+      if (!variantId) {
+        console.error('variantId is required');
+        throw new Error('variantId is required');
+      }
+
+      // Create the new wishlist item with explicit properties
+      const newWishlistItem = {
+        productId: productObjectId,
+        variantId: variantId
+      };
+
+      console.log('Adding new item to wishlist:', newWishlistItem);
+
+      // Add the new wishlist item
+      user.wishlist.push(newWishlistItem);
+
+      console.log('Updated wishlist:', user.wishlist);
+
+      user.markModified('wishlist'); // Mark as modified since it's an array of objects
+      console.log('Saving user document');
+      try {
+        const savedUser = await user.save();
+        console.log('User saved successfully');
+        return savedUser;
+      } catch (error) {
+        console.error('Error saving user:', error);
+        throw error;
+      }
     }
 
+    // If already exists, return the user without changes
+    console.log('Item already exists in wishlist, returning user without changes');
     return user;
   }
 
-  async removeFromWishlist(userId: string, productId: string): Promise<UserDocument> {
+  // Updated removeFromWishlist to handle { productId, variantId }
+  async removeFromWishlist(userId: string, productId: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
     const user = await this.findOne(userId);
+    const productObjectId = typeof productId === 'string' ? new Types.ObjectId(productId) : productId;
 
-    // Check if wishlist exists
     if (!user.wishlist) {
       user.wishlist = [];
-      return user;
+      return user; // Return early if wishlist doesn't exist
     }
 
-    user.wishlist = user.wishlist.filter(id => id !== productId);
-    return user.save();
+    const initialLength = user.wishlist.length;
+
+    // Use a safer filter approach to handle potential undefined values
+    user.wishlist = user.wishlist.filter(item => {
+      // Check if item and item.productId exist before using equals
+      if (!item || !item.productId) return true; // Keep items with missing productId
+
+      // Only filter out items that match both productId and variantId
+      return !(item.productId.equals(productObjectId) && item.variantId === variantId);
+    });
+
+    // Only save if an item was actually removed
+    if (user.wishlist.length < initialLength) {
+      user.markModified('wishlist'); // Mark as modified
+      return user.save();
+    }
+
+    return user; // Return user if no changes were made
   }
+
 
   async setRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
     await this.userModel

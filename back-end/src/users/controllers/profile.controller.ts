@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ProfileService } from '../services/profile.service';
+import { WishlistService } from '../services/wishlist.service';
 import { UpdateProfileDto } from '../dto/profile.dto';
 import { AddressDto } from '../dto/address.dto';
 import { UserDocument } from '../schemas/user.schema';
@@ -8,7 +9,10 @@ import { UserDocument } from '../schemas/user.schema';
 @Controller('users/profile')
 @UseGuards(JwtAuthGuard)
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly wishlistService: WishlistService,
+  ) {}
 
   // Lấy thông tin người dùng đăng nhập
   @Get()
@@ -61,23 +65,25 @@ export class ProfileController {
 
   // API quản lý wishlist
   @Get('wishlist')
-  async getWishlist(@Req() req): Promise<string[]> {
-    return this.profileService.getWishlist(req.user._id);
+  async getWishlist(@Req() req): Promise<any[]> {
+    return this.wishlistService.getWishlist(req.user._id);
   }
 
   @Post('wishlist')
   async addToWishlist(
     @Req() req,
     @Body('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
-    return this.profileService.addToWishlist(req.user._id, productId);
+    return this.wishlistService.addToWishlist(req.user._id, productId, variantId);
   }
 
   @Delete('wishlist/:productId')
   async removeFromWishlist(
     @Req() req,
     @Param('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
-    return this.profileService.removeFromWishlist(req.user._id, productId);
+    return this.wishlistService.removeFromWishlist(req.user._id, productId, variantId);
   }
 } 

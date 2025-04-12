@@ -284,21 +284,39 @@ export const UserApiService = {
     }
   },
 
-  // Thêm sản phẩm vào danh sách yêu thích
-  async addToWishlist(productId: string): Promise<User> {
+  // Thêm sản phẩm vào danh sách yêu thích (Updated: sends productId and variantId in body)
+  async addToWishlist(productId: string, variantId: string): Promise<User> { // Accept variantId
+    console.log('UserApiService.addToWishlist called with:', { productId, variantId });
+
+    // Validate inputs
+    if (!productId) {
+      console.error('productId is required');
+      throw new Error('productId is required');
+    }
+
+    if (!variantId) {
+      console.error('variantId is required');
+      throw new Error('variantId is required');
+    }
+
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    const addWishlistUrl = `${API_URL}/profile/wishlist/${productId}`; // Corrected URL
+    const addWishlistUrl = `${API_URL}/profile/wishlist`; // Endpoint changed
+
+    console.log('Calling API:', addWishlistUrl);
+    console.log('Request payload:', { productId, variantId });
 
     try {
       const response = await fetch(addWishlistUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // Không cần Content-Type và body vì productId đã có trong URL
+          'Content-Type': 'application/json', // Added Content-Type
         },
-        // body: JSON.stringify({ productId }), // Removed body
+        body: JSON.stringify({ productId, variantId }), // Send data in body
       });
+
+      console.log('API response status:', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -307,34 +325,47 @@ export const UserApiService = {
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
 
-        // Handle 404 errors gracefully
+        // Handle 404 errors gracefully (product or variant not found)
         if (response.status === 404) {
-          throw new Error('Sản phẩm không tồn tại hoặc đã bị xóa');
+           const errorData = await response.json().catch(() => ({ message: 'Sản phẩm hoặc biến thể không tồn tại' }));
+           console.error('404 error:', errorData);
+           throw new Error(errorData.message);
+        }
+
+        if (response.status === 400) { // Handle bad request (e.g., invalid ObjectId)
+           const errorData = await response.json().catch(() => ({ message: 'Yêu cầu không hợp lệ' }));
+           console.error('400 error:', errorData);
+           throw new Error(errorData.message);
         }
 
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
+        console.error(`Error ${response.status}:`, errorData);
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('API success response:', result);
+      return result;
     } catch (error) {
       console.error('Lỗi khi thêm vào wishlist:', error);
       throw error;
     }
   },
 
-  // Xóa sản phẩm khỏi danh sách yêu thích
-  async removeFromWishlist(productId: string): Promise<User> {
+  // Xóa sản phẩm khỏi danh sách yêu thích (Updated: sends productId and variantId in body)
+  async removeFromWishlist(productId: string, variantId: string): Promise<User> { // Accept variantId
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
-    const removeWishlistUrl = `${API_URL}/profile/wishlist/${productId}`; // Corrected URL
+    const removeWishlistUrl = `${API_URL}/profile/wishlist`; // Endpoint changed
 
     try {
       const response = await fetch(removeWishlistUrl, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
+           'Content-Type': 'application/json', // Added Content-Type for DELETE with body
         },
+         body: JSON.stringify({ productId, variantId }), // Send data in body
       });
 
       if (!response.ok) {
@@ -344,26 +375,25 @@ export const UserApiService = {
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
 
-        // Handle 404 errors gracefully
+        // Handle 404 errors gracefully (item not found in wishlist)
         if (response.status === 404) {
-          console.warn('Sản phẩm không tồn tại trong wishlist hoặc đã bị xóa');
-          // Return a mock user object to avoid breaking the UI
-          return {
-            _id: '',
-            name: '',
-            email: '',
-            phone: '',
-            addresses: [],
-            role: 'user',
-            wishlist: [],
-            createdAt: new Date().toISOString()
-          } as User;
+          console.warn('Sản phẩm/biến thể không tồn tại trong wishlist hoặc đã bị xóa');
+           // Return the current user state from the API if possible, or a simplified object
+           // For now, just throw an error as the backend returns the updated user anyway on success
+           const errorData = await response.json().catch(() => ({ message: 'Không tìm thấy mục trong wishlist' }));
+           throw new Error(errorData.message);
         }
+         if (response.status === 400) { // Handle bad request
+           const errorData = await response.json().catch(() => ({ message: 'Yêu cầu không hợp lệ' }));
+           throw new Error(errorData.message);
+        }
+
 
         const errorData = await response.json().catch(() => ({ message: 'Lỗi không xác định' }));
         throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
       }
 
+      // Backend returns the updated user document after removal
       return await response.json();
     } catch (error) {
       console.error('Lỗi khi xóa khỏi wishlist:', error);

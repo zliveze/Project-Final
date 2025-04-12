@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req, Logger } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { ProfileService } from '../../services/profile.service';
+import { WishlistService } from '../../services/wishlist.service';
 import { UpdateProfileDto } from '../../dto/profile.dto';
 import { AddressDto } from '../../dto/address.dto';
 import { UserDocument } from '../../schemas/user.schema';
@@ -13,7 +14,10 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 export class UserProfileController {
   private readonly logger = new Logger(UserProfileController.name);
 
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly wishlistService: WishlistService,
+  ) {}
 
   // Lấy thông tin người dùng đăng nhập
   @Get()
@@ -75,8 +79,8 @@ export class UserProfileController {
   // API quản lý wishlist
   @Get('wishlist')
   @ApiOperation({ summary: 'Lấy danh sách sản phẩm yêu thích' })
-  async getWishlist(@Req() req): Promise<string[]> {
-    return this.profileService.getWishlist(req.user.userId);
+  async getWishlist(@Req() req): Promise<any[]> {
+    return this.wishlistService.getWishlist(req.user.userId);
   }
 
   @Post('wishlist')
@@ -84,8 +88,9 @@ export class UserProfileController {
   async addToWishlist(
     @Req() req,
     @Body('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
-    return this.profileService.addToWishlist(req.user.userId, productId);
+    return this.wishlistService.addToWishlist(req.user.userId, productId, variantId);
   }
 
   @Delete('wishlist/:productId')
@@ -93,7 +98,8 @@ export class UserProfileController {
   async removeFromWishlist(
     @Req() req,
     @Param('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
-    return this.profileService.removeFromWishlist(req.user.userId, productId);
+    return this.wishlistService.removeFromWishlist(req.user.userId, productId, variantId);
   }
 }

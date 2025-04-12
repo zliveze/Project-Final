@@ -7,6 +7,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AddressDto } from './dto/address.dto';
 import { User, UserDocument } from './schemas/user.schema';
+import { AddToWishlistDto, RemoveFromWishlistDto } from './dto/add-to-wishlist.dto'; // Import DTOs
 
 @Controller('users')
 export class UsersController {
@@ -76,19 +77,26 @@ export class UsersController {
     return this.usersService.removeAddress(id, addressId);
   }
 
-  @Post(':id/wishlist/:productId')
+  // Updated addToWishlist endpoint to accept variantId in the body
+  @Post(':id/wishlist')
+  @UseGuards(JwtAuthGuard) // Assuming only logged-in users can add to wishlist
   async addToWishlist(
     @Param('id') id: string,
-    @Param('productId') productId: string,
+    @Body() addToWishlistDto: AddToWishlistDto,
   ): Promise<UserDocument> {
-    return this.usersService.addToWishlist(id, productId);
+    // TODO: Add validation to ensure the user ID from the token matches the param ID, or use @Req() user
+    return this.usersService.addToWishlist(id, addToWishlistDto.productId, addToWishlistDto.variantId);
   }
 
-  @Delete(':id/wishlist/:productId')
+  // Updated removeFromWishlist endpoint to accept variantId in the body or query params
+  // Using DELETE with body is sometimes debated, query params might be better
+  @Delete(':id/wishlist')
+  @UseGuards(JwtAuthGuard) // Assuming only logged-in users can remove from wishlist
   async removeFromWishlist(
     @Param('id') id: string,
-    @Param('productId') productId: string,
+    @Body() removeFromWishlistDto: RemoveFromWishlistDto, // Or use @Query()
   ): Promise<UserDocument> {
-    return this.usersService.removeFromWishlist(id, productId);
+    // TODO: Add validation to ensure the user ID from the token matches the param ID, or use @Req() user
+    return this.usersService.removeFromWishlist(id, removeFromWishlistDto.productId, removeFromWishlistDto.variantId);
   }
 }

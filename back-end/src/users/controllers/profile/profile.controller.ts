@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Req, Get, Patch, Param, Delete } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'; // Import JwtAuthGuard
 import { ProfileService } from '../../services/profile.service'; // Corrected path
+import { WishlistService } from '../../services/wishlist.service';
 import { AddressDto } from '../../dto/address.dto'; // Corrected path
 import { UpdateProfileDto } from '../../dto/profile.dto'; // Corrected path
 import { Request } from 'express'; // Import Request for typing
@@ -16,7 +17,10 @@ interface AuthenticatedRequest extends Request {
 @Controller('profile')
 @UseGuards(JwtAuthGuard) // Áp dụng guard cho tất cả các route trong controller này
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly wishlistService: WishlistService,
+  ) {}
 
   // GET /profile - Lấy thông tin profile người dùng hiện tại
   @Get()
@@ -82,9 +86,9 @@ export class ProfileController {
 
   // GET /profile/wishlist - Lấy wishlist
   @Get('wishlist')
-  async getWishlist(@Req() req: AuthenticatedRequest): Promise<string[]> {
+  async getWishlist(@Req() req: AuthenticatedRequest): Promise<any[]> {
     const userId = req.user.userId;
-    return this.profileService.getWishlist(userId);
+    return this.wishlistService.getWishlist(userId);
   }
 
   // POST /profile/wishlist/:productId - Thêm vào wishlist
@@ -92,9 +96,10 @@ export class ProfileController {
   async addToWishlist(
     @Req() req: AuthenticatedRequest,
     @Param('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
     const userId = req.user.userId;
-    return this.profileService.addToWishlist(userId, productId);
+    return this.wishlistService.addToWishlist(userId, productId, variantId);
   }
 
   // DELETE /profile/wishlist/:productId - Xóa khỏi wishlist
@@ -102,8 +107,9 @@ export class ProfileController {
   async removeFromWishlist(
     @Req() req: AuthenticatedRequest,
     @Param('productId') productId: string,
+    @Body('variantId') variantId: string,
   ): Promise<UserDocument> {
     const userId = req.user.userId;
-    return this.profileService.removeFromWishlist(userId, productId);
+    return this.wishlistService.removeFromWishlist(userId, productId, variantId);
   }
 }

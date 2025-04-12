@@ -67,8 +67,15 @@ export class User {
   @Prop({ default: false })
   isDeleted: boolean;
 
-  @Prop({ type: [String], default: [] })
-  wishlist: string[];
+  @Prop({ 
+    type: [{ 
+      productId: { type: Types.ObjectId, ref: 'Product', required: true },
+      variantId: { type: String, required: true } // Assuming variantId is a string identifier within the product
+    }], 
+    default: [],
+    _id: false // Don't generate _id for subdocuments in the array
+  })
+  wishlist: { productId: Types.ObjectId; variantId: string }[];
 
   @Prop()
   resetPasswordToken: string;
