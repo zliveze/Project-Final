@@ -4,21 +4,21 @@ import { FiX, FiCalendar, FiUsers } from 'react-icons/fi';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-interface VoucherEditModalProps {
+interface VoucherAddModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (id: string, voucherData: Partial<Voucher>) => void;
+  onSubmit: (voucherData: Partial<Voucher>) => void;
   isSubmitting: boolean;
-  voucher: Voucher | null;
+  initialData?: Partial<Voucher> | null;
 }
 
-export default function VoucherEditModal({
+export default function VoucherAddModal({
   isOpen,
   onClose,
   onSubmit,
   isSubmitting,
-  voucher
-}: VoucherEditModalProps) {
+  initialData
+}: VoucherAddModalProps) {
   const [formData, setFormData] = useState<Partial<Voucher>>({
     code: '',
     description: '',
@@ -28,30 +28,32 @@ export default function VoucherEditModal({
     usageLimit: 0,
     startDate: new Date(),
     endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-    isActive: true
+    isActive: true,
+    applicableUserGroups: {
+      all: true,
+      new: false,
+      levels: [],
+      specific: []
+    },
+    applicableProducts: [],
+    applicableCategories: [],
+    applicableBrands: [],
+    applicableEvents: [],
+    applicableCampaigns: []
   });
 
-  // Cập nhật form khi voucher thay đổi
+  // Cập nhật form khi initialData thay đổi (trường hợp sao chép voucher)
   useEffect(() => {
-    if (voucher) {
+    if (initialData) {
       setFormData({
-        ...voucher,
-        startDate: new Date(voucher.startDate),
-        endDate: new Date(voucher.endDate),
-        applicableProducts: voucher.applicableProducts || [],
-        applicableCategories: voucher.applicableCategories || [],
-        applicableBrands: voucher.applicableBrands || [],
-        applicableEvents: voucher.applicableEvents || [],
-        applicableCampaigns: voucher.applicableCampaigns || [],
-        applicableUserGroups: voucher.applicableUserGroups || {
-          all: true,
-          new: false,
-          specific: [],
-          levels: []
-        }
+        ...initialData,
+        code: `${initialData.code}_COPY`,
+        startDate: initialData.startDate ? new Date(initialData.startDate) : new Date(),
+        endDate: initialData.endDate ? new Date(initialData.endDate) : new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        _id: undefined // Xóa ID để tạo mới
       });
     }
-  }, [voucher]);
+  }, [initialData]);
 
   // Cập nhật form khi người dùng nhập liệu
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -101,9 +103,7 @@ export default function VoucherEditModal({
   // Xử lý khi form được submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (voucher && voucher._id) {
-      onSubmit(voucher._id, formData);
-    }
+    onSubmit(formData);
   };
 
   // Validate form
@@ -119,7 +119,7 @@ export default function VoucherEditModal({
     );
   };
 
-  if (!isOpen || !voucher) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -129,7 +129,7 @@ export default function VoucherEditModal({
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
           <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b">
             <h3 className="text-lg font-medium text-gray-900">
-              Chỉnh sửa voucher: {voucher.code}
+              {initialData ? 'Sao chép voucher' : 'Thêm voucher mới'}
             </h3>
             <button
               type="button"
@@ -144,17 +144,17 @@ export default function VoucherEditModal({
             {/* Basic Information Section - Horizontal Layout */}
             <div className="bg-white p-4 rounded-md border border-gray-200 shadow-sm mb-4">
               <h4 className="font-medium text-gray-800 mb-3">Thông tin cơ bản</h4>
-
+              
               <div className="flex flex-wrap -mx-2">
                 {/* Left Column */}
                 <div className="w-full md:w-1/2 px-2">
-                  {/* Mã voucher - readonly trong chế độ edit */}
+                  {/* Mã voucher */}
                   <div className="mb-3">
                     <div className="flex items-center justify-between">
                       <label htmlFor="code" className="block text-sm font-medium text-gray-700">
                         Mã voucher <span className="text-red-500">*</span>
                       </label>
-                      <span className="text-xs text-gray-500">Không thể thay đổi</span>
+                      <span className="text-xs text-gray-500">Không thể thay đổi sau</span>
                     </div>
                     <input
                       type="text"
@@ -162,12 +162,12 @@ export default function VoucherEditModal({
                       name="code"
                       value={formData.code || ''}
                       onChange={handleChange}
-                      readOnly
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                      placeholder="VD: SUMMER2023"
                     />
                   </div>
-
+                  
                   {/* Giá trị giảm giá */}
                   <div className="mb-3">
                     <label htmlFor="discountValue" className="block text-sm font-medium text-gray-700">
@@ -184,6 +184,7 @@ export default function VoucherEditModal({
                         min={0}
                         step={formData.discountType === 'percentage' ? 1 : 1000}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                        placeholder={formData.discountType === 'percentage' ? "VD: 10" : "VD: 50000"}
                       />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                         <span className="text-gray-500 sm:text-sm">
@@ -197,7 +198,7 @@ export default function VoucherEditModal({
                       </p>
                     )}
                   </div>
-
+                  
                   {/* Ngày bắt đầu */}
                   <div className="mb-3">
                     <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
@@ -212,33 +213,15 @@ export default function VoucherEditModal({
                         endDate={formData.endDate}
                         dateFormat="dd/MM/yyyy"
                         className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                        placeholderText="Chọn ngày bắt đầu"
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FiCalendar className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                   </div>
-
-                  {/* Giới hạn sử dụng */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="usageLimit" className="block text-sm font-medium text-gray-700">
-                        Giới hạn sử dụng
-                      </label>
-                      <span className="text-xs text-gray-500">0 = không giới hạn</span>
-                    </div>
-                    <input
-                      type="number"
-                      id="usageLimit"
-                      name="usageLimit"
-                      value={formData.usageLimit === undefined ? '' : formData.usageLimit}
-                      onChange={handleChange}
-                      min={0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
-                    />
-                  </div>
                 </div>
-
+                
                 {/* Right Column */}
                 <div className="w-full md:w-1/2 px-2">
                   {/* Loại giảm giá */}
@@ -257,7 +240,7 @@ export default function VoucherEditModal({
                       <option value="fixed">Giảm số tiền cố định</option>
                     </select>
                   </div>
-
+                  
                   {/* Giá trị đơn hàng tối thiểu */}
                   <div className="mb-3">
                     <div className="flex items-center justify-between">
@@ -276,13 +259,14 @@ export default function VoucherEditModal({
                         min={0}
                         step={1000}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                        placeholder="VD: 100000"
                       />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                         <span className="text-gray-500 sm:text-sm">đ</span>
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* Ngày kết thúc */}
                   <div className="mb-3">
                     <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
@@ -298,38 +282,41 @@ export default function VoucherEditModal({
                         minDate={formData.startDate}
                         dateFormat="dd/MM/yyyy"
                         className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                        placeholderText="Chọn ngày kết thúc"
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FiCalendar className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                   </div>
-
-                  {/* Số lượng đã sử dụng - readonly */}
-                  <div className="mb-3">
+                </div>
+              </div>
+              
+              {/* Bottom Row - Usage Limit and Active Status */}
+              <div className="mt-2">
+                <div className="flex flex-wrap -mx-2">
+                  {/* Giới hạn sử dụng */}
+                  <div className="w-full md:w-1/4 px-2">
                     <div className="flex items-center justify-between">
-                      <label htmlFor="usedCount" className="block text-sm font-medium text-gray-700">
-                        Đã sử dụng
+                      <label htmlFor="usageLimit" className="block text-sm font-medium text-gray-700">
+                        Giới hạn sử dụng
                       </label>
-                      <span className="text-xs text-gray-500">Số lần đã dùng</span>
+                      <span className="text-xs text-gray-500">0 = không giới hạn</span>
                     </div>
                     <input
                       type="number"
-                      id="usedCount"
-                      name="usedCount"
-                      value={formData.usedCount || 0}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                      id="usageLimit"
+                      name="usageLimit"
+                      value={formData.usageLimit === undefined ? '' : formData.usageLimit}
+                      onChange={handleChange}
+                      min={0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                      placeholder="VD: 100"
                     />
                   </div>
-                </div>
-              </div>
-
-              {/* Description and Active Status - Full Width */}
-              <div className="mt-2">
-                <div className="flex flex-wrap -mx-2">
+                  
                   {/* Mô tả */}
-                  <div className="w-full md:w-3/4 px-2">
+                  <div className="w-full md:w-1/2 px-2">
                     <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
                       Mô tả
                     </label>
@@ -343,7 +330,7 @@ export default function VoucherEditModal({
                       placeholder="Mô tả ngắn về voucher"
                     />
                   </div>
-
+                  
                   {/* Kích hoạt voucher */}
                   <div className="w-full md:w-1/4 px-2 flex items-center">
                     <div className="mt-4">
@@ -374,14 +361,14 @@ export default function VoucherEditModal({
               <div className="bg-white p-4 rounded-md border border-gray-200 shadow-sm mb-4">
                 <div className="flex flex-wrap items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-800 flex items-center">
-                    <FiUsers className="mr-2 text-pink-500" />
+                    <FiUsers className="mr-2 text-pink-500" /> 
                     Đối tượng người dùng
                   </h4>
-
+                  
                   {/* Quick selection buttons */}
                   <div className="flex space-x-2">
-                    <button
-                      type="button"
+                    <button 
+                      type="button" 
                       onClick={() => {
                         setFormData(prev => ({
                           ...prev,
@@ -398,8 +385,8 @@ export default function VoucherEditModal({
                     >
                       Tất cả
                     </button>
-                    <button
-                      type="button"
+                    <button 
+                      type="button" 
                       onClick={() => {
                         setFormData(prev => ({
                           ...prev,
@@ -416,8 +403,8 @@ export default function VoucherEditModal({
                     >
                       Người dùng mới
                     </button>
-                    <button
-                      type="button"
+                    <button 
+                      type="button" 
                       onClick={() => {
                         setFormData(prev => ({
                           ...prev,
@@ -436,7 +423,7 @@ export default function VoucherEditModal({
                     </button>
                   </div>
                 </div>
-
+                
                 {/* User targeting options - horizontal layout */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   <div className="flex-1 min-w-[150px] p-2 border rounded-md bg-gray-50">
@@ -465,7 +452,7 @@ export default function VoucherEditModal({
                       </label>
                     </div>
                   </div>
-
+                  
                   <div className="flex-1 min-w-[150px] p-2 border rounded-md bg-gray-50">
                     <div className="flex items-center">
                       <input
@@ -492,7 +479,7 @@ export default function VoucherEditModal({
                       </label>
                     </div>
                   </div>
-
+                  
                   <div className="flex-1 min-w-[150px] p-2 border rounded-md bg-gray-50">
                     <div className="flex items-center">
                       <input
@@ -520,7 +507,7 @@ export default function VoucherEditModal({
                     </div>
                   </div>
                 </div>
-
+                
                 {/* User level selection - horizontal layout */}
                 {formData.applicableUserGroups?.levels?.length > 0 && (
                   <div className="p-3 border border-pink-100 rounded-md bg-pink-50">
@@ -528,7 +515,7 @@ export default function VoucherEditModal({
                       <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                         Chọn cấp độ:
                       </label>
-
+                      
                       {/* Level checkboxes in a row */}
                       <div className="flex flex-wrap gap-2 flex-1">
                         {[
@@ -545,13 +532,13 @@ export default function VoucherEditModal({
                               onChange={(e) => {
                                 const currentLevels = formData.applicableUserGroups?.levels || [];
                                 let newLevels;
-
+                                
                                 if (e.target.checked) {
                                   newLevels = [...currentLevels, level.value];
                                 } else {
                                   newLevels = currentLevels.filter(l => l !== level.value);
                                 }
-
+                                
                                 setFormData(prev => ({
                                   ...prev,
                                   applicableUserGroups: {
@@ -574,247 +561,73 @@ export default function VoucherEditModal({
               {/* Phần sản phẩm */}
               <div className="bg-gray-50 p-4 rounded-md border mb-4">
                 <h4 className="font-medium text-gray-700 mb-2">Áp dụng cho sản phẩm</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex items-center mb-2">
-                    <input
-                      type="radio"
-                      id="allProducts"
-                      name="productApplyType"
-                      checked={!formData.applicableProducts?.length && !formData.applicableCategories?.length && !formData.applicableBrands?.length}
-                      onChange={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          applicableProducts: [],
-                          applicableCategories: [],
-                          applicableBrands: []
-                        }));
-                      }}
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    />
-                    <label htmlFor="allProducts" className="ml-2 block text-sm text-gray-900">
-                      Tất cả sản phẩm
-                    </label>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex-1 min-w-[150px] p-2 border rounded-md bg-white">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="allProducts"
+                        name="productTargeting"
+                        checked={!formData.applicableProducts?.length}
+                        onChange={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            applicableProducts: []
+                          }));
+                        }}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      />
+                      <label htmlFor="allProducts" className="ml-2 block text-sm font-medium text-gray-700">
+                        Tất cả sản phẩm
+                      </label>
+                    </div>
                   </div>
-
-                  <div className="flex items-center mb-2">
-                    <input
-                      type="radio"
-                      id="specificProducts"
-                      name="productApplyType"
-                      checked={!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length)}
-                      onChange={() => {
-                        // Không thay đổi các lựa chọn hiện tại, chỉ bật chế độ lựa chọn
-                        if (!formData.applicableProducts?.length && !formData.applicableCategories?.length && !formData.applicableBrands?.length) {
+                  
+                  <div className="flex-1 min-w-[150px] p-2 border rounded-md bg-white">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="specificProducts"
+                        name="productTargeting"
+                        checked={formData.applicableProducts?.length ? true : false}
+                        onChange={() => {
                           setFormData(prev => ({
                             ...prev,
                             applicableProducts: ['placeholder']
                           }));
-                        }
-                      }}
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
-                    />
-                    <label htmlFor="specificProducts" className="ml-2 block text-sm text-gray-900">
-                      Chỉ áp dụng cho sản phẩm cụ thể
-                    </label>
-                  </div>
-
-                  {/* Phần chọn sản phẩm cụ thể */}
-                  {!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length) && (
-                    <div className="pl-6 grid grid-cols-1 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Chọn danh mục
-                        </label>
-                        <select
-                          multiple
-                          name="applicableCategories"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
-                              }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableCategories: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách danh mục sẽ được render từ context */}
-                          <option value="example-category-1">Danh mục 1</option>
-                          <option value="example-category-2">Danh mục 2</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Chọn thương hiệu
-                        </label>
-                        <select
-                          multiple
-                          name="applicableBrands"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
-                              }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableBrands: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách thương hiệu sẽ được render từ context */}
-                          <option value="example-brand-1">Thương hiệu 1</option>
-                          <option value="example-brand-2">Thương hiệu 2</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Chọn sản phẩm
-                        </label>
-                        <select
-                          multiple
-                          name="applicableProducts"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
-                              }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableProducts: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách sản phẩm sẽ được render từ context */}
-                          <option value="example-product-1">Sản phẩm 1</option>
-                          <option value="example-product-2">Sản phẩm 2</option>
-                        </select>
-                      </div>
+                        }}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      />
+                      <label htmlFor="specificProducts" className="ml-2 block text-sm font-medium text-gray-700">
+                        Chỉ sản phẩm cụ thể
+                      </label>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Phần sự kiện và chiến dịch */}
-              <div className="bg-gray-50 p-4 rounded-md border mb-4">
-                <h4 className="font-medium text-gray-700 mb-2">Áp dụng cho sự kiện và chiến dịch</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Chọn sự kiện
-                    </label>
-                    <select
-                      multiple
-                      name="applicableEvents"
-                      className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                      onChange={(e) => {
-                        const options = e.target.options;
-                        const values: string[] = [];
-                        for (let i = 0; i < options.length; i++) {
-                          if (options[i].selected) {
-                            values.push(options[i].value);
-                          }
-                        }
-                        setFormData(prev => ({
-                          ...prev,
-                          applicableEvents: values
-                        }));
-                      }}
-                    >
-                      {/* Danh sách sự kiện sẽ được render từ context */}
-                      <option value="example-event-1">Sự kiện 1</option>
-                      <option value="example-event-2">Sự kiện 2</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Chọn chiến dịch
-                    </label>
-                    <select
-                      multiple
-                      name="applicableCampaigns"
-                      className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                      onChange={(e) => {
-                        const options = e.target.options;
-                        const values: string[] = [];
-                        for (let i = 0; i < options.length; i++) {
-                          if (options[i].selected) {
-                            values.push(options[i].value);
-                          }
-                        }
-                        setFormData(prev => ({
-                          ...prev,
-                          applicableCampaigns: values
-                        }));
-                      }}
-                    >
-                      {/* Danh sách chiến dịch sẽ được render từ context */}
-                      <option value="example-campaign-1">Chiến dịch 1</option>
-                      <option value="example-campaign-2">Chiến dịch 2</option>
-                    </select>
                   </div>
                 </div>
+                
+                {formData.applicableProducts?.length > 0 && (
+                  <div className="mt-2 p-2 border border-gray-200 rounded-md bg-white">
+                    <p className="text-sm text-gray-500 mb-2">Tính năng chọn sản phẩm cụ thể sẽ được cập nhật sau</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Mô tả voucher */}
-            <div className="mb-4">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Mô tả
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description || ''}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
-                placeholder="Mô tả ngắn về voucher (không bắt buộc)"
-              />
-            </div>
-
-            {/* Nút submit */}
-            <div className="flex justify-end pt-4 border-t">
+            {/* Form actions */}
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 mr-3"
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
               >
                 Hủy
               </button>
               <button
                 type="submit"
-                disabled={!isFormValid() || isSubmitting}
-                className={`inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-pink-600 border border-transparent rounded-md shadow-sm hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 ${
-                  !isFormValid() || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                disabled={isSubmitting || !isFormValid()}
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isFormValid() ? 'bg-pink-600 hover:bg-pink-700' : 'bg-gray-300 cursor-not-allowed'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500`}
               >
-                {isSubmitting ? (
-                  <>
-                    <svg className="w-5 h-5 mr-3 -ml-1 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Đang lưu...
-                  </>
-                ) : (
-                  <>Cập nhật voucher</>
-                )}
+                {isSubmitting ? 'Đang lưu...' : initialData ? 'Sao chép' : 'Thêm mới'}
               </button>
             </div>
           </form>

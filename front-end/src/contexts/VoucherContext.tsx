@@ -25,6 +25,7 @@ export interface Voucher {
     all: boolean;
     new: boolean;
     specific: string[];
+    levels?: string[];
   };
   isActive: boolean;
   createdAt: Date;
@@ -74,7 +75,7 @@ interface VoucherContextType {
   statistics: VoucherStatistics | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Hàm quản lý voucher
   getVouchers: (queryParams?: VoucherQueryParams) => Promise<void>;
   getVoucherById: (id: string) => Promise<Voucher | null>;
@@ -82,7 +83,7 @@ interface VoucherContextType {
   createVoucher: (voucherData: Partial<Voucher>) => Promise<Voucher | null>;
   updateVoucher: (id: string, voucherData: Partial<Voucher>) => Promise<Voucher | null>;
   deleteVoucher: (id: string) => Promise<boolean>;
-  
+
   // Hàm lấy thống kê
   getVoucherStatistics: () => Promise<void>;
 }
@@ -94,11 +95,11 @@ const VoucherContext = createContext<VoucherContextType | undefined>(undefined);
 export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { accessToken, isAuthenticated } = useAdminAuth();
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [paginatedVouchers, setPaginatedVouchers] = useState<PaginatedVouchers>({ 
-    data: [], 
-    total: 0, 
-    page: 1, 
-    limit: 10 
+  const [paginatedVouchers, setPaginatedVouchers] = useState<PaginatedVouchers>({
+    data: [],
+    total: 0,
+    page: 1,
+    limit: 10
   });
   const [statistics, setStatistics] = useState<VoucherStatistics | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -242,7 +243,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       );
 
       const newVoucher = formatVoucherDates(response.data);
-      
+
       // Cập nhật danh sách voucher
       setVouchers(prev => [newVoucher, ...prev]);
       setIsLoading(false);
@@ -279,7 +280,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       );
 
       const updatedVoucher = formatVoucherDates(response.data);
-      
+
       // Cập nhật danh sách voucher
       setVouchers(prev => prev.map(v => (v._id === id ? updatedVoucher : v)));
       setIsLoading(false);
@@ -380,4 +381,4 @@ export const useVoucher = (): VoucherContextType => {
     throw new Error('useVoucher must be used within a VoucherProvider');
   }
   return context;
-}; 
+};
