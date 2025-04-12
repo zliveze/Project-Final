@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Voucher } from '@/contexts/VoucherContext';
-import { FiX, FiCalendar, FiUsers } from 'react-icons/fi';
+import { FiX, FiCalendar, FiUsers, FiSearch, FiLoader } from 'react-icons/fi';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useVoucherSelections } from '@/hooks/useVoucherSelections';
 
 interface VoucherAddModalProps {
   isOpen: boolean;
@@ -39,14 +40,34 @@ export default function VoucherAddModal({
       new: false,
       specific: [],
       levels: []
-    }
+    },
+    showSpecificProducts: false
   });
+
+  // State for product search
+  const [productSearch, setProductSearch] = useState('');
+
+  // Get brands, categories, and products data
+  const {
+    brands,
+    categories,
+    products,
+    brandsLoading,
+    categoriesLoading,
+    productsLoading,
+    fetchBrands,
+    fetchCategories,
+    fetchProducts
+  } = useVoucherSelections();
 
   // Reset form khi mở modal
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         // Nếu có initialData (trường hợp duplicate), sử dụng nó
+        // Check if this voucher has specific product settings
+        const hasSpecificProducts = !!(initialData.applicableProducts?.length || initialData.applicableCategories?.length || initialData.applicableBrands?.length);
+
         setFormData({
           ...initialData,
           code: `${initialData.code || ''}_COPY`,
@@ -61,7 +82,8 @@ export default function VoucherAddModal({
             new: false,
             specific: [],
             levels: []
-          }
+          },
+          showSpecificProducts: hasSpecificProducts
         });
       } else {
         // Khởi tạo form với giá trị mặc định
@@ -85,11 +107,17 @@ export default function VoucherAddModal({
             new: false,
             specific: [],
             levels: []
-          }
+          },
+          showSpecificProducts: false
         });
       }
+
+      // Fetch brands, categories, and products when modal is opened
+      fetchBrands();
+      fetchCategories();
+      fetchProducts(1, 100);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, fetchBrands, fetchCategories, fetchProducts]);
 
   // Cập nhật form khi người dùng nhập liệu
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -468,7 +496,7 @@ export default function VoucherAddModal({
                 </div>
 
                 {/* User level selection - horizontal layout */}
-                {formData.applicableUserGroups?.levels?.length > 0 && (
+                {(formData.applicableUserGroups?.levels?.length || 0) > 0 && (
                   <div className="mt-2 p-3 border border-pink-100 rounded-md bg-pink-50">
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                       <label className="text-sm font-medium text-gray-700">
@@ -501,7 +529,9 @@ export default function VoucherAddModal({
                                 setFormData(prev => ({
                                   ...prev,
                                   applicableUserGroups: {
-                                    ...(prev.applicableUserGroups || {}),
+                                    all: prev.applicableUserGroups?.all || false,
+                                    new: prev.applicableUserGroups?.new || false,
+                                    specific: prev.applicableUserGroups?.specific || [],
                                     levels: newLevels
                                   }
                                 }));
@@ -518,7 +548,7 @@ export default function VoucherAddModal({
                     </div>
 
                     {/* Selected levels as badges */}
-                    {formData.applicableUserGroups?.levels?.length > 0 && (
+                    {(formData.applicableUserGroups?.levels?.length || 0) > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="text-xs text-gray-500 self-center">Cấp độ đã chọn:</span>
                         {formData.applicableUserGroups?.levels?.map((level, index) => (
@@ -558,13 +588,14 @@ export default function VoucherAddModal({
                       type="radio"
                       id="allProducts"
                       name="productApplyType"
-                      checked={!formData.applicableProducts?.length && !formData.applicableCategories?.length && !formData.applicableBrands?.length}
+                      checked={!formData.applicableProducts?.length && !formData.applicableCategories?.length && !formData.applicableBrands?.length && !formData.showSpecificProducts}
                       onChange={() => {
                         setFormData(prev => ({
                           ...prev,
                           applicableProducts: [],
                           applicableCategories: [],
-                          applicableBrands: []
+                          applicableBrands: [],
+                          showSpecificProducts: false
                         }));
                       }}
                       className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
@@ -579,13 +610,14 @@ export default function VoucherAddModal({
                       type="radio"
                       id="specificProducts"
                       name="productApplyType"
-                      checked={!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length)}
+                      checked={!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length || formData.showSpecificProducts)}
                       onChange={() => {
                         // Không thay đổi các lựa chọn hiện tại, chỉ bật chế độ lựa chọn
                         if (!formData.applicableProducts?.length && !formData.applicableCategories?.length && !formData.applicableBrands?.length) {
                           setFormData(prev => ({
                             ...prev,
-                            applicableProducts: ['placeholder']
+                            // Use a placeholder value to indicate specific products mode
+                            showSpecificProducts: true
                           }));
                         }
                       }}
@@ -597,90 +629,172 @@ export default function VoucherAddModal({
                   </div>
 
                   {/* Phần chọn sản phẩm cụ thể */}
-                  {!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length) && (
+                  {!!(formData.applicableProducts?.length || formData.applicableCategories?.length || formData.applicableBrands?.length || formData.showSpecificProducts) && (
                     <div className="pl-6 grid grid-cols-1 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Chọn danh mục
-                        </label>
-                        <select
-                          multiple
-                          name="applicableCategories"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
-                              }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableCategories: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách danh mục sẽ được render từ context */}
-                          <option value="example-category-1">Danh mục 1</option>
-                          <option value="example-category-2">Danh mục 2</option>
-                        </select>
-                      </div>
-
+                      {/* Chọn thương hiệu */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Chọn thương hiệu
                         </label>
-                        <select
-                          multiple
-                          name="applicableBrands"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
+                        <div className="relative">
+                          {brandsLoading && (
+                            <div className="absolute right-2 top-2">
+                              <FiLoader className="animate-spin text-pink-500" />
+                            </div>
+                          )}
+                          <select
+                            multiple
+                            name="applicableBrands"
+                            className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
+                            onChange={(e) => {
+                              const options = e.target.options;
+                              const values: string[] = [];
+                              for (let i = 0; i < options.length; i++) {
+                                if (options[i].selected) {
+                                  values.push(options[i].value);
+                                }
                               }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableBrands: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách thương hiệu sẽ được render từ context */}
-                          <option value="example-brand-1">Thương hiệu 1</option>
-                          <option value="example-brand-2">Thương hiệu 2</option>
-                        </select>
+                              setFormData(prev => ({
+                                ...prev,
+                                applicableBrands: values
+                              }));
+                            }}
+                            value={formData.applicableBrands || []}
+                          >
+                            {brandsLoading ? (
+                              <option value="" disabled>Loading brands...</option>
+                            ) : brands && brands.length > 0 ? (
+                              brands.map(brand => {
+                                const brandId = brand._id || brand.id || '';
+                                return (
+                                  <option key={brandId} value={brandId}>
+                                    {brand.name}
+                                  </option>
+                                );
+                              })
+                            ) : (
+                              <option value="" disabled>No brands available</option>
+                            )}
+                          </select>
+                        </div>
                       </div>
 
+                      {/* Chọn danh mục */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Chọn danh mục
+                        </label>
+                        <div className="relative">
+                          {categoriesLoading && (
+                            <div className="absolute right-2 top-2">
+                              <FiLoader className="animate-spin text-pink-500" />
+                            </div>
+                          )}
+                          <select
+                            multiple
+                            name="applicableCategories"
+                            className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
+                            onChange={(e) => {
+                              const options = e.target.options;
+                              const values: string[] = [];
+                              for (let i = 0; i < options.length; i++) {
+                                if (options[i].selected) {
+                                  values.push(options[i].value);
+                                }
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                applicableCategories: values
+                              }));
+                            }}
+                            value={formData.applicableCategories || []}
+                          >
+                            {categoriesLoading ? (
+                              <option value="" disabled>Loading categories...</option>
+                            ) : categories && categories.length > 0 ? (
+                              categories.map(category => {
+                                const categoryId = category._id || category.id || '';
+                                return (
+                                  <option key={categoryId} value={categoryId}>
+                                    {category.name}
+                                  </option>
+                                );
+                              })
+                            ) : (
+                              <option value="" disabled>No categories available</option>
+                            )}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Chọn sản phẩm */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Chọn sản phẩm
                         </label>
-                        <select
-                          multiple
-                          name="applicableProducts"
-                          className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-20"
-                          onChange={(e) => {
-                            const options = e.target.options;
-                            const values: string[] = [];
-                            for (let i = 0; i < options.length; i++) {
-                              if (options[i].selected) {
-                                values.push(options[i].value);
+                        <div className="mb-2 relative">
+                          <input
+                            type="text"
+                            placeholder="Tìm kiếm sản phẩm..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                            value={productSearch}
+                            onChange={(e) => setProductSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                fetchProducts(1, 100, productSearch);
                               }
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              applicableProducts: values
-                            }));
-                          }}
-                        >
-                          {/* Danh sách sản phẩm sẽ được render từ context */}
-                          <option value="example-product-1">Sản phẩm 1</option>
-                          <option value="example-product-2">Sản phẩm 2</option>
-                        </select>
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                            onClick={() => fetchProducts(1, 100, productSearch)}
+                          >
+                            <FiSearch />
+                          </button>
+                        </div>
+                        <div className="relative">
+                          {productsLoading && (
+                            <div className="absolute right-2 top-2">
+                              <FiLoader className="animate-spin text-pink-500" />
+                            </div>
+                          )}
+                          <select
+                            multiple
+                            name="applicableProducts"
+                            className="block w-full pl-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm h-32"
+                            onChange={(e) => {
+                              const options = e.target.options;
+                              const values: string[] = [];
+                              for (let i = 0; i < options.length; i++) {
+                                if (options[i].selected) {
+                                  values.push(options[i].value);
+                                }
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                applicableProducts: values
+                              }));
+                            }}
+                            value={formData.applicableProducts || []}
+                          >
+                            {productsLoading ? (
+                              <option value="" disabled>Loading products...</option>
+                            ) : products && products.length > 0 ? (
+                              products.map(product => {
+                                const productId = product._id || product.id || '';
+                                return (
+                                  <option key={productId} value={productId}>
+                                    {product.name} ({product.sku})
+                                  </option>
+                                );
+                              })
+                            ) : (
+                              <option value="" disabled>No products available</option>
+                            )}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}

@@ -11,6 +11,9 @@ import VoucherDeleteModal from '@/components/admin/vouchers/VoucherDeleteModal';
 import { useVoucher, VoucherProvider } from '@/contexts/VoucherContext';
 import { Voucher, VoucherStatistics } from '@/contexts/VoucherContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { BrandProvider } from '@/contexts/BrandContext';
+import { CategoryProvider } from '@/contexts/CategoryContext';
+import { ProductProvider } from '@/contexts/ProductContext';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 
@@ -47,7 +50,7 @@ function VouchersPageContent() {
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Kiểm tra xác thực
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -342,11 +345,17 @@ function VouchersPageContent() {
   );
 }
 
-// Trang chính được bọc trong VoucherProvider
+// Trang chính được bọc trong VoucherProvider, BrandProvider, CategoryProvider và ProductProvider
 export default function VouchersPage() {
   return (
-    <VoucherProvider>
-      <VouchersPageContent />
-    </VoucherProvider>
+    <ProductProvider>
+      <CategoryProvider>
+        <BrandProvider>
+          <VoucherProvider>
+            <VouchersPageContent />
+          </VoucherProvider>
+        </BrandProvider>
+      </CategoryProvider>
+    </ProductProvider>
   );
-} 
+}

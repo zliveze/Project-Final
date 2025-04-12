@@ -30,6 +30,8 @@ export interface Voucher {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // UI state flag - not stored in database
+  showSpecificProducts?: boolean;
 }
 
 // Định nghĩa kiểu dữ liệu cho thống kê voucher
