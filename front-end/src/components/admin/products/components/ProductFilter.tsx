@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp, FiList } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
 import { useProduct } from '@/contexts/ProductContext';
+import { useBrands } from '@/contexts/BrandContext';
+import { useCategory } from '@/contexts/CategoryContext';
 
 interface ProductFilterProps {
   onSearch: (term: string) => void;
@@ -37,17 +39,46 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
 }) => {
   // Access the ProductContext for additional functionality
   const { statistics, fetchStatistics, loading: contextLoading } = useProduct();
-
-  // Fetch statistics when component mounts
-  useEffect(() => {
-    // Chỉ gọi API nếu chưa có dữ liệu statistics
-    if (!statistics) {
-      fetchStatistics();
-    }
-  }, [statistics, fetchStatistics]);
+  
+  // Sử dụng BrandContext và CategoryContext
+  const { brands: brandsList, fetchBrands, loading: brandsLoading } = useBrands();
+  const { categories: categoriesList, fetchCategories, loading: categoriesLoading } = useCategory();
+  
+  // Lấy danh sách brands và categories từ statistics nếu có
+  const statisticsBrands = (statistics as any)?.brands || [];
+  const statisticsCategories = (statistics as any)?.categories || [];
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
+  // Fetch statistics when component mounts or when advanced filters are shown
+  useEffect(() => {
+    // Gọi API khi component mount hoặc khi người dùng mở filter nâng cao
+    if (!statistics || showAdvancedFilters) {
+      fetchStatistics();
+    }
+  }, [statistics, fetchStatistics, showAdvancedFilters]);
+  
+  // Đảm bảo gọi API khi component mount
+  useEffect(() => {
+    fetchStatistics();
+    fetchBrands(1, 100);
+    fetchCategories(1, 100);
+  }, []);
+  
+  // Hàm xử lý khi người dùng bấm vào nút lọc nâng cao
+  const handleToggleAdvancedFilters = () => {
+    const newState = !showAdvancedFilters;
+    setShowAdvancedFilters(newState);
+    
+    // Nếu đang mở filter, gọi API để lấy dữ liệu
+    if (newState) {
+      console.log('Mở filter nâng cao, đang gọi API...');
+      fetchStatistics();
+      fetchBrands(1, 100); // Lấy tối đa 100 thương hiệu
+      fetchCategories(1, 100); // Lấy tối đa 100 danh mục
+    }
+  };
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<ProductStatus | ''>('');
@@ -59,7 +90,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   });
 
   // Kết hợp trạng thái loading từ props và context
-  const combinedLoading = loading || contextLoading;
+  const combinedLoading = loading || contextLoading || brandsLoading || categoriesLoading;
 
   const handleSearch = () => {
     onSearch(searchTerm);
@@ -160,6 +191,14 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     const brandStats = (statistics as any).brands.find((brand: any) => brand.id === brandId);
     return brandStats ? brandStats.count : null;
   };
+  
+  // Hàm kiểm tra xem có dữ liệu brands và categories từ statistics hay không
+  const hasDataFromStatistics = () => {
+    return statistics && (
+      ((statistics as any)?.brands && (statistics as any).brands.length > 0) ||
+      ((statistics as any)?.categories && (statistics as any).categories.length > 0)
+    );
+  };
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
@@ -192,7 +231,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             </button>
 
             <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              onClick={handleToggleAdvancedFilters}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
             >
               <FiFilter className="mr-1" />
@@ -239,7 +278,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
               <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
-                {categories.map((category) => {
+                {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories)).map((category: any) => {
                   const categoryCount = getCountForCategory(category.id);
                   return (
                     <div key={category.id} className="flex items-center justify-between">
@@ -264,7 +303,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </div>
                   );
                 })}
-                {categories.length === 0 && (
+                {categories.length === 0 && statisticsCategories.length === 0 && categoriesList.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có danh mục</p>
                 )}
               </div>
@@ -274,32 +313,56 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Thương hiệu</h3>
               <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
-                {brands.map((brand) => {
-                  const brandCount = getCountForBrand(brand.id);
-                  return (
-                    <div key={brand.id} className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <input
-                          id={`brand-${brand.id}`}
-                          type="checkbox"
-                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                          checked={selectedBrands.includes(brand.id)}
-                          onChange={() => handleBrandChange(brand.id)}
-                          disabled={combinedLoading}
-                        />
-                        <label htmlFor={`brand-${brand.id}`} className="ml-2 text-sm text-gray-700">
-                          {brand.name}
-                        </label>
+                {combinedLoading ? (
+                  <div className="py-2 px-1">
+                    <div className="animate-pulse flex space-x-2">
+                      <div className="rounded-full bg-gray-200 h-4 w-4"></div>
+                      <div className="flex-1 space-y-4 py-1">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                       </div>
-                      {brandCount !== null && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          {brandCount}
-                        </span>
-                      )}
                     </div>
-                  );
-                })}
-                {brands.length === 0 && (
+                    <div className="animate-pulse flex space-x-2 mt-2">
+                      <div className="rounded-full bg-gray-200 h-4 w-4"></div>
+                      <div className="flex-1 space-y-4 py-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                    <div className="animate-pulse flex space-x-2 mt-2">
+                      <div className="rounded-full bg-gray-200 h-4 w-4"></div>
+                      <div className="flex-1 space-y-4 py-1">
+                        <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Ưu tiên sử dụng brands từ context, nếu không có thì sử dụng từ statistics hoặc props
+                  (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands)).map((brand: any) => {
+                    const brandCount = getCountForBrand(brand.id);
+                    return (
+                      <div key={brand.id} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <input
+                            id={`brand-${brand.id}`}
+                            type="checkbox"
+                            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                            checked={selectedBrands.includes(brand.id)}
+                            onChange={() => handleBrandChange(brand.id)}
+                            disabled={combinedLoading}
+                          />
+                          <label htmlFor={`brand-${brand.id}`} className="ml-2 text-sm text-gray-700">
+                            {brand.name}
+                          </label>
+                        </div>
+                        {brandCount !== null && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                            {brandCount}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                {!combinedLoading && brands.length === 0 && statisticsBrands.length === 0 && brandsList.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có thương hiệu</p>
                 )}
               </div>

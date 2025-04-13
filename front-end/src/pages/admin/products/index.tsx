@@ -17,13 +17,14 @@ import ProductForm from '@/components/admin/products/ProductForm/index';
 import { Pagination } from '@/components/admin/common';
 
 // Import hooks
-import { getCategories, getBrands } from '@/components/admin/products/hooks/useProductTable';
+import { getCategories } from '@/components/admin/products/hooks/useProductTable';
 import { ProductFilterState } from '@/components/admin/products/components/ProductFilter';
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
 import { useBranches } from '@/hooks/useBranches'; // Import hook useBranches
 import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/useProductAdmin'; // Import types
 import { useApiStats } from '@/hooks/useApiStats';
 import { useProduct, ProductProvider } from '@/contexts/ProductContext'; // Import ProductProvider
+import { useBrands } from '@/contexts/BrandContext'; // Import useBrands hook
 
 // Define props type including SSR data
 type AdminProductsProps = InferGetServerSidePropsType<typeof getServerSideProps>;
@@ -123,9 +124,17 @@ function AdminProducts({
   const [showProductDetailModal, setShowProductDetailModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  // Lấy dữ liệu danh mục và thương hiệu
+  // Lấy dữ liệu danh mục từ mock data (tạm thời)
   const categories = getCategories();
-  const brands = getBrands();
+
+  // Lấy dữ liệu thương hiệu từ BrandContext
+  const { brands: apiBrands, loading: brandsLoading } = useBrands();
+
+  // Chuyển đổi định dạng brands từ API để phù hợp với component
+  const brands = apiBrands.map(brand => ({
+    id: brand.id || brand._id || '',
+    name: brand.name
+  }));
 
   // Get productContext from useProduct hook
   const { cleanupBase64Images, uploadProductImage, fetchProductById, cloneProduct } = useProduct();
@@ -398,7 +407,7 @@ function AdminProducts({
       // Tìm thông tin chi nhánh được chọn
       const selectedBranchInfo = branches.find(branch => branch._id === selectedBranch);
       const branchName = selectedBranchInfo ? selectedBranchInfo.name : selectedBranch;
-      
+
       // Xử lý import file Excel
       console.log(`Đang import file ${selectedFile.name} cho chi nhánh ${branchName} (ID: ${selectedBranch})`);
 
@@ -735,7 +744,24 @@ function AdminProducts({
 
   // Hàm xử lý lọc sản phẩm
   const handleFilterChange = (newFilter: ProductFilterState) => {
-    applyFilter(newFilter);
+    // Chuyển đổi brands từ ProductFilterState sang ProductAdminFilter
+    const adminFilters: Partial<ProductAdminFilter> = {
+      search: newFilter.searchTerm,
+      // Nếu có brands được chọn, chuyển thành chuỗi các ID cách nhau bằng dấu phẩy
+      brandId: newFilter.brands.length > 0 ? newFilter.brands.join(',') : undefined,
+      // Nếu có categories được chọn, chuyển thành chuỗi các ID cách nhau bằng dấu phẩy
+      categoryId: newFilter.categories.length > 0 ? newFilter.categories.join(',') : undefined,
+      // Trạng thái sản phẩm
+      status: newFilter.status,
+      // Các flags
+      isBestSeller: newFilter.flags.isBestSeller,
+      isNew: newFilter.flags.isNew,
+      isOnSale: newFilter.flags.isOnSale,
+      hasGifts: newFilter.flags.hasGifts
+    };
+
+    console.log('Applying filters to products:', adminFilters);
+    applyFilter(adminFilters);
   };
 
   // Xử lý tìm kiếm
@@ -1344,7 +1370,7 @@ function AdminProducts({
   );
 }
 
-// Create a wrapped component with ProductProvider
+// Create a wrapped component with ProductProvider and BrandProvider
 const AdminProductsWithProvider = (props: AdminProductsProps) => {
   return (
     <ProductProvider>
@@ -1352,6 +1378,10 @@ const AdminProductsWithProvider = (props: AdminProductsProps) => {
     </ProductProvider>
   );
 };
+
+// Note: We don't need to explicitly wrap with BrandProvider here because
+// BrandProvider is already included in the _app.tsx file at a higher level
+// This ensures that the BrandContext is available throughout the application
 
 // Export the wrapped component as the default export
 export default AdminProductsWithProvider;

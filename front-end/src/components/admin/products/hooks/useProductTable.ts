@@ -82,8 +82,11 @@ export function getCategories() {
   ];
 }
 
-// Mock data lấy các thương hiệu
+// Không còn sử dụng mock data cho brands nữa
+// Thay vào đó, sẽ sử dụng BrandContext để lấy dữ liệu thực từ API
 export function getBrands() {
+  // Hàm này vẫn được giữ lại để tương thích với code hiện tại
+  // Nhưng nên sử dụng useBrands() hook từ BrandContext để lấy dữ liệu thực
   return [
     { id: '1', name: 'Yumin' },
     { id: '2', name: 'Clinique' },
@@ -301,9 +304,10 @@ const getCategoryName = (categoryId: string): string => {
 };
 
 const getBrandName = (brandId: string): string => {
-  const brands = getBrands();
-  const brand = brands.find(b => b.id === brandId);
-  return brand ? brand.name : 'Không có thương hiệu';
+  // Lưu ý: Hàm này không thể sử dụng useBrands hook trực tiếp vì nó nằm ngoài component
+  // Thay vào đó, chúng ta sẽ dựa vào dữ liệu brandName được trả về từ API
+  // hoặc sử dụng giá trị mặc định nếu không có
+  return 'Không có thương hiệu';
 };
 
 const getBranchName = (branchId: string): string => {
