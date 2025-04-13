@@ -47,6 +47,11 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   // Lấy danh sách brands và categories từ statistics nếu có
   const statisticsBrands = (statistics as any)?.brands || [];
   const statisticsCategories = (statistics as any)?.categories || [];
+  
+  // Hàm chuẩn hóa ID của danh mục và thương hiệu
+  const getNormalizedId = (item: any) => {
+    return item.id || item._id;
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -103,19 +108,23 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   };
 
   const handleCategoryChange = (categoryId: string) => {
+    console.log('Changing category:', categoryId);
     const updatedCategories = selectedCategories.includes(categoryId)
       ? selectedCategories.filter(id => id !== categoryId)
       : [...selectedCategories, categoryId];
 
+    console.log('Updated categories:', updatedCategories);
     setSelectedCategories(updatedCategories);
     applyFilters({ categories: updatedCategories });
   };
 
   const handleBrandChange = (brandId: string) => {
+    console.log('Changing brand:', brandId);
     const updatedBrands = selectedBrands.includes(brandId)
       ? selectedBrands.filter(id => id !== brandId)
       : [...selectedBrands, brandId];
 
+    console.log('Updated brands:', updatedBrands);
     setSelectedBrands(updatedBrands);
     applyFilters({ brands: updatedBrands });
   };
@@ -182,13 +191,13 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   // Sử dụng statistics từ context để hiển thị số lượng cho các danh mục, thương hiệu, v.v.
   const getCountForCategory = (categoryId: string) => {
     if (!(statistics as any)?.categories) return null;
-    const categoryStats = (statistics as any).categories.find((cat: any) => cat.id === categoryId);
+    const categoryStats = (statistics as any).categories.find((cat: any) => getNormalizedId(cat) === categoryId);
     return categoryStats ? categoryStats.count : null;
   };
 
   const getCountForBrand = (brandId: string) => {
     if (!(statistics as any)?.brands) return null;
-    const brandStats = (statistics as any).brands.find((brand: any) => brand.id === brandId);
+    const brandStats = (statistics as any).brands.find((brand: any) => getNormalizedId(brand) === brandId);
     return brandStats ? brandStats.count : null;
   };
   
@@ -279,19 +288,20 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
               <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
               <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
                 {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories)).map((category: any) => {
-                  const categoryCount = getCountForCategory(category.id);
+                  const categoryId = getNormalizedId(category);
+                  const categoryCount = getCountForCategory(categoryId);
                   return (
-                    <div key={category.id} className="flex items-center justify-between">
+                    <div key={categoryId} className="flex items-center justify-between">
                       <div className="flex items-center">
                         <input
-                          id={`category-${category.id}`}
+                          id={`category-${categoryId}`}
                           type="checkbox"
                           className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                          checked={selectedCategories.includes(category.id)}
-                          onChange={() => handleCategoryChange(category.id)}
+                          checked={selectedCategories.includes(categoryId)}
+                          onChange={() => handleCategoryChange(categoryId)}
                           disabled={combinedLoading}
                         />
-                        <label htmlFor={`category-${category.id}`} className="ml-2 text-sm text-gray-700">
+                        <label htmlFor={`category-${categoryId}`} className="ml-2 text-sm text-gray-700">
                           {category.name}
                         </label>
                       </div>
@@ -337,19 +347,20 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                 ) : (
                   // Ưu tiên sử dụng brands từ context, nếu không có thì sử dụng từ statistics hoặc props
                   (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands)).map((brand: any) => {
-                    const brandCount = getCountForBrand(brand.id);
+                    const brandId = getNormalizedId(brand);
+                    const brandCount = getCountForBrand(brandId);
                     return (
-                      <div key={brand.id} className="flex items-center justify-between">
+                      <div key={brandId} className="flex items-center justify-between">
                         <div className="flex items-center">
                           <input
-                            id={`brand-${brand.id}`}
+                            id={`brand-${brandId}`}
                             type="checkbox"
                             className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                            checked={selectedBrands.includes(brand.id)}
-                            onChange={() => handleBrandChange(brand.id)}
+                            checked={selectedBrands.includes(brandId)}
+                            onChange={() => handleBrandChange(brandId)}
                             disabled={combinedLoading}
                           />
-                          <label htmlFor={`brand-${brand.id}`} className="ml-2 text-sm text-gray-700">
+                          <label htmlFor={`brand-${brandId}`} className="ml-2 text-sm text-gray-700">
                             {brand.name}
                           </label>
                         </div>
