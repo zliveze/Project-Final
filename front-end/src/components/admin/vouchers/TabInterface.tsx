@@ -20,7 +20,11 @@ export const TabInterface: React.FC<TabInterfaceProps> = ({ tabs, activeTab, onT
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => onTabChange(tab.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                onTabChange(tab.id);
+              }}
+              type="button"
               className={`
                 py-3 px-4 border-b-2 font-medium text-sm flex items-center
                 ${activeTab === tab.id

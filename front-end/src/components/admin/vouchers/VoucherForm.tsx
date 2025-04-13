@@ -6,10 +6,9 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useVoucherSelections } from '@/hooks/useVoucherSelections';
 import { Voucher } from '@/contexts/VoucherContext';
-import { formatDate } from '@/utils/formatters';
-import ItemSelectionModal from '../common/ItemSelectionModal';
-import { TabInterface } from '../common/TabInterface';
-import { SelectedItemsList } from '../common/SelectedItemsList';
+import ItemSelectionModal from './ItemSelectionModal';
+import { TabInterface } from './TabInterface';
+import { SelectedItemsList } from './SelectedItemsList';
 
 // Define the structure for form data, including potential temporary states
 interface VoucherFormData extends Partial<Voucher> {
@@ -102,32 +101,40 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   useEffect(() => {
     let defaultData: VoucherFormData = {
       code: '', description: '', discountType: 'percentage', discountValue: 0, minimumOrderValue: 0, usageLimit: 100,
-      startDate: new Date(), endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)), isActive: true,
-      applicableProducts: [], applicableCategories: [], applicableBrands: [], applicableEvents: [], applicableCampaigns: [],
-      applicableUserGroups: { all: true, new: false, specific: [], levels: [] }, showSpecificProducts: false,
+      startDate: new Date(), endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      isActive: true, applicableProducts: [], applicableCategories: [], applicableBrands: [],
+      applicableEvents: [], applicableCampaigns: [],
+      applicableUserGroups: { all: true, new: false, specific: [], levels: [] },
+      showSpecificProducts: false
     };
 
     if (initialData) {
       const hasSpecificProducts = !!(initialData.applicableProducts?.length || initialData.applicableCategories?.length || initialData.applicableBrands?.length);
       const isCopyMode = !isEditMode && initialData._id;
+      
       defaultData = {
-        ...defaultData, ...initialData,
-        code: isCopyMode ? `${initialData.code || ''}_COPY` : initialData.code,
-        _id: isEditMode ? initialData._id : undefined,
-        startDate: initialData.startDate ? new Date(initialData.startDate) : new Date(),
-        endDate: initialData.endDate ? new Date(initialData.endDate) : new Date(new Date().setMonth(new Date().getMonth() + 1)),
-        applicableUserGroups: initialData.applicableUserGroups || { all: true, new: false, specific: [], levels: [] },
+        ...defaultData,
+        ...initialData,
+        startDate: initialData.startDate ? new Date(initialData.startDate) : defaultData.startDate,
+        endDate: initialData.endDate ? new Date(initialData.endDate) : defaultData.endDate,
         showSpecificProducts: hasSpecificProducts,
+        applicableUserGroups: initialData.applicableUserGroups || { all: true, new: false, specific: [], levels: [] },
         usedCount: isCopyMode ? 0 : initialData.usedCount,
-        applicableProducts: initialData.applicableProducts || [], applicableCategories: initialData.applicableCategories || [],
-        applicableBrands: initialData.applicableBrands || [], applicableEvents: initialData.applicableEvents || [],
+        applicableProducts: initialData.applicableProducts || [], 
+        applicableCategories: initialData.applicableCategories || [],
+        applicableBrands: initialData.applicableBrands || [], 
+        applicableEvents: initialData.applicableEvents || [],
         applicableCampaigns: initialData.applicableCampaigns || [],
       };
     }
+    
     setFormData(defaultData);
-    // Fetch initial data needed for displaying names or other purposes
-    // fetchBrands(); fetchCategories(); fetchProducts(1, 100); // Maybe fetch only if needed to display names
-  }, [initialData, isEditMode]); // Removed fetch calls from here, handle inside modal or when needed
+    
+    // Tải dữ liệu thương hiệu, danh mục và sản phẩm khi form được mở
+    fetchBrands();
+    fetchCategories();
+    fetchProducts();
+  }, [initialData, isEditMode, fetchBrands, fetchCategories, fetchProducts]);
 
   // --- Form Validation ---
   const validateForm = useCallback((): boolean => {
@@ -262,35 +269,56 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   const getSelectedBrands = useCallback(() => {
     if (!formData.applicableBrands?.length) return [];
     return formData.applicableBrands.map(id => {
+      // Tìm thương hiệu trong danh sách brands từ API
+      const brand = brands?.find(b => (b._id || b.id) === id);
+      // Nếu tìm thấy, sử dụng tên thực tế, nếu không thì tìm trong options
+      if (brand) {
+        return { id, name: brand.name };
+      }
+      // Fallback vào options nếu không tìm thấy trong brands
       const option = brandOptions.find(o => o.value === id);
       return { 
         id, 
         name: option?.label || `Thương hiệu #${id.slice(0, 6)}` 
       };
     });
-  }, [formData.applicableBrands, brandOptions]);
+  }, [formData.applicableBrands, brandOptions, brands]);
 
   const getSelectedCategories = useCallback(() => {
     if (!formData.applicableCategories?.length) return [];
     return formData.applicableCategories.map(id => {
+      // Tìm danh mục trong danh sách categories từ API
+      const category = categories?.find(c => (c._id || c.id) === id);
+      // Nếu tìm thấy, sử dụng tên thực tế, nếu không thì tìm trong options
+      if (category) {
+        return { id, name: category.name };
+      }
+      // Fallback vào options nếu không tìm thấy trong categories
       const option = categoryOptions.find(o => o.value === id);
       return { 
         id, 
         name: option?.label || `Danh mục #${id.slice(0, 6)}` 
       };
     });
-  }, [formData.applicableCategories, categoryOptions]);
+  }, [formData.applicableCategories, categoryOptions, categories]);
 
   const getSelectedProducts = useCallback(() => {
     if (!formData.applicableProducts?.length) return [];
     return formData.applicableProducts.map(id => {
+      // Tìm sản phẩm trong danh sách products từ API
+      const product = products?.find(p => (p._id || p.id) === id);
+      // Nếu tìm thấy, sử dụng tên thực tế, nếu không thì tìm trong options
+      if (product) {
+        return { id, name: product.sku ? `${product.name} (${product.sku})` : product.name };
+      }
+      // Fallback vào options nếu không tìm thấy trong products
       const option = productOptions.find(o => o.value === id);
       return { 
         id, 
         name: option?.label || `Sản phẩm #${id.slice(0, 6)}` 
       };
     });
-  }, [formData.applicableProducts, productOptions]);
+  }, [formData.applicableProducts, productOptions, products]);
 
   // Render các tab nội dung
   const renderBasicInfoTab = () => (

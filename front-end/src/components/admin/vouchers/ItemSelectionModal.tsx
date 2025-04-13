@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX, FiSearch, FiImage, FiCheck, FiLoader, FiList, FiCheckSquare, FiSquare } from 'react-icons/fi';
-import Pagination from './Pagination';
+import Pagination from '../common/Pagination';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
