@@ -19,11 +19,20 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
+      // Khi modal mở, ngăn scroll của body
+      document.body.style.overflow = 'hidden';
     } else {
       setTimeout(() => {
         setModalVisible(false);
       }, 300);
+      // Khi modal đóng, cho phép scroll lại
+      document.body.style.overflow = 'unset';
     }
+    
+    // Cleanup khi component unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen]);
 
   if (!isOpen || !voucher) return null;
@@ -68,25 +77,31 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
   const status = getVoucherStatus();
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b">
-            <h3 className="text-lg font-medium text-gray-900">
-              Chi tiết voucher: {voucher.code}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 transition-opacity">
+      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+        <div className={`relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl ${
+          isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95'
+        }`}>
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-gray-50 border-b flex items-center justify-between px-6 py-4">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <FiEye className="mr-2 text-pink-500" />
+              Chi tiết voucher: <span className="font-semibold ml-1">{voucher.code}</span>
+              <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>
+                {status.text}
+              </span>
             </h3>
             <button
               type="button"
-              className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              className="text-gray-400 hover:text-gray-500 focus:outline-none bg-white rounded-full p-1 hover:bg-gray-100"
               onClick={onClose}
             >
               <FiX className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="px-6 py-4">
+          {/* Body - Scrollable */}
+          <div className="overflow-y-auto p-6 max-h-[calc(85vh-9rem)]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="text-sm font-medium text-gray-500 mb-2">Thông tin cơ bản</h4>
@@ -246,7 +261,10 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
 
                 {/* Sản phẩm */}
                 <div className="bg-gray-50 p-4 rounded-md border">
-                  <h5 className="font-medium text-gray-700 mb-2">Sản phẩm áp dụng</h5>
+                  <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                    <FiShoppingBag className="mr-2 text-pink-500" />
+                    Sản phẩm áp dụng
+                  </h5>
 
                   {(!voucher.applicableProducts?.length && !voucher.applicableCategories?.length && !voucher.applicableBrands?.length) ? (
                     <p className="text-sm text-gray-700">Áp dụng cho tất cả sản phẩm</p>
@@ -277,7 +295,10 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
               {/* Sự kiện và chiến dịch */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="bg-gray-50 p-4 rounded-md border">
-                  <h5 className="font-medium text-gray-700 mb-2">Sự kiện áp dụng</h5>
+                  <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                    <FiClock className="mr-2 text-pink-500" />
+                    Sự kiện áp dụng
+                  </h5>
                   {voucher.applicableEvents && voucher.applicableEvents.length > 0 ? (
                     <p className="text-sm text-gray-700">{voucher.applicableEvents.length} sự kiện được áp dụng</p>
                   ) : (
@@ -286,7 +307,10 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-md border">
-                  <h5 className="font-medium text-gray-700 mb-2">Chiến dịch áp dụng</h5>
+                  <h5 className="font-medium text-gray-700 mb-2 flex items-center">
+                    <FiList className="mr-2 text-pink-500" />
+                    Chiến dịch áp dụng
+                  </h5>
                   {voucher.applicableCampaigns && voucher.applicableCampaigns.length > 0 ? (
                     <p className="text-sm text-gray-700">{voucher.applicableCampaigns.length} chiến dịch được áp dụng</p>
                   ) : (
@@ -313,7 +337,8 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="px-6 py-3 bg-gray-50 flex justify-end">
+          {/* Footer */}
+          <div className="sticky bottom-0 z-10 px-6 py-3 bg-gray-50 border-t flex justify-end">
             <button
               type="button"
               className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
