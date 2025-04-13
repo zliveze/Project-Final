@@ -20,6 +20,7 @@ import { Pagination } from '@/components/admin/common';
 import { getCategories, getBrands } from '@/components/admin/products/hooks/useProductTable';
 import { ProductFilterState } from '@/components/admin/products/components/ProductFilter';
 import { ProductStatus } from '@/components/admin/products/components/ProductStatusBadge';
+import { useBranches } from '@/hooks/useBranches'; // Import hook useBranches
 import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/useProductAdmin'; // Import types
 import { useApiStats } from '@/hooks/useApiStats';
 import { useProduct, ProductProvider } from '@/contexts/ProductContext'; // Import ProductProvider
@@ -111,11 +112,8 @@ function AdminProducts({
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [branches] = useState([
-    { id: '1', name: 'Chi nhánh Hà Nội' },
-    { id: '2', name: 'Chi nhánh Hồ Chí Minh' },
-    { id: '3', name: 'Chi nhánh Đà Nẵng' },
-  ]);
+  // Sử dụng hook useBranches để lấy thông tin chi nhánh
+  const { branches, loading: branchesLoading } = useBranches();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -397,8 +395,12 @@ function AdminProducts({
     const loadingToast = toast.loading(`Đang import file ${selectedFile.name}...`);
 
     try {
+      // Tìm thông tin chi nhánh được chọn
+      const selectedBranchInfo = branches.find(branch => branch._id === selectedBranch);
+      const branchName = selectedBranchInfo ? selectedBranchInfo.name : selectedBranch;
+      
       // Xử lý import file Excel
-      console.log(`Đang import file ${selectedFile.name} cho chi nhánh ${selectedBranch}`);
+      console.log(`Đang import file ${selectedFile.name} cho chi nhánh ${branchName} (ID: ${selectedBranch})`);
 
       // Mô phỏng delay của API call
       setTimeout(() => {
@@ -1137,8 +1139,10 @@ function AdminProducts({
                         onChange={(e) => setSelectedBranch(e.target.value)}
                       >
                         <option value="">-- Chọn chi nhánh --</option>
-                        {branches.map((branch) => (
-                          <option key={branch.id} value={branch.id}>
+                        {branchesLoading ? (
+                          <option value="" disabled>Đang tải chi nhánh...</option>
+                        ) : branches.map((branch) => (
+                          <option key={branch._id} value={branch._id}>
                             {branch.name}
                           </option>
                         ))}
