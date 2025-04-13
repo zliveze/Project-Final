@@ -69,7 +69,7 @@ export class CartsController {
 
   @Patch('items/:variantId')
   @ApiOperation({ summary: 'Cập nhật số lượng của một sản phẩm trong giỏ hàng' })
-  @ApiParam({ name: 'variantId', description: 'ID của biến thể sản phẩm cần cập nhật', type: String })
+  @ApiParam({ name: 'variantId', description: 'ID của biến thể sản phẩm cần cập nhật hoặc "none" cho sản phẩm không có biến thể', type: String })
   @ApiResponse({ status: 200, description: 'Số lượng sản phẩm đã được cập nhật.', type: Cart })
   @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ hoặc không đủ hàng tồn kho.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -82,12 +82,14 @@ export class CartsController {
     // Decode the URL-encoded variantId
     variantId = decodeURIComponent(variantId);
     const userId = req.user.userId;
-    return this.cartsService.updateCartItem(userId, variantId, updateCartItemDto);
+    // Handle "none" as null for products without variants
+    const variantIdOrNull = variantId === 'none' ? null : variantId;
+    return this.cartsService.updateCartItem(userId, variantIdOrNull, updateCartItemDto);
   }
 
   @Delete('items/:variantId')
   @ApiOperation({ summary: 'Xóa một sản phẩm khỏi giỏ hàng' })
-  @ApiParam({ name: 'variantId', description: 'ID của biến thể sản phẩm cần xóa', type: String })
+  @ApiParam({ name: 'variantId', description: 'ID của biến thể sản phẩm cần xóa hoặc "none" cho sản phẩm không có biến thể', type: String })
   @ApiResponse({ status: 200, description: 'Sản phẩm đã được xóa khỏi giỏ hàng.', type: Cart })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 404, description: 'Giỏ hàng hoặc sản phẩm không tồn tại trong giỏ hàng.' })
@@ -99,7 +101,9 @@ export class CartsController {
     // Decode the URL-encoded variantId
     variantId = decodeURIComponent(variantId);
     const userId = req.user.userId;
-    return this.cartsService.removeItemFromCart(userId, variantId);
+    // Handle "none" as null for products without variants
+    const variantIdOrNull = variantId === 'none' ? null : variantId;
+    return this.cartsService.removeItemFromCart(userId, variantIdOrNull);
   }
 
   @Delete()

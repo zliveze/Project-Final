@@ -73,7 +73,7 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-800">Sản phẩm yêu thích</h2>
         <div className="flex space-x-2">
-          <button 
+          <button
             onClick={() => {
               items.forEach(item => {
                 handleAddToCart(item._id, item.variantId);
@@ -89,8 +89,8 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
 
       <div className="space-y-4">
         {items.map((item) => (
-          <div 
-            key={`${item._id}-${item.variantId || ''}`} 
+          <div
+            key={`${item._id}-${item.variantId || ''}`}
             className="bg-white border border-gray-200 hover:border-pink-200 rounded-lg shadow-sm hover:shadow-md transition-all p-4"
           >
             <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -98,9 +98,9 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
               <div className="relative w-24 h-24 flex-shrink-0">
                 <Link href={`/shop/product/${item._id}`}>
                   <div className="w-full h-full relative overflow-hidden rounded-md group">
-                    <Image 
-                      src={item.image || item.imageUrl || '/images/placeholder.png'} 
-                      alt={item.name} 
+                    <Image
+                      src={item.image || item.imageUrl || '/404.png'}
+                      alt={item.name}
                       fill
                       className="object-cover rounded-md transition-transform group-hover:scale-110 duration-300"
                     />
@@ -112,13 +112,13 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
                   </div>
                 </Link>
               </div>
-              
+
               {/* Thông tin sản phẩm */}
               <div className="flex-1 min-w-0 text-center sm:text-left">
                 <Link href={`/shop/product/${item._id}`} className="block">
                   <h3 className="text-base font-medium text-gray-800 hover:text-pink-600 transition-colors">{item.name}</h3>
                 </Link>
-                
+
                 {/* Hiển thị các tùy chọn nếu có */}
                 {item.options && Object.keys(item.options).length > 0 && (
                   <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-2">
@@ -134,13 +134,13 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
                     )}
                   </div>
                 )}
-                
+
                 {/* Giá */}
                 <div className="mt-2 flex items-center justify-center sm:justify-start">
                   <span className="text-pink-600 font-semibold">
                     {item.discountPrice ? formatPrice(item.discountPrice) : (item.currentPrice && item.currentPrice < item.price) ? formatPrice(item.currentPrice) : formatPrice(item.price)}
                   </span>
-                  
+
                   {(item.discountPrice || (item.currentPrice && item.currentPrice < item.price)) && (
                     <span className="ml-2 text-gray-400 line-through text-sm">
                       {formatPrice(item.price)}
@@ -148,26 +148,26 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
                   )}
                 </div>
               </div>
-              
+
               {/* Các nút tương tác */}
               <div className="flex space-x-2 mt-2 sm:mt-0">
-                <button 
+                <button
                   onClick={() => handleAddToCart(item._id, item.variantId)}
                   className="p-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:opacity-90 transition-opacity shadow-sm"
                   title="Thêm vào giỏ hàng"
                 >
                   <FaShoppingCart className="w-4 h-4" />
                 </button>
-                
-                <Link 
+
+                <Link
                   href={`/shop/product/${item._id}`}
                   className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-600 transition-colors"
                   title="Xem chi tiết"
                 >
                   <FaEye className="w-4 h-4" />
                 </Link>
-                
-                <button 
+
+                <button
                   onClick={() => handleRemoveFromWishlist(item._id, item.variantId)}
                   className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-pink-100 hover:text-pink-600 transition-colors"
                   title="Xóa khỏi danh sách yêu thích"
@@ -179,7 +179,7 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
           </div>
         ))}
       </div>
-      
+
       {/* Thống kê */}
       <div className="mt-6 bg-pink-50 p-4 rounded-lg border border-pink-100">
         <div className="flex justify-between items-center">

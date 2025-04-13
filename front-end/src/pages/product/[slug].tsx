@@ -278,6 +278,8 @@ const ProductPage: React.FC<ProductPageProps> = ({
               selectedVariant={selectedVariant}
               onSelectVariant={handleSelectVariant}
               branches={branches}
+              // Pass the product inventory for products without variants
+              product={{ inventory: product.inventory || [] }}
             />
           </div>
         </div>

@@ -95,6 +95,10 @@ interface ProductInfoProps {
   onSelectVariant: (variant: Variant | null) => void;
   // Add branches prop
   branches?: Array<{ _id: string; name: string; address?: string; }>;
+  // Add product inventory for products without variants
+  product?: {
+    inventory?: Array<{ branchId: string; quantity: number; branchName?: string; }>;
+  };
 }
 
 // Re-export Variant type for use in [slug].tsx
@@ -219,6 +223,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   selectedVariant,
   onSelectVariant,
   branches = [],
+  product = { inventory: [] },
 }) => {
   const { addItemToCart, cartItems } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -247,18 +252,33 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
   const inStock = status === 'active';
 
-  // Calculate max quantity based on selected variant's inventory
-  const totalStock = selectedVariant?.totalStock || 0;
+  // Calculate total stock based on product inventory or selected variant's inventory
+  const hasVariants = variants && variants.length > 0;
 
-  // Check if the selected variant is already in the cart
-  const cartItem = selectedVariant ? cartItems.find(item => item.variantId === selectedVariant.variantId) : null;
+  // Calculate total stock for products without variants
+  const productTotalStock = !hasVariants ?
+    (product?.inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0) : 0;
+
+  // Calculate total stock for products with variants
+  const variantTotalStock = selectedVariant?.totalStock || 0;
+
+  // Use the appropriate total stock based on whether the product has variants
+  const totalStock = hasVariants ? variantTotalStock : productTotalStock;
+
+  // Check if the product/variant is already in the cart
+  const cartItem = hasVariants && selectedVariant ?
+    cartItems.find(item => item.variantId === selectedVariant.variantId) :
+    cartItems.find(item => item.productId === _id && !item.variantId);
+
   const cartQuantity = cartItem ? cartItem.quantity : 0;
 
   // Calculate available quantity (total stock minus what's already in the cart)
   const maxQuantity = Math.max(0, totalStock - cartQuantity);
 
-  // Determine if the current variant is in stock (considering cart quantity)
-  const variantInStock = selectedVariant ? maxQuantity > 0 : true;
+  // Determine if the current variant/product is in stock (considering cart quantity)
+  const variantInStock = hasVariants ?
+    (selectedVariant ? maxQuantity > 0 : false) :
+    maxQuantity > 0;
 
   // Overall product availability - product is in stock AND selected variant (if any) is in stock
   const isAvailable = inStock && variantInStock;
@@ -271,12 +291,16 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   const displayCurrentPrice = selectedVariant?.price || currentPrice;
   const discount = displayPrice > displayCurrentPrice ? Math.round(((displayPrice - displayCurrentPrice) / displayPrice) * 100) : 0;
 
+  // Get product inventory for products without variants
+  const productInventory = !hasVariants ? product?.inventory || [] : [];
+
   // Get branch names for inventory and preload branches
   useEffect(() => {
     // Preload branches when component mounts
     preloadBranches();
 
-    if (selectedVariant?.inventory && branches.length > 0) {
+    // For products with variants
+    if (hasVariants && selectedVariant?.inventory && branches.length > 0) {
       // Update inventory with branch names
       const updatedInventory = selectedVariant.inventory.map(inv => {
         const branch = branches.find(b => b._id === inv.branchId);
@@ -289,7 +313,21 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       // We can't directly modify selectedVariant, but we can log the updated inventory
       console.log('Updated inventory with branch names:', updatedInventory);
     }
-  }, [selectedVariant, branches, preloadBranches]);
+
+    // For products without variants
+    if (!hasVariants && productInventory.length > 0 && branches.length > 0) {
+      // Update inventory with branch names
+      const updatedInventory = productInventory.map(inv => {
+        const branch = branches.find(b => b._id === inv.branchId);
+        return {
+          ...inv,
+          branchName: branch?.name || 'Chi nhánh không xác định'
+        };
+      });
+
+      console.log('Updated product inventory with branch names:', updatedInventory);
+    }
+  }, [selectedVariant, branches, preloadBranches, hasVariants, productInventory]);
 
   // Xử lý thay đổi số lượng
   const handleQuantityChange = (value: number) => {
@@ -356,12 +394,34 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     setSelectedBranchId(branchId);
     setShowBranchModal(false);
 
-    // Find the selected branch's inventory
-    if (selectedVariant && selectedVariant.inventory) {
+    // For products with variants
+    if (hasVariants && selectedVariant && selectedVariant.inventory) {
       const branchInventory = selectedVariant.inventory.find(inv => inv.branchId === branchId);
       if (branchInventory) {
         // Calculate available quantity in this branch (considering cart quantity)
         const branchCartQuantity = cartItem && cartItem.selectedBranchId === branchId ? cartQuantity : 0;
+        const availableBranchQuantity = Math.max(0, branchInventory.quantity - branchCartQuantity);
+
+        // Only adjust quantity if current selection exceeds available quantity
+        if (quantity > availableBranchQuantity) {
+          setQuantity(availableBranchQuantity);
+          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchName(branchId)}`);
+        }
+        // Otherwise, keep the user's selected quantity
+      }
+    }
+
+    // For products without variants
+    if (!hasVariants && productInventory.length > 0) {
+      const branchInventory = productInventory.find(inv => inv.branchId === branchId);
+      if (branchInventory) {
+        // Calculate available quantity in this branch (considering cart quantity)
+        const branchCartItem = cartItems.find(item =>
+          item.productId === _id &&
+          !item.variantId &&
+          item.selectedBranchId === branchId
+        );
+        const branchCartQuantity = branchCartItem ? branchCartItem.quantity : 0;
         const availableBranchQuantity = Math.max(0, branchInventory.quantity - branchCartQuantity);
 
         // Only adjust quantity if current selection exceeds available quantity
@@ -407,7 +467,13 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     }
 
     // If we have inventory in multiple branches but no branch selected, show branch selection modal
-    if (selectedVariant && selectedVariant.inventory && selectedVariant.inventory.length > 0 && !selectedBranchId) {
+    if (hasVariants && selectedVariant && selectedVariant.inventory && selectedVariant.inventory.length > 0 && !selectedBranchId) {
+      setShowBranchModal(true);
+      return;
+    }
+
+    // For products without variants, check if branch selection is needed
+    if (!hasVariants && productInventory.length > 0 && !selectedBranchId) {
       setShowBranchModal(true);
       return;
     }
@@ -478,13 +544,14 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
              return; // Exit if variantId is missing when required
         }
     } else {
-        // No variants exist, explicitly pass undefined
+        // No variants exist, explicitly pass empty string for variantId
         await addItemToCart(
             _id, // productId
-            undefined, // Explicitly pass undefined for variantId
+            '', // Pass empty string for variantId for products without variants
             quantity,
             optionsForBackend // Options might be empty, which is fine
         );
+        console.log('Added product without variants to cart with empty string variantId');
     }
 
     // Don't reset branch selection after adding to cart
@@ -667,53 +734,83 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
               <FiPlus />
             </button>
           </div>
-          {selectedVariant && (
-            <div className="flex flex-col space-y-1 mt-1">
-              <div className="flex flex-col space-y-1">
-                <div className={`text-xs text-center ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                  {displayTotalStock > 0 ? `Tổng còn ${displayTotalStock} sản phẩm` : 'Hết hàng'}
-                </div>
-                {cartQuantity > 0 && (
-                  <div className="text-xs text-blue-500 text-center">
-                    Đã thêm {cartQuantity} sản phẩm vào giỏ hàng
-                  </div>
-                )}
-                {maxQuantity > 0 && cartQuantity > 0 && (
-                  <div className="text-xs text-green-500 text-center">
-                    Còn có thể thêm {maxQuantity} sản phẩm nữa
-                  </div>
-                )}
+          <div className="flex flex-col space-y-1 mt-1">
+            <div className="flex flex-col space-y-1">
+              <div className={`text-xs text-center ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                {displayTotalStock > 0 ? `Tổng còn ${displayTotalStock} sản phẩm` : 'Hết hàng'}
               </div>
-              {selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
-                <div className="text-xs text-center mt-2">
-                  {selectedBranchId ? (
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 mb-1">
-                        <FiMapPin className="text-pink-500 mr-1" size={12} />
-                        <span className="font-medium text-pink-700">
-                          {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setShowBranchModal(true)}
-                        className="text-blue-500 hover:text-blue-700 hover:underline"
-                      >
-                        Thay đổi chi nhánh
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowBranchModal(true)}
-                      className="text-blue-500 hover:text-blue-700 hover:underline flex items-center justify-center mx-auto"
-                    >
-                      <FiMapPin className="mr-1" size={12} />
-                      Chọn chi nhánh
-                    </button>
-                  )}
+              {cartQuantity > 0 && (
+                <div className="text-xs text-blue-500 text-center">
+                  Đã thêm {cartQuantity} sản phẩm vào giỏ hàng
+                </div>
+              )}
+              {maxQuantity > 0 && cartQuantity > 0 && (
+                <div className="text-xs text-green-500 text-center">
+                  Còn có thể thêm {maxQuantity} sản phẩm nữa
                 </div>
               )}
             </div>
-          )}
+
+            {/* Branch selection for products with variants */}
+            {hasVariants && selectedVariant && selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
+              <div className="text-xs text-center mt-2">
+                {selectedBranchId ? (
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 mb-1">
+                      <FiMapPin className="text-pink-500 mr-1" size={12} />
+                      <span className="font-medium text-pink-700">
+                        {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowBranchModal(true)}
+                      className="text-blue-500 hover:text-blue-700 hover:underline"
+                    >
+                      Thay đổi chi nhánh
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowBranchModal(true)}
+                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center justify-center mx-auto"
+                  >
+                    <FiMapPin className="mr-1" size={12} />
+                    Chọn chi nhánh
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Branch selection for products without variants */}
+            {!hasVariants && productInventory.length > 0 && (
+              <div className="text-xs text-center mt-2">
+                {selectedBranchId ? (
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 mb-1">
+                      <FiMapPin className="text-pink-500 mr-1" size={12} />
+                      <span className="font-medium text-pink-700">
+                        {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowBranchModal(true)}
+                      className="text-blue-500 hover:text-blue-700 hover:underline"
+                    >
+                      Thay đổi chi nhánh
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowBranchModal(true)}
+                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center justify-center mx-auto"
+                  >
+                    <FiMapPin className="mr-1" size={12} />
+                    Chọn chi nhánh
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Button thêm vào giỏ hàng */}
@@ -730,12 +827,28 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           </span>
         </button>
 
-        {/* Branch Selection Modal */}
-        {selectedVariant && selectedVariant.inventory && (
+        {/* Branch Selection Modal for products with variants */}
+        {hasVariants && selectedVariant && selectedVariant.inventory && (
           <BranchSelectionModal
             isOpen={showBranchModal}
             onClose={() => setShowBranchModal(false)}
             branches={selectedVariant.inventory.map(inv => ({
+              branchId: inv.branchId,
+              branchName: inv.branchName || getBranchName(inv.branchId),
+              quantity: inv.quantity
+            }))}
+            currentQuantity={quantity}
+            initialBranchId={selectedBranchId}
+            onSelectBranch={handleSelectBranch}
+          />
+        )}
+
+        {/* Branch Selection Modal for products without variants */}
+        {!hasVariants && productInventory.length > 0 && (
+          <BranchSelectionModal
+            isOpen={showBranchModal}
+            onClose={() => setShowBranchModal(false)}
+            branches={productInventory.map(inv => ({
               branchId: inv.branchId,
               branchName: inv.branchName || getBranchName(inv.branchId),
               quantity: inv.quantity

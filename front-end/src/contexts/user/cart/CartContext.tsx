@@ -27,6 +27,8 @@ interface PopulatedProduct {
     _id: string;
     name: string;
     slug: string;
+    price: number; // Base price for products without variants
+    currentPrice?: number; // Discounted price if available
     images: { url: string; alt?: string; isPrimary?: boolean }[];
     variants: EmbeddedVariant[]; // Mảng các biến thể nhúng
     inventory: { branchId: string; quantity: number }[]; // Mảng tồn kho
@@ -91,6 +93,7 @@ export interface CartProduct {
   maxQuantity: number; // Số lượng tối đa có thể mua (tính từ PopulatedProduct.inventory)
   branchInventory?: Array<{ branchId: string; quantity: number }>; // Tồn kho theo chi nhánh
   selectedBranchId?: string; // Chi nhánh đã chọn (nếu có)
+  isProductWithoutVariants?: boolean; // Flag to identify products without variants
 }
 
 interface CartContextType {
@@ -100,7 +103,7 @@ interface CartContextType {
   isLoading: boolean;
   error: string | null;
   fetchCart: () => Promise<void>;
-  addItemToCart: (productId: string, variantId: string | undefined, quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined variantId
+  addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined, null, or empty string variantId
   updateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>;
   debouncedUpdateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
   removeCartItem: (variantId: string) => Promise<boolean>;
@@ -165,12 +168,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Cast to the populated product type (adjust if your actual populated type differs)
           const productData = item.productId as PopulatedProduct;
 
-          // Find the specific embedded variant within the populated product data
-          const embeddedVariant = productData.variants?.find(v => v.variantId?.toString() === item.variantId);
+          // Check if this is a product without variants (empty variantId)
+          const isProductWithoutVariants = !item.variantId || item.variantId === '';
 
-          if (!embeddedVariant) {
-            console.warn(`Could not find embedded variant details for variantId: ${item.variantId} in product ${productData._id}. Item will be skipped.`);
-            return null; // Bỏ qua item nếu không lấy được chi tiết
+          // For products with variants, find the specific variant
+          // For products without variants, we'll use the product's data directly
+          let embeddedVariant = null;
+
+          if (!isProductWithoutVariants) {
+            // Find the specific embedded variant within the populated product data
+            embeddedVariant = productData.variants?.find(v => v.variantId?.toString() === item.variantId);
+
+            if (!embeddedVariant) {
+              console.warn(`Could not find embedded variant details for variantId: ${item.variantId} in product ${productData._id}. Item will be skipped.`);
+              return null; // Bỏ qua item nếu không lấy được chi tiết
+            }
+          } else {
+            console.log(`Processing product without variants: ${productData.name} (${productData._id})`);
           }
 
           // Calculate stock by summing inventory across all branches
@@ -189,7 +203,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // If we have variant options but no selectedOptions from the cart item,
           // create a more detailed selectedOptions object from the variant data
-          if (Object.keys(enhancedOptions).length === 0 && embeddedVariant.options) {
+          if (Object.keys(enhancedOptions).length === 0 && embeddedVariant?.options) {
             if (embeddedVariant.options.color) {
               enhancedOptions['Color'] = embeddedVariant.options.color;
             }
@@ -210,19 +224,42 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const displayOptions = { ...enhancedOptions };
           delete displayOptions.selectedBranchId;
 
+          // For products without variants, use the product's price
+          // For products with variants, use the variant's price
+          const originalPrice = isProductWithoutVariants
+            ? (productData.currentPrice || productData.price)
+            : embeddedVariant.price;
+
+          // For products without variants, use the product's images
+          // For products with variants, use the variant's images if available
+          const imageUrl = isProductWithoutVariants
+            ? productData.images?.[0]?.url || '/404.png'
+            : embeddedVariant.images?.[0]?.url || productData.images?.[0]?.url || '/404.png';
+
+          const imageAlt = isProductWithoutVariants
+            ? productData.images?.[0]?.alt || productData.name
+            : embeddedVariant.images?.[0]?.alt || productData.name;
+
+          // Generate a unique ID for the cart item
+          // For products with variants, use the variantId
+          // For products without variants, use the productId with a prefix
+          const itemId = isProductWithoutVariants
+            ? `product-${productData._id}`
+            : item.variantId;
+
           return {
-            _id: item.variantId,
+            _id: itemId,
             productId: productData._id,
             variantId: item.variantId,
             name: productData.name, // Lấy tên từ product
             slug: productData.slug, // Lấy slug từ product
             price: item.price, // Giá tại thời điểm thêm
-            originalPrice: embeddedVariant.price, // Giá gốc của variant (có thể cần thêm trường originalPrice vào schema ProductVariant)
+            originalPrice: originalPrice, // Giá gốc của variant hoặc product
             quantity: item.quantity,
             selectedOptions: displayOptions,
             image: { // Lấy ảnh đầu tiên của variant hoặc product
-              url: embeddedVariant.images?.[0]?.url || productData.images?.[0]?.url || '/placeholder.jpg',
-              alt: embeddedVariant.images?.[0]?.alt || productData.name,
+              url: imageUrl,
+              alt: imageAlt,
             },
             brand: { // Lấy brand từ product đã populate
               name: productData.brandId.name,
@@ -233,6 +270,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             maxQuantity: totalStock,
             branchInventory: branchInventory,
             selectedBranchId: selectedBranchId, // Add selectedBranchId from options
+            isProductWithoutVariants: isProductWithoutVariants, // Flag to identify products without variants
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
@@ -267,7 +305,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchAndPopulateCart();
   }, [fetchAndPopulateCart, isAuthenticated]); // Thêm isAuthenticated
 
-  const addItemToCart = async (productId: string, variantId: string | undefined, quantity: number, options?: Record<string, string>): Promise<boolean> => {
+  const addItemToCart = async (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>): Promise<boolean> => {
+    console.log(`[CartContext] addItemToCart called with productId: ${productId}, variantId: ${variantId} (${typeof variantId}), quantity: ${quantity}`, options);
     if (!isAuthenticated) {
       toast.info('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
       return false;
@@ -331,8 +370,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      if (!isAuthenticated) return false;
 
      // Tìm item hiện tại để lấy thông tin gốc (nếu cần rollback)
-     const currentItem = cartItems.find(item => item.variantId === variantId);
-     if (!currentItem) return false; // Không tìm thấy item
+     // For products without variants, variantId will be empty string
+     const currentItem = cartItems.find(item =>
+       item.isProductWithoutVariants
+         ? (item.variantId === '' && variantId === '')
+         : item.variantId === variantId
+     );
+
+     if (!currentItem) {
+       console.error(`Could not find cart item with variantId: ${variantId}`);
+       return false; // Không tìm thấy item
+     }
 
      // Ensure quantity is within valid range
      const validQuantity = Math.max(1, Math.min(quantity, currentItem.maxQuantity));
@@ -429,11 +477,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Optimistic UI update
     const originalItems = [...cartItems];
-    setCartItems(prevItems => prevItems.filter(item => item.variantId !== variantId));
+
+    // For products without variants, variantId will be empty string
+    setCartItems(prevItems => prevItems.filter(item =>
+      item.isProductWithoutVariants
+        ? !(item.variantId === '' && variantId === '')
+        : item.variantId !== variantId
+    ));
 
     try {
+      // For products without variants, use 'none' as the variantId in the API call
+      const apiVariantId = variantId === '' ? 'none' : variantId;
+
       // Gọi API DELETE bằng fetch - encode variantId to handle special characters
-      const encodedVariantId = encodeURIComponent(variantId);
+      const encodedVariantId = encodeURIComponent(apiVariantId);
       const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
           method: 'DELETE',
           headers: {

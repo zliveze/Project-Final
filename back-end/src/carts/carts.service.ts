@@ -97,30 +97,50 @@ export class CartsService {
     // Don't convert variantId to ObjectId if it's a custom format
     // We'll use the string value directly when searching for the variant
 
-    // 1. Validate Product and find the specific Variant within it
+    // 1. Validate Product and find the specific Variant within it (if variantId is provided)
     console.log(`[CartsService] Finding product with ID: ${objectIdProductId}`);
     const product = await this.productModel.findById(objectIdProductId);
     if (!product) {
         console.error(`[CartsService] Product NOT FOUND with ID: ${productId}`);
         throw new NotFoundException(`Sản phẩm với ID ${productId} không tồn tại.`);
     }
-    console.log(`[CartsService] Product FOUND. Finding variant with variantId: ${variantId} within product.`);
 
-    // Find the variant within the product's embedded array
-    // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
-    const variant = product.variants.find(v => {
-        // Convert both to string for comparison
-        const variantIdStr = v.variantId?.toString() || '';
-        return variantIdStr === variantId;
-    });
+    // Variable to store the variant or use product price for products without variants
+    let variant: ProductVariant | null = null;
+    let priceToUse: number = product.currentPrice || product.price;
 
-    if (!variant) {
-        console.error(`[CartsService] addItemToCart: Variant NOT FOUND with variantId: ${variantId} within product ID: ${productId}`);
-        throw new NotFoundException(`Biến thể với ID ${variantId} không thuộc sản phẩm ${productId}.`);
+    // Check if variantId is provided (for products with variants)
+    if (variantId) {
+        console.log(`[CartsService] Product FOUND. Finding variant with variantId: ${variantId} within product.`);
+
+        // Find the variant within the product's embedded array
+        // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
+        const foundVariant = product.variants.find(v => {
+            // Convert both to string for comparison
+            const variantIdStr = v.variantId?.toString() || '';
+            return variantIdStr === variantId;
+        });
+
+        // Assign the found variant or null to the variant variable
+        variant = foundVariant || null;
+
+        if (!variant) {
+            console.error(`[CartsService] addItemToCart: Variant NOT FOUND with variantId: ${variantId} within product ID: ${productId}`);
+            throw new NotFoundException(`Biến thể với ID ${variantId} không thuộc sản phẩm ${productId}.`);
+        } else {
+            console.log(`[CartsService] addItemToCart: Variant FOUND within product:`, variant);
+            priceToUse = variant.price;
+        }
     } else {
-         console.log(`[CartsService] addItemToCart: Variant FOUND within product:`, variant);
+        // Handle products without variants
+        console.log(`[CartsService] No variantId provided. Treating as product without variants.`);
+
+        // Check if product has variants but none was selected
+        if (product.variants && product.variants.length > 0) {
+            console.error(`[CartsService] Product has variants but no variantId was provided.`);
+            throw new BadRequestException(`Sản phẩm này có nhiều biến thể. Vui lòng chọn một biến thể.`);
+        }
     }
-     // Note: 'variant' here is the embedded object of type ProductVariant.
 
     // 2. Find or create cart
     console.log(`[CartsService] Finding or creating cart for userId: ${objectIdUserId}`);
@@ -128,10 +148,19 @@ export class CartsService {
     console.log(`[CartsService] Cart found or created. Cart ID: ${cart._id}`);
 
     // 3. Check stock BEFORE modifying cart
-     console.log(`[CartsService] Checking existing item index for variantId: ${variantId}`);
-     const existingItemIndex = cart.items.findIndex(
-      (item) => item.variantId?.toString() === variantId || item.variantId === variantId
-    );
+    console.log(`[CartsService] Checking existing item index for ${variantId ? 'variantId: ' + variantId : 'product without variant'}`);
+
+    // For products with variants, find by variantId
+    // For products without variants, find by productId and check that variantId is empty or not set
+    const existingItemIndex = variantId ?
+        cart.items.findIndex(item => item.variantId?.toString() === variantId || item.variantId === variantId) :
+        cart.items.findIndex(item =>
+            item.productId.toString() === productId &&
+            (!item.variantId || item.variantId === '')
+        );
+
+    console.log(`[CartsService] Checking for ${variantId ? `variantId: ${variantId}` : 'product without variant'}, found at index: ${existingItemIndex}`);
+
     console.log(`[CartsService] Existing item index: ${existingItemIndex}`);
 
     let quantityInCart = 0;
@@ -155,7 +184,7 @@ export class CartsService {
     if (existingItemIndex > -1) {
       console.log(`[CartsService] Updating quantity for existing item at index ${existingItemIndex} to ${requestedTotalQuantity}`);
       cart.items[existingItemIndex].quantity = requestedTotalQuantity;
-      cart.items[existingItemIndex].price = variant.price; // Update price on quantity change too
+      cart.items[existingItemIndex].price = priceToUse; // Update price on quantity change too
     } else {
       console.log(`[CartsService] Adding new item.`);
       // Convert variant.options (VariantOptions) to Record<string, string>
@@ -163,7 +192,7 @@ export class CartsService {
       if (selectedOptions) {
           console.log(`[CartsService] Using selectedOptions from DTO:`, selectedOptions);
           Object.assign(optionsForCart, selectedOptions);
-      } else if (variant.options) {
+      } else if (variant && variant.options) {
           console.log(`[CartsService] Using options from found variant:`, variant.options);
           if (variant.options.color) {
               const colorName = variant.options.color.split('"')[0].trim();
@@ -174,14 +203,16 @@ export class CartsService {
       }
       console.log(`[CartsService] Final optionsForCart:`, optionsForCart);
 
-      // Create a new cart item with the variant ID as a string
+      // Create a new cart item
       const newItem: CartItem = {
         productId: objectIdProductId,
-        variantId: variantId, // Use the original variantId string
+        variantId: variantId || '', // Use empty string for products without variants
         quantity,
         selectedOptions: optionsForCart, // Use the converted/provided options
-        price: variant.price, // Use price from embedded variant
+        price: priceToUse, // Use price from variant or product
       };
+
+      console.log(`[CartsService] Created new cart item with variantId: ${newItem.variantId} (${typeof newItem.variantId})`, newItem);
       console.log(`[CartsService] New item created:`, newItem);
       cart.items.push(newItem);
     }
@@ -225,7 +256,7 @@ export class CartsService {
   }
 
   // Update item quantity in cart
-  async updateCartItem(userId: string, variantId: string, updateCartItemDto: UpdateCartItemDto): Promise<CartDocument> {
+  async updateCartItem(userId: string, variantId: string | null, updateCartItemDto: UpdateCartItemDto): Promise<CartDocument> {
     console.log(`[CartsService] updateCartItem START - userId: ${userId}, variantId: ${variantId}, DTO:`, updateCartItemDto);
     const { quantity, selectedOptions } = updateCartItemDto;
 
@@ -249,13 +280,20 @@ export class CartsService {
     console.log(`[CartsService] Cart found. Cart ID: ${cart._id}`);
 
     // 2. Find item index
-    console.log(`[CartsService] Finding item index for variantId: ${variantId}`);
-    const itemIndex = cart.items.findIndex(
-      (item) => item.variantId === variantId
-    );
+    console.log(`[CartsService] Finding item index for ${variantId ? 'variantId: ' + variantId : 'product without variant'}`);
+
+    // For products with variants, find by variantId
+    // For products without variants, find by empty variantId or null
+    const itemIndex = variantId ?
+      cart.items.findIndex(item => item.variantId === variantId) :
+      cart.items.findIndex(item => !item.variantId || item.variantId === '');
 
     if (itemIndex === -1) {
-      throw new NotFoundException(`Không tìm thấy sản phẩm với biến thể ID ${variantId} trong giỏ hàng.`);
+      if (variantId) {
+        throw new NotFoundException(`Không tìm thấy sản phẩm với biến thể ID ${variantId} trong giỏ hàng.`);
+      } else {
+        throw new NotFoundException(`Không tìm thấy sản phẩm không có biến thể trong giỏ hàng.`);
+      }
     }
     console.log(`[CartsService] Item found at index: ${itemIndex}`);
 
@@ -270,17 +308,38 @@ export class CartsService {
     }
     console.log(`[CartsService] Product containing variant found. Finding variant within product...`);
 
-    // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
-    const variant = productContainingVariant.variants.find(v => {
-        // Convert both to string for comparison
-        const variantIdStr = v.variantId?.toString() || '';
-        return variantIdStr === variantId;
-    });
-    if (!variant) {
-        console.error(`[CartsService] Variant NOT FOUND within product. VariantId: ${variantId}`);
+    // Variable to store the variant or use product price for products without variants
+    let variant: ProductVariant | null = null;
+    let priceToUse: number = productContainingVariant.currentPrice || productContainingVariant.price;
+
+    // Check if variantId is provided (for products with variants)
+    if (variantId) {
+      // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
+      const foundVariant = productContainingVariant.variants.find(v => {
+          // Convert both to string for comparison
+          const variantIdStr = v.variantId?.toString() || '';
+          return variantIdStr === variantId;
+      });
+
+      // Assign the found variant or null
+      variant = foundVariant || null;
+
+      if (!variant) {
+          console.error(`[CartsService] Variant NOT FOUND within product. VariantId: ${variantId}`);
+          cart.items.splice(itemIndex, 1);
+          await cart.save();
+          throw new NotFoundException(`Biến thể với ID ${variantId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
+      }
+
+      priceToUse = variant.price;
+    } else {
+      // For products without variants, check if the product has variants
+      if (productContainingVariant.variants && productContainingVariant.variants.length > 0) {
+        console.error(`[CartsService] Product has variants but no variantId was provided.`);
         cart.items.splice(itemIndex, 1);
         await cart.save();
-        throw new NotFoundException(`Biến thể với ID ${variantId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
+        throw new BadRequestException(`Sản phẩm này có nhiều biến thể nhưng không có biến thể nào được chọn. Mục đã bị xóa.`);
+      }
     }
     console.log(`[CartsService] Variant found within product:`, variant);
 
@@ -294,8 +353,8 @@ export class CartsService {
     // 4. Update quantity and selectedOptions
     console.log(`[CartsService] Updating quantity for item at index ${itemIndex} to ${quantity}`);
     cart.items[itemIndex].quantity = quantity;
-    // Optionally update price if needed (use price from embedded variant)
-    cart.items[itemIndex].price = variant.price;
+    // Optionally update price if needed (use price from variant or product)
+    cart.items[itemIndex].price = priceToUse;
 
     // Update selectedOptions if provided
     if (selectedOptions) {
@@ -347,7 +406,7 @@ export class CartsService {
   }
 
   // Remove item from cart
-  async removeItemFromCart(userId: string, variantId: string): Promise<CartDocument> {
+  async removeItemFromCart(userId: string, variantId: string | null): Promise<CartDocument> {
      console.log(`[CartsService] removeItemFromCart START - userId: ${userId}, variantId: ${variantId}`);
      if (!Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('ID người dùng không hợp lệ.');
@@ -364,9 +423,19 @@ export class CartsService {
 
     const initialLength = cart.items.length;
     console.log(`[CartsService] Filtering items to remove variantId: ${variantId}`);
-    cart.items = cart.items.filter(
-      (item) => item.variantId !== variantId
-    );
+
+    // Handle both products with and without variants
+    if (variantId) {
+      // For products with variants, filter by variantId
+      cart.items = cart.items.filter(
+        (item) => item.variantId !== variantId
+      );
+    } else {
+      // For products without variants, filter by empty variantId or null
+      cart.items = cart.items.filter(
+        (item) => item.variantId && item.variantId !== ''
+      );
+    }
 
     if (cart.items.length === initialLength) {
        console.log(`[CartsService] Item with variantId ${variantId} not found in cart. Returning cart as is.`);

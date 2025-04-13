@@ -12,7 +12,7 @@ export class CartItem { // Add export here
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true }) // Use Types.ObjectId
   productId: Types.ObjectId;
 
-  @Prop({ type: String, required: true }) // Changed to String to support custom variant IDs
+  @Prop({ type: String, default: '' }) // Optional for products without variants
   variantId: string;
 
   @Prop({ required: true, min: 1 })

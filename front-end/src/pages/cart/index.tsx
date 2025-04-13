@@ -305,7 +305,7 @@ const CartPage: NextPage = () => {
                     <div className="space-y-1">
                       {group.items.map(item => (
                         <CartItem
-                          key={item.variantId} // Use variantId as key
+                          key={item._id} // Use _id as key which is unique for all items
                           _id={item.variantId} // Pass variantId as _id prop for CartItem internal use if needed
                           productId={item.productId}
                           variantId={item.variantId}

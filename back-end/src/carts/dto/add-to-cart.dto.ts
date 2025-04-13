@@ -14,13 +14,15 @@ export class AddToCartDto {
   productId: string;
 
   @ApiProperty({
-    description: 'ID của biến thể sản phẩm',
+    description: 'ID của biến thể sản phẩm (không bắt buộc cho sản phẩm không có biến thể)',
     example: '60d5ecbaf8d3e7e7d8f1e8a2',
     type: String,
+    required: false,
   })
-  @IsNotEmpty({ message: 'ID biến thể không được để trống' })
+  // Removed IsNotEmpty validation to allow products without variants
+  @IsOptional() // Make variantId optional for products without variants
   // Removed IsMongoId validation to allow custom variant IDs
-  variantId: string;
+  variantId?: string;
 
   @ApiProperty({
     description: 'Số lượng sản phẩm muốn thêm',
