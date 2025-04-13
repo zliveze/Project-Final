@@ -21,13 +21,20 @@ export const useProductInventory = (
   const [branchVariants, setBranchVariants] = useState<(ProductVariant & {quantity: number})[]>([]);
 
   /**
-   * Cập nhật thông tin tồn kho (chỉ cho phép cập nhật ngưỡng cảnh báo, không cho phép cập nhật số lượng trực tiếp)
+   * Kiểm tra xem sản phẩm có biến thể hay không
+   */
+  const hasVariants = (): boolean => {
+    return Array.isArray(formData.variants) && formData.variants.length > 0;
+  };
+
+  /**
+   * Cập nhật thông tin tồn kho (cho phép cập nhật số lượng trực tiếp nếu không có biến thể)
    */
   const handleInventoryChange = (index: number, field: string, value: any) => {
     if (!formData.inventory || !Array.isArray(formData.inventory)) return;
 
-    // Chỉ cho phép cập nhật các trường khác ngoài quantity
-    if (field === 'quantity') {
+    // Nếu là trường quantity và sản phẩm có biến thể, không cho phép cập nhật trực tiếp
+    if (field === 'quantity' && hasVariants()) {
       console.warn('Không thể cập nhật trực tiếp số lượng tồn kho chi nhánh. Số lượng được tính từ tổng các biến thể.');
       return;
     }
@@ -35,7 +42,7 @@ export const useProductInventory = (
     const updatedInventory = [...formData.inventory];
     updatedInventory[index] = {
       ...updatedInventory[index],
-      [field]: field === 'lowStockThreshold' ? parseInt(value) : value
+      [field]: field === 'lowStockThreshold' || field === 'quantity' ? parseInt(value) : value
     };
 
     setFormData(prev => ({
@@ -360,6 +367,7 @@ export const useProductInventory = (
     getTotalInventory,
     getInStockBranchesCount,
     getLowStockBranchesCount,
+    hasVariants,
     // Variant inventory methods
     selectedBranchForVariants,
     branchVariants,

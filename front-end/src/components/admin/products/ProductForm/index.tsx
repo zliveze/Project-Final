@@ -120,6 +120,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     getTotalInventory,
     getInStockBranchesCount,
     getLowStockBranchesCount,
+    hasVariants,
     // Variant inventory methods
     selectedBranchForVariants,
     branchVariants,
@@ -411,6 +412,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               getTotalInventory={getTotalInventory}
               getInStockBranchesCount={getInStockBranchesCount}
               getLowStockBranchesCount={getLowStockBranchesCount}
+              hasVariants={hasVariants}
               isViewMode={isViewMode}
               branches={branches}
               // Variant inventory props

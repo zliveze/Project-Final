@@ -87,6 +87,7 @@ interface InventoryTabProps {
   getTotalInventory: () => number;
   getInStockBranchesCount: () => number;
   getLowStockBranchesCount: () => number;
+  hasVariants: () => boolean; // Thêm hàm kiểm tra có biến thể hay không
   branches: BranchItem[]; // Danh sách chi nhánh từ dữ liệu store
   // Variant inventory props
   selectedBranchForVariants?: string | null;
@@ -112,6 +113,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   getTotalInventory,
   getInStockBranchesCount,
   getLowStockBranchesCount,
+  hasVariants,
   branches,
   // Variant inventory props
   selectedBranchForVariants,
@@ -446,7 +448,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                           </span>
                         </span>
                       )}
-                      {!isViewMode && formData.variants && formData.variants.length > 0 && (
+                      {!isViewMode && hasVariants() && (
                         <button
                           type="button"
                           onClick={() => handleSelectBranchForVariants?.(item.branchId)}
@@ -459,8 +461,18 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     <div className="flex items-center">
-                      <span className="font-medium">{item.quantity}</span>
-                      {formData.variants && formData.variants.length > 0 && (
+                      {!isViewMode && !hasVariants() ? (
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleInventoryChange(index, 'quantity', e.target.value)}
+                          min="0"
+                          className="w-20 border-gray-300 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+                        />
+                      ) : (
+                        <span className="font-medium">{item.quantity}</span>
+                      )}
+                      {hasVariants() && (
                         <span className="ml-2 text-xs text-gray-400 italic">
                           (Tính từ tổng biến thể)
                         </span>
