@@ -38,8 +38,8 @@ interface WishlistContextProps {
     itemCount: number; // Derived state for convenience
     isItemInWishlist: (productId: string, variantId: string) => boolean;
     fetchWishlist: () => Promise<void>;
-    addToWishlist: (productId: string, variantId: string) => Promise<void>;
-    removeFromWishlist: (productId: string, variantId: string) => Promise<void>;
+    addToWishlist: (productId: string, variantId?: string) => Promise<void>;
+    removeFromWishlist: (productId: string, variantId?: string) => Promise<void>;
     clearWishlistLocally: () => void; // Function to clear local state on logout
 }
 
@@ -106,16 +106,11 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
             return;
         }
 
-        if (!variantId) {
-            console.error('Missing variantId in addToWishlist');
-            toast.error('Lỗi: Thiếu thông tin biến thể sản phẩm', {
-                position: "bottom-right"
-            });
-            return;
-        }
+        // For products without variants, use empty string
+        const variantIdToUse = variantId || '';
 
         // Prevent adding if already exists locally (optimistic update)
-        if (isItemInWishlist(productId, variantId)) {
+        if (isItemInWishlist(productId, variantIdToUse)) {
              toast.info('Sản phẩm này đã có trong danh sách yêu thích.', {
                  position: "bottom-right"
              });
@@ -125,7 +120,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         setIsLoading(true); // Indicate loading state
         try {
             // Call API
-            const result = await UserApiService.addToWishlist(productId, variantId);
+            const result = await UserApiService.addToWishlist(productId, variantIdToUse);
             console.log('Wishlist API response:', result);
 
             // Refetch wishlist to get the updated list including populated data
@@ -145,21 +140,24 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
     };
 
-    const removeFromWishlist = async (productId: string, variantId: string) => {
+    const removeFromWishlist = async (productId: string, variantId?: string) => {
         if (!isAuthenticated) {
             toast.error('Vui lòng đăng nhập để thực hiện thao tác này.');
             return;
         }
 
+        // For products without variants, use empty string
+        const variantIdToUse = variantId || '';
+
         // Optimistic UI update: Remove immediately from local state
         const originalItems = wishlistItems;
         setWishlistItems(prevItems =>
-            prevItems.filter(item => !(item.productId === productId && item.variantId === variantId))
+            prevItems.filter(item => !(item.productId === productId && item.variantId === variantIdToUse))
         );
 
         try {
             // Call API
-            await UserApiService.removeFromWishlist(productId, variantId);
+            await UserApiService.removeFromWishlist(productId, variantIdToUse);
             toast.success('Đã xóa khỏi danh sách yêu thích.', {
                  style: { backgroundColor: '#fef2f2', color: '#dc2626', borderLeft: '4px solid #dc2626' }
             });
@@ -177,6 +175,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     // Helper function to check if an item exists
     const isItemInWishlist = (productId: string, variantId: string): boolean => {
+        // For products without variants, variantId will be empty string
         return wishlistItems.some(item => item.productId === productId && item.variantId === variantId);
     };
 

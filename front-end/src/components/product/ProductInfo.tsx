@@ -583,19 +583,27 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     // Get the required IDs
     const productId = _id;
-    const variantId = selectedVariant?.variantId;
 
-    // Check if variantId is required but missing
-    if (variants && variants.length > 0 && !variantId) {
-        console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
-        showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
-        return;
+    // For products with variants, use the selected variant ID
+    // For products without variants, use empty string
+    let variantId: string | undefined;
+
+    if (variants && variants.length > 0) {
+      // Product has variants, so we need a selected variant
+      variantId = selectedVariant?.variantId;
+
+      // Check if variantId is required but missing
+      if (!variantId) {
+          console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
+          showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
+          return;
+      }
+    } else {
+      // Product has no variants, use empty string
+      variantId = '';
     }
 
-    // Use the actual variantId (which is a string from the schema)
-    const targetVariantId = variantId as string; // Assert as string based on previous checks
-
-    const isInWishlist = isItemInWishlist(productId, targetVariantId);
+    const isInWishlist = isItemInWishlist(productId, variantId);
 
     // Disable button while processing
     // Consider adding a specific loading state for the wishlist button if needed
@@ -603,10 +611,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     if (isInWishlist) {
       // Remove from wishlist
-      await removeFromWishlist(productId, targetVariantId);
+      await removeFromWishlist(productId, variantId);
     } else {
       // Add to wishlist
-      await addToWishlist(productId, targetVariantId);
+      await addToWishlist(productId, variantId);
     }
   };
 
@@ -621,7 +629,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   };
 
   // Determine if the current selected variant is in the wishlist
-  const isCurrentVariantInWishlist = selectedVariant ? isItemInWishlist(_id, selectedVariant.variantId) : false;
+  const isCurrentVariantInWishlist = variants && variants.length > 0
+    ? (selectedVariant ? isItemInWishlist(_id, selectedVariant.variantId) : false)
+    : isItemInWishlist(_id, ''); // For products without variants, use empty string
 
 
   return (

@@ -377,8 +377,8 @@ export class UsersService {
     return user.save();
   }
 
-  // Updated addToWishlist to handle { productId, variantId }
-  async addToWishlist(userId: string, productId: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
+  // Updated addToWishlist to handle { productId, variantId } with optional variantId
+  async addToWishlist(userId: string, productId: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
     console.log('UsersService.addToWishlist called with:', { userId, productId: typeof productId === 'string' ? productId : productId.toString(), variantId });
 
     // Validate inputs
@@ -392,10 +392,7 @@ export class UsersService {
       throw new Error('productId is required');
     }
 
-    if (!variantId) {
-      console.error('variantId is required');
-      throw new Error('variantId is required');
-    }
+    // variantId can be empty string for products without variants
 
     console.log('Finding user with ID:', userId);
     const user = await this.findOne(userId);
@@ -482,20 +479,18 @@ export class UsersService {
     console.log('Existing item index:', existingItemIndex);
 
     if (existingItemIndex === -1) {
-      // Ensure both productId and variantId are properly set
+      // Ensure productId is properly set
       if (!productObjectId) {
         console.error('productObjectId is required');
         throw new Error('productId is required');
       }
-      if (!variantId) {
-        console.error('variantId is required');
-        throw new Error('variantId is required');
-      }
+      // variantId can be empty string for products without variants
 
       // Create the new wishlist item with explicit properties
+      // Ensure variantId is always a string (empty string if undefined)
       const newWishlistItem = {
         productId: productObjectId,
-        variantId: variantId
+        variantId: variantId || ''
       };
 
       console.log('Adding new item to wishlist:', newWishlistItem);
@@ -523,7 +518,7 @@ export class UsersService {
   }
 
   // Updated removeFromWishlist to handle { productId, variantId }
-  async removeFromWishlist(userId: string, productId: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
+  async removeFromWishlist(userId: string, productId: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
     const user = await this.findOne(userId);
     const productObjectId = typeof productId === 'string' ? new Types.ObjectId(productId) : productId;
 
@@ -534,13 +529,16 @@ export class UsersService {
 
     const initialLength = user.wishlist.length;
 
+    // For products without variants, use empty string as variantId
+    const variantIdToUse = variantId || '';
+
     // Use a safer filter approach to handle potential undefined values
     user.wishlist = user.wishlist.filter(item => {
       // Check if item and item.productId exist before using equals
       if (!item || !item.productId) return true; // Keep items with missing productId
 
       // Only filter out items that match both productId and variantId
-      return !(item.productId.equals(productObjectId) && item.variantId === variantId);
+      return !(item.productId.equals(productObjectId) && item.variantId === variantIdToUse);
     });
 
     // Only save if an item was actually removed

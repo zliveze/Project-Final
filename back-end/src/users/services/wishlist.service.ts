@@ -110,7 +110,7 @@ export class WishlistService {
   }
 
   // Calls the updated method in UsersService
-  async addToWishlist(userId: string | Types.ObjectId, productIdInput: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
+  async addToWishlist(userId: string | Types.ObjectId, productIdInput: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
     console.log('WishlistService.addToWishlist called with:', { userId, productIdInput, variantId });
 
     // Validate inputs
@@ -124,10 +124,8 @@ export class WishlistService {
       throw new BadRequestException('productIdInput is required');
     }
 
-    if (!variantId) {
-      console.error('variantId is required');
-      throw new BadRequestException('variantId is required');
-    }
+    // For products without variants, use empty string as variantId
+    const variantIdToUse = variantId || '';
 
     // Convert productIdInput to ObjectId if it's a string
     let productId;
@@ -148,32 +146,37 @@ export class WishlistService {
     }
     console.log('Product found:', { id: product._id, name: product.name });
 
-    // Check if variant exists in the product - handle both ObjectId and string variantIds
-    // First try to find by direct comparison (for string variantIds like 'new-1744355640713')
-    console.log('Checking if variant exists in product variants:', { variantId, productVariants: product.variants.map(v => ({ variantId: v.variantId.toString() })) });
-    let variantExists = product.variants.some(v => {
-      // Handle both string and ObjectId variantIds
-      const variantIdStr = v.variantId.toString();
-      const match = variantIdStr === variantId || variantIdStr === `new-${variantId}`;
-      if (match) {
-        console.log('Variant match found:', { variantIdStr, variantId });
-      }
-      return match;
-    });
+    // For products without variants, skip variant check
+    if (variantIdToUse === '') {
+      console.log('Product without variants, skipping variant check');
+    } else {
+      // Check if variant exists in the product - handle both ObjectId and string variantIds
+      // First try to find by direct comparison (for string variantIds like 'new-1744355640713')
+      console.log('Checking if variant exists in product variants:', { variantId: variantIdToUse, productVariants: product.variants.map(v => ({ variantId: v.variantId.toString() })) });
+      let variantExists = product.variants.some(v => {
+        // Handle both string and ObjectId variantIds
+        const variantIdStr = v.variantId.toString();
+        const match = variantIdStr === variantIdToUse || variantIdStr === `new-${variantIdToUse}`;
+        if (match) {
+          console.log('Variant match found:', { variantIdStr, variantId: variantIdToUse });
+        }
+        return match;
+      });
 
-    // If not found, check if it's a valid ObjectId and try to find by ObjectId comparison
-    if (!variantExists) {
-      console.error(`Variant with ID ${variantId} not found in product ${productId.toString()}`);
-      throw new NotFoundException(`Biến thể với ID ${variantId} không tồn tại trong sản phẩm ${productId.toString()}.`);
+      // If not found, check if it's a valid ObjectId and try to find by ObjectId comparison
+      if (!variantExists) {
+        console.error(`Variant with ID ${variantIdToUse} not found in product ${productId.toString()}`);
+        throw new NotFoundException(`Biến thể với ID ${variantIdToUse} không tồn tại trong sản phẩm ${productId.toString()}.`);
+      }
     }
 
     // Ensure userId is passed as string if needed by the underlying service method signature
     const userIdString = typeof userId === 'string' ? userId : userId.toString();
-    console.log('Calling usersService.addToWishlist with:', { userIdString, productId: productId.toString(), variantId });
+    console.log('Calling usersService.addToWishlist with:', { userIdString, productId: productId.toString(), variantId: variantIdToUse });
 
     try {
-      // Pass the variantId as is to the service
-      const result = await this.usersService.addToWishlist(userIdString, productId, variantId);
+      // Pass the variantIdToUse to the service
+      const result = await this.usersService.addToWishlist(userIdString, productId, variantIdToUse);
       console.log('Wishlist item added successfully');
       return result;
     } catch (error) {
@@ -183,7 +186,7 @@ export class WishlistService {
   }
 
   // Calls the updated method in UsersService
-  async removeFromWishlist(userId: string | Types.ObjectId, productIdInput: string | Types.ObjectId, variantId: string): Promise<UserDocument> {
+  async removeFromWishlist(userId: string | Types.ObjectId, productIdInput: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
     const productId = typeof productIdInput === 'string' ? new Types.ObjectId(productIdInput) : productIdInput;
     // Optional: Add validation to check if product/variant exists before attempting removal if desired
     // const product = await this.productModel.findById(productId).exec();
@@ -191,7 +194,9 @@ export class WishlistService {
     //     throw new NotFoundException(`Sản phẩm hoặc biến thể không tồn tại để xóa khỏi wishlist.`);
     // }
     const userIdString = typeof userId === 'string' ? userId : userId.toString();
-    // Pass the original variantId string to the service
-    return this.usersService.removeFromWishlist(userIdString, productId, variantId);
+    // For products without variants, use empty string as variantId
+    const variantIdToUse = variantId || '';
+    // Pass the variantIdToUse to the service
+    return this.usersService.removeFromWishlist(userIdString, productId, variantIdToUse);
   }
 }

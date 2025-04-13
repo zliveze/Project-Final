@@ -294,10 +294,7 @@ export const UserApiService = {
       throw new Error('productId is required');
     }
 
-    if (!variantId) {
-      console.error('variantId is required');
-      throw new Error('variantId is required');
-    }
+    // variantId can be empty string for products without variants
 
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
@@ -353,7 +350,7 @@ export const UserApiService = {
   },
 
   // Xóa sản phẩm khỏi danh sách yêu thích (Updated: sends productId and variantId in body)
-  async removeFromWishlist(productId: string, variantId: string): Promise<User> { // Accept variantId
+  async removeFromWishlist(productId: string, variantId: string): Promise<User> { // Accept variantId which can be empty string for products without variants
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
     const removeWishlistUrl = `${API_URL}/profile/wishlist`; // Endpoint changed

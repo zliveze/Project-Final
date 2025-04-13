@@ -33,10 +33,7 @@ export class WishlistController {
       throw new BadRequestException('productId is required');
     }
 
-    if (!addToWishlistDto.variantId) {
-      console.error('variantId is missing in request body');
-      throw new BadRequestException('variantId is required');
-    }
+    // variantId is now optional for products without variants
 
     const userId = req.user.userId;
     if (!userId) {

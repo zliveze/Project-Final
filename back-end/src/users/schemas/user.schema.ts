@@ -40,9 +40,9 @@ export class User {
   @Prop({ enum: ['user', 'admin', 'superadmin'], default: 'user' })
   role: string;
 
-  @Prop({ 
-    enum: ['Khách hàng mới', 'Khách hàng bạc', 'Khách hàng vàng', 'Khách hàng thân thiết'], 
-    default: 'Khách hàng mới' 
+  @Prop({
+    enum: ['Khách hàng mới', 'Khách hàng bạc', 'Khách hàng vàng', 'Khách hàng thân thiết'],
+    default: 'Khách hàng mới'
   })
   customerLevel: string;
 
@@ -67,11 +67,11 @@ export class User {
   @Prop({ default: false })
   isDeleted: boolean;
 
-  @Prop({ 
-    type: [{ 
+  @Prop({
+    type: [{
       productId: { type: Types.ObjectId, ref: 'Product', required: true },
-      variantId: { type: String, required: true } // Assuming variantId is a string identifier within the product
-    }], 
+      variantId: { type: String, default: '' } // Optional variantId, default to empty string for products without variants
+    }],
     default: [],
     _id: false // Don't generate _id for subdocuments in the array
   })
@@ -110,12 +110,12 @@ UserSchema.index({ role: 1, isActive: 1, isBanned: 1 });  // Compound index cho 
 UserSchema.pre('save', async function (next) {
   try {
     const user = this as UserDocument;
-    
+
     // Bỏ qua nếu password không tồn tại (đăng nhập bằng Google)
     if (!user.password) {
       return next();
     }
-    
+
     // Chỉ hash password khi nó bị thay đổi hoặc là người dùng mới
     if (!user.isModified('password')) {
       return next();
@@ -135,12 +135,12 @@ UserSchema.pre('save', async function (next) {
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   try {
     const user = this as UserDocument;
-    
+
     // Trả về false nếu tài khoản không có mật khẩu (đăng nhập bằng Google)
     if (!user.password) {
       return false;
     }
-    
+
     return await bcrypt.compare(candidatePassword, user.password);
   } catch (error) {
     throw error;
