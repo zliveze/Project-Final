@@ -247,9 +247,18 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
     return formData.inventory.map(item => {
       // Kiểm tra xem đây có phải là chi nhánh mới được thêm vào hay không
       const isNew = item.branchId === newlyAddedBranch;
+
+      // Tìm tên chi nhánh từ danh sách chi nhánh nếu không có trong item
+      let branchName = item.branchName;
+      if (!branchName) {
+        // Tìm trong danh sách chi nhánh
+        const branch = branches.find(b => b.id === item.branchId);
+        branchName = branch ? branch.name : 'Chi nhánh không xác định';
+      }
+
       return {
         branchId: item.branchId,
-        branchName: (item as any).branchName || 'Chi nhánh không xác định',
+        branchName: branchName,
         quantity: item.quantity,
         lowStockThreshold: item.lowStockThreshold || 5,
         isNew
@@ -280,7 +289,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
       {/* Thông báo thành công */}
       {notification.show && (
-        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] bg-green-50 border-l-4 border-green-500 border-t border-r border-b border-green-200 text-green-700 px-4 py-3 rounded-md shadow-2xl flex items-center justify-between max-w-md animate-pulse ${notification.isLeaving ? 'animate-slideOutTop' : 'animate-slideInTop'}`}>
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] bg-green-50 border-l-4 border-green-500 border-t border-r border-b text-green-700 px-4 py-3 rounded-md shadow-2xl flex items-center justify-between max-w-md animate-pulse ${notification.isLeaving ? 'animate-slideOutTop' : 'animate-slideInTop'}`}>
           <div className="flex items-center mr-4">
             <FiCheck className="text-green-500 mr-2 flex-shrink-0" size={24} />
             <div>
@@ -445,6 +454,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                         <span className="flex items-center ml-2 text-pink-600">
                           <span className="flex items-center bg-pink-100 text-pink-600 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
                             Mới thêm <FiCheck size={14} className="ml-1" />
+                          </span>
+                        </span>
+                      )}
+                      {selectedBranchForVariants === item.branchId && (
+                        <span className="flex items-center ml-2">
+                          <span className="flex items-center bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-medium">
+                            Đang chọn
                           </span>
                         </span>
                       )}

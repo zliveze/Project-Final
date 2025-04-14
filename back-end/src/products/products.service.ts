@@ -13,6 +13,7 @@ import {
 } from './dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { EventsService } from '../events/events.service'; // Import EventsService
+import { WebsocketService } from '../websocket/websocket.service'; // Import WebsocketService
 import { CampaignsService } from '../campaigns/campaigns.service'; // Import CampaignsService
 import { Event } from '../events/entities/event.entity'; // Import Event entity
 import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
@@ -27,6 +28,7 @@ export class ProductsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly eventsService: EventsService,
+    private readonly websocketService: WebsocketService,
     private readonly campaignsService: CampaignsService
   ) {
     // Kiểm tra xem collection có text index hay không
@@ -1696,14 +1698,28 @@ export class ProductsService {
     }
   }
 
-  async importProductsFromExcel(file: Express.Multer.File, branchId: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[] }> {
+  async importProductsFromExcel(file: Express.Multer.File, branchId: string, userId?: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[] }> {
     try {
       this.logger.log(`Bắt đầu import sản phẩm từ file Excel: ${file.originalname}`);
-      
+
       if (!file || (!file.buffer && !file.path)) {
         throw new BadRequestException('File Excel trống hoặc không hợp lệ');
       }
-      
+
+      if (!branchId) {
+        throw new BadRequestException('Yêu cầu chọn chi nhánh để import tồn kho');
+      }
+
+      this.logger.log(`Chi nhánh đã chọn cho import: ${branchId}`);
+
+      if (!/^[0-9a-fA-F]{24}$/.test(branchId)) {
+        throw new BadRequestException('ID chi nhánh không hợp lệ. Vui lòng chọn chi nhánh khác.');
+      }
+
+      if (userId) {
+        this.emitImportProgress(userId, 0, 'reading', 'Bắt đầu đọc file Excel...');
+      }
+
       let workbook;
       try {
         // Nếu có file.path (đã lưu trên đĩa), đọc từ đĩa
@@ -1723,9 +1739,9 @@ export class ProductsService {
             cellNF: false,       // Không quan tâm đến định dạng số
             sheets: 0            // Chỉ đọc sheet đầu tiên
           };
-          
+
           workbook = XLSX.readFile(file.path, readOptions);
-        } 
+        }
         // Nếu có buffer, đọc từ buffer
         else if (file.buffer) {
           this.logger.log(`Đọc file Excel từ buffer, kích thước: ${file.buffer.length} bytes`);
@@ -1733,7 +1749,7 @@ export class ProductsService {
           const readOptions = {
             cellFormula: false,
             cellHTML: false,
-            cellText: false, 
+            cellText: false,
             cellDates: true,
             cellStyles: false,
             dateNF: 'yyyy-mm-dd',
@@ -1742,7 +1758,7 @@ export class ProductsService {
             raw: true,
             cellNF: false
           };
-          
+
           workbook = XLSX.read(file.buffer, readOptions);
         } else {
           throw new BadRequestException('Không thể đọc file Excel: Không có dữ liệu file');
@@ -1751,29 +1767,33 @@ export class ProductsService {
         this.logger.error(`Lỗi khi đọc file Excel: ${xlsxError.message}`, xlsxError.stack);
         throw new BadRequestException(`Không thể đọc file Excel: ${xlsxError.message}`);
       }
-      
+
       if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
         throw new BadRequestException('File Excel không có sheet nào');
       }
-      
+
       const sheetName = workbook.SheetNames[0]; // Lấy sheet đầu tiên
       this.logger.log(`Đọc sheet: ${sheetName}`);
       const sheet = workbook.Sheets[sheetName];
-      
+
       // Chuyển đổi sheet thành JSON
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-      
+
       if (!rawData || rawData.length <= 1) {
         throw new BadRequestException('File Excel không có dữ liệu sản phẩm');
       }
-      
+
+      if (userId) {
+        this.emitImportProgress(userId, 10, 'parsing', 'Đang phân tích dữ liệu Excel...');
+      }
+
       // Log thông tin để debug
       this.logger.log(`File Excel có ${rawData.length} dòng dữ liệu`);
       // Bỏ qua dòng tiêu đề, chỉ lấy dữ liệu từ dòng thứ 2 trở đi
       const productRows = rawData.slice(1).filter(row => row.length > 0);
-      
+
       this.logger.log(`Đọc được ${productRows.length} sản phẩm từ file Excel`);
-      
+
       // Kết quả xử lý
       const result = {
         success: true,
@@ -1782,23 +1802,34 @@ export class ProductsService {
         updated: 0,
         errors: [] as string[]
       };
-      
+
       // Xử lý từng sản phẩm trong file Excel
-      for (let i = 0; i < productRows.length; i++) {
+      const totalProducts = productRows.length;
+      const startProgress = 15;
+      const endProgress = 95;
+      const progressRange = endProgress - startProgress;
+
+      for (let i = 0; i < totalProducts; i++) {
         const row = productRows[i];
-        
+
         try {
           // Log dữ liệu dòng để debug khi cần thiết
-          if (i < 5 || i === productRows.length - 1) {
+          if (i < 5 || i === totalProducts - 1) {
             this.logger.log(`Dòng ${i + 2}: ${JSON.stringify(row)}`);
           }
-          
+
+          const currentProgress = Math.floor(startProgress + ((i + 1) / totalProducts) * progressRange);
+          if (userId && (i === 0 || i === totalProducts - 1 ||
+              i % Math.max(1, Math.floor(totalProducts / 16)) === 0)) {
+            this.emitImportProgress(userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
+          }
+
           // Kiểm tra dữ liệu tối thiểu cần có
           if (!row[2] || !row[4]) {
             result.errors.push(`Sản phẩm dòng ${i + 2}: Thiếu mã hàng hoặc tên sản phẩm`);
             continue;
           }
-          
+
           // Lấy thông tin từ các cột theo yêu cầu
           const category = String(row[1] || '').trim(); // Cột 2: Nhóm hàng(3 Cấp)
           const sku = String(row[2] || '').trim(); // Cột 3: Mã hàng
@@ -1808,16 +1839,16 @@ export class ProductsService {
           const originalPrice = this.parseNumber(row[7]); // Cột 8: Giá vốn
           const quantity = this.parseNumber(row[8]); // Cột 9: Tồn kho
           const imageUrls = this.parseImageUrls(row[18]); // Cột 19: Hình ảnh (url1,url2...)
-          
+
           // Tạo slug từ tên sản phẩm
           const slug = this.generateSlug(name);
-          
+
           // Chuẩn bị mô tả đầy đủ với mã vạch
           let fullDescription = '';
           if (barcode) {
             fullDescription = `Mã vạch: ${barcode}\n\n`;
           }
-          
+
           // Chuẩn bị dữ liệu sản phẩm
           const productDto: any = {
             sku,
@@ -1832,7 +1863,7 @@ export class ProductsService {
               full: fullDescription
             }
           };
-          
+
           // Xử lý hình ảnh
           if (imageUrls.length > 0) {
             productDto.images = imageUrls.map((url, index) => ({
@@ -1841,30 +1872,30 @@ export class ProductsService {
               isPrimary: index === 0 // Ảnh đầu tiên là ảnh chính
             }));
           }
-          
+
           // Tạo thông tin inventory với chi nhánh được chọn
           productDto.inventory = [{
             branchId,
             quantity: quantity >= 0 ? quantity : 0
           }];
-          
+
           // Thêm danh mục nếu có
           if (category) {
             // Chúng ta sẽ cần thêm việc tìm/tạo danh mục ở đây
             // Hiện tại chỉ ghi log thông tin
             this.logger.log(`Danh mục của sản phẩm ${sku}: ${category}`);
           }
-          
+
           // Kiểm tra xem sản phẩm đã tồn tại hay chưa (theo SKU)
           const existingProduct = await this.productModel.findOne({ sku });
-          
+
           if (existingProduct) {
             // Cập nhật sản phẩm hiện có
             this.logger.log(`Cập nhật sản phẩm có SKU: ${sku}`);
-            
+
             // Kiểm tra sản phẩm đã có inventory cho chi nhánh này chưa
             const hasInventory = existingProduct.inventory?.some(inv => inv.branchId.toString() === branchId);
-            
+
             if (hasInventory) {
               // Cập nhật số lượng cho chi nhánh
               await this.productModel.updateOne(
@@ -1878,7 +1909,7 @@ export class ProductsService {
                 { $push: { inventory: { branchId: new Types.ObjectId(branchId), quantity: productDto.inventory[0].quantity } } }
               );
             }
-            
+
             // Cập nhật các trường khác
             const updateFields: any = {
               name: productDto.name,
@@ -1888,28 +1919,28 @@ export class ProductsService {
               currentPrice: productDto.currentPrice,
               'description.full': productDto.description.full
             };
-            
+
             // Cập nhật hình ảnh nếu có
             if (productDto.images && productDto.images.length > 0) {
               updateFields.images = productDto.images;
             }
-            
+
             await this.productModel.updateOne(
               { sku },
               { $set: updateFields }
             );
-            
+
             result.updated++;
           } else {
             // Tạo sản phẩm mới
             this.logger.log(`Tạo sản phẩm mới với SKU: ${sku}`);
-            
+
             // Chuyển đổi ObjectId cho branchId
             productDto.inventory[0].branchId = new Types.ObjectId(branchId);
-            
+
             const newProduct = new this.productModel(productDto);
             await newProduct.save();
-            
+
             result.created++;
           }
         } catch (error) {
@@ -1917,16 +1948,27 @@ export class ProductsService {
           result.errors.push(`Sản phẩm dòng ${i + 2}: ${error.message}`);
         }
       }
-      
+
+      if (userId) {
+        this.emitImportProgress(userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+      }
+
       this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
-      
+
+      if (userId) {
+        this.emitImportProgress(userId, 100, 'completed', `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm`);
+        setTimeout(() => {
+          this.emitImportProgress(userId, 100, 'completed', `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm`);
+        }, 1000);
+      }
+
       return result;
     } catch (error) {
       this.logger.error(`Lỗi khi import sản phẩm từ Excel:`, error.stack);
       throw new BadRequestException(`Lỗi khi import sản phẩm: ${error.message}`);
     }
   }
-  
+
   // Helper method to generate slug
   private generateSlug(name: string): string {
     return name
@@ -1949,30 +1991,40 @@ export class ProductsService {
     if (value === undefined || value === null || value === '') {
       return 0;
     }
-    
+
     // Xử lý trường hợp value là chuỗi đã được định dạng số (có dấu phẩy, dấu chấm)
     if (typeof value === 'string') {
       // Xóa bỏ các ký tự không phải số và dấu chấm
       const cleanValue = value.replace(/[^\d.-]/g, '');
       return Number(cleanValue) || 0;
     }
-    
+
     return Number(value) || 0;
   }
-  
+
   // Phương thức phân tích chuỗi URL hình ảnh
   private parseImageUrls(urlString: any): string[] {
     if (!urlString) {
       return [];
     }
-    
+
     if (typeof urlString !== 'string') {
       return [];
     }
-    
+
     // Phân tách chuỗi URL bằng dấu phẩy và loại bỏ khoảng trắng
     return urlString.split(',')
       .map(url => url.trim())
       .filter(url => url.length > 0 && url.match(/^https?:\/\//));
+  }
+
+  private emitImportProgress(userId: string, progress: number, status: string, message: string) {
+    if (!userId) return;
+
+    try {
+      this.websocketService.emitImportProgress(userId, progress, status, message);
+    } catch (error) {
+      this.logger.error(`Lỗi khi gửi cập nhật tiến độ: ${error.message}`);
+    }
   }
 }

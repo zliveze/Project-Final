@@ -10,6 +10,7 @@ import { Product, ProductSchema } from './schemas/product.schema';
 import { Variant, VariantSchema } from './schemas/variant.schema'; // Import Variant schema
 import { CloudinaryModule } from '../cloudinary';
 import { EventsModule } from '../events/events.module'; // Import EventsModule
+import { WebsocketModule } from '../websocket/websocket.module'; // Import WebsocketModule
 import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
 
 @Module({
@@ -20,15 +21,16 @@ import { CampaignsModule } from '../campaigns/campaigns.module'; // Import Campa
     ]),
     CloudinaryModule,
     EventsModule, // Add EventsModule here
+    WebsocketModule, // Add WebsocketModule here
     CampaignsModule, // Add CampaignsModule here
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {
           const uploadPath = join(process.cwd(), 'uploads');
           const fs = require('fs');
-          
+
           console.log(`Upload path: ${uploadPath}`);
-          
+
           if (!fs.existsSync(uploadPath)) {
             console.log(`Creating directory: ${uploadPath}`);
             try {
@@ -46,7 +48,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module'; // Import Campa
               console.error(`Directory is not writable: ${error.message}`);
             }
           }
-          
+
           cb(null, uploadPath);
         },
         filename: (req, file, cb) => {

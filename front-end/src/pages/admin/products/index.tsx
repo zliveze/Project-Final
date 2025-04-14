@@ -5,6 +5,8 @@ import { Toaster, toast } from 'react-hot-toast';
 import { FiAlertCircle, FiUpload, FiDownload, FiX, FiCheck, FiEdit, FiEye, FiPlus } from 'react-icons/fi';
 import Cookies from 'js-cookie'; // Keep for client-side token checks if needed
 // import { useProduct } from '@/contexts/ProductContext';
+import { useImportProgress } from '@/hooks/useImportProgress';
+import ImportProgressModal from '@/components/admin/ui/ImportProgressModal';
 
 // Import các components mới
 import ProductTable from '@/components/admin/products/components/ProductTable';
@@ -117,6 +119,38 @@ function AdminProducts({
   const { branches, loading: branchesLoading } = useBranches();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Sử dụng hook useImportProgress để theo dõi tiến trình import
+  const { progress, isConnected, resetProgress } = useImportProgress();
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [importCompletedHandled, setImportCompletedHandled] = useState(false); // State mới để theo dõi hoàn thành
+
+  // Theo dõi trạng thái tiến trình để tự động đóng modal và làm mới dữ liệu
+  useEffect(() => {
+    console.log('ProductsPage: Tiến trình thay đổi:', progress);
+
+    // Thêm nút đóng thủ công cho trường hợp khẩn cấp
+    if (showProgressModal && !progress) {
+      // Sau 30 giây nếu không có tiến trình, hiển thị nút đóng thủ công
+      const timeoutId = setTimeout(() => {
+        console.log('ProductsPage: Hiển thị nút đóng thủ công sau 30 giây');
+        // Có thể thêm một state để hiển thị nút đóng thủ công
+        // hoặc tự động đóng modal
+        setShowProgressModal(false);
+      }, 30000);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Chỉ chạy logic hoàn thành MỘT LẦN
+    if (progress?.status === 'completed' && progress.progress === 100 && !importCompletedHandled) {
+      console.log('ProductsPage: Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và đóng modal');
+      fetchProducts(); // Làm mới danh sách sản phẩm
+      setShowProgressModal(false); // Đóng modal
+      setImportCompletedHandled(true); // Đánh dấu đã xử lý
+    }
+    // Không cần else ở đây, chỉ cần chạy khi hoàn thành lần đầu
+  }, [progress, showProgressModal, importCompletedHandled, fetchProducts]); // Thêm dependency
 
   // State cho các modal product
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -393,6 +427,7 @@ function AdminProducts({
   };
 
   const handleImportSubmit = async () => {
+    console.log('ProductsPage: Bắt đầu import Excel');
     if (!selectedFile || !selectedBranch) {
       toast.error('Vui lòng chọn file và chi nhánh trước khi import', {
         duration: 3000
@@ -417,8 +452,13 @@ function AdminProducts({
       return;
     }
 
-    // Hiển thị thông báo đang xử lý
-    const loadingToast = toast.loading(`Đang import file ${selectedFile.name}...`);
+    // Reset tiến trình VÀ cờ hoàn thành trước khi bắt đầu import mới
+    resetProgress();
+    setImportCompletedHandled(false); // Reset cờ ở đây
+
+    // Hiển thị modal tiến trình
+    console.log('ProductsPage: Hiển thị modal tiến trình');
+    setShowProgressModal(true);
 
     try {
       // Tạo FormData
@@ -445,7 +485,7 @@ function AdminProducts({
       // Kiểm tra kỹ lỗi
       if (!response.ok) {
         let errorMessage = `Lỗi: ${response.status} - ${response.statusText}`;
-        
+
         try {
           const errorData = await response.json();
           if (errorData && errorData.message) {
@@ -463,18 +503,11 @@ function AdminProducts({
             console.error('Không thể lấy error text:', textError);
           }
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const result = await response.json();
-
-      // Thông báo thành công
-      toast.dismiss(loadingToast);
-      toast.success(`Import thành công: ${result.created} sản phẩm mới, ${result.updated} sản phẩm cập nhật`, {
-        duration: 5000,
-        icon: <FiCheck className="text-green-500" />
-      });
 
       // Hiển thị lỗi nếu có
       if (result.errors && result.errors.length > 0) {
@@ -496,6 +529,18 @@ function AdminProducts({
         }, 1000);
       }
 
+      // Lưu tên chi nhánh đã chọn để hiển thị trong thông báo
+      const selectedBranchName = branches.find(b => b._id === selectedBranch)?.name || 'Chi nhánh không xác định';
+
+      // Hiển thị thông báo thành công với tên chi nhánh
+      toast.success(
+        <div className="flex flex-col">
+          <span>Import dữ liệu thành công!</span>
+          <span className="text-sm mt-1">Chi nhánh: <span className="font-medium">{selectedBranchName}</span></span>
+        </div>,
+        { duration: 5000 }
+      );
+
       // Đóng modal và reset form
       setShowImportModal(false);
       setSelectedFile(null);
@@ -505,11 +550,12 @@ function AdminProducts({
         fileInputRef.current.value = '';
       }
 
-      // Làm mới danh sách sản phẩm
-      fetchProducts();
+      // Làm mới danh sách sản phẩm khi tiến trình hoàn tất
+      if (progress?.status === 'completed') {
+        fetchProducts();
+      }
     } catch (error: any) {
       // Xử lý lỗi
-      toast.dismiss(loadingToast);
       toast.error(`Có lỗi xảy ra khi import dữ liệu: ${error.message}`, {
         duration: 5000
       });
@@ -1237,21 +1283,35 @@ function AdminProducts({
                       <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-2">
                         Chọn chi nhánh
                       </label>
-                      <select
-                        id="branch"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                        value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                      >
-                        <option value="">-- Chọn chi nhánh --</option>
-                        {branchesLoading ? (
-                          <option value="" disabled>Đang tải chi nhánh...</option>
-                        ) : branches.map((branch) => (
-                          <option key={branch._id} value={branch._id}>
-                            {branch.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <select
+                          id="branch"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none"
+                          value={selectedBranch}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                        >
+                          <option value="">-- Chọn chi nhánh --</option>
+                          {branchesLoading ? (
+                            <option value="" disabled>Đang tải chi nhánh...</option>
+                          ) : branches.map((branch) => (
+                            <option key={branch._id} value={branch._id}>
+                              {branch.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                        </div>
+                      </div>
+                      {selectedBranch && (
+                        <div className="mt-2 flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
+                          <span className="text-sm text-pink-700">
+                            Chi nhánh đã chọn: <span className="font-medium">{branches.find(b => b._id === selectedBranch)?.name || 'Chi nhánh không xác định'}</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">
@@ -1445,6 +1505,23 @@ function AdminProducts({
           </div>
         </div>
       )}
+
+      {/* Modal hiển thị tiến trình import */}
+      <ImportProgressModal
+        isOpen={showProgressModal}
+        onClose={() => {
+          console.log('ProductsPage: Đóng modal tiến trình (onClose)'); // Thay đổi log
+          setShowProgressModal(false);
+          // Không cần làm mới ở đây nữa, useEffect đã xử lý
+          // if (progress?.status === 'completed' && !importCompletedHandled) { // Kiểm tra thêm cờ nếu muốn giữ lại
+          //   console.log('ProductsPage: Làm mới danh sách sản phẩm sau khi đóng modal (onClose)');
+          //   fetchProducts();
+          //   setImportCompletedHandled(true); // Đánh dấu đã xử lý nếu giữ lại
+          // }
+        }}
+        progress={progress}
+        selectedBranchName={branches.find(b => b._id === selectedBranch)?.name}
+      />
     </AdminLayout>
   );
 }

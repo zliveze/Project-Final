@@ -127,7 +127,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleSelectBranchForVariants,
     handleClearBranchSelection,
     handleVariantInventoryChange
-  } = useProductInventory(formData, setFormData);
+  } = useProductInventory(formData, setFormData, branches); // Truyền danh sách chi nhánh vào hook
 
   // Sử dụng custom hook để quản lý quà tặng
   const {

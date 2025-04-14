@@ -6,7 +6,8 @@ import { ProductFormData, InventoryItem, BranchItem, VariantInventoryItem, Produ
  */
 export const useProductInventory = (
   formData: ProductFormData,
-  setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
+  setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>,
+  branches: BranchItem[] = [] // Thêm tham số branches với giá trị mặc định là mảng rỗng
 ) => {
   // State hiển thị modal chọn chi nhánh
   const [showBranchModal, setShowBranchModal] = useState(false);
@@ -87,13 +88,17 @@ export const useProductInventory = (
    * Thêm chi nhánh mới vào danh sách tồn kho
    */
   const handleAddBranch = (branchId: string, branchName: string) => {
+    // Đảm bảo branchName không rỗng
+    const validBranchName = branchName || 'Chi nhánh không xác định';
+    console.log(`Thêm chi nhánh: ID=${branchId}, Tên=${validBranchName}`);
+
     // Nếu danh sách tồn kho chưa tồn tại, tạo mới
     if (!formData.inventory || !Array.isArray(formData.inventory)) {
       setFormData(prev => ({
         ...prev,
         inventory: [{
           branchId,
-          branchName,
+          branchName: validBranchName,
           quantity: calculateBranchInventory(branchId), // Tính tồn kho từ biến thể
           lowStockThreshold: 5
         }]
@@ -107,7 +112,7 @@ export const useProductInventory = (
     const existingIndex = updatedInventory.findIndex(item => item.branchId === branchId);
     if (existingIndex >= 0) {
       // Nếu đã tồn tại, thông báo và không thêm
-      alert(`Chi nhánh "${branchName}" đã tồn tại trong danh sách!`);
+      alert(`Chi nhánh "${validBranchName}" đã tồn tại trong danh sách!`);
       return;
     }
 
@@ -117,7 +122,7 @@ export const useProductInventory = (
     // Thêm chi nhánh mới vào danh sách
     updatedInventory.push({
       branchId,
-      branchName,
+      branchName: validBranchName,
       quantity: initialQuantity,
       lowStockThreshold: 5
     });
@@ -319,7 +324,13 @@ export const useProductInventory = (
     );
 
     // Lấy tên chi nhánh
-    const branchName = formData.inventory?.find(item => item.branchId === selectedBranchForVariants)?.branchName || '';
+    let branchName = formData.inventory?.find(item => item.branchId === selectedBranchForVariants)?.branchName || '';
+
+    // Nếu không tìm thấy tên chi nhánh trong inventory, tìm trong danh sách chi nhánh
+    if (!branchName) {
+      const branch = branches.find(b => b.id === selectedBranchForVariants);
+      branchName = branch ? branch.name : 'Chi nhánh không xác định';
+    }
 
     if (existingIndex >= 0) {
       // Cập nhật mục đã tồn tại

@@ -11,8 +11,7 @@ import {
   Logger,
   UploadedFile,
   UseInterceptors,
-  Inject,
-  NotFoundException,
+  Req,
   Res,
   StreamableFile,
   BadRequestException
@@ -356,7 +355,7 @@ export class ProductsAdminController {
         if (!file || !file.originalname || !file.originalname.match(/\.(xlsx|xls)$/)) {
           return cb(new Error('Chỉ hỗ trợ file Excel (xlsx, xls)'), false);
         }
-        
+
         // Nếu file hợp lệ
         const logger = new Logger('FileInterceptor');
         logger.log(`File Excel hợp lệ: ${file.originalname}`);
@@ -371,23 +370,25 @@ export class ProductsAdminController {
   }))
   async importProductsFromExcel(
     @UploadedFile() file: Express.Multer.File,
-    @Body('branchId') branchId: string
+    @Body('branchId') branchId: string,
+    @Req() request: any
   ) {
     try {
       if (!file) {
         this.logger.error('Không tìm thấy file Excel trong request');
         throw new BadRequestException('Không tìm thấy file Excel');
       }
-      
+
       this.logger.log(`Nhận được file: ${file.originalname}, kích thước: ${file.size} bytes, mimetype: ${file.mimetype}`);
 
       if (!branchId) {
         this.logger.error('Không tìm thấy branchId trong request');
         throw new BadRequestException('Vui lòng chọn chi nhánh');
       }
-      
-      this.logger.log(`Tiến hành import sản phẩm từ Excel cho chi nhánh: ${branchId}`);
-      return await this.productsService.importProductsFromExcel(file, branchId);
+
+      const userId = request.user?.id || request.user?._id || request.user?.userId || 'unknown';
+      this.logger.log(`Tiến hành import sản phẩm từ Excel cho chi nhánh: ${branchId}, userId: ${userId}`);
+      return await this.productsService.importProductsFromExcel(file, branchId, userId);
     } catch (error) {
       this.logger.error(`Error importing products from Excel: ${error.message}`, error.stack);
       if (error instanceof BadRequestException) {
@@ -432,13 +433,13 @@ export class ProductsAdminController {
     try {
       this.logger.log('Tạo file mẫu Excel cho import sản phẩm');
       const filePath = createProductImportTemplate();
-      
+
       const file = createReadStream(filePath);
       res.set({
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': 'attachment; filename="product-import-template.xlsx"',
       });
-      
+
       return new StreamableFile(file);
     } catch (error) {
       this.logger.error(`Error creating Excel template: ${error.message}`, error.stack);

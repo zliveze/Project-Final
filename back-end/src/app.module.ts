@@ -20,6 +20,7 @@ import { EventsModule } from './events/events.module'; // Import EventsModule
 import { CampaignsModule } from './campaigns/campaigns.module'; // Import CampaignsModule
 import { CartsModule } from './carts/carts.module'; // Import CartsModule
 import { CommonModule } from './common/common.module';
+import { WebsocketModule } from './websocket/websocket.module'; // Import WebsocketModule
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CommonModule } from './common/common.module';
     CampaignsModule, // Add CampaignsModule here
     CartsModule, // Add CartsModule here
     CommonModule,
+    WebsocketModule, // Add WebsocketModule here
   ],
   controllers: [AppController],
   providers: [AppService],

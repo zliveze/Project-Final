@@ -71,6 +71,23 @@ export interface GiftItem {
   status?: 'active' | 'inactive' | 'out_of_stock';
 }
 
+// Định nghĩa interface cho tồn kho chi nhánh
+export interface InventoryItem {
+  branchId: string;
+  branchName?: string; // Tên chi nhánh
+  quantity: number;
+  lowStockThreshold?: number;
+}
+
+// Định nghĩa interface cho tồn kho biến thể
+export interface VariantInventoryItem {
+  branchId: string;
+  branchName?: string; // Tên chi nhánh
+  variantId: string;
+  quantity: number;
+  lowStockThreshold?: number;
+}
+
 // Định nghĩa interface cho data của form sản phẩm
 export interface ProductFormData {
   id?: string;
@@ -107,11 +124,8 @@ export interface ProductFormData {
       afterOpening?: number;
     };
   };
-  inventory?: Array<{
-    branchId: string;
-    quantity: number;
-    lowStockThreshold?: number;
-  }>;
+  inventory?: InventoryItem[];
+  variantInventory?: VariantInventoryItem[];
   variants?: ProductVariant[];
   images?: ProductImage[];
   flags?: {
