@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp, FiList } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp, FiList, FiCheck } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
@@ -52,6 +52,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   const getNormalizedId = (item: any) => {
     return item.id || item._id;
   };
+  
+  // State cho tìm kiếm trong danh mục và thương hiệu
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [brandSearchTerm, setBrandSearchTerm] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -282,39 +286,89 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
         </div>
 
         {showAdvancedFilters && (
-          <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Bộ lọc danh mục */}
+          <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Bộ lọc danh mục */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
-                {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories)).map((category: any) => {
-                  const categoryId = getNormalizedId(category);
-                  const categoryCount = getCountForCategory(categoryId);
-                  return (
-                    <div key={categoryId} className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <input
-                          id={`category-${categoryId}`}
-                          type="checkbox"
-                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                          checked={selectedCategories.includes(categoryId)}
-                          onChange={() => handleCategoryChange(categoryId)}
-                          disabled={combinedLoading}
-                        />
-                        <label htmlFor={`category-${categoryId}`} className="ml-2 text-sm text-gray-700">
-                          {category.name}
-                        </label>
+              
+              {/* Thêm ô tìm kiếm cho danh mục */}
+              <div className="mb-2 relative">
+                <input
+                  type="text"
+                  placeholder="Tìm danh mục..."
+                  className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  value={categorySearchTerm}
+                  onChange={(e) => setCategorySearchTerm(e.target.value)}
+                  disabled={combinedLoading}
+                />
+                {categorySearchTerm && (
+                  <button
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    onClick={() => setCategorySearchTerm('')}
+                  >
+                    <FiX size={14} />
+                  </button>
+                )}
+              </div>
+              
+              {/* Hiển thị số lượng đã chọn */}
+              {selectedCategories.length > 0 && (
+                <div className="mb-2 text-xs text-pink-600 flex items-center">
+                  <FiCheck className="mr-1" /> Đã chọn {selectedCategories.length} danh mục
+                  <button 
+                    className="ml-auto text-xs text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      setSelectedCategories([]);
+                      applyFilters({ categories: [] });
+                    }}
+                  >
+                    Bỏ chọn tất cả
+                  </button>
+                </div>
+              )}
+              
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-md p-2">
+                {/* Lọc danh mục theo từ khóa tìm kiếm */}
+                {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
+                  .filter((category: any) => 
+                    category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+                  )
+                  .map((category: any) => {
+                    const categoryId = getNormalizedId(category);
+                    const categoryCount = getCountForCategory(categoryId);
+                    return (
+                      <div key={categoryId} className="flex items-center justify-between hover:bg-gray-50 p-1 rounded">
+                        <div className="flex items-center">
+                          <input
+                            id={`category-${categoryId}`}
+                            type="checkbox"
+                            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                            checked={selectedCategories.includes(categoryId)}
+                            onChange={() => handleCategoryChange(categoryId)}
+                            disabled={combinedLoading}
+                          />
+                          <label htmlFor={`category-${categoryId}`} className="ml-2 text-sm text-gray-700 cursor-pointer truncate max-w-[150px]">
+                            {category.name}
+                          </label>
+                        </div>
+                        {categoryCount !== null && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                            {categoryCount}
+                          </span>
+                        )}
                       </div>
-                      {categoryCount !== null && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          {categoryCount}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
                 {categories.length === 0 && statisticsCategories.length === 0 && categoriesList.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có danh mục</p>
+                )}
+                {/* Hiển thị thông báo khi không tìm thấy kết quả */}
+                {(categoriesList.length > 0 || statisticsCategories.length > 0 || categories.length > 0) && 
+                 (categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
+                  .filter((category: any) => 
+                    category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+                  ).length === 0 && (
+                  <p className="text-sm text-gray-500 italic">Không tìm thấy danh mục phù hợp</p>
                 )}
               </div>
             </div>
@@ -322,7 +376,44 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             {/* Bộ lọc thương hiệu */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Thương hiệu</h3>
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
+              
+              {/* Thêm ô tìm kiếm cho thương hiệu */}
+              <div className="mb-2 relative">
+                <input
+                  type="text"
+                  placeholder="Tìm thương hiệu..."
+                  className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  value={brandSearchTerm}
+                  onChange={(e) => setBrandSearchTerm(e.target.value)}
+                  disabled={combinedLoading}
+                />
+                {brandSearchTerm && (
+                  <button
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    onClick={() => setBrandSearchTerm('')}
+                  >
+                    <FiX size={14} />
+                  </button>
+                )}
+              </div>
+              
+              {/* Hiển thị số lượng đã chọn */}
+              {selectedBrands.length > 0 && (
+                <div className="mb-2 text-xs text-pink-600 flex items-center">
+                  <FiCheck className="mr-1" /> Đã chọn {selectedBrands.length} thương hiệu
+                  <button 
+                    className="ml-auto text-xs text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      setSelectedBrands([]);
+                      applyFilters({ brands: [] });
+                    }}
+                  >
+                    Bỏ chọn tất cả
+                  </button>
+                </div>
+              )}
+              
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-md p-2">
                 {combinedLoading ? (
                   <div className="py-2 px-1">
                     <div className="animate-pulse flex space-x-2">
@@ -346,35 +437,48 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   </div>
                 ) : (
                   // Ưu tiên sử dụng brands từ context, nếu không có thì sử dụng từ statistics hoặc props
-                  (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands)).map((brand: any) => {
-                    const brandId = getNormalizedId(brand);
-                    const brandCount = getCountForBrand(brandId);
-                    return (
-                      <div key={brandId} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <input
-                            id={`brand-${brandId}`}
-                            type="checkbox"
-                            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                            checked={selectedBrands.includes(brandId)}
-                            onChange={() => handleBrandChange(brandId)}
-                            disabled={combinedLoading}
-                          />
-                          <label htmlFor={`brand-${brandId}`} className="ml-2 text-sm text-gray-700">
-                            {brand.name}
-                          </label>
+                  // Lọc brands theo từ khóa tìm kiếm
+                  (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
+                    .filter((brand: any) => 
+                      brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
+                    )
+                    .map((brand: any) => {
+                      const brandId = getNormalizedId(brand);
+                      const brandCount = getCountForBrand(brandId);
+                      return (
+                        <div key={brandId} className="flex items-center justify-between hover:bg-gray-50 p-1 rounded">
+                          <div className="flex items-center">
+                            <input
+                              id={`brand-${brandId}`}
+                              type="checkbox"
+                              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                              checked={selectedBrands.includes(brandId)}
+                              onChange={() => handleBrandChange(brandId)}
+                              disabled={combinedLoading}
+                            />
+                            <label htmlFor={`brand-${brandId}`} className="ml-2 text-sm text-gray-700 cursor-pointer truncate max-w-[150px]">
+                              {brand.name}
+                            </label>
+                          </div>
+                          {brandCount !== null && (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                              {brandCount}
+                            </span>
+                          )}
                         </div>
-                        {brandCount !== null && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                            {brandCount}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })
+                      );
+                    })
                 )}
                 {!combinedLoading && brands.length === 0 && statisticsBrands.length === 0 && brandsList.length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không có thương hiệu</p>
+                )}
+                {/* Hiển thị thông báo khi không tìm thấy kết quả */}
+                {!combinedLoading && (brandsList.length > 0 || statisticsBrands.length > 0 || brands.length > 0) && 
+                 (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
+                  .filter((brand: any) => 
+                    brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
+                  ).length === 0 && (
+                  <p className="text-sm text-gray-500 italic">Không tìm thấy thương hiệu phù hợp</p>
                 )}
               </div>
             </div>
