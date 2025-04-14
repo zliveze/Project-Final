@@ -108,6 +108,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleVariantImageSelect // New handler for image selection
   } = useProductVariants(formData, setFormData, formData.images || []); // Pass formData.images here
 
+  // Sử dụng BrandContext để lấy danh sách thương hiệu thực
+  const { brands: backendBrands, loading: brandsLoading, fetchBrands } = useBrands();
+
+  // Sử dụng CategoryContext để lấy danh sách danh mục thực
+  const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
+
+  // Sử dụng BranchContext để lấy danh sách chi nhánh thực
+  const { branches: backendBranches, loading: branchesLoading, fetchBranches } = useBranches();
+
+  // Chuyển đổi định dạng cho phù hợp với component
+  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
+
   // Sử dụng custom hook để quản lý tồn kho
   const {
     showBranchModal,
@@ -140,20 +154,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
     hasGifts,
     getValidGiftsCount
   } = useProductGifts(formData, setFormData);
-
-  // Sử dụng BrandContext để lấy danh sách thương hiệu thực
-  const { brands: backendBrands, loading: brandsLoading, fetchBrands } = useBrands();
-
-  // Sử dụng CategoryContext để lấy danh sách danh mục thực
-  const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
-
-  // Sử dụng BranchContext để lấy danh sách chi nhánh thực
-  const { branches: backendBranches, loading: branchesLoading, fetchBranches } = useBranches();
-
-  // Chuyển đổi định dạng cho phù hợp với component
-  const [brands, setBrands] = useState<BrandItem[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [branches, setBranches] = useState<BranchItem[]>([]);
 
   // Sử dụng ref để theo dõi xem đã gọi API chưa
   const hasCalledAPI = useRef(false);
