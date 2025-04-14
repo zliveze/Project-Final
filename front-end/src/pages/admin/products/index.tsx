@@ -7,6 +7,7 @@ import Cookies from 'js-cookie'; // Keep for client-side token checks if needed
 // import { useProduct } from '@/contexts/ProductContext';
 import { useImportProgress } from '@/hooks/useImportProgress';
 import ImportProgressModal from '@/components/admin/ui/ImportProgressModal';
+import ImportSummaryModal from '@/components/admin/ui/ImportSummaryModal';
 
 // Import các components mới
 import ProductTable from '@/components/admin/products/components/ProductTable';
@@ -121,13 +122,23 @@ function AdminProducts({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Sử dụng hook useImportProgress để theo dõi tiến trình import
-  const { progress, isConnected, resetProgress } = useImportProgress();
+  const { progress, resetProgress } = useImportProgress();
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [importCompletedHandled, setImportCompletedHandled] = useState(false); // State mới để theo dõi hoàn thành
 
   // Theo dõi trạng thái tiến trình để tự động đóng modal và làm mới dữ liệu
   useEffect(() => {
-    console.log('ProductsPage: Tiến trình thay đổi:', progress);
+    // Cờ điều khiển việc hiển thị debug logs
+    const DEBUG_MODE = false;
+
+    // Chỉ log khi cần thiết
+    if (DEBUG_MODE ||
+        (progress?.status === 'completed') ||
+        (progress?.status === 'error') ||
+        (progress?.progress && progress.progress % 20 === 0)) { // Chỉ log mỗi 20%
+      console.log('ProductsPage: Tiến trình thay đổi:', progress);
+    }
 
     // Thêm nút đóng thủ công cho trường hợp khẩn cấp
     if (showProgressModal && !progress) {
@@ -144,9 +155,15 @@ function AdminProducts({
 
     // Chỉ chạy logic hoàn thành MỘT LẦN
     if (progress?.status === 'completed' && progress.progress === 100 && !importCompletedHandled) {
-      console.log('ProductsPage: Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và đóng modal');
+      console.log('ProductsPage: Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và hiển thị tổng kết');
       fetchProducts(); // Làm mới danh sách sản phẩm
-      setShowProgressModal(false); // Đóng modal
+      setShowProgressModal(false); // Đóng modal tiến trình
+
+      // Hiển thị modal tổng kết nếu có thông tin summary
+      if (progress.summary) {
+        setShowSummaryModal(true);
+      }
+
       setImportCompletedHandled(true); // Đánh dấu đã xử lý
     }
     // Không cần else ở đây, chỉ cần chạy khi hoàn thành lần đầu
@@ -1510,17 +1527,30 @@ function AdminProducts({
       <ImportProgressModal
         isOpen={showProgressModal}
         onClose={() => {
-          console.log('ProductsPage: Đóng modal tiến trình (onClose)'); // Thay đổi log
+          console.log('ProductsPage: Đóng modal tiến trình (onClose)');
           setShowProgressModal(false);
-          // Không cần làm mới ở đây nữa, useEffect đã xử lý
-          // if (progress?.status === 'completed' && !importCompletedHandled) { // Kiểm tra thêm cờ nếu muốn giữ lại
-          //   console.log('ProductsPage: Làm mới danh sách sản phẩm sau khi đóng modal (onClose)');
-          //   fetchProducts();
-          //   setImportCompletedHandled(true); // Đánh dấu đã xử lý nếu giữ lại
-          // }
         }}
         progress={progress}
         selectedBranchName={branches.find(b => b._id === selectedBranch)?.name}
+      />
+
+      {/* Modal hiển thị tổng kết import */}
+      <ImportSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => {
+          setShowSummaryModal(false);
+        }}
+        summary={progress?.summary ? {
+          success: true,
+          created: progress.summary.created || 0,
+          updated: progress.summary.updated || 0,
+          errors: progress.summary.errors || [],
+          totalProducts: progress.summary.totalProducts || 0,
+          statusChanges: progress.summary.statusChanges ? {
+            toOutOfStock: progress.summary.statusChanges.toOutOfStock || 0,
+            toActive: progress.summary.statusChanges.toActive || 0
+          } : undefined
+        } : null}
       />
     </AdminLayout>
   );

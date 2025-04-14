@@ -6,13 +6,34 @@ interface ImportProgress {
   progress: number;
   status: 'reading' | 'parsing' | 'processing' | 'finalizing' | 'completed' | 'error';
   message: string;
+  // Thêm các trường cho thông tin tổng kết
+  summary?: {
+    created?: number;
+    updated?: number;
+    errors?: string[];
+    totalProducts?: number;
+    statusChanges?: {
+      toOutOfStock?: number;
+      toActive?: number;
+    };
+  };
 }
+
+// Cờ để bật/tắt log debug
+const DEBUG_MODE = false;
 
 export const useImportProgress = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { admin } = useAdminAuth(); // Thay user thành admin
+
+  // Debug logger - chỉ log khi DEBUG_MODE = true
+  const debugLog = useCallback((...args: any[]) => {
+    if (DEBUG_MODE) {
+      console.log(...args);
+    }
+  }, []);
 
   // Khởi tạo kết nối socket
   useEffect(() => {
@@ -22,7 +43,7 @@ export const useImportProgress = () => {
     // Tạo URL cho WebSocket, đảm bảo không có path ở cuối
     const wsUrl = apiUrl.replace(/\/api$/, '');
 
-    console.log('Connecting to WebSocket at:', wsUrl);
+    debugLog('Connecting to WebSocket at:', wsUrl);
 
     // Tạo cấu hình socket
     const socketOptions = {
@@ -34,18 +55,18 @@ export const useImportProgress = () => {
       reconnectionDelay: 1000,
     };
 
-    console.log('Socket options:', socketOptions);
+    debugLog('Socket options:', socketOptions);
 
     // Tạo kết nối socket
     const socketIo = io(wsUrl, socketOptions);
 
     socketIo.on('connect', () => {
-      console.log('WebSocket connected, socket id:', socketIo.id);
+      debugLog('WebSocket connected, socket id:', socketIo.id);
       setIsConnected(true);
     });
 
     socketIo.on('disconnect', () => {
-      console.log('WebSocket disconnected');
+      debugLog('WebSocket disconnected');
       setIsConnected(false);
     });
 
@@ -58,17 +79,19 @@ export const useImportProgress = () => {
       console.error('Socket error:', error);
     });
 
-    // Thêm sự kiện debug
-    socketIo.onAny((event, ...args) => {
-      console.log(`Socket event: ${event}`, args);
-    });
+    // Thêm sự kiện debug với mức log thấp hơn
+    if (DEBUG_MODE) {
+      socketIo.onAny((event, ...args) => {
+        debugLog(`Socket event: ${event}`, args);
+      });
+    }
 
     setSocket(socketIo);
 
     return () => {
       socketIo.disconnect();
     };
-  }, []);
+  }, [debugLog]);
 
   // Đăng ký lắng nghe sự kiện tiến trình import
   useEffect(() => {
@@ -77,21 +100,13 @@ export const useImportProgress = () => {
     const eventName = `import-progress-${admin._id}`; // Thay user.id thành admin._id
 
     const handleProgress = (data: any) => {
-      console.log(`Received progress update - RAW DATA:`, data);
-      console.log(`Data type: ${typeof data}, Is Array: ${Array.isArray(data)}`);
+      // Giảm bớt log chi tiết, chỉ log khi debug
+      debugLog(`Received progress update - RAW DATA:`, data);
 
       // Nếu dữ liệu là mảng, lấy phần tử đầu tiên
       if (Array.isArray(data) && data.length > 0) {
-        console.log('Data is an array, using first element');
+        debugLog('Data is an array, using first element');
         data = data[0];
-      }
-
-      // In ra chi tiết hơn về dữ liệu
-      if (data) {
-        console.log('Data keys:', Object.keys(data));
-        if ('progress' in data) console.log('Progress value:', data.progress, 'type:', typeof data.progress);
-        if ('status' in data) console.log('Status value:', data.status, 'type:', typeof data.status);
-        if ('message' in data) console.log('Message value:', data.message);
       }
 
       // Đảm bảo dữ liệu có định dạng đúng
@@ -102,35 +117,64 @@ export const useImportProgress = () => {
           message: data.message || ''
         };
 
-        console.log('Cập nhật tiến trình:', progressData);
+        // Xử lý thông tin tổng kết từ message khi hoàn thành
+        if (data.status === 'completed' && data.message) {
+          try {
+            // Phân tích thông báo để lấy thông tin tổng kết
+            const message = data.message;
+            const createdMatch = message.match(/(\d+) sản phẩm mới/);
+            const updatedMatch = message.match(/(\d+) cập nhật/);
+            const errorsMatch = message.match(/(\d+) lỗi/);
+            const totalMatch = message.match(/tổng số (\d+) sản phẩm/);
+            const toOutOfStockMatch = message.match(/(\d+) sản phẩm hết hàng/);
+            const toActiveMatch = message.match(/(\d+) sản phẩm còn hàng/);
+
+            progressData.summary = {
+              created: createdMatch ? parseInt(createdMatch[1]) : 0,
+              updated: updatedMatch ? parseInt(updatedMatch[1]) : 0,
+              errors: [],
+              totalProducts: totalMatch ? parseInt(totalMatch[1]) : 0,
+              statusChanges: {
+                toOutOfStock: toOutOfStockMatch ? parseInt(toOutOfStockMatch[1]) : 0,
+                toActive: toActiveMatch ? parseInt(toActiveMatch[1]) : 0
+              }
+            };
+
+            // Thêm số lượng lỗi vào summary
+            if (errorsMatch) {
+              progressData.summary.errors = new Array(parseInt(errorsMatch[1])).fill('Lỗi không xác định');
+            }
+
+            debugLog('Extracted summary data:', progressData.summary);
+          } catch (error) {
+            console.error('Error parsing summary data:', error);
+          }
+        }
+
+        // Chỉ log khi tiến trình thay đổi đáng kể hoặc có trạng thái đặc biệt
+        if (DEBUG_MODE ||
+            progressData.status === 'completed' ||
+            progressData.status === 'error' ||
+            progressData.progress % 20 === 0) { // Chỉ log mỗi 20% tiến độ
+          debugLog('Cập nhật tiến trình:', progressData);
+        }
 
         // Cập nhật trạng thái
         setProgress(progressData);
-
-        // Log thêm thông tin để debug
-        if (progressData.status === 'completed' && progressData.progress === 100) {
-          console.log('Import hoàn tất, cập nhật trạng thái tiến trình');
-        }
       } else {
         console.error('Nhận được dữ liệu không hợp lệ:', data);
       }
     };
 
     // Đăng ký lắng nghe sự kiện
-    console.log(`Đăng ký lắng nghe sự kiện: ${eventName}`);
+    debugLog(`Đăng ký lắng nghe sự kiện: ${eventName}`);
     socket.on(eventName, handleProgress);
 
-    // // Đăng ký lắng nghe sự kiện trực tiếp (không có userId) - Tạm thời loại bỏ để tránh xung đột
-    // const directEventName = 'import-progress';
-    // console.log(`Đăng ký lắng nghe sự kiện trực tiếp: ${directEventName}`);
-    // socket.on(directEventName, handleProgress);
-
     return () => {
-      console.log(`Hủy đăng ký lắng nghe sự kiện: ${eventName}`);
+      debugLog(`Hủy đăng ký lắng nghe sự kiện: ${eventName}`);
       socket.off(eventName, handleProgress);
-      // socket.off(directEventName, handleProgress); // Bỏ luôn phần hủy đăng ký tương ứng
     };
-  }, [socket, admin?._id]); // Thay user?.id thành admin?._id
+  }, [socket, admin?._id, debugLog]);
 
   // Reset tiến trình
   const resetProgress = useCallback(() => {

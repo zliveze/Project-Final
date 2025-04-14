@@ -35,7 +35,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   /**
    * Gửi cập nhật tiến độ xử lý import Excel
    */
-  sendImportProgress(data: { userId: string, progress: number, status: string, message?: string }) {
+  sendImportProgress(data: { userId: string, progress: number, status: string, message?: string, summary?: any }) {
     this.logger.log(`Sending import progress: ${JSON.stringify(data)}`);
 
     try {
@@ -43,14 +43,16 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       this.server.emit(`import-progress-${data.userId}`, {
         progress: data.progress,
         status: data.status,
-        message: data.message
+        message: data.message,
+        summary: data.summary
       });
 
       // Gửi đến tất cả client không có userId
       this.server.emit('import-progress', {
         progress: data.progress,
         status: data.status,
-        message: data.message
+        message: data.message,
+        summary: data.summary
       });
 
       // Log để debug
@@ -66,13 +68,15 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
             this.server.emit(`import-progress-${data.userId}`, {
               progress: data.progress,
               status: data.status,
-              message: data.message
+              message: data.message,
+              summary: data.summary
             });
 
             this.server.emit('import-progress', {
               progress: data.progress,
               status: data.status,
-              message: data.message
+              message: data.message,
+              summary: data.summary
             });
           }, delay);
         });
@@ -84,13 +88,15 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
           client.emit(`import-progress-${data.userId}`, {
             progress: data.progress,
             status: data.status,
-            message: data.message
+            message: data.message,
+            summary: data.summary
           });
 
           client.emit('import-progress', {
             progress: data.progress,
             status: data.status,
-            message: data.message
+            message: data.message,
+            summary: data.summary
           });
         }
       }

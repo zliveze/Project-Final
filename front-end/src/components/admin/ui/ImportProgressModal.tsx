@@ -4,6 +4,16 @@ import { Fragment } from 'react';
 import ImportProgressBar from './ImportProgressBar';
 import { FiCheckCircle, FiAlertTriangle, FiLoader } from 'react-icons/fi';
 
+// Cờ điều khiển việc hiển thị debug logs
+const DEBUG_MODE = false;
+
+// Hàm debug log - chỉ hiển thị khi DEBUG_MODE = true
+const debugLog = (...args: any[]) => {
+  if (DEBUG_MODE) {
+    console.log(...args);
+  }
+};
+
 interface ImportProgressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,34 +32,39 @@ const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ isOpen, onClo
     let timeoutId: NodeJS.Timeout;
 
     if (progress?.status === 'completed' && progress.progress === 100) {
-      console.log('ImportProgressModal: Nhận trạng thái hoàn thành, sẽ đóng sau 3 giây');
+      debugLog('ImportProgressModal: Nhận trạng thái hoàn thành, sẽ đóng sau 3 giây');
       timeoutId = setTimeout(() => {
-        console.log('ImportProgressModal: Đóng modal sau khi hoàn thành');
+        debugLog('ImportProgressModal: Đóng modal sau khi hoàn thành');
         onClose();
       }, 3000);
     } else if (progress?.status === 'error') {
-      console.log('ImportProgressModal: Nhận trạng thái lỗi');
-    } else if (progress) {
-      console.log(`ImportProgressModal: Tiến trình ${progress.progress}%, trạng thái: ${progress.status}`);
+      debugLog('ImportProgressModal: Nhận trạng thái lỗi');
+    } else if (progress && DEBUG_MODE) {
+      // Chỉ log khi trạng thái thay đổi đáng kể (chỉ log mỗi 10%)
+      if (progress.progress % 10 === 0) {
+        debugLog(`ImportProgressModal: Tiến trình ${progress.progress}%, trạng thái: ${progress.status}`);
+      }
     }
 
     return () => {
       if (timeoutId) {
-        console.log('ImportProgressModal: Hủy hẹn giờ đóng modal');
+        debugLog('ImportProgressModal: Hủy hẹn giờ đóng modal');
         clearTimeout(timeoutId);
       }
     };
   }, [progress, onClose]);
 
-  // Log trạng thái modal để debug
+  // Log trạng thái modal để debug - chỉ log khi mở/đóng modal hoặc có lỗi
   useEffect(() => {
-    console.log(`ImportProgressModal: Modal ${isOpen ? 'mở' : 'đóng'}, progress:`, progress);
+    if (DEBUG_MODE) {
+      debugLog(`ImportProgressModal: Modal ${isOpen ? 'mở' : 'đóng'}, progress:`, progress);
+    }
   }, [isOpen, progress]);
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={() => {
-        console.log('ImportProgressModal: Người dùng đóng modal');
+        debugLog('ImportProgressModal: Người dùng đóng modal');
         onClose();
       }}>
         <Transition.Child
@@ -138,7 +153,7 @@ const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ isOpen, onClo
                         : 'bg-gray-400 cursor-not-allowed'
                     }`}
                     onClick={() => {
-                      console.log('ImportProgressModal: Người dùng nhấn nút đóng');
+                      debugLog('ImportProgressModal: Người dùng nhấn nút đóng');
                       onClose();
                     }}
                     disabled={progress?.status !== 'completed' && progress?.status !== 'error' && progress !== null}

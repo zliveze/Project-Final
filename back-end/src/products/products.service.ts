@@ -1698,7 +1698,7 @@ export class ProductsService {
     }
   }
 
-  async importProductsFromExcel(file: Express.Multer.File, branchId: string, userId?: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[] }> {
+  async importProductsFromExcel(file: Express.Multer.File, branchId: string, userId?: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[]; statusChanges?: { toOutOfStock: number; toActive: number } }> {
     try {
       this.logger.log(`Bắt đầu import sản phẩm từ file Excel: ${file.originalname}`);
 
@@ -1800,7 +1800,11 @@ export class ProductsService {
         message: 'Import sản phẩm thành công',
         created: 0,
         updated: 0,
-        errors: [] as string[]
+        errors: [] as string[],
+        statusChanges: {
+          toOutOfStock: 0,
+          toActive: 0
+        }
       };
 
       // Xử lý từng sản phẩm trong file Excel
@@ -1857,7 +1861,9 @@ export class ProductsService {
             price: currentPrice > 0 ? currentPrice : 0,
             originalPrice: originalPrice > 0 ? originalPrice : 0,
             currentPrice: currentPrice > 0 ? currentPrice : 0,
-            status: 'active',
+            // Cập nhật trạng thái dựa trên số lượng tồn kho
+            // Nếu quantity = 0 thì status = out_of_stock
+            status: quantity > 0 ? 'active' : 'out_of_stock',
             description: {
               short: '',
               full: fullDescription
@@ -1910,25 +1916,68 @@ export class ProductsService {
               );
             }
 
-            // Cập nhật các trường khác
-            const updateFields: any = {
-              name: productDto.name,
-              slug: productDto.slug,
-              price: productDto.price,
-              originalPrice: productDto.originalPrice,
-              currentPrice: productDto.currentPrice,
-              'description.full': productDto.description.full
-            };
+            // Lấy lại sản phẩm để tính toán tổng tồn kho và cập nhật trạng thái
+            const updatedProduct = await this.productModel.findOne({ sku });
+            if (updatedProduct) {
+              // Tính tổng tồn kho từ tất cả các chi nhánh
+              const totalInventory = updatedProduct.inventory.reduce(
+                (sum, inv) => sum + inv.quantity,
+                0
+              );
 
-            // Cập nhật hình ảnh nếu có
-            if (productDto.images && productDto.images.length > 0) {
-              updateFields.images = productDto.images;
+              // Cập nhật trạng thái dựa trên tổng tồn kho
+              let newStatus = updatedProduct.status;
+              if (totalInventory === 0 && updatedProduct.status !== 'discontinued') {
+                newStatus = 'out_of_stock';
+                if (updatedProduct.status !== 'out_of_stock') {
+                  result.statusChanges.toOutOfStock++;
+                }
+              } else if (totalInventory > 0 && updatedProduct.status === 'out_of_stock') {
+                newStatus = 'active';
+                result.statusChanges.toActive++;
+              }
+
+              // Cập nhật các trường khác
+              const updateFields: any = {
+                name: productDto.name,
+                slug: productDto.slug,
+                price: productDto.price,
+                originalPrice: productDto.originalPrice,
+                currentPrice: productDto.currentPrice,
+                'description.full': productDto.description.full,
+                status: newStatus
+              };
+
+              // Cập nhật hình ảnh nếu có
+              if (productDto.images && productDto.images.length > 0) {
+                updateFields.images = productDto.images;
+              }
+
+              await this.productModel.updateOne(
+                { sku },
+                { $set: updateFields }
+              );
+            } else {
+              // Cập nhật các trường khác nếu không thể lấy lại sản phẩm
+              const updateFields: any = {
+                name: productDto.name,
+                slug: productDto.slug,
+                price: productDto.price,
+                originalPrice: productDto.originalPrice,
+                currentPrice: productDto.currentPrice,
+                'description.full': productDto.description.full
+              };
+
+              // Cập nhật hình ảnh nếu có
+              if (productDto.images && productDto.images.length > 0) {
+                updateFields.images = productDto.images;
+              }
+
+              await this.productModel.updateOne(
+                { sku },
+                { $set: updateFields }
+              );
             }
-
-            await this.productModel.updateOne(
-              { sku },
-              { $set: updateFields }
-            );
 
             result.updated++;
           } else {
@@ -1949,16 +1998,29 @@ export class ProductsService {
         }
       }
 
+      // Tạo thông báo tổng kết chi tiết hơn
+      const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
+
       if (userId) {
         this.emitImportProgress(userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
       }
 
       this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+      this.logger.log(`Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`);
 
       if (userId) {
-        this.emitImportProgress(userId, 100, 'completed', `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm`);
+        // Gửi thông báo tổng kết chi tiết với dữ liệu summary
+        const summaryData = {
+          created: result.created,
+          updated: result.updated,
+          errors: result.errors,
+          totalProducts: totalProducts,
+          statusChanges: result.statusChanges
+        };
+
+        this.emitImportProgress(userId, 100, 'completed', summaryMessage, summaryData);
         setTimeout(() => {
-          this.emitImportProgress(userId, 100, 'completed', `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm`);
+          this.emitImportProgress(userId, 100, 'completed', summaryMessage, summaryData);
         }, 1000);
       }
 
@@ -2018,11 +2080,11 @@ export class ProductsService {
       .filter(url => url.length > 0 && url.match(/^https?:\/\//));
   }
 
-  private emitImportProgress(userId: string, progress: number, status: string, message: string) {
+  private emitImportProgress(userId: string, progress: number, status: string, message: string, summary?: any) {
     if (!userId) return;
 
     try {
-      this.websocketService.emitImportProgress(userId, progress, status, message);
+      this.websocketService.emitImportProgress(userId, progress, status, message, summary);
     } catch (error) {
       this.logger.error(`Lỗi khi gửi cập nhật tiến độ: ${error.message}`);
     }

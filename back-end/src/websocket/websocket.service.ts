@@ -7,13 +7,14 @@ export class WebsocketService {
 
   constructor(private readonly websocketGateway: WebsocketGateway) {}
 
-  emitImportProgress(userId: string, progress: number, status: string, message?: string) {
+  emitImportProgress(userId: string, progress: number, status: string, message?: string, summary?: any) {
     try {
       this.websocketGateway.sendImportProgress({
         userId,
         progress,
         status,
-        message
+        message,
+        summary
       });
     } catch (error) {
       this.logger.error(`Lỗi khi gửi cập nhật tiến độ: ${error.message}`);
