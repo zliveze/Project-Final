@@ -12,7 +12,10 @@ import {
   UploadedFile,
   UseInterceptors,
   Inject,
-  NotFoundException // Import NotFoundException
+  NotFoundException,
+  Res,
+  StreamableFile,
+  BadRequestException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -32,6 +35,12 @@ import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
 import { AdminRoles } from '../common/decorators/admin-roles.decorator';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { createProductImportTemplate } from '../common/utils/excel.util';
+import { createReadStream } from 'fs';
+import { Response } from 'express';
+import { join } from 'path';
+import { diskStorage } from 'multer';
+import * as fs from 'fs';
 
 @ApiTags('Admin Products')
 @Controller('admin/products')
@@ -296,6 +305,98 @@ export class ProductsAdminController {
     }
   }
 
+  @Post('import/excel')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Import products from Excel file' })
+  @ApiResponse({
+    status: 201,
+    description: 'Products have been successfully imported',
+  })
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const uploadPath = join(process.cwd(), 'uploads');
+        console.log('Upload path:', uploadPath);
+
+        // Kiểm tra thư mục tồn tại
+        fs.access(uploadPath, (err) => {
+          if (err) {
+            // Nếu thư mục không tồn tại, tạo mới
+            console.log('Directory does not exist, creating it');
+            return fs.mkdir(uploadPath, { recursive: true }, (err) => {
+              if (err) return cb(err, uploadPath);
+              console.log('Directory created');
+              return cb(null, uploadPath);
+            });
+          }
+
+          console.log('Directory already exists');
+          // Kiểm tra quyền ghi
+          fs.access(uploadPath, fs.constants.W_OK, (err) => {
+            if (err) {
+              console.log('Directory is not writable');
+              return cb(new Error('Directory is not writable'), uploadPath);
+            }
+            console.log('Directory is writable');
+            return cb(null, uploadPath);
+          });
+        });
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const originalName = file.originalname;
+        const filename = `${uniqueSuffix}-${originalName}`;
+        console.log('Generated filename:', filename);
+        cb(null, filename);
+      }
+    }),
+    fileFilter: function(req: any, file: any, cb: any) {
+      try {
+        // Nếu file không tồn tại hoặc không có thuộc tính originalname
+        if (!file || !file.originalname || !file.originalname.match(/\.(xlsx|xls)$/)) {
+          return cb(new Error('Chỉ hỗ trợ file Excel (xlsx, xls)'), false);
+        }
+        
+        // Nếu file hợp lệ
+        const logger = new Logger('FileInterceptor');
+        logger.log(`File Excel hợp lệ: ${file.originalname}`);
+        return cb(null, true);
+      } catch (error) {
+        return cb(error, false);
+      }
+    },
+    limits: {
+      fileSize: 10 * 1024 * 1024, // Giới hạn 10MB
+    }
+  }))
+  async importProductsFromExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('branchId') branchId: string
+  ) {
+    try {
+      if (!file) {
+        this.logger.error('Không tìm thấy file Excel trong request');
+        throw new BadRequestException('Không tìm thấy file Excel');
+      }
+      
+      this.logger.log(`Nhận được file: ${file.originalname}, kích thước: ${file.size} bytes, mimetype: ${file.mimetype}`);
+
+      if (!branchId) {
+        this.logger.error('Không tìm thấy branchId trong request');
+        throw new BadRequestException('Vui lòng chọn chi nhánh');
+      }
+      
+      this.logger.log(`Tiến hành import sản phẩm từ Excel cho chi nhánh: ${branchId}`);
+      return await this.productsService.importProductsFromExcel(file, branchId);
+    } catch (error) {
+      this.logger.error(`Error importing products from Excel: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException) {
+        throw error; // Re-throw BadRequestException as is
+      }
+      throw new BadRequestException(`Lỗi khi import sản phẩm: ${error.message}`);
+    }
+  }
+
   @Post(':id/clone')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Nhân bản sản phẩm' })
@@ -320,6 +421,27 @@ export class ProductsAdminController {
       return this.productsService.cleanupBase64Images();
     } catch (error) {
       this.logger.error(`Lỗi khi dọn dẹp dữ liệu base64: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Get('templates/import-excel')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Download product import template Excel file' })
+  async downloadExcelTemplate(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
+    try {
+      this.logger.log('Tạo file mẫu Excel cho import sản phẩm');
+      const filePath = createProductImportTemplate();
+      
+      const file = createReadStream(filePath);
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename="product-import-template.xlsx"',
+      });
+      
+      return new StreamableFile(file);
+    } catch (error) {
+      this.logger.error(`Error creating Excel template: ${error.message}`, error.stack);
       throw error;
     }
   }

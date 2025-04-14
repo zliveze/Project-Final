@@ -392,9 +392,26 @@ function AdminProducts({
     setShowImportModal(true);
   };
 
-  const handleImportSubmit = () => {
+  const handleImportSubmit = async () => {
     if (!selectedFile || !selectedBranch) {
       toast.error('Vui lòng chọn file và chi nhánh trước khi import', {
+        duration: 3000
+      });
+      return;
+    }
+
+    // Kiểm tra loại file có hợp lệ không
+    if (!selectedFile.name.match(/\.(xlsx|xls)$/i)) {
+      toast.error('Chỉ hỗ trợ file Excel (.xlsx, .xls)', {
+        duration: 3000
+      });
+      return;
+    }
+
+    // Kiểm tra kích thước file (giới hạn 10MB)
+    const fileSizeInMB = selectedFile.size / (1024 * 1024);
+    if (fileSizeInMB > 10) {
+      toast.error('Kích thước file vượt quá 10MB', {
         duration: 3000
       });
       return;
@@ -404,37 +421,99 @@ function AdminProducts({
     const loadingToast = toast.loading(`Đang import file ${selectedFile.name}...`);
 
     try {
-      // Tìm thông tin chi nhánh được chọn
-      const selectedBranchInfo = branches.find(branch => branch._id === selectedBranch);
-      const branchName = selectedBranchInfo ? selectedBranchInfo.name : selectedBranch;
+      // Tạo FormData
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('branchId', selectedBranch);
 
-      // Xử lý import file Excel
-      console.log(`Đang import file ${selectedFile.name} cho chi nhánh ${branchName} (ID: ${selectedBranch})`);
+      console.log('Đang gửi yêu cầu import Excel với:', {
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        branchId: selectedBranch
+      });
 
-      // Mô phỏng delay của API call
-      setTimeout(() => {
-        // Thông báo thành công
-        toast.dismiss(loadingToast);
-        toast.success('Import dữ liệu thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
+      // Gọi API import Excel
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/import/excel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          // Không set Content-Type khi dùng FormData, browser sẽ tự set
+        },
+        body: formData,
+      });
 
-        // Đóng modal và reset form
-        setShowImportModal(false);
-        setSelectedFile(null);
-        setSelectedBranch('');
-
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+      // Kiểm tra kỹ lỗi
+      if (!response.ok) {
+        let errorMessage = `Lỗi: ${response.status} - ${response.statusText}`;
+        
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (parseError) {
+          console.error('Không thể parse lỗi JSON:', parseError);
+          // Nếu không parse được JSON, thử lấy text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (textError) {
+            console.error('Không thể lấy error text:', textError);
+          }
         }
-      }, 1500);
-    } catch (error) {
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      // Thông báo thành công
+      toast.dismiss(loadingToast);
+      toast.success(`Import thành công: ${result.created} sản phẩm mới, ${result.updated} sản phẩm cập nhật`, {
+        duration: 5000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
+      // Hiển thị lỗi nếu có
+      if (result.errors && result.errors.length > 0) {
+        setTimeout(() => {
+          toast.error(
+            <div>
+              <p className="font-bold mb-2">Có {result.errors.length} lỗi xảy ra:</p>
+              <ul className="list-disc pl-4 text-sm max-h-40 overflow-y-auto">
+                {result.errors.slice(0, 5).map((error: string, index: number) => (
+                  <li key={index}>{error}</li>
+                ))}
+                {result.errors.length > 5 && (
+                  <li>...và {result.errors.length - 5} lỗi khác</li>
+                )}
+              </ul>
+            </div>,
+            { duration: 10000 }
+          );
+        }, 1000);
+      }
+
+      // Đóng modal và reset form
+      setShowImportModal(false);
+      setSelectedFile(null);
+      setSelectedBranch('');
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Làm mới danh sách sản phẩm
+      fetchProducts();
+    } catch (error: any) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
-      toast.error('Có lỗi xảy ra khi import dữ liệu!', {
-        duration: 3000
+      toast.error(`Có lỗi xảy ra khi import dữ liệu: ${error.message}`, {
+        duration: 5000
       });
+      console.error('Import error:', error);
     }
   };
 
@@ -1212,7 +1291,7 @@ function AdminProducts({
                     </div>
                     <div className="mt-4">
                       <a
-                        href="/templates/product-import-template.xlsx"
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/admin/products/templates/import-excel`}
                         download
                         className="text-sm text-pink-600 hover:text-pink-800"
                       >

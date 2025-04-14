@@ -16,6 +16,7 @@ import { EventsService } from '../events/events.service'; // Import EventsServic
 import { CampaignsService } from '../campaigns/campaigns.service'; // Import CampaignsService
 import { Event } from '../events/entities/event.entity'; // Import Event entity
 import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class ProductsService {
@@ -1693,5 +1694,285 @@ export class ProductsService {
       this.logger.error(`Error getting skin concerns: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  async importProductsFromExcel(file: Express.Multer.File, branchId: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[] }> {
+    try {
+      this.logger.log(`Bắt đầu import sản phẩm từ file Excel: ${file.originalname}`);
+      
+      if (!file || (!file.buffer && !file.path)) {
+        throw new BadRequestException('File Excel trống hoặc không hợp lệ');
+      }
+      
+      let workbook;
+      try {
+        // Nếu có file.path (đã lưu trên đĩa), đọc từ đĩa
+        if (file.path) {
+          this.logger.log(`Đọc file Excel từ đường dẫn: ${file.path}`);
+          // Thiết lập tùy chọn đọc file Excel
+          const readOptions = {
+            cellFormula: false,  // Không xử lý công thức
+            cellHTML: false,     // Không xử lý HTML
+            cellText: false,     // Không xử lý text chuẩn
+            cellDates: true,     // Cho phép chuyển đổi ngày tháng đúng
+            cellStyles: false,   // Không quan tâm đến style
+            dateNF: 'yyyy-mm-dd', // Định dạng ngày tháng
+            WTF: true,           // Cho phép ghi log lỗi chi tiết trong quá trình đọc
+            type: 'binary' as const,      // Đọc dưới dạng binary
+            raw: true,           // Lấy giá trị thô
+            cellNF: false,       // Không quan tâm đến định dạng số
+            sheets: 0            // Chỉ đọc sheet đầu tiên
+          };
+          
+          workbook = XLSX.readFile(file.path, readOptions);
+        } 
+        // Nếu có buffer, đọc từ buffer
+        else if (file.buffer) {
+          this.logger.log(`Đọc file Excel từ buffer, kích thước: ${file.buffer.length} bytes`);
+          // Thiết lập tùy chọn đọc buffer
+          const readOptions = {
+            cellFormula: false,
+            cellHTML: false,
+            cellText: false, 
+            cellDates: true,
+            cellStyles: false,
+            dateNF: 'yyyy-mm-dd',
+            WTF: true,
+            type: 'buffer' as const,
+            raw: true,
+            cellNF: false
+          };
+          
+          workbook = XLSX.read(file.buffer, readOptions);
+        } else {
+          throw new BadRequestException('Không thể đọc file Excel: Không có dữ liệu file');
+        }
+      } catch (xlsxError) {
+        this.logger.error(`Lỗi khi đọc file Excel: ${xlsxError.message}`, xlsxError.stack);
+        throw new BadRequestException(`Không thể đọc file Excel: ${xlsxError.message}`);
+      }
+      
+      if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new BadRequestException('File Excel không có sheet nào');
+      }
+      
+      const sheetName = workbook.SheetNames[0]; // Lấy sheet đầu tiên
+      this.logger.log(`Đọc sheet: ${sheetName}`);
+      const sheet = workbook.Sheets[sheetName];
+      
+      // Chuyển đổi sheet thành JSON
+      const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      
+      if (!rawData || rawData.length <= 1) {
+        throw new BadRequestException('File Excel không có dữ liệu sản phẩm');
+      }
+      
+      // Log thông tin để debug
+      this.logger.log(`File Excel có ${rawData.length} dòng dữ liệu`);
+      // Bỏ qua dòng tiêu đề, chỉ lấy dữ liệu từ dòng thứ 2 trở đi
+      const productRows = rawData.slice(1).filter(row => row.length > 0);
+      
+      this.logger.log(`Đọc được ${productRows.length} sản phẩm từ file Excel`);
+      
+      // Kết quả xử lý
+      const result = {
+        success: true,
+        message: 'Import sản phẩm thành công',
+        created: 0,
+        updated: 0,
+        errors: [] as string[]
+      };
+      
+      // Xử lý từng sản phẩm trong file Excel
+      for (let i = 0; i < productRows.length; i++) {
+        const row = productRows[i];
+        
+        try {
+          // Log dữ liệu dòng để debug khi cần thiết
+          if (i < 5 || i === productRows.length - 1) {
+            this.logger.log(`Dòng ${i + 2}: ${JSON.stringify(row)}`);
+          }
+          
+          // Kiểm tra dữ liệu tối thiểu cần có
+          if (!row[2] || !row[4]) {
+            result.errors.push(`Sản phẩm dòng ${i + 2}: Thiếu mã hàng hoặc tên sản phẩm`);
+            continue;
+          }
+          
+          // Lấy thông tin từ các cột theo yêu cầu
+          const category = String(row[1] || '').trim(); // Cột 2: Nhóm hàng(3 Cấp)
+          const sku = String(row[2] || '').trim(); // Cột 3: Mã hàng
+          const barcode = String(row[3] || '').trim(); // Cột 4: Mã vạch
+          const name = String(row[4] || '').trim(); // Cột 5: Tên hàng
+          const currentPrice = this.parseNumber(row[6]); // Cột 7: Giá bán
+          const originalPrice = this.parseNumber(row[7]); // Cột 8: Giá vốn
+          const quantity = this.parseNumber(row[8]); // Cột 9: Tồn kho
+          const imageUrls = this.parseImageUrls(row[18]); // Cột 19: Hình ảnh (url1,url2...)
+          
+          // Tạo slug từ tên sản phẩm
+          const slug = this.generateSlug(name);
+          
+          // Chuẩn bị mô tả đầy đủ với mã vạch
+          let fullDescription = '';
+          if (barcode) {
+            fullDescription = `Mã vạch: ${barcode}\n\n`;
+          }
+          
+          // Chuẩn bị dữ liệu sản phẩm
+          const productDto: any = {
+            sku,
+            name,
+            slug,
+            price: currentPrice > 0 ? currentPrice : 0,
+            originalPrice: originalPrice > 0 ? originalPrice : 0,
+            currentPrice: currentPrice > 0 ? currentPrice : 0,
+            status: 'active',
+            description: {
+              short: '',
+              full: fullDescription
+            }
+          };
+          
+          // Xử lý hình ảnh
+          if (imageUrls.length > 0) {
+            productDto.images = imageUrls.map((url, index) => ({
+              url,
+              alt: `${name} - Ảnh ${index + 1}`,
+              isPrimary: index === 0 // Ảnh đầu tiên là ảnh chính
+            }));
+          }
+          
+          // Tạo thông tin inventory với chi nhánh được chọn
+          productDto.inventory = [{
+            branchId,
+            quantity: quantity >= 0 ? quantity : 0
+          }];
+          
+          // Thêm danh mục nếu có
+          if (category) {
+            // Chúng ta sẽ cần thêm việc tìm/tạo danh mục ở đây
+            // Hiện tại chỉ ghi log thông tin
+            this.logger.log(`Danh mục của sản phẩm ${sku}: ${category}`);
+          }
+          
+          // Kiểm tra xem sản phẩm đã tồn tại hay chưa (theo SKU)
+          const existingProduct = await this.productModel.findOne({ sku });
+          
+          if (existingProduct) {
+            // Cập nhật sản phẩm hiện có
+            this.logger.log(`Cập nhật sản phẩm có SKU: ${sku}`);
+            
+            // Kiểm tra sản phẩm đã có inventory cho chi nhánh này chưa
+            const hasInventory = existingProduct.inventory?.some(inv => inv.branchId.toString() === branchId);
+            
+            if (hasInventory) {
+              // Cập nhật số lượng cho chi nhánh
+              await this.productModel.updateOne(
+                { sku, 'inventory.branchId': new Types.ObjectId(branchId) },
+                { $set: { 'inventory.$.quantity': productDto.inventory[0].quantity } }
+              );
+            } else {
+              // Thêm mới inventory cho chi nhánh
+              await this.productModel.updateOne(
+                { sku },
+                { $push: { inventory: { branchId: new Types.ObjectId(branchId), quantity: productDto.inventory[0].quantity } } }
+              );
+            }
+            
+            // Cập nhật các trường khác
+            const updateFields: any = {
+              name: productDto.name,
+              slug: productDto.slug,
+              price: productDto.price,
+              originalPrice: productDto.originalPrice,
+              currentPrice: productDto.currentPrice,
+              'description.full': productDto.description.full
+            };
+            
+            // Cập nhật hình ảnh nếu có
+            if (productDto.images && productDto.images.length > 0) {
+              updateFields.images = productDto.images;
+            }
+            
+            await this.productModel.updateOne(
+              { sku },
+              { $set: updateFields }
+            );
+            
+            result.updated++;
+          } else {
+            // Tạo sản phẩm mới
+            this.logger.log(`Tạo sản phẩm mới với SKU: ${sku}`);
+            
+            // Chuyển đổi ObjectId cho branchId
+            productDto.inventory[0].branchId = new Types.ObjectId(branchId);
+            
+            const newProduct = new this.productModel(productDto);
+            await newProduct.save();
+            
+            result.created++;
+          }
+        } catch (error) {
+          this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2}:`, error.stack);
+          result.errors.push(`Sản phẩm dòng ${i + 2}: ${error.message}`);
+        }
+      }
+      
+      this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+      
+      return result;
+    } catch (error) {
+      this.logger.error(`Lỗi khi import sản phẩm từ Excel:`, error.stack);
+      throw new BadRequestException(`Lỗi khi import sản phẩm: ${error.message}`);
+    }
+  }
+  
+  // Helper method to generate slug
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a')
+      .replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e')
+      .replace(/ì|í|ị|ỉ|ĩ/g, 'i')
+      .replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o')
+      .replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u')
+      .replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y')
+      .replace(/đ/g, 'd')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  // Phương thức hỗ trợ chuyển đổi chuỗi số
+  private parseNumber(value: any): number {
+    if (value === undefined || value === null || value === '') {
+      return 0;
+    }
+    
+    // Xử lý trường hợp value là chuỗi đã được định dạng số (có dấu phẩy, dấu chấm)
+    if (typeof value === 'string') {
+      // Xóa bỏ các ký tự không phải số và dấu chấm
+      const cleanValue = value.replace(/[^\d.-]/g, '');
+      return Number(cleanValue) || 0;
+    }
+    
+    return Number(value) || 0;
+  }
+  
+  // Phương thức phân tích chuỗi URL hình ảnh
+  private parseImageUrls(urlString: any): string[] {
+    if (!urlString) {
+      return [];
+    }
+    
+    if (typeof urlString !== 'string') {
+      return [];
+    }
+    
+    // Phân tách chuỗi URL bằng dấu phẩy và loại bỏ khoảng trắng
+    return urlString.split(',')
+      .map(url => url.trim())
+      .filter(url => url.length > 0 && url.match(/^https?:\/\//));
   }
 }

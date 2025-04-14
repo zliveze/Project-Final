@@ -60,7 +60,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'example.com',
+        hostname: 'cdn-images.kiotviet.vn',
         port: '',
         pathname: '/**',
       }
