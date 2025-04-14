@@ -219,7 +219,7 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<UserDocument> {
-    this.logger.debug(`Finding user with ID: ${id}`);
+    // this.logger.debug(`Finding user with ID: ${id}`); // Commented out to reduce logs
 
     // Kiểm tra xem id có phải là một ObjectId hợp lệ không
     if (!Types.ObjectId.isValid(id)) {
@@ -228,7 +228,7 @@ export class UsersService {
     }
 
     const user = await this.userModel.findById(id).exec();
-    this.logger.debug(`User found: ${user ? 'YES' : 'NO'}`);
+    // this.logger.debug(`User found: ${user ? 'YES' : 'NO'}`); // Commented out to reduce logs
 
     if (!user || user.isDeleted) {
       throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
