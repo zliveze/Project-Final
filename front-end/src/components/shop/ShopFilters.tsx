@@ -48,7 +48,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       isOpen: true,
       type: 'checkbox',
       options: categories ? categories.map((cat: any) => ({
-        id: cat._id || `cat-${cat.name}`,
+        id: cat.id || cat._id || `cat-${cat.name}`,
         label: cat.name
       })) : []
     },
@@ -59,7 +59,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       isOpen: true,
       type: 'checkbox',
       options: brands ? brands.map((brand: any) => ({
-        id: brand.id || `brand-${brand.name}`,
+        id: brand._id || brand.id || `brand-${brand.name}`,
         label: brand.name
       })) : []
     },
@@ -128,7 +128,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           isOpen: true,
           type: 'checkbox' as const,
           options: categories.map((cat: any) => ({
-            id: cat._id || `cat-${cat.name}`,
+            id: cat.id || cat._id || `cat-${cat.name}`,
             label: cat.name
           }))
         },
@@ -139,7 +139,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           isOpen: true,
           type: 'checkbox' as const,
           options: brands.map((brand: any) => ({
-            id: brand.id || `brand-${brand.name}`,
+            id: brand._id || brand.id || `brand-${brand.name}`,
             label: brand.name
           }))
         },
@@ -187,6 +187,11 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     });
   };
 
+  // Hàm kiểm tra ID có phải là MongoDB ObjectId hợp lệ không
+  const isValidObjectId = (id: string): boolean => {
+    return /^[0-9a-fA-F]{24}$/.test(id);
+  };
+
   // Updated Checkbox Handler
   const handleCheckboxChange = (filterKey: keyof ShopProductFilters, optionId: string, checked: boolean) => {
     let newFilterValue: string | undefined;
@@ -194,6 +199,13 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     if (filterKey === 'categoryId' || filterKey === 'brandId') {
       // Single select for category and brand
       newFilterValue = checked ? optionId : undefined;
+
+      // Kiểm tra xem ID có phải là MongoDB ObjectId hợp lệ không
+      if (newFilterValue && !isValidObjectId(newFilterValue)) {
+        console.warn(`ID không hợp lệ cho ${filterKey}:`, newFilterValue);
+        // Nếu không phải là ObjectId hợp lệ, không gửi lên server
+        return;
+      }
 
       // Chỉ log trong môi trường development
       if (process.env.NODE_ENV === 'development') {
@@ -432,8 +444,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                 filters.brandId === brand.id ? 'border-[#d53f8c] bg-[#fdf2f8]' : 'hover:border-[#d53f8c] hover:bg-gray-50'
               }`}
               onClick={() => {
-                console.log('Clicked brand:', brand.name, brand.id);
-                handleCheckboxChange('brandId', brand.id, filters.brandId !== brand.id);
+                const brandId = brand._id || brand.id;
+                console.log('Clicked brand:', brand.name, brandId);
+                handleCheckboxChange('brandId', brandId, filters.brandId !== brandId);
               }}
             >
               <div className="w-10 h-10 bg-gray-100 rounded-full mb-1 flex items-center justify-center text-xs font-bold">

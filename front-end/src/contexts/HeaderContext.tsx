@@ -16,13 +16,7 @@ export interface Brand {
   featured: boolean;
 }
 
-export interface Notification {
-  content: string;
-  link: string;
-  backgroundColor: string;
-  textColor: string;
-  priority: number;
-}
+// Đã loại bỏ interface Notification vì đã được xử lý trong NotificationSection.tsx
 
 export interface UserProfile {
   name?: string;
@@ -35,7 +29,6 @@ export type HeaderContextType = {
   setMobileMenuOpen: (isOpen: boolean) => void;
   categories: Category[];
   featuredBrands: Brand[];
-  notifications: Notification[];
   cartItemCount: number;
   wishlistItemCount: number;
   isLoggedIn: boolean;
@@ -49,7 +42,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<Brand[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  // Đã loại bỏ state notifications vì đã được xử lý trong NotificationSection.tsx
   const [cartItemCount, setCartItemCount] = useState(0);
   const [wishlistItemCount, setWishlistItemCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -115,28 +108,11 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       { name: 'Maybelline', slug: 'maybelline', featured: true },
     ];
 
-    // Mock data cho notifications
-    const mockNotifications: Notification[] = [
-      { 
-        content: 'Giảm 50% cho tất cả sản phẩm trong hôm nay!', 
-        link: '/khuyen-mai', 
-        backgroundColor: '#FFF1F6',
-        textColor: '#D53F8C',
-        priority: 1 
-      },
-      { 
-        content: 'Miễn phí vận chuyển cho đơn hàng trên 500k', 
-        link: '/chinh-sach-van-chuyen', 
-        backgroundColor: '#EBFBEE',
-        textColor: '#276749',
-        priority: 2
-      }
-    ];
+    // Đã loại bỏ mock data cho notifications vì đã được xử lý trong NotificationSection.tsx
 
     // Cập nhật state
     setCategories(mockCategories);
     setFeaturedBrands(mockBrands.filter(brand => brand.featured));
-    setNotifications(mockNotifications);
 
     // TODO: Lấy dữ liệu từ local storage hoặc API
     // Kiểm tra xem người dùng đã đăng nhập chưa
@@ -162,7 +138,6 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMobileMenuOpen,
     categories,
     featuredBrands,
-    notifications,
     cartItemCount,
     wishlistItemCount,
     isLoggedIn,
@@ -179,4 +154,4 @@ export const useHeader = (): HeaderContextType => {
     throw new Error('useHeader must be used within a HeaderProvider');
   }
   return context;
-}; 
+};

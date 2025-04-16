@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings, FiBell, FiStar } from 'react-icons/fi';
 import { UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +8,7 @@ import { useRouter } from 'next/router';
 import { useHeader } from '@/contexts/HeaderContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { motion } from 'framer-motion';
 
 interface MiddleHeaderProps {
   onMenuToggle: () => void;
@@ -16,7 +18,7 @@ interface MiddleHeaderProps {
   wishlistItemCount: number;
 }
 
-export default function MiddleHeader({
+function MiddleHeader({
   onMenuToggle,
   isLoggedIn,
   userProfile,
@@ -56,7 +58,7 @@ export default function MiddleHeader({
     try {
       // Cập nhật UI ngay lập tức
       updateAuthState(false, null);
-      
+
       // Hiển thị thông báo đăng xuất thành công
       toast.success('Đăng xuất thành công!', {
         position: "top-right",
@@ -66,13 +68,13 @@ export default function MiddleHeader({
         pauseOnHover: true,
         draggable: true,
       });
-      
+
       // Đóng dropdown
       setShowUserDropdown(false);
-      
+
       // Thực hiện đăng xuất ở backend
       await logout();
-      
+
       // Chuyển hướng về trang chủ
       router.push('/');
     } catch (error) {
@@ -98,37 +100,40 @@ export default function MiddleHeader({
   }, []);
 
   return (
-    <div className="w-full bg-gradient-to-r from-pink-500 to-purple-600 py-3">
+    <div className="w-full bg-white border-b border-gray-100 py-3 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between">
           {/* Menu button for mobile */}
-          <button 
-            className="lg:hidden text-white mr-3"
+          <motion.button
+            className="lg:hidden text-pink-600 mr-3 w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center"
             onClick={onMenuToggle}
             aria-label="Menu"
+            whileTap={{ scale: 0.9 }}
           >
-            <FiMenu className="w-6 h-6" />
-          </button>
+            <FiMenu className="w-5 h-5" />
+          </motion.button>
 
           {/* Logo */}
           <Link href="/" className="flex items-center mr-4 lg:mr-0">
-            <span className="text-white text-xl font-semibold tracking-wide">YUMIN</span>
+            <div className="relative h-8 w-24">
+              <span className="text-pink-600 text-xl font-bold tracking-wide">YUMIN</span>
+            </div>
           </Link>
 
           {/* Search bar */}
-          <div className="hidden lg:flex flex-1 max-w-2xl mx-8 bg-white rounded-md overflow-hidden">
+          <div className="hidden lg:flex flex-1 max-w-2xl mx-8 bg-gray-50 rounded-md overflow-hidden border border-gray-200 transition-all hover:border-pink-300 focus-within:border-pink-400 focus-within:ring-1 focus-within:ring-pink-300">
             <form onSubmit={handleSearch} className="w-full relative">
               <input
                 type="text"
                 placeholder="Tìm sản phẩm, thương hiệu bạn mong muốn..."
-                className="w-full pl-4 pr-24 py-2 rounded-md focus:outline-none text-sm"
+                className="w-full pl-4 pr-24 py-2 rounded-md focus:outline-none text-sm bg-gray-50"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Tìm kiếm"
               />
-              <button 
-                type="submit" 
-                className="absolute right-0 top-0 h-full px-4 bg-white border-l border-gray-200 hover:bg-gray-50 transition-colors"
+              <button
+                type="submit"
+                className="absolute right-0 top-0 h-full px-4 bg-gray-50 border-l border-gray-200 hover:bg-gray-100 transition-colors"
                 aria-label="Tìm kiếm"
               >
                 <span className="text-pink-600 text-sm font-medium flex items-center">
@@ -143,63 +148,70 @@ export default function MiddleHeader({
           <div className="flex items-center space-x-5">
             {/* User account - desktop */}
             <div className="hidden lg:block relative" ref={dropdownRef}>
-              <div 
-                className="flex items-center text-white cursor-pointer group"
+              <motion.div
+                className="flex items-center text-gray-700 cursor-pointer group"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
+                whileHover={{ scale: 1.03 }}
               >
-                <FiUser className="w-5 h-5 mr-2" />
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-2 text-pink-600">
+                  <FiUser className="w-4 h-4" />
+                </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{isLoggedIn ? (userProfile?.name || 'Tài khoản') : 'Đăng nhập'}</span>
-                  <span className="text-xs opacity-80">{isLoggedIn ? 'Quản lý' : 'Tài khoản'}</span>
+                  <span className="text-xs text-gray-500">{isLoggedIn ? 'Quản lý' : 'Tài khoản'}</span>
                 </div>
-                
+
                 {/* Dropdown menu */}
                 {showUserDropdown && (
-                  <div 
-                    className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg z-50 py-1 border border-gray-100"
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 top-full mt-1 w-56 bg-white rounded-md shadow-lg z-50 py-1 border border-gray-100"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                   >
                     {isLoggedIn ? (
                       <>
-                        <Link 
-                          href="/profile" 
+                        <Link
+                          href="/profile"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiUser className="mr-2 w-4 h-4" />
                           Thông tin tài khoản
                         </Link>
-                        <Link 
-                          href="/profile?tab=orders" 
+                        <Link
+                          href="/profile?tab=orders"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiShoppingCart className="mr-2 w-4 h-4" />
                           Đơn hàng của tôi
                         </Link>
-                        <Link 
-                          href="/profile?tab=wishlist" 
+                        <Link
+                          href="/profile?tab=wishlist"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiHeart className="mr-2 w-4 h-4" />
                           Danh sách yêu thích
                         </Link>
-                        <Link 
-                          href="/profile?tab=notifications" 
+                        <Link
+                          href="/profile?tab=notifications"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiBell className="mr-2 w-4 h-4" />
                           Thông báo
                         </Link>
-                        <Link 
-                          href="/profile?tab=reviews" 
+                        <Link
+                          href="/profile?tab=reviews"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiStar className="mr-2 w-4 h-4" />
                           Đánh giá của tôi
                         </Link>
                         <div className="border-t border-gray-100 my-1"></div>
-                        <a 
+                        <a
                           href="#"
                           onClick={handleLogout}
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
@@ -210,15 +222,15 @@ export default function MiddleHeader({
                       </>
                     ) : (
                       <>
-                        <Link 
-                          href="/auth/login" 
+                        <Link
+                          href="/auth/login"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiUser className="mr-2 w-4 h-4" />
                           Đăng nhập
                         </Link>
-                        <Link 
-                          href="/auth/register" 
+                        <Link
+                          href="/auth/register"
                           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-pink-600"
                         >
                           <FiSettings className="mr-2 w-4 h-4" />
@@ -226,33 +238,39 @@ export default function MiddleHeader({
                         </Link>
                       </>
                     )}
-                  </div>
+                  </motion.div>
                 )}
-              </div>
+              </motion.div>
             </div>
 
             {/* Wishlist */}
-            <Link href="/wishlist" className="relative text-white" aria-label="Danh sách yêu thích">
-              <FiHeart className="w-5 h-5" />
-              {wishlistItemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-pink-200 text-pink-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {wishlistItemCount}
-                </span>
-              )}
-            </Link>
-            
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/wishlist" className="relative w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Danh sách yêu thích">
+                <FiHeart className="w-4 h-4" />
+                {wishlistItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                    {wishlistItemCount}
+                  </span>
+                )}
+              </Link>
+            </motion.div>
+
             {/* Cart */}
-            <Link href="/cart" className="relative text-white" aria-label="Giỏ hàng">
-              <FiShoppingCart className="w-5 h-5" />
-              {cartItemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-pink-200 text-pink-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {cartItemCount}
-                </span>
-              )}
-            </Link>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/cart" className="relative w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Giỏ hàng">
+                <FiShoppingCart className="w-4 h-4" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                    {cartItemCount}
+                  </span>
+                )}
+              </Link>
+            </motion.div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+export default memo(MiddleHeader);

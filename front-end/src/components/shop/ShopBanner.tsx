@@ -37,7 +37,17 @@ interface ApiCampaign {
 // Cache cho promotions để tránh nhiều lần gọi API
 let promotionsCache: DisplayPromotion[] | null = null;
 let lastCacheTimestamp = 0;
-const CACHE_TTL = 300000; // 5 phút cache
+const CACHE_TTL = 600000; // Tăng lên 10 phút cache
+
+// Fallback promotions khi có lỗi hoặc đang tải
+const fallbackPromotions: DisplayPromotion[] = [
+  { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
+  { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
+  { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
+];
+
+// Biến để theo dõi trạng thái đang tải
+let isLoadingPromotions = false;
 
 const ShopBanner = () => {
   const eventsContext = useEvents();
@@ -50,135 +60,94 @@ const ShopBanner = () => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
+    // Hiển thị fallback promotions ngay lập tức để tránh màn hình trống
+    if (!promotionsCache) {
+      setCurrentPromotions(fallbackPromotions);
+    } else {
+      setCurrentPromotions(promotionsCache);
+      setLoading(false);
+    }
+
+    // Hàm tải dữ liệu thực tế
     const loadPromotions = async () => {
+      // Tránh gọi API nếu đã có cache hoặc đang tải
+      if ((promotionsCache && (Date.now() - lastCacheTimestamp < CACHE_TTL)) || isLoadingPromotions) {
+        setLoading(false);
+        return;
+      }
+
+      // Đánh dấu đang tải
+      isLoadingPromotions = true;
+      setLoading(true);
+
       try {
-        // Kiểm tra cache
-        if (promotionsCache && (Date.now() - lastCacheTimestamp < CACHE_TTL)) {
-          setCurrentPromotions(promotionsCache);
-          setLoading(false);
-          return;
-        }
+        // Tải song song cả events và campaigns
+        const [eventsData, campaignsData] = await Promise.allSettled([
+          // Lấy events
+          eventsContext && typeof eventsContext.fetchActiveEvents === 'function'
+            ? eventsContext.fetchActiveEvents()
+            : Promise.resolve([]),
+          // Lấy campaigns
+          axios.get(`${API_URL}/campaigns/active`).then(res => res.data).catch(() => [])
+        ]);
 
-        setLoading(true);
-
+        // Xử lý kết quả events
         let displayEvents: DisplayPromotion[] = [];
-
-        // Kiểm tra xem fetchActiveEvents có tồn tại không
-        if (eventsContext && typeof eventsContext.fetchActiveEvents === 'function') {
-          try {
-            // Lấy tất cả events đang active
-            const activeEvents = await eventsContext.fetchActiveEvents();
-            console.log('Đã tải', activeEvents.length, 'sự kiện đang hoạt động');
-
-            // Tạo DisplayPromotion từ tất cả Events đang active, không cần lọc
-            displayEvents = activeEvents.map(event => ({
-              id: event._id,
-              title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
-              name: event.title, // Lưu tên đầy đủ
-              description: event.products.length > 0
-                ? `Cho ${event.products.length} sản phẩm`
-                : event.description || 'Sự kiện đặc biệt',
-              code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
-              icon: getIconForEvent(event),
-              type: 'event'
-            }));
-          } catch (eventError) {
-            console.error('Lỗi khi tải sự kiện:', eventError);
-          }
-        } else {
-          console.warn('fetchActiveEvents không khả dụng');
+        if (eventsData.status === 'fulfilled' && Array.isArray(eventsData.value)) {
+          displayEvents = eventsData.value.map(event => ({
+            id: event._id,
+            title: event.title.length > 20 ? event.title.substring(0, 20) + '...' : event.title,
+            name: event.title,
+            description: event.products.length > 0
+              ? `Cho ${event.products.length} sản phẩm`
+              : event.description || 'Sự kiện đặc biệt',
+            code: event.tags && event.tags.length > 0 ? event.tags[0].toUpperCase() : undefined,
+            icon: getIconForEvent(event),
+            type: 'event'
+          }));
         }
 
-        // Lấy campaigns đang active từ API riêng
-        try {
-          const response = await axios.get(`${API_URL}/campaigns/active`);
-          const activeCampaigns: ApiCampaign[] = response.data;
-          console.log('Đã tải', activeCampaigns.length, 'chiến dịch đang hoạt động');
-
-          // Tạo DisplayPromotion từ Campaigns
-          const displayCampaigns: DisplayPromotion[] = activeCampaigns.map(campaign => ({
+        // Xử lý kết quả campaigns
+        let displayCampaigns: DisplayPromotion[] = [];
+        if (campaignsData.status === 'fulfilled' && Array.isArray(campaignsData.value)) {
+          displayCampaigns = campaignsData.value.map((campaign: ApiCampaign) => ({
             id: campaign._id,
             title: campaign.title.length > 20 ? campaign.title.substring(0, 20) + '...' : campaign.title,
-            name: campaign.title, // Lưu tên đầy đủ
+            name: campaign.title,
             description: campaign.products.length > 0
               ? `Cho ${campaign.products.length} sản phẩm`
               : campaign.description || 'Khuyến mãi đặc biệt',
             icon: 'percent',
             type: 'campaign'
           }));
-
-          // Kết hợp events và campaigns
-          const allPromotions = [...displayEvents, ...displayCampaigns];
-
-          if (allPromotions.length > 0) {
-            // Giới hạn hiển thị tối đa 3 promotions
-            const promotionsToDisplay = allPromotions.slice(0, 3);
-            setCurrentPromotions(promotionsToDisplay);
-
-            // Cập nhật cache
-            promotionsCache = promotionsToDisplay;
-            lastCacheTimestamp = Date.now();
-          } else {
-            // Fallback nếu không có sự kiện hay chiến dịch
-            const fallbackPromotions: DisplayPromotion[] = [
-              { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
-              { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
-              { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-            ];
-
-            setCurrentPromotions(fallbackPromotions);
-
-            // Cập nhật cache với fallback promotions
-            promotionsCache = fallbackPromotions;
-            lastCacheTimestamp = Date.now();
-          }
-        } catch (campaignError) {
-          console.error('Lỗi khi tải chiến dịch:', campaignError);
-
-          // Vẫn hiển thị events nếu có
-          if (displayEvents.length > 0) {
-            const promotionsToDisplay = displayEvents.slice(0, 3);
-            setCurrentPromotions(promotionsToDisplay);
-
-            // Cập nhật cache
-            promotionsCache = promotionsToDisplay;
-            lastCacheTimestamp = Date.now();
-          } else {
-            // Fallback khi không tải được cả events và campaigns
-            const fallbackPromotions: DisplayPromotion[] = [
-              { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
-              { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
-              { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-            ];
-
-            setCurrentPromotions(fallbackPromotions);
-
-            // Cập nhật cache với fallback promotions
-            promotionsCache = fallbackPromotions;
-            lastCacheTimestamp = Date.now();
-          }
         }
-      } catch (err) {
-        console.error('Lỗi khi tải sự kiện và chiến dịch:', err);
-        // Fallback khi có lỗi
-        const fallbackPromotions: DisplayPromotion[] = [
-          { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
-          { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
-          { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-        ];
 
-        setCurrentPromotions(fallbackPromotions);
+        // Kết hợp và lấy tối đa 3 promotions
+        const allPromotions = [...displayEvents, ...displayCampaigns];
+        const promotionsToDisplay = allPromotions.length > 0
+          ? allPromotions.slice(0, 3)
+          : fallbackPromotions;
 
-        // Cập nhật cache với fallback promotions
-        promotionsCache = fallbackPromotions;
+        // Cập nhật state và cache
+        setCurrentPromotions(promotionsToDisplay);
+        promotionsCache = promotionsToDisplay;
         lastCacheTimestamp = Date.now();
+      } catch (err) {
+        // Sử dụng fallback nếu có lỗi và chưa có cache
+        if (!promotionsCache) {
+          setCurrentPromotions(fallbackPromotions);
+          promotionsCache = fallbackPromotions;
+          lastCacheTimestamp = Date.now();
+        }
       } finally {
         setLoading(false);
+        isLoadingPromotions = false;
       }
     };
 
-    loadPromotions();
-  }, [eventsContext]);
+    // Gọi hàm tải dữ liệu sau khi render
+    setTimeout(loadPromotions, 100);
+  }, [eventsContext, API_URL]);
 
   // Hàm hỗ trợ để xác định icon dựa trên event
   const getIconForEvent = (event: Event): 'tag' | 'gift' | 'truck' | 'percent' => {

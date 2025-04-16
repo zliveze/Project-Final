@@ -1,4 +1,5 @@
 import React from 'react';
+import NotificationSection from '../NotificationSection';
 import MiddleHeader from './MiddleHeader';
 import BottomHeader from './BottomHeader';
 import MobileSideMenu from './MobileSideMenu';
@@ -17,7 +18,10 @@ export default function MainHeader() {
   } = useHeader();
 
   return (
-    <header className="w-full relative z-40 shadow-sm">
+    <header className="w-full relative z-40">
+      {/* Thông báo hệ thống */}
+      <NotificationSection />
+
       {/* Logo, tìm kiếm, tài khoản, giỏ hàng */}
       <MiddleHeader
         onMenuToggle={() => setMobileMenuOpen(!isMobileMenuOpen)}
@@ -28,12 +32,10 @@ export default function MainHeader() {
       />
 
       {/* Navigation chính */}
-      <div className="relative">
-        <BottomHeader
-          categories={categories}
-          featuredBrands={featuredBrands}
-        />
-      </div>
+      <BottomHeader
+        categories={categories}
+        featuredBrands={featuredBrands}
+      />
 
       {/* Menu mobile */}
       <MobileSideMenu
@@ -46,4 +48,4 @@ export default function MainHeader() {
       />
     </header>
   );
-} 
+}

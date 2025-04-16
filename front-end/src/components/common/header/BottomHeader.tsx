@@ -1,22 +1,25 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import Link from 'next/link';
-import { FiMenu } from 'react-icons/fi';
+import { FiMenu, FiChevronDown } from 'react-icons/fi';
 import CategoryMegaMenu from './CategoryMegaMenu';
 import { Category, Brand } from '@/contexts/HeaderContext';
+import { useRouter } from 'next/router';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BottomHeaderProps {
   categories: Category[];
   featuredBrands: Brand[];
 }
 
-export default function BottomHeader({ categories, featuredBrands }: BottomHeaderProps) {
+function BottomHeader({ categories, featuredBrands }: BottomHeaderProps) {
+  const router = useRouter();
   const [showCategories, setShowCategories] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="w-full border-t border-b border-gray-200 bg-white">
+    <div className="w-full border-b border-gray-100 bg-white">
       <div className="container mx-auto px-4">
-        <div className="hidden lg:flex items-center justify-between h-10">
+        <div className="hidden lg:flex items-center justify-between h-12">
           {/* Left side menu */}
           <div className="flex items-center space-x-8">
             <div
@@ -25,43 +28,61 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
               onMouseEnter={() => setShowCategories(true)}
               onMouseLeave={() => setShowCategories(false)}
             >
-              <button
-                className="flex items-center text-sm font-medium hover:text-pink-600 h-10"
+              <motion.button
+                className="flex items-center text-sm font-medium hover:text-pink-600 h-12 px-3 rounded-md hover:bg-gray-50 transition-colors"
                 aria-expanded={showCategories}
                 aria-haspopup="true"
+                whileHover={{ scale: 1.02 }}
               >
                 <FiMenu className="w-4 h-4 mr-2" />
                 DANH MỤC
-              </button>
+                <FiChevronDown className="w-3.5 h-3.5 ml-1.5 opacity-70" />
+              </motion.button>
 
-              {showCategories && (
-                <div className="absolute top-10 left-0 min-w-[800px] z-50">
-                  <CategoryMegaMenu categories={categories} />
-                </div>
-              )}
+              <AnimatePresence>
+                {showCategories && (
+                  <motion.div
+                    className="absolute top-12 left-0 min-w-[800px] z-50"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <CategoryMegaMenu categories={categories} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <Link href="/shop" className="h-10 flex items-center text-sm hover:text-pink-600">
+            <Link
+              href="/shop"
+              className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors"
+              prefetch={true}
+              onClick={(e) => {
+                // Hiển thị trạng thái loading ngay lập tức
+                document.body.classList.add('page-loading');
+              }}
+            >
               CỬA HÀNG
             </Link>
-            <Link href="/thuong-hieu" className="h-10 flex items-center text-sm hover:text-pink-600">
+            <Link href="/thuong-hieu" className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors">
               THƯƠNG HIỆU
             </Link>
 
-            <Link href="/hang-moi-ve" className="h-10 flex items-center text-sm hover:text-pink-600">
+            <Link href="/hang-moi-ve" className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors">
               HÀNG MỚI VỀ
             </Link>
 
-            <Link href="/ban-chay" className="h-10 flex items-center text-sm hover:text-pink-600">
+            <Link href="/ban-chay" className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors">
               BÁN CHẠY
             </Link>
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center space-x-6 text-sm text-gray-600">
-            <Link href="/tra-cuu-don-hang" className="h-10 flex items-center hover:text-pink-600">
+          <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <Link href="/tra-cuu-don-hang" className="h-12 flex items-center hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors">
               Tra cứu đơn hàng
             </Link>
-            <Link href="/stores" className="h-10 flex items-center hover:text-pink-600">
+            <Link href="/stores" className="h-12 flex items-center hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors">
               Hệ thống cửa hàng
             </Link>
           </div>
@@ -70,3 +91,5 @@ export default function BottomHeader({ categories, featuredBrands }: BottomHeade
     </div>
   );
 }
+
+export default memo(BottomHeader);

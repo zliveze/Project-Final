@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
 import { formatImageUrl } from '@/utils/imageUtils';
+import { handleImageError } from '@/utils/imageErrorHandler';
 
 // Export ImageType
 export interface ImageType {
@@ -120,6 +121,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
               : undefined
           }
           priority
+          onError={(e) => handleImageError(e)}
         />
 
         {/* Nút zoom */}
@@ -173,6 +175,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
                 alt={image.alt || `${productName} - Ảnh ${index + 1}`}
                 fill
                 className="object-cover"
+                onError={(e) => handleImageError(e)}
               />
               {/* Display Variant Name */}
               {image.variantName && (

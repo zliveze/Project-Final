@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import MainHeader from '@/components/common/header/MainHeader'
 import Footer from '@/components/common/Footer'
-import NotificationSection from '@/components/common/NotificationSection'
 import Breadcrum, { BreadcrumItem } from '@/components/common/Breadcrum'
 import BackgroundAnimation from '@/components/common/BackgroundAnimation'
 import { HeaderProvider } from '@/contexts/HeaderContext'
@@ -134,7 +133,6 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
     <HeaderProvider>
       <div className="min-h-screen flex flex-col relative">
         <BackgroundAnimation />
-        <NotificationSection />
         <MainHeader />
         {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
         <main className="flex-grow relative z-0">

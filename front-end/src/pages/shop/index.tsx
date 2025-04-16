@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import ProductCardShop from '../../components/common/ProductCardShop';
 import ShopFilters from '../../components/shop/ShopFilters';
@@ -59,7 +59,7 @@ interface Filters {
 */
 
 export default function Shop() {
-  // Cập nhật các thuộc tính để lấy thêm selectedCampaign
+  // Lấy các thuộc tính cần thiết từ context
   const {
     products,
     loading,
@@ -69,12 +69,10 @@ export default function Shop() {
     filters,
     setFilters,
     changePage,
-    selectedCampaign,
-    fetchProducts,
-    itemsPerPage
+    selectedCampaign
   } = useShopProduct();
 
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  // Không cần state nữa vì đã sử dụng useMemo
   // Thêm router
   const router = useRouter();
 
@@ -82,88 +80,32 @@ export default function Shop() {
   const { categories } = useCategories();
   const { brands } = useBrands();
 
-  // Thêm xử lý URL parameters
+  // Xử lý URL parameters khi component mount và khi URL thay đổi
   useEffect(() => {
+    // Hàm xử lý URL parameters
     const handleUrlParams = () => {
       // Lấy URL parameters từ chuỗi truy vấn
       const searchParams = new URLSearchParams(window.location.search);
       const newFilters: Partial<ShopProductFilters> = {};
 
-      // Lấy eventId nếu có
+      // Lấy các tham số cơ bản
       const eventId = searchParams.get('eventId');
-      if (eventId) {
-        newFilters.eventId = eventId;
-      }
-
-      // Xử lý eventName nếu có
-      const eventName = searchParams.get('eventName');
-      if (eventName) {
-        // Sử dụng eventId nếu đã có trong URL
-        if (eventId) {
-          // Đã có eventId, không cần tìm kiếm thêm
-        }
-        // Nếu không tìm thấy eventId, tìm qua danh sách sản phẩm
-        else if (products.length > 0) {
-          const productsWithEvent = products.filter(
-            (product: LightProduct) => product.promotion &&
-                      product.promotion.type === 'event' &&
-                      product.promotion.name === eventName
-          );
-
-          if (productsWithEvent.length > 0) {
-            // Lấy ID của event từ sản phẩm đầu tiên tìm được
-            const foundEventId = productsWithEvent[0].promotion?.id;
-            if (foundEventId) {
-              newFilters.eventId = foundEventId;
-            }
-          }
-        }
-      }
-
-      // Lấy campaignId nếu có
       const campaignId = searchParams.get('campaignId');
-      if (campaignId && campaignId !== 'undefined') {
-        newFilters.campaignId = campaignId;
-      }
-
-      // Xử lý campaignName nếu có
-      const campaignName = searchParams.get('campaignName');
-      if (campaignName) {
-        if (products.length > 0) {
-          const productsWithCampaign = products.filter(
-            (product: LightProduct) => product.promotion &&
-                      product.promotion.type === 'campaign' &&
-                      product.promotion.name === campaignName
-          );
-
-          if (productsWithCampaign.length > 0) {
-            // Lấy ID của campaign từ sản phẩm đầu tiên tìm được
-            const foundCampaignId = productsWithCampaign[0].promotion?.id;
-            if (foundCampaignId && foundCampaignId !== 'undefined') {
-              newFilters.campaignId = foundCampaignId;
-            }
-          }
-        }
-      }
-
-      // Xử lý trường hợp promotion=flash-sale (đặc biệt)
       const promotion = searchParams.get('promotion');
-      if (promotion === 'flash-sale' && eventId) {
-        newFilters.eventId = eventId;
-      }
 
-      // Không sử dụng tham số refresh nữa để tránh gây chậm
+      // Áp dụng các tham số trực tiếp
+      if (eventId) newFilters.eventId = eventId;
+      if (campaignId && campaignId !== 'undefined') newFilters.campaignId = campaignId;
+      if (promotion === 'flash-sale' && eventId) newFilters.eventId = eventId;
 
-      // Áp dụng filters từ URL nếu có
+      // Chỉ áp dụng filters nếu có thay đổi
       if (Object.keys(newFilters).length > 0) {
-        // Kiểm tra xem filters hiện tại đã giống newFilters chưa để tránh render lại
         const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
           return filters[key as keyof ShopProductFilters] !== value;
         });
 
         if (needsUpdate) {
-          // Áp dụng filters mới khi có thay đổi
-          setFilters(newFilters);
+          setFilters(newFilters, false); // false = không bỏ qua fetch
         }
       }
     };
@@ -171,31 +113,25 @@ export default function Shop() {
     // Xử lý params ngay khi component được mount hoặc URL thay đổi
     handleUrlParams();
 
-    // Lắng nghe sự kiện route change để xử lý URL params khi điều hướng
-    const handleRouteChange = () => {
-      handleUrlParams();
-    };
-
+    // Lắng nghe sự kiện route change
+    const handleRouteChange = () => handleUrlParams();
     router.events.on('routeChangeComplete', handleRouteChange);
 
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
     };
-  }, [filters, products, router, setFilters, itemsPerPage, fetchProducts]);
+  }, [router, filters, setFilters]); // Chỉ phụ thuộc vào router, filters và setFilters
 
-  // Đếm số bộ lọc đang hoạt động
-  useEffect(() => {
+  // Đếm số bộ lọc đang hoạt động - sử dụng useMemo thay vì useEffect
+  const activeFiltersCount = React.useMemo(() => {
     let count = 0;
-
-    // Đếm số bộ lọc đang áp dụng
     Object.keys(filters).forEach(key => {
       const value = filters[key as keyof ShopProductFilters];
       if (value !== undefined && value !== null && value !== '') {
         count++;
       }
     });
-
-    setActiveFiltersCount(count);
+    return count;
   }, [filters]);
 
   // Hàm xử lý thay đổi bộ lọc
@@ -224,7 +160,10 @@ export default function Shop() {
 
   // Hàm helper để lấy tên danh mục từ ID
   const getCategoryName = (categoryId: string): string => {
-    const category = categories.find((cat: any) => cat._id === categoryId);
+    // Tìm trong categories dựa trên cả _id và id
+    const category = categories.find((cat: any) =>
+      (cat._id === categoryId) || (cat.id === categoryId)
+    );
 
     // Nếu không tìm thấy trong categories, thử tìm từ sản phẩm đầu tiên
     if (!category && products.length > 0) {
@@ -248,7 +187,10 @@ export default function Shop() {
 
   // Hàm helper để lấy tên thương hiệu từ ID
   const getBrandName = (brandId: string): string => {
-    const brand = brands.find((brand: any) => brand.id === brandId);
+    // Tìm trong brands dựa trên cả _id và id
+    const brand = brands.find((brand: any) =>
+      (brand._id === brandId) || (brand.id === brandId)
+    );
     return brand ? brand.name : brandId;
   };
 
@@ -468,7 +410,7 @@ export default function Shop() {
                 {/* Skeleton loading */}
                 {Array(12).fill(null).map((_, index) => ( // Hiển thị skeleton dựa trên itemsPerPage
                   <div key={index} className="h-full">
-                    <div className="bg-white rounded-sm shadow-sm animate-pulse h-full flex flex-col">
+                    <div className="bg-white rounded-sm shadow-sm skeleton-loader h-full flex flex-col">
                       <div className="relative pt-[100%] bg-gray-300"></div>
                       <div className="p-3 flex-grow flex flex-col">
                         <div className="h-[40px] bg-gray-300 rounded w-3/4 mb-2"></div>

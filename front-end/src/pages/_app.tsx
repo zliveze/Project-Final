@@ -7,7 +7,7 @@ import { AdminAuthProvider } from '@/contexts/AdminAuthContext'
 import { AdminUserProvider } from '@/contexts/AdminUserContext'
 import { useRouter } from 'next/router'
 import { NextPage } from 'next';
-import { ReactElement, ReactNode } from 'react';
+import { ReactElement, ReactNode, useEffect } from 'react';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 // Định nghĩa các type mới để hỗ trợ getLayout
@@ -33,6 +33,29 @@ const AdminWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
+  const router = useRouter();
+
+  // Xử lý loading state khi chuyển trang
+  useEffect(() => {
+    const handleStart = () => {
+      document.body.classList.add('page-loading');
+    };
+
+    const handleComplete = () => {
+      document.body.classList.remove('page-loading');
+    };
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
+    };
+  }, [router]);
+
   // Nếu có lỗi từ getServerSideProps hoặc getStaticProps, render trang lỗi
   if (pageProps.error) {
     return <Error statusCode={pageProps.error.statusCode} title={pageProps.error.message} />;

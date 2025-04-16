@@ -134,7 +134,7 @@ export const useShopProduct = (): ShopProductContextType => {
       totalProducts: 0,
       currentPage: 1,
       totalPages: 1,
-      itemsPerPage: 12, // Default items per page for shop
+      itemsPerPage: 24, // Default items per page for shop
       filters: {},
       selectedCampaign: null,
       fetchProducts: async () => { console.warn('ShopProductProvider not available.'); },
@@ -156,9 +156,16 @@ export const useShopProduct = (): ShopProductContextType => {
 // Thêm biến tĩnh ở mức module để lưu yêu cầu cuối cùng
 let lastRequestKey: string = '';
 let debounceTimer: NodeJS.Timeout | null = null;
-// Thêm cache kết quả
+// Thêm cache kết quả với TTL dài hơn
 const resultsCache: { [key: string]: { timestamp: number, data: LightProductsApiResponse } } = {};
-const CACHE_TTL = 120000; // Tăng lên 120 giây (2 phút) cache
+const CACHE_TTL = 300000; // Tăng lên 5 phút cache
+
+// Thêm cache cho các options
+const optionsCache = {
+  skinTypes: { data: null as any, timestamp: 0 },
+  concerns: { data: null as any, timestamp: 0 }
+};
+const OPTIONS_CACHE_TTL = 3600000; // 1 giờ cho options cache
 
 // Provider component
 export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -168,7 +175,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [totalProducts, setTotalProducts] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(12); // Default for shop view
+  const [itemsPerPage, setItemsPerPage] = useState<number>(24); // Default for shop view
   const [filters, setFiltersState] = useState<ShopProductFilters>({});
   const [selectedCampaign, setSelectedCampaign] = useState<UserCampaign | null>(null);
   const [skinTypeOptions, setSkinTypeOptions] = useState<{ id: string; label: string }[]>([]);
@@ -250,11 +257,25 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         params.append('page', page.toString());
         params.append('limit', limit.toString());
 
+        // Hàm kiểm tra ID có phải là MongoDB ObjectId hợp lệ không
+        const isValidObjectId = (id: string): boolean => {
+          return /^[0-9a-fA-F]{24}$/.test(id);
+        };
+
         // Append filters to params
         Object.entries(currentFilters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '' && value !== 'undefined') {
-            // Ensure boolean values are correctly stringified
-            if (typeof value === 'boolean') {
+            // Kiểm tra đặc biệt cho brandId và categoryId
+            if ((key === 'brandId' || key === 'categoryId') && typeof value === 'string') {
+              // Chỉ gửi lên server nếu là ObjectId hợp lệ
+              if (isValidObjectId(value)) {
+                params.append(key, String(value));
+              } else {
+                console.warn(`Bỏ qua ${key} không hợp lệ:`, value);
+              }
+            }
+            // Xử lý các trường khác bình thường
+            else if (typeof value === 'boolean') {
               params.append(key, value.toString());
             } else {
               params.append(key, String(value));
@@ -373,7 +394,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       } finally {
         setLoading(false);
       }
-    }, 500); // Tăng debounce lên 500ms để tránh gọi API quá nhiều lần
+    }, 200); // Giảm debounce xuống 200ms để cải thiện tốc độ phản hồi
   }, [currentPage, itemsPerPage, filters]);
 
   // Function to update filters and trigger fetch
@@ -429,6 +450,38 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Initial fetch on component mount
   useEffect(() => {
     console.log("ShopProductProvider mounted. Performing initial fetch.");
+    // Thêm kiểm tra cache trước khi fetch
+    const filterString = JSON.stringify(filters);
+    const requestKey = `${currentPage}-${itemsPerPage}-${filterString}`;
+
+    // Kiểm tra cache trước khi fetch
+    if (resultsCache[requestKey] &&
+        (Date.now() - resultsCache[requestKey].timestamp) < CACHE_TTL) {
+      console.log('Sử dụng kết quả từ cache cho initial fetch');
+      const cachedData = resultsCache[requestKey].data;
+
+      const productsWithId = cachedData.products.map(p => {
+        const product = { ...p, id: p._id };
+        if (product.promotion) {
+          if (product.promotion.startDate) {
+            product.promotion.startDate = new Date(product.promotion.startDate);
+          }
+          if (product.promotion.endDate) {
+            product.promotion.endDate = new Date(product.promotion.endDate);
+          }
+        }
+        return product;
+      });
+
+      setProducts(productsWithId);
+      setTotalProducts(cachedData.total);
+      setCurrentPage(cachedData.page);
+      setItemsPerPage(cachedData.limit);
+      setTotalPages(cachedData.totalPages);
+      return;
+    }
+
+    // Nếu không có cache, thực hiện fetch
     fetchProducts(currentPage, itemsPerPage, filters);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
@@ -477,27 +530,35 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   // --- Fetch Filter Options ---
   const fetchSkinTypeOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
     try {
+      // Kiểm tra memory cache trước
+      if (optionsCache.skinTypes.data &&
+          (Date.now() - optionsCache.skinTypes.timestamp < OPTIONS_CACHE_TTL)) {
+        setSkinTypeOptions(optionsCache.skinTypes.data);
+        return optionsCache.skinTypes.data;
+      }
+
       // Kiểm tra cache trong localStorage
       const cachedOptions = localStorage.getItem('skinTypeOptions');
       if (cachedOptions) {
         try {
           const parsedOptions = JSON.parse(cachedOptions);
           if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
-            console.log('Sử dụng skin types từ cache:', parsedOptions);
             setSkinTypeOptions(parsedOptions);
+            // Cập nhật memory cache
+            optionsCache.skinTypes = {
+              data: parsedOptions,
+              timestamp: Date.now()
+            };
             return parsedOptions;
           }
         } catch (e) {
-           console.error("Failed to parse cached skinTypeOptions", e);
            localStorage.removeItem('skinTypeOptions'); // Xóa cache bị lỗi
         }
       }
 
-      console.log('Gọi API để lấy skin types...');
       try {
         // Gọi API để lấy dữ liệu từ database
         const response = await axios.get(`${API_URL}/products/filters/skin-types`);
-        console.log('RAW API RESPONSE FOR SKIN TYPES:', JSON.stringify(response.data));
         if (response.data && response.data.skinTypes && Array.isArray(response.data.skinTypes)) {
           // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
           const apiSkinTypes = response.data.skinTypes.map((type: string) => ({
@@ -506,32 +567,37 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
           }));
 
           localStorage.setItem('skinTypeOptions', JSON.stringify(apiSkinTypes));
-          console.log('Đã cập nhật skin types từ API:', JSON.stringify(apiSkinTypes));
           setSkinTypeOptions(apiSkinTypes);
+
+          // Cập nhật memory cache
+          optionsCache.skinTypes = {
+            data: apiSkinTypes,
+            timestamp: Date.now()
+          };
+
           return apiSkinTypes;
-        } else {
-           console.warn('API for skin types returned no data or unexpected format.');
         }
       } catch (apiError) {
-        if (axios.isAxiosError(apiError)) {
-          console.error(`API Error fetching skin types: ${apiError.message}`, apiError.response?.status, apiError.response?.data);
-        } else {
-          console.error('Non-API Error fetching skin types:', apiError);
-        }
+        // Xử lý lỗi nhưng không log ra console
       }
 
-      console.warn('API call for skin types failed or returned no data. Using example options.');
+      // Fallback options
       const exampleOptions = [
         { id: 'skibidi', label: 'skibidi' },
         { id: 'dumb bitch', label: 'dumb bitch' }
       ];
       localStorage.setItem('skinTypeOptions', JSON.stringify(exampleOptions));
       setSkinTypeOptions(exampleOptions);
+
+      // Cập nhật memory cache
+      optionsCache.skinTypes = {
+        data: exampleOptions,
+        timestamp: Date.now()
+      };
+
       return exampleOptions;
     } catch (err) {
-      console.error('Overall Error fetching skin type options:', err);
-      console.warn('Using example options due to overall error.');
-      // Trả về example để tránh lỗi crash app
+      // Fallback khi có lỗi
       const exampleOptions = [
         { id: 'skibidi', label: 'skibidi' },
         { id: 'dumb bitch', label: 'dumb bitch' }
@@ -543,27 +609,35 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const fetchConcernOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
     try {
+      // Kiểm tra memory cache trước
+      if (optionsCache.concerns.data &&
+          (Date.now() - optionsCache.concerns.timestamp < OPTIONS_CACHE_TTL)) {
+        setConcernOptions(optionsCache.concerns.data);
+        return optionsCache.concerns.data;
+      }
+
       // Kiểm tra cache trong localStorage
       const cachedOptions = localStorage.getItem('concernOptions');
-       if (cachedOptions) {
+      if (cachedOptions) {
         try {
           const parsedOptions = JSON.parse(cachedOptions);
           if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
-            console.log('Sử dụng concerns từ cache:', parsedOptions);
             setConcernOptions(parsedOptions);
+            // Cập nhật memory cache
+            optionsCache.concerns = {
+              data: parsedOptions,
+              timestamp: Date.now()
+            };
             return parsedOptions;
           }
         } catch (e) {
-           console.error("Failed to parse cached concernOptions", e);
            localStorage.removeItem('concernOptions'); // Xóa cache bị lỗi
         }
       }
 
-      console.log('Gọi API để lấy concerns...');
       try {
         // Gọi API để lấy dữ liệu từ database
         const response = await axios.get(`${API_URL}/products/filters/concerns`);
-        console.log('RAW API RESPONSE FOR CONCERNS:', JSON.stringify(response.data));
         if (response.data && response.data.concerns && Array.isArray(response.data.concerns)) {
           // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
           const apiConcerns = response.data.concerns.map((concern: string) => ({
@@ -572,32 +646,37 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
           }));
 
           localStorage.setItem('concernOptions', JSON.stringify(apiConcerns));
-          console.log('Đã cập nhật concerns từ API:', JSON.stringify(apiConcerns));
           setConcernOptions(apiConcerns);
+
+          // Cập nhật memory cache
+          optionsCache.concerns = {
+            data: apiConcerns,
+            timestamp: Date.now()
+          };
+
           return apiConcerns;
-        } else {
-           console.warn('API for concerns returned no data or unexpected format.');
         }
       } catch (apiError) {
-        if (axios.isAxiosError(apiError)) {
-          console.error(`API Error fetching concerns: ${apiError.message}`, apiError.response?.status, apiError.response?.data);
-        } else {
-          console.error('Non-API Error fetching concerns:', apiError);
-        }
+        // Xử lý lỗi nhưng không log ra console
       }
 
-      console.warn('API call for concerns failed or returned no data. Using example options.');
+      // Fallback options
       const exampleOptions = [
         { id: 'ugly', label: 'ugly' },
         { id: 'too fat', label: 'too fat' }
       ];
       localStorage.setItem('concernOptions', JSON.stringify(exampleOptions));
       setConcernOptions(exampleOptions);
+
+      // Cập nhật memory cache
+      optionsCache.concerns = {
+        data: exampleOptions,
+        timestamp: Date.now()
+      };
+
       return exampleOptions;
     } catch (err) {
-      console.error('Overall Error fetching skin concern options:', err);
-      console.warn('Using example options due to overall error.');
-      // Trả về example để tránh lỗi crash app
+      // Fallback khi có lỗi
       const exampleOptions = [
         { id: 'ugly', label: 'ugly' },
         { id: 'too fat', label: 'too fat' }
@@ -608,9 +687,15 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, []); // Không phụ thuộc vào state thay đổi thường xuyên
 
   // Effect để fetch skin type và concern options khi component mount
+  // Sử dụng Promise.all để tải song song
   useEffect(() => {
-    fetchSkinTypeOptions();
-    fetchConcernOptions();
+    const loadOptions = async () => {
+      await Promise.all([
+        fetchSkinTypeOptions(),
+        fetchConcernOptions()
+      ]);
+    };
+    loadOptions();
   }, [fetchSkinTypeOptions, fetchConcernOptions]);
 
   // Thêm useEffect để tự động lấy campaign khi campaignId thay đổi
