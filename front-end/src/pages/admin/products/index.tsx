@@ -127,24 +127,30 @@ function AdminProducts({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [importCompletedHandled, setImportCompletedHandled] = useState(false); // State mới để theo dõi hoàn thành
 
+  // Cờ điều khiển việc hiển thị debug logs - đặt ở cấp độ component để dùng chung
+  const DEBUG_MODE = false;
+
+  // Hàm debug có điều kiện
+  const debugLog = (message: string, data?: any) => {
+    if (DEBUG_MODE) {
+      console.log(`[ProductsAdmin] ${message}`, data || '');
+    }
+  };
+
   // Theo dõi trạng thái tiến trình để tự động đóng modal và làm mới dữ liệu
   useEffect(() => {
-    // Cờ điều khiển việc hiển thị debug logs
-    const DEBUG_MODE = false;
-
     // Chỉ log khi cần thiết
-    if (DEBUG_MODE ||
-        (progress?.status === 'completed') ||
+    if ((progress?.status === 'completed') ||
         (progress?.status === 'error') ||
         (progress?.progress && progress.progress % 20 === 0)) { // Chỉ log mỗi 20%
-      console.log('ProductsPage: Tiến trình thay đổi:', progress);
+      debugLog('Tiến trình thay đổi:', progress);
     }
 
     // Thêm nút đóng thủ công cho trường hợp khẩn cấp
     if (showProgressModal && !progress) {
       // Sau 30 giây nếu không có tiến trình, hiển thị nút đóng thủ công
       const timeoutId = setTimeout(() => {
-        console.log('ProductsPage: Hiển thị nút đóng thủ công sau 30 giây');
+        debugLog('Hiển thị nút đóng thủ công sau 30 giây');
         // Có thể thêm một state để hiển thị nút đóng thủ công
         // hoặc tự động đóng modal
         setShowProgressModal(false);
@@ -155,7 +161,7 @@ function AdminProducts({
 
     // Chỉ chạy logic hoàn thành MỘT LẦN
     if (progress?.status === 'completed' && progress.progress === 100 && !importCompletedHandled) {
-      console.log('ProductsPage: Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và hiển thị tổng kết');
+      debugLog('Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và hiển thị tổng kết');
       fetchProducts(); // Làm mới danh sách sản phẩm
       setShowProgressModal(false); // Đóng modal tiến trình
 
@@ -231,7 +237,7 @@ function AdminProducts({
 
   const handleEdit = async (id: string): Promise<boolean> => {
     try {
-      console.log('Đang mở modal sửa sản phẩm với ID:', id);
+      debugLog('Đang mở modal sửa sản phẩm với ID:', id);
 
       // Hiển thị toast loading trước
       const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
@@ -254,7 +260,7 @@ function AdminProducts({
 
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
-        console.log('Đã tải thông tin chi tiết sản phẩm:', productDetails);
+        debugLog('Đã tải thông tin chi tiết sản phẩm:', productDetails);
 
         // Cập nhật dữ liệu và hiển thị modal
         setSelectedProduct(productDetails);
@@ -280,7 +286,7 @@ function AdminProducts({
 
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
-        console.log('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách:', productInList);
+        debugLog('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách:', productInList);
 
         // Cập nhật dữ liệu và hiển thị modal
         setSelectedProduct(productInList);
@@ -305,7 +311,7 @@ function AdminProducts({
   const handleView = async (id: string): Promise<boolean> => {
     try {
       // Lấy thông tin sản phẩm
-      console.log('Đang mở modal xem sản phẩm với ID:', id);
+      debugLog('Đang mở modal xem sản phẩm với ID:', id);
 
       const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
 
@@ -324,7 +330,7 @@ function AdminProducts({
         const productDetails = await response.json();
 
         toast.dismiss(loadingToast);
-        console.log('Đã tải thông tin chi tiết sản phẩm:', productDetails);
+        debugLog('Đã tải thông tin chi tiết sản phẩm:', productDetails);
 
         setSelectedProduct(productDetails);
         setShowProductDetailModal(true);
@@ -347,7 +353,7 @@ function AdminProducts({
         }
 
         toast.dismiss(loadingToast);
-        console.log('Sử dụng sản phẩm từ danh sách:', productInList);
+        debugLog('Sử dụng sản phẩm từ danh sách:', productInList);
 
         setSelectedProduct(productInList);
         setShowProductDetailModal(true);
@@ -386,7 +392,7 @@ function AdminProducts({
   const confirmDelete = async () => {
     if (!productToDelete) return;
 
-    console.log(`Đang xóa sản phẩm ${productToDelete}`);
+    debugLog(`Đang xóa sản phẩm ${productToDelete}`);
     const loadingToast = toast.loading('Đang xóa sản phẩm...');
 
     try {
@@ -444,7 +450,7 @@ function AdminProducts({
   };
 
   const handleImportSubmit = async () => {
-    console.log('ProductsPage: Bắt đầu import Excel');
+    debugLog('Bắt đầu import Excel');
     if (!selectedFile || !selectedBranch) {
       toast.error('Vui lòng chọn file và chi nhánh trước khi import', {
         duration: 3000
@@ -474,7 +480,7 @@ function AdminProducts({
     setImportCompletedHandled(false); // Reset cờ ở đây
 
     // Hiển thị modal tiến trình
-    console.log('ProductsPage: Hiển thị modal tiến trình');
+    debugLog('Hiển thị modal tiến trình');
     setShowProgressModal(true);
 
     try {
@@ -483,7 +489,7 @@ function AdminProducts({
       formData.append('file', selectedFile);
       formData.append('branchId', selectedBranch);
 
-      console.log('Đang gửi yêu cầu import Excel với:', {
+      debugLog('Đang gửi yêu cầu import Excel với:', {
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
         branchId: selectedBranch
@@ -634,7 +640,7 @@ function AdminProducts({
       delete productToCreate.images; // Remove images array for the initial create request
       delete productToCreate.id;     // Ensure no ID is sent for creation
       delete productToCreate._id;    // Ensure no _id is sent for creation
-      console.log('Dữ liệu gửi đi cho POST request (tạo sản phẩm):', productToCreate);
+      debugLog('Dữ liệu gửi đi cho POST request (tạo sản phẩm):', productToCreate);
 
 
       // 3. Send the create request
@@ -673,7 +679,7 @@ function AdminProducts({
        }
 
        const createdProduct = await response.json();
-      console.log('Sản phẩm đã được tạo thành công:', createdProduct);
+      debugLog('Sản phẩm đã được tạo thành công:', createdProduct);
 
       // 4. Upload images if creation was successful and there are images
       if (imagesToUpload.length > 0 && createdProduct.id) {
@@ -714,10 +720,10 @@ function AdminProducts({
       let finalProduct = createdProduct;
       if (imagesToUpload.length > 0 && createdProduct.id) {
         try {
-          console.log(`Fetching final product data for ID: ${createdProduct.id} after image uploads.`);
+          debugLog(`Fetching final product data for ID: ${createdProduct.id} after image uploads.`);
           // Assuming fetchProductById exists in the scope or context
           finalProduct = await fetchProductById(createdProduct.id);
-          console.log('Fetched final product data:', finalProduct);
+          debugLog('Fetched final product data:', finalProduct);
         } catch (fetchError: any) {
           console.error(`Failed to fetch final product data after upload: ${fetchError.message}`);
           // Proceed with the product data we have, but log the error
@@ -753,7 +759,7 @@ function AdminProducts({
    };
 
    const handleUpdateProduct = async (updatedProduct: any) => {
-    console.log('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
+    debugLog('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
 
@@ -775,7 +781,7 @@ function AdminProducts({
             publicId: img.publicId,
           }));
       }
-      console.log('Dữ liệu gửi đi cho PATCH request:', productDataForPatch);
+      debugLog('Dữ liệu gửi đi cho PATCH request:', productDataForPatch);
 
 
       // Xác định ID sản phẩm, ưu tiên id trước, sau đó mới dùng _id
@@ -809,16 +815,16 @@ function AdminProducts({
       // 2. Upload any new images that have a 'file' property
       const imagesToUpload = originalImages.filter((img: any) => img.file);
       if (imagesToUpload.length > 0) {
-        console.log(`Tìm thấy ${imagesToUpload.length} hình ảnh mới cần tải lên.`);
+        debugLog(`Tìm thấy ${imagesToUpload.length} hình ảnh mới cần tải lên.`);
         toast.loading(`Đang tải lên ${imagesToUpload.length} hình ảnh mới...`, { id: 'image-upload-toast' });
 
         let uploadSuccessCount = 0;
         for (const image of imagesToUpload) {
           try {
-            console.log(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${productId}`);
+            debugLog(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${productId}`);
             await uploadProductImage(image.file, productId, image.isPrimary);
             uploadSuccessCount++;
-            console.log(`Tải lên thành công: ${image.file.name}`);
+            debugLog(`Tải lên thành công: ${image.file.name}`);
           } catch (uploadError: any) {
             console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
             toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${uploadError.message}`, { duration: 5000 });
@@ -847,10 +853,10 @@ function AdminProducts({
       let finalProduct = updatedProductResult;
       if (imagesToUpload.length > 0 && productId) {
          try {
-           console.log(`Fetching final product data for ID: ${productId} after image uploads.`);
+           debugLog(`Fetching final product data for ID: ${productId} after image uploads.`);
            // Assuming fetchProductById exists in the scope or context
            finalProduct = await fetchProductById(productId);
-           console.log('Fetched final product data:', finalProduct);
+           debugLog('Fetched final product data:', finalProduct);
            // Optionally update the selectedProduct state if the modal might stay open
            // setSelectedProduct(finalProduct);
          } catch (fetchError: any) {
@@ -902,7 +908,7 @@ function AdminProducts({
       hasGifts: newFilter.flags.hasGifts
     };
 
-    console.log('Applying filters to products:', adminFilters);
+    debugLog('Applying filters to products:', adminFilters);
     applyFilter(adminFilters);
   };
 
@@ -1032,7 +1038,7 @@ function AdminProducts({
 
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
-        console.log('Sản phẩm đã được nhân bản thành công:', clonedProduct);
+        debugLog('Sản phẩm đã được nhân bản thành công:', clonedProduct);
 
         // Làm mới danh sách để hiển thị sản phẩm mới
         await fetchProducts();
