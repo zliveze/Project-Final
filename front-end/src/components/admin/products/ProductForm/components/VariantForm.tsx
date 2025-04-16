@@ -270,19 +270,55 @@ const VariantForm: React.FC<VariantFormProps> = ({
               // Get reliable identifiers for comparison
               const imageIdentifier = image.publicId || image.id;
 
-              // Check selection using publicId or id as the identifier
+              // Simplified check for image selection to avoid TypeScript errors
               const isSelected = (currentVariant.images || []).some(variantImage => {
                 // If variantImage is a string (publicId or id)
                 if (typeof variantImage === 'string') {
+                  // Exact match
                   return variantImage === imageIdentifier;
                 }
+
                 // If variantImage is an object with publicId or id
                 if (typeof variantImage === 'object' && variantImage !== null) {
                   const variantImageId = variantImage.publicId || variantImage.id;
-                  return variantImageId === imageIdentifier;
+
+                  // Exact match with ID
+                  if (variantImageId === imageIdentifier) return true;
+
+                  // Check URL match
+                  if (variantImage.url && image.url && variantImage.url === image.url) {
+                    return true;
+                  }
+
+                  return false;
                 }
                 return false;
               });
+
+              // Additional check - compare with image object directly
+              let matchByObject = false;
+              if (!isSelected && currentVariant.images) {
+                // Try to find a match by comparing the actual image objects
+                matchByObject = currentVariant.images.some(img => {
+                  if (typeof img === 'object' && img !== null) {
+                    // Compare by URL
+                    if (img.url && image.url && img.url === image.url) return true;
+                    // Compare by ID
+                    if ((img.id && image.id && img.id === image.id) ||
+                        (img.publicId && image.publicId && img.publicId === image.publicId)) {
+                      return true;
+                    }
+                  }
+                  return false;
+                });
+
+                if (matchByObject) {
+                  console.log(`Found match by object comparison for image: ${imageIdentifier}`);
+                }
+              }
+
+              // Combine both checks
+              const finalIsSelected = isSelected || matchByObject;
 
               // Check if this image is already used by another variant
               const isUsedByOtherVariant = allVariants.some(variant => {
@@ -306,11 +342,7 @@ const VariantForm: React.FC<VariantFormProps> = ({
                 });
               });
 
-              console.log(`[VariantForm] Image ${imageKey}, isSelected: ${isSelected}, isUsedByOtherVariant: ${isUsedByOtherVariant}`, {
-                imageId: image.id,
-                imagePublicId: image.publicId,
-                variantImages: currentVariant.images
-              });
+              // Removed excessive logging to improve performance
 
               // Determine the correct src, prioritizing url
               const imageSrc = image.url || image.preview;
@@ -325,8 +357,8 @@ const VariantForm: React.FC<VariantFormProps> = ({
               return (
                 <div
                   key={imageKey}
-                  className={`relative border rounded-md ${isUsedByOtherVariant && !isSelected ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} p-1 group transition-all duration-200 ${
-                    isSelected
+                  className={`relative border rounded-md ${isUsedByOtherVariant && !finalIsSelected ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} p-1 group transition-all duration-200 ${
+                    finalIsSelected
                       ? 'border-pink-500 ring-2 ring-pink-500 shadow-md transform scale-105'
                       : isUsedByOtherVariant
                         ? 'border-gray-300 bg-gray-100'
@@ -334,7 +366,7 @@ const VariantForm: React.FC<VariantFormProps> = ({
                   }`}
                   onClick={() => {
                     // Only allow selection if not used by another variant or already selected
-                    if (!isUsedByOtherVariant || isSelected) {
+                    if (!isUsedByOtherVariant || finalIsSelected) {
                       console.log(`Selecting image: ${imageIdentifier}`);
                       handleVariantImageSelect(imageIdentifier || '');
                     } else {
@@ -354,12 +386,12 @@ const VariantForm: React.FC<VariantFormProps> = ({
                     />
 
                     {/* Selection indicator - checkmark or used by other variant indicator */}
-                    {isSelected && (
+                    {finalIsSelected && (
                       <div className="absolute top-1 right-1 bg-pink-500 rounded-full p-0.5 shadow-sm z-10">
                         <FiCheck className="text-white w-4 h-4" />
                       </div>
                     )}
-                    {isUsedByOtherVariant && !isSelected && (
+                    {isUsedByOtherVariant && !finalIsSelected && (
                       <div className="absolute inset-0 bg-gray-200 bg-opacity-50 flex items-center justify-center">
                         <span className="text-xs text-gray-700 font-medium px-1 py-0.5 bg-white bg-opacity-75 rounded">
                           Đã sử dụng

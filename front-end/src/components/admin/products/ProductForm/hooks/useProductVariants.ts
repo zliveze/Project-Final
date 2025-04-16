@@ -118,32 +118,45 @@ export const useProductVariants = (
     }
 
     // Use a reliable identifier from the found object for comparisons (prefer publicId)
+    // Nếu có publicId thì dùng publicId, nếu không thì dùng id
     const reliableIdentifier = imageObject.publicId || imageObject.id;
     if (!reliableIdentifier) {
       console.warn(`[useProductVariants] Found image object for ${identifier} lacks both publicId and id.`);
       return;
     }
 
-    // Log for debugging
-    console.log(`[useProductVariants] Processing image selection:`, {
-      identifier,
-      reliableIdentifier,
-      imageObject
-    });
+    // Create a clean copy of the image object with only necessary properties
+    const cleanImageObject = {
+      id: imageObject.id,
+      publicId: imageObject.publicId,
+      url: imageObject.url,
+      alt: imageObject.alt || '',
+      preview: imageObject.preview || imageObject.url
+    };
 
     setCurrentVariantData(prev => {
       if (!prev) return null;
 
       // Ensure prev.images is always an array
       const currentImages = Array.isArray(prev.images) ? [...prev.images] : [];
-      console.log('Current variant images before update:', currentImages);
 
-      // Check if the image already exists in the array
+      // Check if the image already exists in the array - improved matching
       const existingIndex = currentImages.findIndex(img => {
+        // If it's a string identifier
         if (typeof img === 'string') {
           return img === reliableIdentifier;
-        } else if (typeof img === 'object' && img !== null) {
-          return (img.publicId || img.id) === reliableIdentifier;
+        }
+        // If it's an object with publicId or id
+        else if (typeof img === 'object' && img !== null) {
+          // Check by ID
+          if ((img.publicId && img.publicId === imageObject.publicId) ||
+              (img.id && img.id === imageObject.id)) {
+            return true;
+          }
+          // Check by URL
+          if (img.url && imageObject.url && img.url === imageObject.url) {
+            return true;
+          }
         }
         return false;
       });
@@ -152,8 +165,6 @@ export const useProductVariants = (
       if (existingIndex !== -1) {
         const updatedImages = [...currentImages];
         updatedImages.splice(existingIndex, 1);
-        console.log(`[useProductVariants] Removing image ${reliableIdentifier}`);
-        console.log('Updated variant images:', updatedImages);
         return { ...prev, images: updatedImages };
       }
       // Otherwise check if this image is already used by another variant
@@ -165,16 +176,23 @@ export const useProductVariants = (
             return false;
           }
 
-          // Check if this image is used by another variant
+          // Check if this image is used by another variant - improved matching
           return (variant.images || []).some(variantImage => {
-            // If variantImage is a string (publicId or id)
+            // If it's a string identifier
             if (typeof variantImage === 'string') {
               return variantImage === reliableIdentifier;
             }
-            // If variantImage is an object with publicId or id
-            if (typeof variantImage === 'object' && variantImage !== null) {
-              const variantImageId = variantImage.publicId || variantImage.id;
-              return variantImageId === reliableIdentifier;
+            // If it's an object with publicId or id
+            else if (typeof variantImage === 'object' && variantImage !== null) {
+              // Check by ID
+              if ((variantImage.publicId && variantImage.publicId === imageObject.publicId) ||
+                  (variantImage.id && variantImage.id === imageObject.id)) {
+                return true;
+              }
+              // Check by URL
+              if (variantImage.url && imageObject.url && variantImage.url === imageObject.url) {
+                return true;
+              }
             }
             return false;
           });
@@ -182,17 +200,11 @@ export const useProductVariants = (
 
         // If image is already used by another variant, don't allow selection
         if (isUsedByOtherVariant) {
-          console.log(`[useProductVariants] Image ${reliableIdentifier} is already used by another variant. Selection prevented.`);
           return prev; // Return unchanged state
         }
 
-        // Otherwise add it (toggle on) - Store just the identifier string
-        const imageIdentifier = imageObject.publicId || imageObject.id;
-        if (!imageIdentifier) return prev; // Skip if no valid identifier
-
-        const updatedImages = [...currentImages, imageIdentifier];
-        console.log(`[useProductVariants] Adding image identifier: ${imageIdentifier}`);
-        console.log('Updated variant images:', updatedImages);
+        // Otherwise add it (toggle on) - Store the clean image object
+        const updatedImages = [...currentImages, cleanImageObject];
         return { ...prev, images: updatedImages };
       }
     });
@@ -216,83 +228,58 @@ export const useProductVariants = (
 
     // Process images to ensure they have the correct format for saving
     if (finalVariantData.images && Array.isArray(finalVariantData.images)) {
-      // For saving to the backend, we want to store just the publicId or id as strings
+      // For saving to the backend, we want to store full image objects with all necessary properties
       // This ensures compatibility with the backend and prevents the temp-id issue
-      const processedImages: string[] = [];
-
-      console.log('Processing variant images for saving:', finalVariantData.images);
+      const processedImages: ProductImage[] = [];
 
       // Process each image
       finalVariantData.images.forEach((img: any) => {
-        // If it's already a string
-        if (typeof img === 'string') {
-          // If it's a temporary ID that starts with 'temp-', we need to find the real image
-          if (img.startsWith('temp-')) {
-            // Find the corresponding image in allProductImages
-            // First try exact match
-            let realImage = allProductImages.find(productImg =>
-              productImg.id === img ||
-              (typeof productImg.id === 'string' && productImg.id === img)
-            );
-
-            // If no exact match, try partial match
-            if (!realImage) {
-              realImage = allProductImages.find(productImg =>
-                (typeof productImg.id === 'string' && typeof img === 'string' &&
-                 (productImg.id.includes(img) || img.includes(productImg.id)))
-              );
-
-              if (realImage) {
-                console.log(`Found partial ID match: ${img} ~ ${realImage.id}`);
-              }
-            }
-
-            if (realImage && realImage.publicId) {
-              processedImages.push(realImage.publicId);
-              console.log(`Converted temp ID ${img} to publicId ${realImage.publicId}`);
-            } else {
-              // Try to find by matching with product images by publicId
-              const matchingImage = allProductImages.find(productImg => {
-                // Try exact publicId match
-                if (productImg.publicId === img) {
-                  return true;
-                }
-
-                // Try partial match with publicId
-                if (typeof img === 'string' && typeof productImg.publicId === 'string') {
-                  return productImg.publicId.includes(img) || img.includes(productImg.publicId);
-                }
-                return false;
-              });
-
-              if (matchingImage && matchingImage.publicId) {
-                processedImages.push(matchingImage.publicId);
-                console.log(`Found matching image for ${img}: ${matchingImage.publicId}`);
-              } else {
-                // Last resort: just use the string as is
-                console.warn(`Could not find real image for ID ${img}, using as-is`);
-                processedImages.push(img);
-              }
-            }
-          } else {
-            // It's already a valid ID (publicId or id), keep it
-            processedImages.push(img);
-            console.log(`Using existing image ID: ${img}`);
-          }
+        // If it's already a full image object with url
+        if (typeof img === 'object' && img !== null && img.url) {
+          // Make sure it has all required properties
+          const processedImage: ProductImage = {
+            url: img.url,
+            alt: img.alt || '',
+            publicId: img.publicId || img.id || '',
+            id: img.id || img.publicId || '',
+            isPrimary: img.isPrimary || false
+          };
+          processedImages.push(processedImage);
         }
-        // If it's an object with publicId or id
-        else if (typeof img === 'object' && img !== null) {
-          const imageId = img.publicId || img.id;
-          if (imageId) {
-            processedImages.push(imageId);
-            console.log(`Using image ID from object: ${imageId}`);
+        // If it's a string identifier
+        else if (typeof img === 'string') {
+          // Find the corresponding full image object in allProductImages
+          const matchingImage = allProductImages.find(productImg => {
+            // Try exact match first
+            if (productImg.publicId === img || productImg.id === img) {
+              return true;
+            }
+
+            // Try URL match if img looks like a URL
+            if ((img.startsWith('http') || img.startsWith('/')) &&
+                productImg.url === img) {
+              return true;
+            }
+
+            return false;
+          });
+
+          if (matchingImage) {
+            // Use the full image object
+            const processedImage: ProductImage = {
+              url: matchingImage.url,
+              alt: matchingImage.alt || '',
+              publicId: matchingImage.publicId || matchingImage.id || '',
+              id: matchingImage.id || matchingImage.publicId || '',
+              isPrimary: matchingImage.isPrimary || false
+            };
+            processedImages.push(processedImage);
           }
         }
       });
 
-      // Replace the images array with just the string IDs
-      finalVariantData.images = processedImages as any;
-      console.log('Final processed variant images:', processedImages);
+      // Replace the images array with the processed full image objects
+      finalVariantData.images = processedImages;
     }
 
     try {

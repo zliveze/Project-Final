@@ -20,14 +20,8 @@ const VariantList: React.FC<VariantListProps> = ({
   handleEditVariant,
   handleRemoveVariant
 }) => {
-  // Debug log to check variant and image data (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('VariantList - Data:', {
-      variants: variants?.length || 0,
-      images: images?.length || 0,
-      isViewMode: isViewMode
-    });
-  }
+  // Debug log to check variant and image data (only when needed)
+  // Removed to prevent excessive logging
 
   if (!variants || variants.length === 0) {
     return (
@@ -90,13 +84,7 @@ const VariantList: React.FC<VariantListProps> = ({
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <div className="flex space-x-1">
-                  {/* Debug info */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="hidden">
-                      {console.log('Variant images:', variant.images)}
-                      {console.log('Product images:', images)}
-                    </div>
-                  )}
+                  {/* Debug info - removed to prevent excessive logging */}
 
                   {/* Display variant images */}
                   {variant.images && variant.images.length > 0 ? (
@@ -131,7 +119,7 @@ const VariantList: React.FC<VariantListProps> = ({
                         ? imageIdOrObj
                         : (imageIdOrObj?.id || imageIdOrObj?.publicId || imageIdOrObj?._id);
 
-                      // Find matching image in product images
+                      // Find matching image in product images - improved matching logic
                       const matchingImage = images.find(img => {
                         // Try exact match first with all possible ID fields
                         if (img.id === imageId || img.publicId === imageId || img._id === imageId) {
@@ -140,8 +128,9 @@ const VariantList: React.FC<VariantListProps> = ({
                         }
 
                         // Try partial match if both are strings
-                        if (typeof imageId === 'string') {
+                        if (typeof imageId === 'string' && imageId) {
                           const imgIdStr = String(img.id || img.publicId || img._id || '');
+                          if (!imgIdStr) return false;
 
                           // Check if either string contains the other
                           const isPartialMatch = imgIdStr.includes(imageId) ||
@@ -150,6 +139,17 @@ const VariantList: React.FC<VariantListProps> = ({
                           if (isPartialMatch) {
                             console.log(`Found partial match: ${imageId} ~ ${imgIdStr}`);
                             return true;
+                          }
+
+                          // Try matching by URL if available
+                          if (img.url && typeof img.url === 'string') {
+                            // Extract filename from URL
+                            const urlParts = img.url.split('/');
+                            const filename = urlParts[urlParts.length - 1];
+                            if (filename && (filename.includes(imageId) || imageId.includes(filename))) {
+                              console.log(`Found URL filename match: ${imageId} ~ ${filename}`);
+                              return true;
+                            }
                           }
                         }
 
@@ -170,6 +170,25 @@ const VariantList: React.FC<VariantListProps> = ({
                             className="w-8 h-8 object-cover rounded border border-gray-200"
                           />
                         );
+                      }
+
+                      // Try to find image in the variant's own images array if it's an object
+                      if (typeof imageIdOrObj === 'object' && imageIdOrObj !== null) {
+                        // Try to extract any URL-like property
+                        const possibleUrls = ['preview', 'src', 'source', 'path', 'link'];
+                        for (const prop of possibleUrls) {
+                          if (imageIdOrObj[prop] && typeof imageIdOrObj[prop] === 'string' &&
+                             (imageIdOrObj[prop].startsWith('http') || imageIdOrObj[prop].startsWith('/'))) {
+                            return (
+                              <img
+                                key={imgIdx}
+                                src={imageIdOrObj[prop]}
+                                alt={`Variant ${variant.name || idx + 1} image ${imgIdx + 1}`}
+                                className="w-8 h-8 object-cover rounded border border-gray-200"
+                              />
+                            );
+                          }
+                        }
                       }
 
                       // Fallback: display a more informative placeholder
