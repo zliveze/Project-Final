@@ -674,24 +674,29 @@ export class ProductsService {
         inv => inv.branchId.toString() === branchId
       );
 
-      // Calculate the difference in variant quantity
-      const quantityDifference = quantity - oldQuantity;
+      // Tính toán lại tổng số lượng từ tất cả các biến thể trong chi nhánh này
+      const branchVariantInventory = product.variantInventory.filter(
+        inv => inv.branchId.toString() === branchId
+      );
 
-      // Update branch inventory
+      const totalVariantQuantity = branchVariantInventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0
+      );
+
+      // Update branch inventory with the calculated total
       if (branchInventoryIndex !== -1) {
-        // Update existing branch inventory
-        product.inventory[branchInventoryIndex].quantity += quantityDifference;
-        // Ensure quantity is not negative
-        if (product.inventory[branchInventoryIndex].quantity < 0) {
-          product.inventory[branchInventoryIndex].quantity = 0;
-        }
+        // Update existing branch inventory with the total from all variants
+        product.inventory[branchInventoryIndex].quantity = totalVariantQuantity;
+        this.logger.log(`Cập nhật tồn kho chi nhánh: ${branchId}, Tổng số lượng mới: ${totalVariantQuantity}`);
       } else {
         // Add new branch inventory if it doesn't exist
         product.inventory.push({
           branchId: new Types.ObjectId(branchId),
-          quantity: Math.max(0, quantityDifference), // Ensure quantity is not negative
+          quantity: totalVariantQuantity,
           lowStockThreshold: 5
         });
+        this.logger.log(`Thêm mới tồn kho chi nhánh: ${branchId}, Số lượng: ${totalVariantQuantity}`);
       }
 
       // Update product status based on total inventory
@@ -756,6 +761,35 @@ export class ProductsService {
 
       // Add new variant
       product.variants.push(variantDto);
+
+      // Khi thêm biến thể đầu tiên, cần kiểm tra và xử lý số lượng tồn kho
+      if (product.variants.length === 1) {
+        this.logger.log(`Sản phẩm ${id} chuyển từ không có biến thể sang có biến thể. Cập nhật lại tồn kho.`);
+
+        // Nếu sản phẩm đã có tồn kho chi nhánh, cần chuyển đổi sang tồn kho biến thể
+        if (product.inventory && product.inventory.length > 0) {
+          // Khởi tạo mảng variantInventory nếu chưa có
+          if (!product.variantInventory) {
+            product.variantInventory = [];
+          }
+
+          // Với mỗi chi nhánh, tạo một mục tồn kho biến thể mới
+          for (const inv of product.inventory) {
+            // Chỉ xử lý các chi nhánh có số lượng > 0
+            if (inv.quantity > 0) {
+              // Thêm tồn kho cho biến thể mới với toàn bộ số lượng của chi nhánh
+              product.variantInventory.push({
+                branchId: inv.branchId,
+                variantId: product.variants[0].variantId,
+                quantity: inv.quantity,
+                lowStockThreshold: inv.lowStockThreshold || 5
+              });
+
+              this.logger.log(`Đã chuyển ${inv.quantity} sản phẩm từ chi nhánh ${inv.branchId} sang biến thể ${product.variants[0].variantId}`);
+            }
+          }
+        }
+      }
 
       const updatedProduct = await product.save();
       return this.mapProductToResponseDto(updatedProduct);
@@ -823,8 +857,60 @@ export class ProductsService {
         throw new NotFoundException(`Không tìm thấy biến thể với ID: ${variantId}`);
       }
 
+      // Lưu lại số lượng biến thể trước khi xóa
+      const variantCountBeforeRemove = product.variants.length;
+
       // Remove variant
       product.variants.splice(variantIndex, 1);
+
+      // Xóa tất cả các mục tồn kho của biến thể này
+      if (product.variantInventory && product.variantInventory.length > 0) {
+        // Lọc ra các mục tồn kho của biến thể bị xóa
+        const variantInventoryToRemove = product.variantInventory.filter(
+          inv => inv.variantId.toString() === variantId
+        );
+
+        // Lưu lại thông tin tồn kho theo chi nhánh trước khi xóa
+        const branchQuantities = new Map<string, number>();
+        variantInventoryToRemove.forEach(inv => {
+          branchQuantities.set(inv.branchId.toString(), inv.quantity);
+        });
+
+        // Xóa các mục tồn kho của biến thể
+        product.variantInventory = product.variantInventory.filter(
+          inv => inv.variantId.toString() !== variantId
+        );
+
+        // Cập nhật lại số lượng tồn kho của các chi nhánh
+        for (const [branchIdStr, quantity] of branchQuantities.entries()) {
+          const branchInventoryIndex = product.inventory.findIndex(
+            inv => inv.branchId.toString() === branchIdStr
+          );
+
+          if (branchInventoryIndex !== -1) {
+            // Tính toán lại tổng số lượng từ các biến thể còn lại trong chi nhánh
+            const remainingVariantInventory = product.variantInventory.filter(
+              inv => inv.branchId.toString() === branchIdStr
+            );
+
+            const newBranchTotal = remainingVariantInventory.reduce(
+              (sum, inv) => sum + inv.quantity,
+              0
+            );
+
+            // Cập nhật số lượng mới cho chi nhánh
+            product.inventory[branchInventoryIndex].quantity = newBranchTotal;
+
+            this.logger.log(`Cập nhật tồn kho chi nhánh ${branchIdStr} sau khi xóa biến thể: ${newBranchTotal}`);
+          }
+        }
+      }
+
+      // Nếu đã xóa biến thể cuối cùng, cần xóa tất cả variantInventory
+      if (variantCountBeforeRemove === 1 && product.variants.length === 0) {
+        this.logger.log(`Đã xóa biến thể cuối cùng của sản phẩm ${id}. Xóa tất cả tồn kho biến thể.`);
+        product.variantInventory = [];
+      }
 
       const updatedProduct = await product.save();
       return this.mapProductToResponseDto(updatedProduct);

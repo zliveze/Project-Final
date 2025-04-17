@@ -1,5 +1,23 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react'; // Thêm useCallback
 import { ProductFormData, InventoryItem, BranchItem, VariantInventoryItem, ProductVariant } from '../types';
+
+// Helper function to calculate total inventory based on provided form data
+const calculateTotalInventory = (data: ProductFormData): number => {
+  const hasVariants = Array.isArray(data.variants) && data.variants.length > 0;
+
+  if (hasVariants) {
+    if (data.variantInventory && Array.isArray(data.variantInventory) && data.variantInventory.length > 0) {
+      return data.variantInventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    }
+    return 0;
+  } else {
+    if (!data.inventory || !Array.isArray(data.inventory)) {
+      return 0;
+    }
+    return data.inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }
+};
+
 
 /**
  * Hook quản lý tồn kho sản phẩm
@@ -46,10 +64,15 @@ export const useProductInventory = (
       [field]: field === 'lowStockThreshold' || field === 'quantity' ? parseInt(value) : value
     };
 
-    setFormData(prev => ({
-      ...prev,
-      inventory: updatedInventory
-    }));
+    setFormData(prev => {
+      const nextFormData = { ...prev, inventory: updatedInventory };
+      const totalInventory = calculateTotalInventory(nextFormData);
+      // Sử dụng 'active' thay vì 'selling' cho trạng thái còn hàng
+      const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+      console.log(`[handleInventoryChange] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
+      // Đảm bảo kiểu trả về khớp với ProductFormData
+      return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+    });
   };
 
   /**
@@ -61,16 +84,25 @@ export const useProductInventory = (
     const updatedInventory = [...formData.inventory];
     updatedInventory.splice(index, 1);
 
-    setFormData(prev => ({
-      ...prev,
-      inventory: updatedInventory
-    }));
+    setFormData(prev => {
+      const nextFormData = { ...prev, inventory: updatedInventory };
+      const totalInventory = calculateTotalInventory(nextFormData);
+      const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+      console.log(`[handleRemoveInventory] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
+      return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+    });
   };
 
   /**
    * Tính toán số lượng tồn kho cho chi nhánh dựa trên các biến thể
    */
   const calculateBranchInventory = (branchId: string): number => {
+    // Nếu sản phẩm không có biến thể, trả về 0 để cho phép nhập trực tiếp
+    if (!hasVariants()) {
+      return 0;
+    }
+
+    // Nếu không có dữ liệu tồn kho biến thể, trả về 0
     if (!formData.variantInventory || !Array.isArray(formData.variantInventory)) {
       return 0;
     }
@@ -94,15 +126,19 @@ export const useProductInventory = (
 
     // Nếu danh sách tồn kho chưa tồn tại, tạo mới
     if (!formData.inventory || !Array.isArray(formData.inventory)) {
-      setFormData(prev => ({
-        ...prev,
-        inventory: [{
-          branchId,
-          branchName: validBranchName,
-          quantity: calculateBranchInventory(branchId), // Tính tồn kho từ biến thể
-          lowStockThreshold: 5
-        }]
-      }));
+      const newInventoryItem: InventoryItem = {
+        branchId,
+        branchName: validBranchName,
+        quantity: calculateBranchInventory(branchId), // Tính tồn kho từ biến thể
+        lowStockThreshold: 5
+      };
+      setFormData(prev => {
+        const nextFormData = { ...prev, inventory: [newInventoryItem] };
+        const totalInventory = calculateTotalInventory(nextFormData);
+        const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+        console.log(`[handleAddBranch - new] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
+        return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+      });
       return;
     }
 
@@ -127,10 +163,13 @@ export const useProductInventory = (
       lowStockThreshold: 5
     });
 
-    setFormData(prev => ({
-      ...prev,
-      inventory: updatedInventory
-    }));
+    setFormData(prev => {
+      const nextFormData = { ...prev, inventory: updatedInventory };
+      const totalInventory = calculateTotalInventory(nextFormData);
+      const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+      console.log(`[handleAddBranch - existing] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
+      return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+    });
   };
 
   /**
@@ -160,85 +199,98 @@ export const useProductInventory = (
    * Tính tổng tồn kho dựa trên tổng số lượng của tất cả biến thể trong tất cả chi nhánh
    */
   const getTotalInventory = (): number => {
-    // Nếu có biến thể, tính tổng từ tồn kho biến thể
-    if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
-      return formData.variantInventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    // Kiểm tra xem sản phẩm có biến thể hay không
+    if (hasVariants()) {
+      // Nếu có biến thể, tính tổng từ tồn kho biến thể
+      if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
+        return formData.variantInventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      }
+      return 0; // Có biến thể nhưng chưa có tồn kho biến thể
+    } else {
+      // Nếu không có biến thể, sử dụng tồn kho chi nhánh
+      if (!formData.inventory || !Array.isArray(formData.inventory)) {
+        return 0;
+      }
+      return formData.inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
     }
-
-    // Nếu không có biến thể, sử dụng tồn kho chi nhánh
-    if (!formData.inventory || !Array.isArray(formData.inventory)) {
-      return 0;
-    }
-
-    return formData.inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
   };
 
   /**
-   * Đếm số chi nhánh còn hàng dựa trên tồn kho biến thể
+   * Đếm số chi nhánh còn hàng dựa trên tồn kho biến thể hoặc tồn kho chi nhánh
    */
   const getInStockBranchesCount = (): number => {
     if (!formData.inventory || !Array.isArray(formData.inventory)) {
       return 0;
     }
 
-    // Tạo một map để tính tổng số lượng cho mỗi chi nhánh
-    const branchQuantities = new Map<string, number>();
+    // Kiểm tra xem sản phẩm có biến thể hay không
+    if (hasVariants()) {
+      // Tạo một map để tính tổng số lượng cho mỗi chi nhánh
+      const branchQuantities = new Map<string, number>();
 
-    // Nếu có biến thể, tính tồn kho từ biến thể
-    if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
-      formData.variantInventory.forEach(item => {
-        const branchId = item.branchId;
-        const currentQuantity = branchQuantities.get(branchId) || 0;
-        branchQuantities.set(branchId, currentQuantity + (item.quantity || 0));
-      });
+      // Nếu có biến thể, tính tồn kho từ biến thể
+      if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
+        formData.variantInventory.forEach(item => {
+          const branchId = item.branchId;
+          const currentQuantity = branchQuantities.get(branchId) || 0;
+          branchQuantities.set(branchId, currentQuantity + (item.quantity || 0));
+        });
 
-      // Đếm số chi nhánh có tồn kho > 0
-      let count = 0;
-      formData.inventory.forEach(item => {
-        const quantity = branchQuantities.get(item.branchId) || 0;
-        if (quantity > 0) count++;
-      });
+        // Đếm số chi nhánh có tồn kho > 0
+        let count = 0;
+        formData.inventory.forEach(item => {
+          const quantity = branchQuantities.get(item.branchId) || 0;
+          if (quantity > 0) count++;
+        });
 
-      return count;
+        return count;
+      }
+      return 0; // Có biến thể nhưng chưa có tồn kho biến thể
+    } else {
+      // Nếu không có biến thể, sử dụng tồn kho chi nhánh
+      return formData.inventory.filter(item => item.quantity > 0).length;
     }
-
-    // Nếu không có biến thể, sử dụng tồn kho chi nhánh
-    return formData.inventory.filter(item => item.quantity > 0).length;
   };
 
   /**
-   * Đếm số chi nhánh sắp hết hàng dựa trên tồn kho biến thể
+   * Đếm số chi nhánh sắp hết hàng dựa trên tồn kho biến thể hoặc tồn kho chi nhánh
    */
   const getLowStockBranchesCount = (): number => {
     if (!formData.inventory || !Array.isArray(formData.inventory)) {
       return 0;
     }
 
-    // Tạo một map để tính tổng số lượng cho mỗi chi nhánh
-    const branchQuantities = new Map<string, number>();
+    // Kiểm tra xem sản phẩm có biến thể hay không
+    if (hasVariants()) {
+      // Tạo một map để tính tổng số lượng cho mỗi chi nhánh
+      const branchQuantities = new Map<string, number>();
 
-    // Nếu có biến thể, tính tồn kho từ biến thể
-    if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
-      formData.variantInventory.forEach(item => {
-        const branchId = item.branchId;
-        const currentQuantity = branchQuantities.get(branchId) || 0;
-        branchQuantities.set(branchId, currentQuantity + (item.quantity || 0));
-      });
+      // Nếu có biến thể, tính tồn kho từ biến thể
+      if (formData.variantInventory && Array.isArray(formData.variantInventory) && formData.variantInventory.length > 0) {
+        formData.variantInventory.forEach(item => {
+          const branchId = item.branchId;
+          const currentQuantity = branchQuantities.get(branchId) || 0;
+          branchQuantities.set(branchId, currentQuantity + (item.quantity || 0));
+        });
 
-      // Đếm số chi nhánh có tồn kho > 0 và <= ngưỡng cảnh báo
-      let count = 0;
-      formData.inventory.forEach(item => {
-        const quantity = branchQuantities.get(item.branchId) || 0;
-        if (quantity > 0 && quantity <= item.lowStockThreshold) count++;
-      });
+        // Đếm số chi nhánh có tồn kho > 0 và <= ngưỡng cảnh báo
+        let count = 0;
+        formData.inventory.forEach(item => {
+          const quantity = branchQuantities.get(item.branchId) || 0;
+          // Thêm ?? 0 để xử lý trường hợp lowStockThreshold là undefined
+          if (quantity > 0 && quantity <= (item.lowStockThreshold ?? 0)) count++;
+        });
 
-      return count;
+        return count;
+      }
+      return 0; // Có biến thể nhưng chưa có tồn kho biến thể
+    } else {
+      // Nếu không có biến thể, sử dụng tồn kho chi nhánh
+      return formData.inventory.filter(item =>
+        // Thêm ?? 0 để xử lý trường hợp lowStockThreshold là undefined
+        item.quantity > 0 && item.quantity <= (item.lowStockThreshold ?? 0)
+      ).length;
     }
-
-    // Nếu không có biến thể, sử dụng tồn kho chi nhánh
-    return formData.inventory.filter(item =>
-      item.quantity > 0 && item.quantity <= item.lowStockThreshold
-    ).length;
   };
 
   /**
@@ -252,17 +304,20 @@ export const useProductInventory = (
     if (!selectedBranch) return;
 
     // Lấy danh sách biến thể và số lượng hiện tại của chúng
-    const variants = formData.variants.map(variant => {
+    // Thêm ?? [] để xử lý trường hợp formData.variants là undefined
+    const variants = (formData.variants ?? []).map(variant => {
       // Tìm số lượng hiện tại của biến thể trong chi nhánh này
       const variantInventory = formData.variantInventory?.find(
         item => item.branchId === branchId && item.variantId === variant.variantId
       );
 
       // Tạo một bản sao của biến thể và thêm trường quantity
+      // Sử dụng optional chaining (?.) cho variant.name và variant.options
       return {
         ...variant,
         variantId: variant.variantId || '',
-        name: variant.name || `Biến thể ${variant.options.color || ''} ${variant.options.sizes?.[0] || ''}`.trim(),
+        // Loại bỏ truy cập variant.name vì nó không tồn tại trong kiểu ProductVariant
+        name: `Biến thể ${variant?.options?.color || ''} ${variant?.options?.sizes?.[0] || ''}`.trim(),
         quantity: variantInventory?.quantity || 0
       };
     });
@@ -346,25 +401,38 @@ export const useProductInventory = (
       });
     }
 
-    // Update the branch's total inventory
+    // Tính toán lại tổng số lượng từ tất cả các biến thể trong chi nhánh
     const updatedInventory = [...(formData.inventory || [])];
     const branchIndex = updatedInventory.findIndex(item => item.branchId === selectedBranchForVariants);
 
+    // Tính tổng số lượng mới của chi nhánh dựa trên tất cả các biến thể
+    // Sử dụng updatedVariantInventory đã được cập nhật ở trên
+    const branchVariantInventory = updatedVariantInventory.filter(
+      item => item.branchId === selectedBranchForVariants
+    );
+
+    const newBranchTotal = branchVariantInventory.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
+
     if (branchIndex >= 0) {
-      // Update existing branch inventory
-      updatedInventory[branchIndex].quantity += quantityDifference;
-      // Ensure quantity is not negative
-      if (updatedInventory[branchIndex].quantity < 0) {
-        updatedInventory[branchIndex].quantity = 0;
-      }
-      console.log(`Updated branch inventory: ${branchName}, New total: ${updatedInventory[branchIndex].quantity}`);
+      // Cập nhật số lượng mới cho chi nhánh
+      updatedInventory[branchIndex].quantity = newBranchTotal;
+      console.log(`Cập nhật tồn kho chi nhánh: ${branchName}, Tổng số lượng mới: ${newBranchTotal}`);
     }
 
-    setFormData(prev => ({
-      ...prev,
-      variantInventory: updatedVariantInventory,
-      inventory: updatedInventory
-    }));
+    setFormData(prev => {
+      const nextFormData = {
+        ...prev,
+        variantInventory: updatedVariantInventory,
+        inventory: updatedInventory
+      };
+      const totalInventory = calculateTotalInventory(nextFormData);
+      const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+      console.log(`[handleVariantInventoryChange] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
+      return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+    });
   };
 
   return {
