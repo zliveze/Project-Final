@@ -4,11 +4,9 @@ import {
   FiEdit,
   FiTrash2,
   FiEye,
-  FiChevronDown,
-  FiChevronUp,
-  FiMoreVertical,
   FiCopy,
-  FiExternalLink
+  FiExternalLink,
+  FiInfo
 } from 'react-icons/fi';
 import ProductStatusBadge from './ProductStatusBadge';
 import ProductFlagBadge from './ProductFlagBadge';
@@ -19,7 +17,7 @@ import { useProduct } from '@/contexts/ProductContext';
 interface ProductTableProps {
   products: AdminProduct[];
   selectedProducts: string[];
-  expandedProduct: string | null;
+  expandedProduct?: string | null;
   isLoading: boolean;
   isAllSelected: boolean;
   // Các handler
@@ -29,13 +27,12 @@ interface ProductTableProps {
   onDuplicate?: (id: string) => Promise<boolean>;
   toggleProductSelection: (id: string) => void;
   toggleSelectAll: () => void;
-  toggleProductDetails: (id: string) => void;
+  toggleProductDetails?: (id: string) => void;
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
   products,
   selectedProducts,
-  expandedProduct,
   isLoading,
   isAllSelected,
   onView,
@@ -43,8 +40,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
   onDelete,
   onDuplicate,
   toggleProductSelection,
-  toggleSelectAll,
-  toggleProductDetails
+  toggleSelectAll
 }) => {
   // Access the API stats for loading state
   const { loading: statsLoading } = useApiStats();
@@ -85,50 +81,50 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const combinedLoading = isLoading || contextLoading || statsLoading;
 
   return (
-    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+    <div className="bg-white shadow rounded-xl overflow-hidden border border-gray-100">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="pl-4 py-3 text-left">
+              <th scope="col" className="pl-4 py-3.5 text-left">
                 <div className="flex items-center">
                   <input
                     id="select-all"
                     type="checkbox"
-                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                     checked={isAllSelected}
                     onChange={toggleSelectAll}
                     disabled={combinedLoading || products.length === 0}
                   />
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                SẢN PHẨM
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Sản phẩm
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                DANH MỤC
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Danh mục
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                THƯƠNG HIỆU
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Thương hiệu
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                GIÁ
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Giá
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                TỒN KHO
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tồn kho
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                TRẠNG THÁI
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Trạng thái
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                NHÃN
+              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Nhãn
               </th>
-              <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                THAO TÁC
+              <th scope="col" className="px-6 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Thao tác
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-100">
             {combinedLoading ? (
               // Skeleton loading
               Array.from({ length: 5 }).map((_, index) => (
@@ -158,13 +154,17 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     <div className="h-4 bg-gray-200 rounded w-10 animate-pulse"></div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse"></div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse"></div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="h-8 bg-gray-200 rounded w-24 ml-auto animate-pulse"></div>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex justify-center space-x-2">
+                      <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+                      <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -172,21 +172,24 @@ const ProductTable: React.FC<ProductTableProps> = ({
               // Không có kết quả
               <tr>
                 <td colSpan={9} className="px-6 py-16 text-center">
-                  <p className="text-gray-500 text-lg">Không tìm thấy sản phẩm nào</p>
-                  <p className="text-gray-400 mt-1">Vui lòng thử lại với từ khóa khác hoặc bỏ các bộ lọc</p>
+                  <div className="flex flex-col items-center justify-center">
+                    <FiInfo className="w-12 h-12 text-gray-300 mb-3" />
+                    <p className="text-gray-500 text-lg font-medium">Không tìm thấy sản phẩm nào</p>
+                    <p className="text-gray-400 mt-1">Vui lòng thử lại với từ khóa khác hoặc bỏ các bộ lọc</p>
+                  </div>
                 </td>
               </tr>
             ) : (
               // Danh sách sản phẩm
               products.map((product) => (
                 <React.Fragment key={product.id}>
-                  <tr className={`hover:bg-gray-50 ${selectedProducts.includes(product.id) ? 'bg-pink-50' : ''}`}>
+                  <tr className={`hover:bg-gray-50 transition-colors duration-150 ${selectedProducts.includes(product.id) ? 'bg-pink-50' : ''}`}>
                     <td className="pl-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           id={`select-product-${product.id}`}
                           type="checkbox"
-                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                           checked={selectedProducts.includes(product.id)}
                           onChange={() => toggleProductSelection(product.id)}
                           disabled={processingAction?.id === product.id}
@@ -195,7 +198,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden border border-gray-200">
+                        <div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                           {product.image ? (
                             <Image
                               src={product.image}
@@ -211,101 +214,85 @@ const ProductTable: React.FC<ProductTableProps> = ({
                           )}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                          <div className="text-sm text-gray-500">{product.sku}</div>
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{product.sku}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.category}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-md">{product.category}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.brand}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-600">{product.brand}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-pink-600 font-medium">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.currentPrice)}
                         </span>
                         {product.currentPrice !== product.originalPrice && (
-                          <span className="text-gray-400 text-xs line-through">
+                          <span className="text-gray-400 text-xs line-through mt-0.5">
                             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.originalPrice)}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.stock || 0}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700">{product.stock || 0}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="inline-flex">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          product.status === 'active' ? 'bg-green-100 text-green-800' :
-                          product.status === 'out_of_stock' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {product.status === 'active' ? 'Đang bán' :
-                           product.status === 'out_of_stock' ? 'Hết hàng' :
-                           product.status === 'discontinued' ? 'Ngừng kinh doanh' : 'Chưa xác định'}
-                        </span>
-                      </div>
+                      <ProductStatusBadge status={product.status as 'active' | 'out_of_stock' | 'discontinued'} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="inline-flex">
-                        {product.flags?.isNew && (
-                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 mr-1">
-                            Mới
-                          </span>
-                        )}
-                        {product.flags?.isOnSale && (
-                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-800 mr-1">
-                            Giảm giá
-                          </span>
-                        )}
+                      <div className="flex flex-wrap gap-1">
+                        {product.flags?.isBestSeller && <ProductFlagBadge type="bestSeller" small />}
+                        {product.flags?.isNew && <ProductFlagBadge type="new" small />}
+                        {product.flags?.isOnSale && <ProductFlagBadge type="sale" small />}
+                        {product.flags?.hasGifts && <ProductFlagBadge type="gift" small />}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="flex items-center justify-center space-x-1.5">
                         <button
                           onClick={(e) => handleAction('view', product.id, e)}
-                          className="p-1.5 text-gray-600 hover:text-gray-900"
+                          className="p-1.5 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors duration-200"
                           title="Xem chi tiết"
                           disabled={!!processingAction}
                         >
-                          <FiEye className="h-5 w-5" />
+                          <FiEye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={(e) => handleAction('edit', product.id, e)}
-                          className="p-1.5 text-blue-600 hover:text-blue-800"
+                          className="p-1.5 text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors duration-200"
                           title="Chỉnh sửa"
                           disabled={!!processingAction}
                         >
-                          <FiEdit className="h-5 w-5" />
+                          <FiEdit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={(e) => handleAction('duplicate', product.id, e)}
-                          className="p-1.5 text-green-600 hover:text-green-800"
+                          className="p-1.5 text-green-500 hover:text-green-700 bg-green-50 hover:bg-green-100 rounded-full transition-colors duration-200"
                           title="Nhân bản sản phẩm"
                           disabled={!!processingAction}
                         >
-                          <FiCopy className="h-5 w-5" />
+                          <FiCopy className="h-4 w-4" />
                         </button>
                         <a
                           href={`/product/${product.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 text-gray-600 hover:text-gray-900"
+                          className="p-1.5 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors duration-200"
                           title="Xem trang sản phẩm"
                         >
-                          <FiExternalLink className="h-5 w-5" />
+                          <FiExternalLink className="h-4 w-4" />
                         </a>
                         <button
                           onClick={(e) => handleAction('delete', product.id, e)}
-                          className="p-1.5 text-red-600 hover:text-red-800"
+                          className="p-1.5 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-full transition-colors duration-200"
                           title="Xóa sản phẩm"
                           disabled={!!processingAction}
                         >
-                          <FiTrash2 className="h-5 w-5" />
+                          <FiTrash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

@@ -8,7 +8,7 @@ export interface AdminProduct {
   slug: string;
   sku: string;
   price: string;
-  originalPrice: number; 
+  originalPrice: number;
   currentPrice: number;
   category: string;
   categoryIds: string[];
@@ -47,7 +47,7 @@ export interface ProductAdminFilter {
   search?: string;
   brandId?: string;
   categoryId?: string;
-  status?: string; 
+  status?: string;
   minPrice?: number;
   maxPrice?: number;
   tags?: string;
@@ -119,20 +119,20 @@ export const useProductAdmin = ({
         console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API');
         return null;
       }
-      
+
       setLoading(true);
       setError(null);
       // setHasTriedFetch(true); // Removed as part of SSR optimization
 
       // Cập nhật filters nếu có
-      const currentFilters = newFilters 
-        ? { ...filters, ...newFilters } 
+      const currentFilters = newFilters
+        ? { ...filters, ...newFilters }
         : filters;
-      
+
       // Lưu filters mới nếu có sự thay đổi
       if (newFilters) {
         setFilters(currentFilters);
-        
+
         // Cập nhật state cho currentPage và itemsPerPage
         if (newFilters.page !== undefined) {
           setCurrentPage(newFilters.page);
@@ -142,13 +142,24 @@ export const useProductAdmin = ({
         }
       }
 
-      // Xây dựng query string
+      // Xây dựng query string - cải thiện xử lý các tham số lọc
       const params = new URLSearchParams();
       Object.entries(currentFilters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value));
+        // Chỉ thêm tham số vào URL nếu nó có giá trị hợp lệ
+        // Loại bỏ các giá trị undefined, null, chuỗi rỗng, và false (cho các flag)
+        if (value !== undefined && value !== null && value !== '' && value !== false) {
+          // Đặc biệt xử lý brandId và categoryId khi là chuỗi rỗng
+          if ((key === 'brandId' || key === 'categoryId') && value === '') {
+            // Không thêm tham số này vào URL nếu là chuỗi rỗng
+            console.log(`Bỏ qua tham số ${key} vì giá trị rỗng`);
+          } else {
+            params.append(key, String(value));
+          }
         }
       });
+
+      // Log URL params để debug
+      console.log('Query params:', params.toString());
 
       // Gọi API
       const response = await fetch(`${ADMIN_PRODUCTS_API}?${params.toString()}`, {
@@ -171,14 +182,14 @@ export const useProductAdmin = ({
       }
 
       const data: ProductAdminResponse = await response.json();
-      
+
       // Cập nhật state
       setProducts(data.items);
       setTotalItems(data.total);
       setTotalPages(data.totalPages);
       setCurrentPage(data.page);
       setItemsPerPage(data.limit);
-      
+
       return data;
     } catch (error: any) {
       console.error('Error fetching products:', error);
@@ -223,23 +234,23 @@ export const useProductAdmin = ({
   // Chọn tất cả sản phẩm trên trang hiện tại
   const selectAllProducts = useCallback(() => {
     const allSelected = products.every(product => selectedProductIds.includes(product.id));
-    
+
     if (allSelected) {
       // Bỏ chọn tất cả sản phẩm trên trang hiện tại
-      setSelectedProductIds(prev => 
+      setSelectedProductIds(prev =>
         prev.filter(id => !products.some(product => product.id === id))
       );
     } else {
       // Chọn tất cả sản phẩm trên trang hiện tại
       const currentPageIds = products.map(product => product.id);
       const newSelected = [...selectedProductIds];
-      
+
       currentPageIds.forEach(id => {
         if (!newSelected.includes(id)) {
           newSelected.push(id);
         }
       });
-      
+
       setSelectedProductIds(newSelected);
     }
   }, [products, selectedProductIds]);
@@ -252,33 +263,33 @@ export const useProductAdmin = ({
   // Xóa nhiều sản phẩm
   const deleteMultipleProducts = useCallback(async (): Promise<boolean> => {
     if (selectedProductIds.length === 0) return false;
-    
+
     try {
       setLoading(true);
-      
+
       // Lặp qua từng sản phẩm đã chọn và xóa
-      const deletePromises = selectedProductIds.map(id => 
+      const deletePromises = selectedProductIds.map(id =>
         fetch(`${API_URL}/admin/products/${id}`, {
           method: 'DELETE',
           headers: getAuthHeader()
         })
       );
-      
+
       const results = await Promise.all(deletePromises);
-      
+
       // Kiểm tra nếu có bất kỳ lỗi nào
       const hasErrors = results.some(res => !res.ok);
-      
+
       if (hasErrors) {
         throw new Error('Không thể xóa một số sản phẩm');
       }
-      
+
       // Fetch lại dữ liệu sau khi xóa
       await fetchProducts();
-      
+
       // Xóa khỏi danh sách đã chọn
       clearSelection();
-      
+
       return true;
     } catch (error: any) {
       console.error('Error deleting products:', error);
@@ -292,31 +303,31 @@ export const useProductAdmin = ({
   // Cập nhật trạng thái nhiều sản phẩm
   const updateMultipleProductsStatus = useCallback(async (status: string): Promise<boolean> => {
     if (selectedProductIds.length === 0) return false;
-    
+
     try {
       setLoading(true);
-      
+
       // Lặp qua từng sản phẩm đã chọn và cập nhật trạng thái
-      const updatePromises = selectedProductIds.map(id => 
+      const updatePromises = selectedProductIds.map(id =>
         fetch(`${API_URL}/admin/products/${id}`, {
           method: 'PATCH',
           headers: getAuthHeader(),
           body: JSON.stringify({ status })
         })
       );
-      
+
       const results = await Promise.all(updatePromises);
-      
+
       // Kiểm tra nếu có bất kỳ lỗi nào
       const hasErrors = results.some(res => !res.ok);
-      
+
       if (hasErrors) {
         throw new Error('Không thể cập nhật trạng thái một số sản phẩm');
       }
-      
+
       // Fetch lại dữ liệu sau khi cập nhật
       await fetchProducts();
-      
+
       return true;
     } catch (error: any) {
       console.error('Error updating products status:', error);
@@ -330,31 +341,31 @@ export const useProductAdmin = ({
   // Cập nhật flag nhiều sản phẩm
   const updateMultipleProductsFlag = useCallback(async (flagName: string, value: boolean): Promise<boolean> => {
     if (selectedProductIds.length === 0) return false;
-    
+
     try {
       setLoading(true);
-      
+
       // Lặp qua từng sản phẩm đã chọn và cập nhật flag
-      const updatePromises = selectedProductIds.map(id => 
+      const updatePromises = selectedProductIds.map(id =>
         fetch(`${API_URL}/admin/products/${id}/flags`, {
           method: 'PATCH',
           headers: getAuthHeader(),
           body: JSON.stringify({ flags: { [flagName]: value } })
         })
       );
-      
+
       const results = await Promise.all(updatePromises);
-      
+
       // Kiểm tra nếu có bất kỳ lỗi nào
       const hasErrors = results.some(res => !res.ok);
-      
+
       if (hasErrors) {
         throw new Error('Không thể cập nhật flag một số sản phẩm');
       }
-      
+
       // Fetch lại dữ liệu sau khi cập nhật
       await fetchProducts();
-      
+
       return true;
     } catch (error: any) {
       console.error('Error updating products flag:', error);
@@ -372,12 +383,12 @@ export const useProductAdmin = ({
       const isLoggedOut = sessionStorage.getItem('adminLoggedOut') === 'true';
       const isLoginPage = window.location.pathname.includes('/admin/auth/login');
       const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-      
+
       if (isLoggedOut || isLoginPage || !adminToken) {
         console.log('Người dùng đã đăng xuất hoặc đang ở trang đăng nhập, không kiểm tra kết nối API');
         return true; // Trả về true để không hiển thị lỗi
       }
-      
+
       // setHasTriedFetch(true); // Removed as part of SSR optimization
       const response = await fetch(`${API_URL}/health`);
       return response.ok;

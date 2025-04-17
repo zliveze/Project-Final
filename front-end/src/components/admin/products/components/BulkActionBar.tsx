@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiTrash2, FiTag, FiCheckCircle, FiAlertCircle, FiXCircle, FiChevronDown, FiFlag, FiStar, FiGift } from 'react-icons/fi';
+import { FiTrash2, FiTag, FiCheckCircle, FiAlertCircle, FiXCircle, FiChevronUp, FiFlag, FiStar, FiGift } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
 
 // Hook để xử lý click bên ngoài
@@ -45,10 +45,10 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showFlagMenu, setShowFlagMenu] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const statusMenuRef = useRef<HTMLDivElement>(null);
   const flagMenuRef = useRef<HTMLDivElement>(null);
-  
+
   // Đóng menu khi click bên ngoài
   useOnClickOutside(statusMenuRef, () => setShowStatusMenu(false));
   useOnClickOutside(flagMenuRef, () => setShowFlagMenu(false));
@@ -85,7 +85,7 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
   const handleStatusSelection = async (status: ProductStatus, e: React.MouseEvent) => {
     e.stopPropagation();
     closeAllMenus();
-    
+
     setIsProcessing(true);
     try {
       const success = await onBulkSetStatus(status);
@@ -105,7 +105,7 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
   const handleFlagSelection = async (flag: string, value: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
     closeAllMenus();
-    
+
     setIsProcessing(true);
     try {
       const success = await onBulkSetFlag(flag, value);
@@ -124,7 +124,7 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
    */
   const handleDeleteClick = async () => {
     if (selectedCount === 0 || disabled || isProcessing) return;
-    
+
     if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedCount} sản phẩm đã chọn không?`)) {
       setIsProcessing(true);
       try {
@@ -146,83 +146,83 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 shadow-lg z-50">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center">
-          <span className="text-sm font-medium text-gray-700 mr-4">
+          <span className="text-sm font-medium text-pink-600 mr-4 bg-pink-50 px-3 py-1 rounded-full">
             Đã chọn {selectedCount} sản phẩm
           </span>
           <button
             type="button"
             onClick={onClearSelection}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
             disabled={disabled || isProcessing}
           >
             Bỏ chọn tất cả
           </button>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           {/* Nút Thay đổi trạng thái */}
           <div className="relative" ref={statusMenuRef}>
             <button
               type="button"
               onClick={toggleStatusMenu}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 disabled:opacity-50 transition-all duration-200"
               disabled={disabled || isProcessing}
             >
-              <FiTag className="-ml-0.5 mr-2 h-4 w-4" />
+              <FiTag className="mr-2 h-4 w-4" />
               Thay đổi trạng thái
-              <FiChevronDown className="ml-2 h-4 w-4" />
+              <FiChevronUp className="ml-2 h-4 w-4" />
             </button>
-            
+
             {showStatusMenu && (
-              <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+              <div className="origin-bottom-right absolute right-0 bottom-full mb-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10 border border-gray-100">
                 <div className="py-1" role="menu" aria-orientation="vertical">
                   <button
                     type="button"
-                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
                     onClick={(e) => handleStatusSelection('active', e)}
                   >
-                    <FiCheckCircle className="mr-3 h-5 w-5 text-green-500" />
+                    <FiCheckCircle className="mr-3 h-4 w-4 text-green-500" />
                     Đang bán
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
                     onClick={(e) => handleStatusSelection('out_of_stock', e)}
                   >
-                    <FiAlertCircle className="mr-3 h-5 w-5 text-yellow-500" />
+                    <FiAlertCircle className="mr-3 h-4 w-4 text-yellow-500" />
                     Hết hàng
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
                     onClick={(e) => handleStatusSelection('discontinued', e)}
                   >
-                    <FiXCircle className="mr-3 h-5 w-5 text-red-500" />
+                    <FiXCircle className="mr-3 h-4 w-4 text-red-500" />
                     Ngừng kinh doanh
                   </button>
                 </div>
               </div>
             )}
           </div>
-          
+
           {/* Nút Đánh dấu */}
           <div className="relative" ref={flagMenuRef}>
             <button
               type="button"
               onClick={toggleFlagMenu}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 disabled:opacity-50 transition-all duration-200"
               disabled={disabled || isProcessing}
             >
-              <FiFlag className="-ml-0.5 mr-2 h-4 w-4" />
+              <FiFlag className="mr-2 h-4 w-4" />
               Đánh dấu
-              <FiChevronDown className="ml-2 h-4 w-4" />
+              <FiChevronUp className="ml-2 h-4 w-4" />
             </button>
-            
+
             {showFlagMenu && (
-              <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+              <div className="origin-bottom-right absolute right-0 bottom-full mb-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10 border border-gray-100 max-h-[80vh] overflow-y-auto">
                 <div className="py-1" role="menu" aria-orientation="vertical">
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Bật cờ
@@ -259,9 +259,9 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
                     <FiGift className="mr-3 h-5 w-5 text-purple-500" />
                     Có quà tặng
                   </button>
-                  
+
                   <div className="border-t border-gray-100 my-1"></div>
-                  
+
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tắt cờ
                   </div>
@@ -301,15 +301,15 @@ const BulkActionBar: React.FC<BulkActionBarProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Nút Xóa */}
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50 transition-all duration-200"
             disabled={disabled || isProcessing}
           >
-            <FiTrash2 className="-ml-0.5 mr-2 h-4 w-4" />
+            <FiTrash2 className="mr-2 h-4 w-4" />
             Xóa
           </button>
         </div>

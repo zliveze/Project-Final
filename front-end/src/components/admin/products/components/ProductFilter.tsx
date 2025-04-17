@@ -39,27 +39,27 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
 }) => {
   // Access the ProductContext for additional functionality
   const { statistics, fetchStatistics, loading: contextLoading } = useProduct();
-  
+
   // Sử dụng BrandContext và CategoryContext
   const { brands: brandsList, fetchBrands, loading: brandsLoading } = useBrands();
   const { categories: categoriesList, fetchCategories, loading: categoriesLoading } = useCategory();
-  
+
   // Lấy danh sách brands và categories từ statistics nếu có
   const statisticsBrands = (statistics as any)?.brands || [];
   const statisticsCategories = (statistics as any)?.categories || [];
-  
+
   // Hàm chuẩn hóa ID của danh mục và thương hiệu
   const getNormalizedId = (item: any) => {
     return item.id || item._id;
   };
-  
+
   // State cho tìm kiếm trong danh mục và thương hiệu
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [brandSearchTerm, setBrandSearchTerm] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  
+
   // Fetch statistics when component mounts or when advanced filters are shown
   useEffect(() => {
     // Gọi API khi component mount hoặc khi người dùng mở filter nâng cao
@@ -67,19 +67,19 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
       fetchStatistics();
     }
   }, [statistics, fetchStatistics, showAdvancedFilters]);
-  
+
   // Đảm bảo gọi API khi component mount
   useEffect(() => {
     fetchStatistics();
     fetchBrands(1, 100);
     fetchCategories(1, 100);
   }, []);
-  
+
   // Hàm xử lý khi người dùng bấm vào nút lọc nâng cao
   const handleToggleAdvancedFilters = () => {
     const newState = !showAdvancedFilters;
     setShowAdvancedFilters(newState);
-    
+
     // Nếu đang mở filter, gọi API để lấy dữ liệu
     if (newState) {
       console.log('Mở filter nâng cao, đang gọi API...');
@@ -119,7 +119,14 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
 
     console.log('Updated categories:', updatedCategories);
     setSelectedCategories(updatedCategories);
+
+    // Khi bỏ chọn tất cả, đảm bảo gọi API với tham số rỗng
     applyFilters({ categories: updatedCategories });
+
+    // Log thêm để debug
+    if (updatedCategories.length === 0) {
+      console.log('Bỏ chọn tất cả danh mục, gọi API với categories=[]');
+    }
   };
 
   const handleBrandChange = (brandId: string) => {
@@ -130,7 +137,14 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
 
     console.log('Updated brands:', updatedBrands);
     setSelectedBrands(updatedBrands);
+
+    // Khi bỏ chọn tất cả, đảm bảo gọi API với tham số rỗng
     applyFilters({ brands: updatedBrands });
+
+    // Log thêm để debug
+    if (updatedBrands.length === 0) {
+      console.log('Bỏ chọn tất cả thương hiệu, gọi API với brands=[]');
+    }
   };
 
   const handleStatusChange = (status: ProductStatus | '') => {
@@ -204,7 +218,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     const brandStats = (statistics as any).brands.find((brand: any) => getNormalizedId(brand) === brandId);
     return brandStats ? brandStats.count : null;
   };
-  
+
   // Hàm kiểm tra xem có dữ liệu brands và categories từ statistics hay không
   const hasDataFromStatistics = () => {
     return statistics && (
@@ -214,18 +228,18 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
-      <div className="p-4 border-b border-gray-200">
+    <div className="bg-white shadow rounded-xl overflow-hidden mb-6 border border-gray-100">
+      <div className="p-5 border-b border-gray-100">
         <div className="flex flex-col md:flex-row items-center space-y-3 md:space-y-0 md:space-x-4">
-          <div className="w-full md:w-1/3">
+          <div className="w-full md:w-1/4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="h-5 w-5 text-gray-400" />
+                <FiSearch className="h-4 w-4 text-gray-400" />
               </div>
               <input
                 type="text"
                 placeholder="Tìm theo tên hoặc mã SKU..."
-                className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full pl-10 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-500 transition-all duration-200"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -238,26 +252,26 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             <button
               onClick={handleSearch}
               disabled={combinedLoading}
-              className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
+              className="px-4 py-2.5 bg-pink-600 text-white rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-300 disabled:opacity-50 transition-all duration-200 shadow-sm"
             >
               Tìm kiếm
             </button>
 
             <button
               onClick={handleToggleAdvancedFilters}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
+              className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center transition-all duration-200"
             >
-              <FiFilter className="mr-1" />
+              <FiFilter className="mr-1.5 h-4 w-4" />
               Lọc nâng cao
-              {showAdvancedFilters ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />}
+              {showAdvancedFilters ? <FiChevronUp className="ml-1.5 h-4 w-4" /> : <FiChevronDown className="ml-1.5 h-4 w-4" />}
             </button>
 
             {hasActiveFilters() && (
               <button
                 onClick={clearAllFilters}
-                className="px-4 py-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center"
+                className="px-4 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-200 flex items-center transition-all duration-200"
               >
-                <FiX className="mr-1" />
+                <FiX className="mr-1.5 h-4 w-4" />
                 Xóa bộ lọc
               </button>
             )}
@@ -271,7 +285,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   <select
                     value={itemsPerPage}
                     onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-                    className="border border-gray-300 rounded-md text-sm p-1 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                    className="border border-gray-300 rounded-lg text-sm p-1.5 focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-500 transition-all duration-200"
                     disabled={combinedLoading}
                   >
                     <option value={10}>10</option>
@@ -286,17 +300,17 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
         </div>
 
         {showAdvancedFilters && (
-          <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-5 border-t border-gray-100 pt-5 grid grid-cols-1 md:grid-cols-4 gap-6">
                 {/* Bộ lọc danh mục */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Danh mục</h3>
-              
+
               {/* Thêm ô tìm kiếm cho danh mục */}
               <div className="mb-2 relative">
                 <input
                   type="text"
                   placeholder="Tìm danh mục..."
-                  className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-500 transition-all duration-200"
                   value={categorySearchTerm}
                   onChange={(e) => setCategorySearchTerm(e.target.value)}
                   disabled={combinedLoading}
@@ -310,12 +324,12 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   </button>
                 )}
               </div>
-              
+
               {/* Hiển thị số lượng đã chọn */}
               {selectedCategories.length > 0 && (
                 <div className="mb-2 text-xs text-pink-600 flex items-center">
                   <FiCheck className="mr-1" /> Đã chọn {selectedCategories.length} danh mục
-                  <button 
+                  <button
                     className="ml-auto text-xs text-gray-500 hover:text-gray-700"
                     onClick={() => {
                       setSelectedCategories([]);
@@ -326,11 +340,11 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   </button>
                 </div>
               )}
-              
-              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-md p-2">
+
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-lg p-3 shadow-sm">
                 {/* Lọc danh mục theo từ khóa tìm kiếm */}
                 {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
-                  .filter((category: any) => 
+                  .filter((category: any) =>
                     category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
                   )
                   .map((category: any) => {
@@ -342,7 +356,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                           <input
                             id={`category-${categoryId}`}
                             type="checkbox"
-                            className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                             checked={selectedCategories.includes(categoryId)}
                             onChange={() => handleCategoryChange(categoryId)}
                             disabled={combinedLoading}
@@ -352,7 +366,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                           </label>
                         </div>
                         {categoryCount !== null && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0 shadow-sm">
                             {categoryCount}
                           </span>
                         )}
@@ -363,9 +377,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   <p className="text-sm text-gray-500 italic">Không có danh mục</p>
                 )}
                 {/* Hiển thị thông báo khi không tìm thấy kết quả */}
-                {(categoriesList.length > 0 || statisticsCategories.length > 0 || categories.length > 0) && 
+                {(categoriesList.length > 0 || statisticsCategories.length > 0 || categories.length > 0) &&
                  (categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
-                  .filter((category: any) => 
+                  .filter((category: any) =>
                     category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
                   ).length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không tìm thấy danh mục phù hợp</p>
@@ -376,13 +390,13 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
             {/* Bộ lọc thương hiệu */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-2">Thương hiệu</h3>
-              
+
               {/* Thêm ô tìm kiếm cho thương hiệu */}
               <div className="mb-2 relative">
                 <input
                   type="text"
                   placeholder="Tìm thương hiệu..."
-                  className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-500 transition-all duration-200"
                   value={brandSearchTerm}
                   onChange={(e) => setBrandSearchTerm(e.target.value)}
                   disabled={combinedLoading}
@@ -396,12 +410,12 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   </button>
                 )}
               </div>
-              
+
               {/* Hiển thị số lượng đã chọn */}
               {selectedBrands.length > 0 && (
                 <div className="mb-2 text-xs text-pink-600 flex items-center">
                   <FiCheck className="mr-1" /> Đã chọn {selectedBrands.length} thương hiệu
-                  <button 
+                  <button
                     className="ml-auto text-xs text-gray-500 hover:text-gray-700"
                     onClick={() => {
                       setSelectedBrands([]);
@@ -412,8 +426,8 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   </button>
                 </div>
               )}
-              
-              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-md p-2">
+
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-lg p-3 shadow-sm">
                 {combinedLoading ? (
                   <div className="py-2 px-1">
                     <div className="animate-pulse flex space-x-2">
@@ -439,7 +453,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   // Ưu tiên sử dụng brands từ context, nếu không có thì sử dụng từ statistics hoặc props
                   // Lọc brands theo từ khóa tìm kiếm
                   (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
-                    .filter((brand: any) => 
+                    .filter((brand: any) =>
                       brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
                     )
                     .map((brand: any) => {
@@ -451,7 +465,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                             <input
                               id={`brand-${brandId}`}
                               type="checkbox"
-                              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                               checked={selectedBrands.includes(brandId)}
                               onChange={() => handleBrandChange(brandId)}
                               disabled={combinedLoading}
@@ -461,7 +475,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                             </label>
                           </div>
                           {brandCount !== null && (
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0 shadow-sm">
                               {brandCount}
                             </span>
                           )}
@@ -473,9 +487,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   <p className="text-sm text-gray-500 italic">Không có thương hiệu</p>
                 )}
                 {/* Hiển thị thông báo khi không tìm thấy kết quả */}
-                {!combinedLoading && (brandsList.length > 0 || statisticsBrands.length > 0 || brands.length > 0) && 
+                {!combinedLoading && (brandsList.length > 0 || statisticsBrands.length > 0 || brands.length > 0) &&
                  (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
-                  .filter((brand: any) => 
+                  .filter((brand: any) =>
                     brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
                   ).length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không tìm thấy thương hiệu phù hợp</p>
@@ -493,7 +507,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       id="status-all"
                       type="radio"
                       name="status"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 transition-all duration-200"
                       checked={selectedStatus === ''}
                       onChange={() => handleStatusChange('')}
                       disabled={combinedLoading}
@@ -503,7 +517,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.total && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.total}
                     </span>
                   )}
@@ -514,7 +528,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       id="status-active"
                       type="radio"
                       name="status"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 transition-all duration-200"
                       checked={selectedStatus === 'active'}
                       onChange={() => handleStatusChange('active')}
                       disabled={combinedLoading}
@@ -524,7 +538,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.active !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.active}
                     </span>
                   )}
@@ -535,7 +549,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       id="status-out_of_stock"
                       type="radio"
                       name="status"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 transition-all duration-200"
                       checked={selectedStatus === 'out_of_stock'}
                       onChange={() => handleStatusChange('out_of_stock')}
                       disabled={combinedLoading}
@@ -545,7 +559,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.outOfStock !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.outOfStock}
                     </span>
                   )}
@@ -556,7 +570,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       id="status-discontinued"
                       type="radio"
                       name="status"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 transition-all duration-200"
                       checked={selectedStatus === 'discontinued'}
                       onChange={() => handleStatusChange('discontinued')}
                       disabled={combinedLoading}
@@ -566,7 +580,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.discontinued !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.discontinued}
                     </span>
                   )}
@@ -583,7 +597,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     <input
                       id="flag-bestseller"
                       type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                       checked={selectedFlags.isBestSeller}
                       onChange={() => handleFlagChange('isBestSeller')}
                       disabled={combinedLoading}
@@ -593,7 +607,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.bestSellers !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.bestSellers}
                     </span>
                   )}
@@ -603,7 +617,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     <input
                       id="flag-new"
                       type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                       checked={selectedFlags.isNew}
                       onChange={() => handleFlagChange('isNew')}
                       disabled={combinedLoading}
@@ -613,7 +627,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.newProducts !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.newProducts}
                     </span>
                   )}
@@ -623,7 +637,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     <input
                       id="flag-sale"
                       type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                       checked={selectedFlags.isOnSale}
                       onChange={() => handleFlagChange('isOnSale')}
                       disabled={combinedLoading}
@@ -633,7 +647,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.onSale !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.onSale}
                     </span>
                   )}
@@ -643,7 +657,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     <input
                       id="flag-gifts"
                       type="checkbox"
-                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
                       checked={selectedFlags.hasGifts}
                       onChange={() => handleFlagChange('hasGifts')}
                       disabled={combinedLoading}
@@ -653,7 +667,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                     </label>
                   </div>
                   {statistics?.withGifts !== undefined && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
                       {statistics.withGifts}
                     </span>
                   )}

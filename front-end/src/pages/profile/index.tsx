@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 // Toast container is now in DefaultLayout
 
-import { useAuth } from '../../contexts/AuthContext'; // Import useAuth
 import { ProfileProvider, useProfile } from '../../contexts/user/ProfileContext';
 import DefaultLayout from '../../layout/DefaultLayout';
 import ProfileHeader from '../../components/profile/ProfileHeader';
@@ -14,7 +13,6 @@ import ProfileContent from '../../components/profile/ProfileContent';
 // Component con lấy dữ liệu từ Context
 const ProfileMain: React.FC = () => {
   const router = useRouter();
-  // const { isAuthenticated, isLoading: authLoading } = useAuth(); // Gỡ bỏ - ProfileContext đã xử lý
   const {
     user,
     activeTab,
@@ -48,13 +46,6 @@ const ProfileMain: React.FC = () => {
     handleSetDefaultAddress,
     isLoading,
   } = useProfile();
-
-  // useEffect(() => { // Gỡ bỏ - ProfileContext đã xử lý
-  //   // Chỉ kiểm tra khi auth context đã load xong và user chưa đăng nhập
-  //   if (!authLoading && !isAuthenticated) {
-  //     router.push('/auth/login'); // Chuyển hướng đến /auth/login
-  //   }
-  // }, [isAuthenticated, authLoading, router]);
 
   // Đếm số thông báo chưa đọc - Thêm kiểm tra null/undefined
   const unreadNotificationCount = Array.isArray(notifications)

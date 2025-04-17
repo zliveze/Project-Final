@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiLayers } from 'react-icons/fi';
+import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiLayers, FiPackage, FiAlertCircle } from 'react-icons/fi';
 import { ProductFormData, BranchItem, ProductVariant, VariantCombination } from '../types';
 
 // Thêm style cho animation
@@ -299,7 +299,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Thêm style cho animation */}
       <style>{notificationAnimation}</style>
 
@@ -323,13 +323,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
         </div>
       )}
 
-      <div className="flex justify-between items-center">
+      <div className="flex items-center space-x-2 pb-2 border-b border-gray-200 mb-4">
+        <FiLayers className="text-pink-500 w-5 h-5" />
         <h3 className="text-lg font-medium">Quản lý tồn kho</h3>
         {!isViewMode && (
           <button
             type="button"
             onClick={() => handleShowBranchModal(branches)}
-            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 shadow-sm transition-all duration-200"
           >
             <FiPlus className="mr-1" /> Thêm chi nhánh
           </button>
@@ -337,21 +338,36 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       </div>
 
       {/* Tổng quan tồn kho */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Tổng tồn kho</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100">
+              <FiPackage className="text-blue-500 w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-700">Tổng tồn kho</h4>
+          </div>
           <p className="text-2xl font-bold text-gray-900">{getTotalInventory().toLocaleString()}</p>
           <p className="text-xs text-gray-500 mt-1">Tổng số sản phẩm trong kho</p>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Chi nhánh còn hàng</h4>
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100">
+              <FiCheck className="text-green-500 w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-700">Chi nhánh còn hàng</h4>
+          </div>
           <p className="text-2xl font-bold text-green-600">{getInStockBranchesCount()}</p>
           <p className="text-xs text-gray-500 mt-1">Số chi nhánh có tồn kho &gt; 0</p>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Chi nhánh sắp hết hàng</h4>
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100">
+              <FiAlertCircle className="text-yellow-500 w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-700">Chi nhánh sắp hết hàng</h4>
+          </div>
           <p className="text-2xl font-bold text-yellow-600">{getLowStockBranchesCount()}</p>
           <p className="text-xs text-gray-500 mt-1">Số chi nhánh có tồn kho thấp hơn ngưỡng</p>
         </div>
@@ -359,7 +375,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
       {/* Panel quản lý tồn kho biến thể */}
       {selectedBranchForVariants && formData.variants && formData.variants.length > 0 && (
-        <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200 shadow-sm">
+        <div className="mt-6 bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-300">
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-md font-medium text-blue-800">
               Quản lý tồn kho biến thể cho chi nhánh: {getInventoryWithNames().find(item => item.branchId === selectedBranchForVariants)?.branchName}
@@ -374,7 +390,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           </div>
 
           {branchVariants.length > 0 ? (
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white">
+            <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white">
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
                   <tr>
@@ -449,7 +465,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
       {/* Panel quản lý tồn kho tổ hợp biến thể */}
       {selectedBranchForVariants && selectedVariantForCombinations && variantCombinations.length > 0 && (
-        <div className="mt-4 bg-pink-50 p-4 rounded-lg border border-pink-200 shadow-sm">
+        <div className="mt-6 bg-pink-50 p-5 rounded-lg border border-pink-200 shadow-sm hover:shadow-md transition-shadow duration-300">
           <div className="flex justify-between items-center mb-4">
             <h4 className="text-md font-medium text-pink-800">
               Quản lý tồn kho tổ hợp cho biến thể: {branchVariants.find(v => v.variantId === selectedVariantForCombinations)?.name || 'Biến thể'}
@@ -506,7 +522,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
       {/* Danh sách tồn kho theo chi nhánh */}
       {formData.inventory && formData.inventory.length > 0 ? (
-        <div className="mt-4 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+        <div className="mt-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 ring-1 ring-black ring-opacity-5 sm:rounded-lg">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>

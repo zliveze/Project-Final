@@ -896,19 +896,22 @@ function AdminProducts({
     const adminFilters: Partial<ProductAdminFilter> = {
       search: newFilter.searchTerm,
       // Nếu có brands được chọn, chuyển thành chuỗi các ID cách nhau bằng dấu phẩy
+      // Nếu không có brands được chọn, đặt rõ ràng là undefined để loại bỏ tham số này khỏi URL
       brandId: newFilter.brands.length > 0 ? newFilter.brands.join(',') : undefined,
       // Nếu có categories được chọn, chuyển thành chuỗi các ID cách nhau bằng dấu phẩy
+      // Nếu không có categories được chọn, đặt rõ ràng là undefined để loại bỏ tham số này khỏi URL
       categoryId: newFilter.categories.length > 0 ? newFilter.categories.join(',') : undefined,
       // Trạng thái sản phẩm
       status: newFilter.status,
-      // Các flags
-      isBestSeller: newFilter.flags.isBestSeller,
-      isNew: newFilter.flags.isNew,
-      isOnSale: newFilter.flags.isOnSale,
-      hasGifts: newFilter.flags.hasGifts
+      // Các flags - chỉ gửi khi giá trị là true
+      isBestSeller: newFilter.flags.isBestSeller || undefined,
+      isNew: newFilter.flags.isNew || undefined,
+      isOnSale: newFilter.flags.isOnSale || undefined,
+      hasGifts: newFilter.flags.hasGifts || undefined
     };
 
-    debugLog('Applying filters to products:', adminFilters);
+    // Log để debug
+    console.log('Applying filters to products:', adminFilters);
     applyFilter(adminFilters);
   };
 
