@@ -26,27 +26,27 @@ export default function Breadcrum({ items, className = '', showHome = true }: Br
 
   // Nếu chưa mount, hiển thị một div trống để tránh lỗi hydration
   if (!mounted) {
-    return <div className={`breadcrum bg-[#fdf2f8] border-b border-pink-100 relative z-30 ${className}`}></div>;
+    return <div className={`breadcrum relative z-30 ${className}`}></div>;
   }
 
   return (
-    <div className={`breadcrum bg-[#fdf2f8] border-b border-pink-100 relative z-30 ${className}`}>
+    <div className={`breadcrum relative z-30 ${className}`}>
       <div className="container mx-auto px-4 py-3">
-        <nav className="flex items-center text-sm">
+        <nav className="flex items-center flex-wrap text-xs">
           {/* Chỉ hiển thị link Trang chủ nếu showHome = true và item đầu tiên không phải là Trang chủ */}
           {showHome && !hasHomeItem && (
             <>
               <Link
                 href="/"
-                className="flex items-center text-pink-600 hover:text-pink-700 transition-colors"
+                className="flex items-center text-gray-500 hover:text-pink-600 transition-colors"
               >
-                <FiHome className="mr-1" />
+                <FiHome className="w-3.5 h-3.5 mr-1" />
                 <span>Trang chủ</span>
               </Link>
 
               {items.length > 0 && (
-                <div className="flex items-center mx-2 text-gray-400">
-                  <FiChevronRight size={14} />
+                <div className="flex items-center mx-1.5 text-gray-300">
+                  <FiChevronRight size={12} />
                 </div>
               )}
             </>
@@ -56,8 +56,8 @@ export default function Breadcrum({ items, className = '', showHome = true }: Br
             <React.Fragment key={index}>
               {/* Hiển thị icon mũi tên chỉ khi không phải là item đầu tiên */}
               {index > 0 && (
-                <div className="flex items-center mx-2 text-gray-400">
-                  <FiChevronRight size={14} />
+                <div className="flex items-center mx-1.5 text-gray-300">
+                  <FiChevronRight size={12} />
                 </div>
               )}
 
@@ -65,20 +65,20 @@ export default function Breadcrum({ items, className = '', showHome = true }: Br
               {index === 0 && item.label.toLowerCase() === 'trang chủ' ? (
                 <Link
                   href={item.href || '/'}
-                  className="flex items-center text-pink-600 hover:text-pink-700 transition-colors"
+                  className="flex items-center text-gray-500 hover:text-pink-600 transition-colors"
                 >
-                  <FiHome className="mr-1" />
+                  <FiHome className="w-3.5 h-3.5 mr-1" />
                   <span>{item.label}</span>
                 </Link>
               ) : item.href ? (
                 <Link
                   href={item.href}
-                  className="text-pink-600 hover:text-pink-700 transition-colors"
+                  className="text-gray-500 hover:text-pink-600 transition-colors"
                 >
                   {item.label}
                 </Link>
               ) : (
-                <span className="text-gray-600 font-medium">{item.label}</span>
+                <span className="text-gray-700 font-medium">{item.label}</span>
               )}
             </React.Fragment>
           ))}

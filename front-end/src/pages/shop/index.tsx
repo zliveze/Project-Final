@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import ProductCardShop from '../../components/common/ProductCardShop';
 import ShopFilters from '../../components/shop/ShopFilters';
@@ -69,7 +69,9 @@ export default function Shop() {
     filters,
     setFilters,
     changePage,
-    selectedCampaign
+    selectedCampaign,
+    fetchProducts,
+    itemsPerPage
   } = useShopProduct();
 
   // Không cần state nữa vì đã sử dụng useMemo
@@ -80,47 +82,60 @@ export default function Shop() {
   const { categories } = useCategories();
   const { brands } = useBrands();
 
+  // Khai báo hàm xử lý URL parameters ở mức component để có thể sử dụng ở nhiều nơi
+  const handleUrlParams = useCallback(() => {
+    // Lấy URL parameters từ chuỗi truy vấn
+    const searchParams = new URLSearchParams(window.location.search);
+    const newFilters: Partial<ShopProductFilters> = {};
+
+    // Lấy các tham số cơ bản
+    const eventId = searchParams.get('eventId');
+    const campaignId = searchParams.get('campaignId');
+
+    // Chỉ áp dụng một loại filter: hoặc eventId hoặc campaignId, không áp dụng cả hai
+    if (campaignId && campaignId !== 'undefined') {
+      // Nếu có campaignId, chỉ áp dụng campaignId
+      newFilters.campaignId = campaignId;
+      // Đảm bảo eventId không được áp dụng
+      newFilters.eventId = undefined;
+    } else if (eventId && eventId !== 'undefined') {
+      // Nếu không có campaignId nhưng có eventId, áp dụng eventId
+      newFilters.eventId = eventId;
+      // Đảm bảo campaignId không được áp dụng
+      newFilters.campaignId = undefined;
+    }
+
+    // Chỉ áp dụng filters nếu có thay đổi và có ít nhất một filter
+    if (Object.keys(newFilters).length > 0) {
+      const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
+        return filters[key as keyof ShopProductFilters] !== value;
+      });
+
+      if (needsUpdate) {
+        // Log để debug
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Cập nhật filters từ URL:', newFilters);
+        }
+        setFilters(newFilters, false); // false = không bỏ qua fetch
+      }
+    }
+  }, [filters, setFilters]);
+
+  // Khai báo handleRouteChange ở mức component để có thể sử dụng ở nhiều nơi
+  const handleRouteChange = useCallback(() => handleUrlParams(), [handleUrlParams]);
+
   // Xử lý URL parameters khi component mount và khi URL thay đổi
   useEffect(() => {
-    // Hàm xử lý URL parameters
-    const handleUrlParams = () => {
-      // Lấy URL parameters từ chuỗi truy vấn
-      const searchParams = new URLSearchParams(window.location.search);
-      const newFilters: Partial<ShopProductFilters> = {};
-
-      // Lấy các tham số cơ bản
-      const eventId = searchParams.get('eventId');
-      const campaignId = searchParams.get('campaignId');
-      const promotion = searchParams.get('promotion');
-
-      // Áp dụng các tham số trực tiếp
-      if (eventId) newFilters.eventId = eventId;
-      if (campaignId && campaignId !== 'undefined') newFilters.campaignId = campaignId;
-      if (promotion === 'flash-sale' && eventId) newFilters.eventId = eventId;
-
-      // Chỉ áp dụng filters nếu có thay đổi
-      if (Object.keys(newFilters).length > 0) {
-        const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
-          return filters[key as keyof ShopProductFilters] !== value;
-        });
-
-        if (needsUpdate) {
-          setFilters(newFilters, false); // false = không bỏ qua fetch
-        }
-      }
-    };
-
-    // Xử lý params ngay khi component được mount hoặc URL thay đổi
+    // Xử lý params ngay khi component được mount
     handleUrlParams();
 
     // Lắng nghe sự kiện route change
-    const handleRouteChange = () => handleUrlParams();
     router.events.on('routeChangeComplete', handleRouteChange);
 
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
     };
-  }, [router, filters, setFilters]); // Chỉ phụ thuộc vào router, filters và setFilters
+  }, [router, handleUrlParams, handleRouteChange]); // Chỉ phụ thuộc vào router và các hàm callback
 
   // Đếm số bộ lọc đang hoạt động - sử dụng useMemo thay vì useEffect
   const activeFiltersCount = React.useMemo(() => {
@@ -363,33 +378,45 @@ export default function Shop() {
                 <button
                   className="text-[#d53f8c] hover:underline text-sm"
                   onClick={() => {
-                    // Reset tất cả filter về undefined
-                    setFilters({
-                      search: undefined,
-                      brandId: undefined,
-                      categoryId: undefined,
-                      status: undefined,
-                      minPrice: undefined,
-                      maxPrice: undefined,
-                      tags: undefined,
-                      skinTypes: undefined,
-                      concerns: undefined,
-                      isBestSeller: undefined,
-                      isNew: undefined,
-                      isOnSale: undefined,
-                      hasGifts: undefined,
-                      eventId: undefined,
-                      campaignId: undefined,
-                      sortBy: undefined,
-                      sortOrder: undefined
-                    });
-
-                    // Cập nhật URL để xóa tất cả tham số
+                    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
                     const url = new URL(window.location.href);
-                    // Lưu lại đường dẫn cơ bản '/shop'
                     const pathname = url.pathname;
-                    // Xóa tất cả tham số query
-                    router.replace(pathname, undefined, { shallow: true });
+
+                    // Tạm thời tắt lắng nghe sự kiện route change để tránh gọi lại handleUrlParams
+                    router.events.off('routeChangeComplete', handleRouteChange);
+
+                    // Xóa tất cả tham số query và đợi hoàn thành
+                    router.replace(pathname, undefined, { shallow: true })
+                      .then(() => {
+                        // Reset tất cả filter về undefined
+                        setFilters({
+                          search: undefined,
+                          brandId: undefined,
+                          categoryId: undefined,
+                          status: undefined,
+                          minPrice: undefined,
+                          maxPrice: undefined,
+                          tags: undefined,
+                          skinTypes: undefined,
+                          concerns: undefined,
+                          isBestSeller: undefined,
+                          isNew: undefined,
+                          isOnSale: undefined,
+                          hasGifts: undefined,
+                          eventId: undefined,
+                          campaignId: undefined,
+                          sortBy: undefined,
+                          sortOrder: undefined
+                        }, true); // Thêm tham số skipFetch=true để tránh gọi API ngay lập tức
+
+                        // Sau đó gọi fetchProducts để cập nhật dữ liệu
+                        setTimeout(() => {
+                          // Bật lại lắng nghe sự kiện route change
+                          router.events.on('routeChangeComplete', handleRouteChange);
+                          // Fetch products với filters đã reset
+                          fetchProducts(1, itemsPerPage, {}, true);
+                        }, 0);
+                      });
                   }}
                 >
                   Xóa tất cả bộ lọc
@@ -432,33 +459,45 @@ export default function Shop() {
                 <button
                   className="bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1] text-white px-4 py-2 rounded-md transition-colors"
                   onClick={() => {
-                    // Reset tất cả filter về undefined
-                    setFilters({
-                      search: undefined,
-                      brandId: undefined,
-                      categoryId: undefined,
-                      status: undefined,
-                      minPrice: undefined,
-                      maxPrice: undefined,
-                      tags: undefined,
-                      skinTypes: undefined,
-                      concerns: undefined,
-                      isBestSeller: undefined,
-                      isNew: undefined,
-                      isOnSale: undefined,
-                      hasGifts: undefined,
-                      eventId: undefined,
-                      campaignId: undefined,
-                      sortBy: undefined,
-                      sortOrder: undefined
-                    });
-
-                    // Cập nhật URL để xóa tất cả tham số
+                    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
                     const url = new URL(window.location.href);
-                    // Lưu lại đường dẫn cơ bản '/shop'
                     const pathname = url.pathname;
-                    // Xóa tất cả tham số query
-                    router.replace(pathname, undefined, { shallow: true });
+
+                    // Tạm thời tắt lắng nghe sự kiện route change để tránh gọi lại handleUrlParams
+                    router.events.off('routeChangeComplete', handleRouteChange);
+
+                    // Xóa tất cả tham số query và đợi hoàn thành
+                    router.replace(pathname, undefined, { shallow: true })
+                      .then(() => {
+                        // Reset tất cả filter về undefined
+                        setFilters({
+                          search: undefined,
+                          brandId: undefined,
+                          categoryId: undefined,
+                          status: undefined,
+                          minPrice: undefined,
+                          maxPrice: undefined,
+                          tags: undefined,
+                          skinTypes: undefined,
+                          concerns: undefined,
+                          isBestSeller: undefined,
+                          isNew: undefined,
+                          isOnSale: undefined,
+                          hasGifts: undefined,
+                          eventId: undefined,
+                          campaignId: undefined,
+                          sortBy: undefined,
+                          sortOrder: undefined
+                        }, true); // Thêm tham số skipFetch=true để tránh gọi API ngay lập tức
+
+                        // Sau đó gọi fetchProducts để cập nhật dữ liệu
+                        setTimeout(() => {
+                          // Bật lại lắng nghe sự kiện route change
+                          router.events.on('routeChangeComplete', handleRouteChange);
+                          // Fetch products với filters đã reset
+                          fetchProducts(1, itemsPerPage, {}, true);
+                        }, 0);
+                      });
                   }}
                 >
                   Xóa tất cả bộ lọc

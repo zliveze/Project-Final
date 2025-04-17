@@ -1,7 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { FiPhone, FiMail, FiMapPin, FiFacebook, FiInstagram, FiYoutube, FiShoppingBag, FiTag, FiInfo, FiHelpCircle } from 'react-icons/fi'
+import { FiPhone, FiMail, FiMapPin, FiFacebook, FiInstagram, FiYoutube, FiShoppingBag, FiTag, FiInfo, FiHelpCircle, FiCreditCard } from 'react-icons/fi'
 
 // Thông tin công ty từ model Branches
 const companyInfo = {
@@ -81,210 +81,157 @@ export default function Footer() {
 
   // Nếu chưa mount, hiển thị một div trống để tránh lỗi hydration
   if (!mounted) {
-    return <div className="bg-gradient-to-b from-[#f8f6fb] to-[#fef1f7] py-10"></div>;
+    return <div className="bg-white py-10"></div>;
   }
-  return (
-    <footer className="bg-gradient-to-b from-[#f8f6fb] to-[#fef1f7]">
-      {/* Top Footer with Gradient Border */}
-      <div className="h-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400"></div>
 
-      <div className="container mx-auto px-4 py-10">
+  return (
+    <footer className="bg-white border-t border-gray-100">
+      {/* Top Footer with Subtle Pink Border */}
+      <div className="h-0.5 bg-pink-300"></div>
+
+      <div className="container mx-auto px-4 py-12">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-pink-600">YUMIN</h3>
-              <div className="h-1 w-10 bg-pink-600 ml-3 rounded-full"></div>
-            </div>
+          <div className="lg:col-span-1">
+            <h3 className="text-base font-semibold text-pink-600 mb-4">YUMIN</h3>
             <div className="space-y-3 text-sm text-gray-600">
               <p className="font-medium">{companyInfo.name}</p>
               <div className="flex items-start gap-2">
-                <FiMapPin className="w-5 h-5 mt-0.5 text-pink-500" />
-                <p>{companyInfo.address}</p>
+                <FiMapPin className="w-4 h-4 mt-0.5 text-pink-500 flex-shrink-0" />
+                <p className="text-gray-500">{companyInfo.address}</p>
               </div>
               <div className="flex items-center gap-2">
-                <FiPhone className="w-5 h-5 text-pink-500" />
-                <p>{companyInfo.phone}</p>
+                <FiPhone className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                <p className="text-gray-500">{companyInfo.phone}</p>
               </div>
               <div className="flex items-center gap-2">
-                <FiMail className="w-5 h-5 text-pink-500" />
-                <p>{companyInfo.email}</p>
-              </div>
-              <p className="text-xs">{companyInfo.businessLicense}</p>
-            </div>
-
-            {/* Chi nhánh */}
-            <div className="mt-6">
-              <h4 className="text-sm font-bold mb-3 text-pink-600">Hệ thống cửa hàng</h4>
-              <div className="space-y-3">
-                {branches.map((branch, index) => (
-                  <div key={index} className="text-sm text-gray-600">
-                    <p className="font-medium">{branch.name}</p>
-                    <p className="text-xs">{branch.address}</p>
-                    <p className="text-xs">Liên hệ: {branch.contact}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Shop Links */}
-          <div>
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-pink-600">Mua sắm</h3>
-              <div className="h-1 w-10 bg-pink-600 ml-3 rounded-full"></div>
-            </div>
-            <ul className="space-y-2">
-              {footerLinks.shop.map((link) => (
-                <li key={link.name} className="group">
-                  <Link
-                    href={link.href}
-                    className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-2 text-pink-500">{link.icon}</span>
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* About Links */}
-          <div>
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-pink-600">Về chúng tôi</h3>
-              <div className="h-1 w-10 bg-pink-600 ml-3 rounded-full"></div>
-            </div>
-            <ul className="space-y-2">
-              {footerLinks.about.map((link) => (
-                <li key={link.name} className="group">
-                  <Link
-                    href={link.href}
-                    className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-2 text-pink-500">{link.icon}</span>
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support & Policy */}
-          <div>
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-pink-600">Hỗ trợ</h3>
-              <div className="h-1 w-10 bg-pink-600 ml-3 rounded-full"></div>
-            </div>
-            <ul className="space-y-2">
-              {footerLinks.support.map((link) => (
-                <li key={link.name} className="group">
-                  <Link
-                    href={link.href}
-                    className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-2 text-pink-500">{link.icon}</span>
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-
-            <div className="flex items-center mt-6 mb-4">
-              <h3 className="text-lg font-bold text-pink-600">Chính sách</h3>
-              <div className="h-1 w-10 bg-pink-600 ml-3 rounded-full"></div>
-            </div>
-            <ul className="space-y-2">
-              {footerLinks.policy.map((link) => (
-                <li key={link.name} className="group">
-                  <Link
-                    href={link.href}
-                    className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
-                  >
-                    <span className="mr-2 text-pink-500">{link.icon}</span>
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Bottom Footer */}
-        <div className="mt-10 pt-8 border-t border-pink-100">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Payment Methods */}
-            <div>
-              <h4 className="text-sm font-bold mb-4 text-pink-600">Phương thức thanh toán</h4>
-              <div className="flex items-center gap-4">
-                {paymentMethods.map((method) => (
-                  <div
-                    key={method.name}
-                    className="w-12 h-8 bg-white rounded-md shadow-sm flex items-center justify-center border border-pink-100"
-                  >
-                    <Image
-                      src={method.image}
-                      alt={method.name}
-                      width={32}
-                      height={20}
-                      className="object-contain"
-                    />
-                  </div>
-                ))}
+                <FiMail className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                <p className="text-gray-500">{companyInfo.email}</p>
               </div>
             </div>
 
             {/* Social Links */}
-            <div className="md:text-right">
-              <h4 className="text-sm font-bold mb-4 text-pink-600">Kết nối với chúng tôi</h4>
-              <div className="flex items-center gap-4 md:justify-end">
+            <div className="mt-6">
+              <div className="flex items-center gap-3">
                 <a
                   href={socialMedia.facebook}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
+                  className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-200"
                 >
-                  <FiFacebook className="w-5 h-5" />
+                  <FiFacebook className="w-4 h-4" />
                 </a>
                 <a
                   href={socialMedia.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
+                  className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-200"
                 >
-                  <FiInstagram className="w-5 h-5" />
+                  <FiInstagram className="w-4 h-4" />
                 </a>
                 <a
                   href={socialMedia.youtube}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
+                  className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-200"
                 >
-                  <FiYoutube className="w-5 h-5" />
+                  <FiYoutube className="w-4 h-4" />
                 </a>
               </div>
+            </div>
+          </div>
+
+          {/* Links Columns */}
+          <div>
+            <h3 className="text-base font-semibold text-pink-600 mb-4">Mua sắm</h3>
+            <ul className="space-y-2">
+              {footerLinks.shop.map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-500 hover:text-pink-600 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2 text-pink-400 opacity-70">{link.icon}</span>
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-base font-semibold text-pink-600 mb-4">Về chúng tôi</h3>
+            <ul className="space-y-2">
+              {footerLinks.about.map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-500 hover:text-pink-600 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2 text-pink-400 opacity-70">{link.icon}</span>
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            {/* Branches - Simplified */}
+            <h3 className="text-base font-semibold text-pink-600 mt-6 mb-4">Hệ thống cửa hàng</h3>
+            <ul className="space-y-2">
+              {branches.map((branch, index) => (
+                <li key={index} className="text-sm text-gray-500">
+                  <p className="font-medium">{branch.name}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-base font-semibold text-pink-600 mb-4">Hỗ trợ & Chính sách</h3>
+            <ul className="space-y-2">
+              {footerLinks.support.map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-500 hover:text-pink-600 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2 text-pink-400 opacity-70">{link.icon}</span>
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+
+              {footerLinks.policy.slice(0, 2).map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-500 hover:text-pink-600 transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2 text-pink-400 opacity-70">{link.icon}</span>
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            {/* Payment Methods */}
+            <h3 className="text-base font-semibold text-pink-600 mt-6 mb-4">Thanh toán</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <FiCreditCard className="w-5 h-5 text-gray-400" />
+              <span className="text-xs text-gray-500">Hỗ trợ nhiều phương thức thanh toán</span>
             </div>
           </div>
         </div>
 
         {/* Copyright */}
-        <div className="mt-10 pt-6 border-t border-pink-100 text-center">
-          <p className="text-sm text-gray-600">
-            © {new Date().getFullYear()} YUMIN. Tất cả các quyền được bảo lưu.
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom Footer with Dark Background */}
-      <div className="bg-gradient-to-r from-pink-500 to-purple-600 py-4">
-        <div className="container mx-auto px-4">
+        <div className="mt-10 pt-6 border-t border-gray-100">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-xs text-white/80 mb-2 md:mb-0">
-              Công ty TNHH YUMIN Việt Nam | Mã số thuế: {companyInfo.taxCode}
+            <p className="text-xs text-gray-500 mb-2 md:mb-0">
+              © {new Date().getFullYear()} YUMIN. Tất cả các quyền được bảo lưu.
             </p>
-            <p className="text-xs text-white/80">
-              Địa chỉ: {companyInfo.address}
+            <p className="text-xs text-gray-500">
+              {companyInfo.businessLicense}
             </p>
           </div>
         </div>

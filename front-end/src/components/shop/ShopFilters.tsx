@@ -7,6 +7,7 @@ import { TbBottle } from 'react-icons/tb';
 import { ShopProductFilters, useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { useCategories } from '@/contexts/user/categories/CategoryContext'; // Import Category context hook mới
 import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
+import { useRouter } from 'next/router';
 
 // Simplified FilterSection
 interface FilterSection {
@@ -34,7 +35,8 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
   const { categories, loading: loadingCategories } = useCategories(); // Use categories
   const { brands, loading: loadingBrands } = useBrands(); // Use brands
-  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions } = useShopProduct(); // Get skin type and concern options from context
+  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, fetchProducts, itemsPerPage } = useShopProduct(); // Get skin type and concern options from context
+  const router = useRouter();
 
   // No need for helper functions as we're using the raw data directly
 
@@ -323,38 +325,44 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Updated Reset Filters Handler
   const handleResetFilters = () => {
-    // Thực hiện reset filters
-    onFilterChange({
-      categoryId: undefined,
-      brandId: undefined,
-      minPrice: undefined,
-      maxPrice: undefined,
-      skinTypes: undefined,
-      concerns: undefined,
-      isOnSale: undefined,
-      hasGifts: undefined,
-      // Keep search term or reset it? Resetting for now.
-      search: undefined,
-      // Reset sorting if needed
-      // sortBy: 'createdAt',
-      // sortOrder: 'desc',
-      // Thêm các trường khác nếu cần
-      eventId: undefined,
-      campaignId: undefined,
-    });
+    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
+    const url = new URL(window.location.href);
+    const pathname = url.pathname;
 
-    // Reset các trạng thái local nếu cần
-    setSearchTerm(''); // Reset local search term state as well
-    setMinPriceInput('0');
-    setMaxPriceInput('5000000');
+    // Sử dụng router.replace để cập nhật URL và đợi hoàn thành
+    router.replace(pathname, undefined, { shallow: true })
+      .then(() => {
+        // Thực hiện reset filters
+        onFilterChange({
+          categoryId: undefined,
+          brandId: undefined,
+          minPrice: undefined,
+          maxPrice: undefined,
+          skinTypes: undefined,
+          concerns: undefined,
+          isOnSale: undefined,
+          hasGifts: undefined,
+          // Keep search term or reset it? Resetting for now.
+          search: undefined,
+          // Reset sorting if needed
+          // sortBy: 'createdAt',
+          // sortOrder: 'desc',
+          // Thêm các trường khác nếu cần
+          eventId: undefined,
+          campaignId: undefined,
+        });
 
-    // Cập nhật URL để xóa các tham số query liên quan
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      const pathname = url.pathname;
-      // Sử dụng window.history để thay đổi URL mà không refresh trang
-      window.history.replaceState({}, '', pathname);
-    }
+        // Reset các trạng thái local nếu cần
+        setSearchTerm(''); // Reset local search term state as well
+        setMinPriceInput('0');
+        setMaxPriceInput('5000000');
+
+        // Gọi fetchProducts để cập nhật dữ liệu
+        setTimeout(() => {
+          // Fetch products với filters đã reset
+          fetchProducts(1, itemsPerPage, {}, true);
+        }, 0);
+      });
   };
 
 
