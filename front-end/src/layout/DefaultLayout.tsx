@@ -134,11 +134,15 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
       <div className="min-h-screen flex flex-col relative">
         <BackgroundAnimation />
         <MainHeader />
-        {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
+        <div className="relative z-30">
+          {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
+        </div>
         <main className="flex-grow relative z-0">
           {children}
         </main>
-        <Footer />
+        <div className="relative z-10 mt-auto">
+          <Footer />
+        </div>
         <ToastContainer
           position="bottom-right"
           autoClose={3000}

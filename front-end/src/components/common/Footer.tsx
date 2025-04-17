@@ -72,11 +72,22 @@ const socialMedia = {
 }
 
 export default function Footer() {
+  const [mounted, setMounted] = React.useState(false);
+
+  // Xử lý hydration mismatch bằng cách chỉ render sau khi component đã được mount
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Nếu chưa mount, hiển thị một div trống để tránh lỗi hydration
+  if (!mounted) {
+    return <div className="bg-gradient-to-b from-[#f8f6fb] to-[#fef1f7] py-10"></div>;
+  }
   return (
     <footer className="bg-gradient-to-b from-[#f8f6fb] to-[#fef1f7]">
       {/* Top Footer with Gradient Border */}
       <div className="h-1 bg-gradient-to-r from-pink-400 via-purple-500 to-pink-400"></div>
-      
+
       <div className="container mx-auto px-4 py-10">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
@@ -127,7 +138,7 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.shop.map((link) => (
                 <li key={link.name} className="group">
-                  <Link 
+                  <Link
                     href={link.href}
                     className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
                   >
@@ -148,7 +159,7 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.about.map((link) => (
                 <li key={link.name} className="group">
-                  <Link 
+                  <Link
                     href={link.href}
                     className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
                   >
@@ -169,7 +180,7 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.support.map((link) => (
                 <li key={link.name} className="group">
-                  <Link 
+                  <Link
                     href={link.href}
                     className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
                   >
@@ -187,7 +198,7 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.policy.map((link) => (
                 <li key={link.name} className="group">
-                  <Link 
+                  <Link
                     href={link.href}
                     className="text-sm text-gray-600 hover:text-pink-600 transition-colors duration-200 flex items-center"
                   >
@@ -208,7 +219,7 @@ export default function Footer() {
               <h4 className="text-sm font-bold mb-4 text-pink-600">Phương thức thanh toán</h4>
               <div className="flex items-center gap-4">
                 {paymentMethods.map((method) => (
-                  <div 
+                  <div
                     key={method.name}
                     className="w-12 h-8 bg-white rounded-md shadow-sm flex items-center justify-center border border-pink-100"
                   >
@@ -228,25 +239,25 @@ export default function Footer() {
             <div className="md:text-right">
               <h4 className="text-sm font-bold mb-4 text-pink-600">Kết nối với chúng tôi</h4>
               <div className="flex items-center gap-4 md:justify-end">
-                <a 
+                <a
                   href={socialMedia.facebook}
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
                 >
                   <FiFacebook className="w-5 h-5" />
                 </a>
-                <a 
+                <a
                   href={socialMedia.instagram}
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
                 >
                   <FiInstagram className="w-5 h-5" />
                 </a>
-                <a 
+                <a
                   href={socialMedia.youtube}
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors duration-300 shadow-sm border border-pink-100"
                 >
@@ -264,7 +275,7 @@ export default function Footer() {
           </p>
         </div>
       </div>
-      
+
       {/* Bottom Footer with Dark Background */}
       <div className="bg-gradient-to-r from-pink-500 to-purple-600 py-4">
         <div className="container mx-auto px-4">

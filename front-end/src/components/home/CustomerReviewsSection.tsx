@@ -251,7 +251,7 @@ const CustomerReviewsSection: React.FC = () => {
   };
 
   return (
-    <section className="py-16 relative overflow-hidden">
+    <section className="py-16 relative overflow-hidden mb-10">
       <div className="container mx-auto px-4 relative z-10">
         {/* Heading */}
         <div className="text-center mb-12">

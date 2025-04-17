@@ -148,3 +148,19 @@ body {
     background-position: -200% 0;
   }
 }
+
+/* Footer styles */
+footer {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  display: block;
+}
+
+/* Breadcrum styles */
+.breadcrum {
+  position: relative;
+  z-index: 30;
+  width: 100%;
+  display: block;
+}

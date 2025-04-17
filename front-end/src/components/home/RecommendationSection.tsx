@@ -40,8 +40,8 @@ interface Product {
 
 // Hàm định dạng số cố định để tránh lỗi hydration
 const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('vi-VN', { 
-    style: 'currency', 
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
     currency: 'VND',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
@@ -255,7 +255,7 @@ const RatingStars = ({ rating }: { rating: number }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 !== 0;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-  
+
   return (
     <div className="flex items-center">
       {[...Array(fullStars)].map((_, i) => (
@@ -274,10 +274,10 @@ const RatingStars = ({ rating }: { rating: number }) => {
 const ProductCard = ({ product, index }: { product: Product; index: number }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  
+
   // Tính phần trăm giảm giá
   const discountPercentage = Math.round(((product.price - product.currentPrice) / product.price) * 100);
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -285,11 +285,11 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
-      <motion.div 
+      <motion.div
         className="bg-white rounded-xl shadow-sm overflow-hidden"
-        whileHover={{ 
+        whileHover={{
           y: -8,
-          boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.05)' 
+          boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.05)'
         }}
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
@@ -303,33 +303,33 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
                 transition={{ duration: 0.4 }}
                 className="w-full h-full flex items-center justify-center p-3"
               >
-                <Image 
-                  src={product.images[0].url} 
+                <Image
+                  src={product.images[0].url}
                   alt={product.images[0].alt}
                   width={220}
                   height={220}
                   className="object-contain w-full h-full"
                 />
               </motion.div>
-              
+
               {/* Action buttons on hover */}
-              <motion.div 
+              <motion.div
                 className="absolute bottom-3 inset-x-0 flex justify-center space-x-2 px-3"
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ 
+                animate={{
                   opacity: isHovered ? 1 : 0,
-                  y: isHovered ? 0 : 20 
+                  y: isHovered ? 0 : 20
                 }}
                 transition={{ duration: 0.3 }}
               >
-                <motion.button 
+                <motion.button
                   className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md text-gray-700 hover:text-pink-600"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >
                   <FiEye className="w-5 h-5" />
                 </motion.button>
-                <motion.button 
+                <motion.button
                   className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center shadow-md text-white"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
@@ -338,9 +338,9 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
                 </motion.button>
               </motion.div>
             </div>
-            
+
             {/* Favorite button */}
-            <motion.button 
+            <motion.button
               className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm"
               onClick={(e) => {
                 e.preventDefault();
@@ -355,7 +355,7 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
                 <FaRegHeart className="w-4 h-4 text-gray-400" />
               )}
             </motion.button>
-            
+
             {/* Badges */}
             <div className="absolute top-3 left-3 flex flex-col gap-1">
               {product.flags.isNew && (
@@ -389,18 +389,18 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
               )}
             </div>
           </div>
-          
+
           {/* Product info */}
           <div className="p-4">
             <h3 className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px] group-hover:text-pink-600 transition-colors">
               {product.name}
             </h3>
-            
+
             {/* Rating */}
             <div className="my-2">
               <RatingStars rating={product.reviews.averageRating} />
             </div>
-            
+
             {/* Price */}
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-base font-bold text-pink-600">{formatPrice(product.currentPrice)}</span>
@@ -408,7 +408,7 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
                 <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
               )}
             </div>
-            
+
             {/* Sold count with progress bar */}
             <div className="mt-1">
               <div className="flex justify-between items-center text-xs mb-1">
@@ -418,7 +418,7 @@ const ProductCard = ({ product, index }: { product: Product; index: number }) =>
                 )}
               </div>
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                   className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"
                   initial={{ width: 0 }}
                   whileInView={{ width: `${Math.min(100, product.inventory.soldCount / 5)}%` }}
@@ -445,17 +445,17 @@ export default function RecommendationSection() {
       }
     }
   };
-  
+
   return (
-    <section className="py-12 bg-gradient-to-b from-white to-pink-50 relative overflow-hidden">
+    <section className="py-12 mb-10 bg-gradient-to-b from-white to-pink-50 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-32 left-1/4 w-64 h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-60"></div>
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-pink-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70"></div>
       </div>
-      
+
       <div className="max-w-[1200px] mx-auto px-4 relative z-10">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -464,9 +464,9 @@ export default function RecommendationSection() {
         >
           <h2 className="text-3xl font-bold text-gray-800 mb-3">Sản Phẩm Đề Xuất Cho Bạn</h2>
           <p className="text-gray-600 text-center max-w-2xl mx-auto">Dựa trên lịch sử mua sắm và sở thích của bạn</p>
-          
+
           {/* Decorative line */}
-          <motion.div 
+          <motion.div
             className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
             initial={{ scale: 0, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
@@ -474,8 +474,8 @@ export default function RecommendationSection() {
             transition={{ duration: 0.6, delay: 0.3 }}
           ></motion.div>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5"
           variants={containerVariants}
           initial="hidden"
@@ -486,9 +486,9 @@ export default function RecommendationSection() {
             <ProductCard key={product.id} product={product} index={index} />
           ))}
         </motion.div>
-        
+
         {/* Thêm phần tagline và suggestion */}
-        <motion.div 
+        <motion.div
           className="mt-12 rounded-xl overflow-hidden shadow-lg bg-white"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -499,7 +499,7 @@ export default function RecommendationSection() {
           <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-6 md:p-8">
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="md:w-1/2">
-                <motion.h3 
+                <motion.h3
                   className="text-2xl md:text-3xl font-bold text-white mb-4"
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
@@ -508,7 +508,7 @@ export default function RecommendationSection() {
                 >
                   Khám Phá Thêm Sản Phẩm Phù Hợp Với Bạn
                 </motion.h3>
-                <motion.p 
+                <motion.p
                   className="text-pink-100 mb-6"
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
@@ -523,8 +523,8 @@ export default function RecommendationSection() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 0.2 }}
                 >
-                  <Link 
-                    href="/recommendations" 
+                  <Link
+                    href="/recommendations"
                     className="inline-block px-6 py-3 bg-white text-pink-600 hover:bg-pink-50 rounded-full font-medium transition-colors shadow-md hover:shadow-lg flex items-center"
                   >
                     Xem thêm sản phẩm đề xuất
@@ -532,11 +532,11 @@ export default function RecommendationSection() {
                   </Link>
                 </motion.div>
               </div>
-              
+
               <div className="md:w-1/2">
                 <div className="grid grid-cols-2 gap-4">
                   {recommendedProducts.slice(0, 4).map((product, index) => (
-                    <motion.div 
+                    <motion.div
                       key={`mini-${product.id}`}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
@@ -545,8 +545,8 @@ export default function RecommendationSection() {
                       className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center gap-3"
                     >
                       <div className="w-12 h-12 bg-white rounded-lg overflow-hidden flex-shrink-0">
-                        <Image 
-                          src={product.images[0].url} 
+                        <Image
+                          src={product.images[0].url}
                           alt={product.images[0].alt}
                           width={48}
                           height={48}
@@ -567,4 +567,4 @@ export default function RecommendationSection() {
       </div>
     </section>
   )
-} 
+}
