@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { FiTag } from 'react-icons/fi';
 import { ProductFormData } from '../types';
+import Select, { SingleValue, MultiValue } from 'react-select';
 
 interface BasicInfoTabProps {
   formData: ProductFormData;
@@ -12,6 +13,12 @@ interface BasicInfoTabProps {
   isViewMode?: boolean;
   brands: { id: string; name: string }[];
   categories: { id: string; name: string }[];
+}
+
+// Interface cho react-select options
+interface SelectOption {
+  value: string;
+  label: string;
 }
 
 /**
@@ -32,13 +39,13 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
   useEffect(() => {
     // Bỏ qua kiểm tra nếu không có dữ liệu brands hoặc categories
     if (!brands || brands.length === 0) return;
-    
+
     // Kiểm tra thương hiệu và danh mục hợp lệ một cách im lặng (không log)
     if (formData.brandId) {
       const brandExists = brands.some(brand => brand.id === formData.brandId);
       // Không log cảnh báo, chỉ kiểm tra cho giao diện
     }
-    
+
     if (formData.categoryIds && formData.categoryIds.length > 0) {
       formData.categoryIds.forEach(catId => {
         const categoryExists = categories.some(cat => cat.id === catId);
@@ -49,16 +56,88 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
 
   // Tìm thương hiệu hiện tại dựa trên brandId
   const currentBrand = brands.find(brand => brand.id === formData.brandId);
-  
+
   // Tìm các danh mục hiện tại không tồn tại trong danh sách danh mục
   const missingCategories = formData.categoryIds
-    .filter(catId => !categories.some(cat => cat.id === catId))
-    .map(catId => ({ id: catId, name: `ID: ${catId} (Không tìm thấy)` }));
+    ? formData.categoryIds.filter(catId => !categories.some(cat => cat.id === catId))
+      .map(catId => ({ id: catId, name: `ID: ${catId} (Không tìm thấy)` }))
+    : [];
+
+
+
+  // Chuyển đổi brands sang định dạng options cho react-select
+  const brandOptions = brands.map(brand => ({
+    value: brand.id,
+    label: brand.name
+  }));
+
+  // Thêm option cho thương hiệu hiện tại nếu không tồn tại trong danh sách
+  if (formData.brandId && !brands.some(brand => brand.id === formData.brandId)) {
+    brandOptions.push({
+      value: formData.brandId,
+      label: `${formData.brandId} (Không tìm thấy thương hiệu)`
+    });
+  }
+
+  // Chuyển đổi categories sang định dạng options cho react-select
+  const categoryOptions = categories.map(category => ({
+    value: category.id,
+    label: category.name
+  }));
+
+  // Thêm options cho các danh mục không tồn tại
+  missingCategories.forEach(category => {
+    categoryOptions.push({
+      value: category.id,
+      label: category.name
+    });
+  });
+
+  // Xử lý khi thay đổi thương hiệu từ react-select
+  const handleBrandChange = (selectedOption: SingleValue<SelectOption>) => {
+    if (selectedOption) {
+      handleInputChange({
+        target: {
+          name: 'brandId',
+          value: selectedOption.value
+        }
+      } as React.ChangeEvent<HTMLSelectElement>);
+    } else {
+      handleInputChange({
+        target: {
+          name: 'brandId',
+          value: ''
+        }
+      } as React.ChangeEvent<HTMLSelectElement>);
+    }
+  };
+
+  // Xử lý khi thay đổi danh mục từ react-select
+  const handleCategoriesChange = (selectedOptions: MultiValue<SelectOption>) => {
+    const selectedValues = selectedOptions.map(option => option.value);
+
+    // Giả lập sự kiện change cho select multiple
+    const syntheticEvent = {
+      target: {
+        name: 'categoryIds',
+        options: selectedValues.map(value => ({ selected: true, value }))
+      }
+    } as unknown as React.ChangeEvent<HTMLSelectElement>;
+
+    handleMultiSelectChange(syntheticEvent);
+  };
+
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 bg-white p-6 rounded-lg shadow-sm">
+      {/* Tiêu đề */}
+      <div className="border-b border-gray-200 pb-4 mb-6">
+        <h3 className="text-lg font-medium text-gray-800">Thông tin cơ bản</h3>
+        <p className="text-sm text-gray-500 mt-1">Nhập các thông tin cơ bản của sản phẩm</p>
+      </div>
+
       {/* Thông tin chính */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
         {/* Tên sản phẩm */}
         <div className="space-y-2">
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -73,7 +152,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             required
             disabled={isViewMode}
             placeholder="Nhập tên sản phẩm"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
           />
         </div>
 
@@ -91,7 +170,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             required
             disabled={isViewMode}
             placeholder="Nhập mã sản phẩm"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
           />
         </div>
 
@@ -108,9 +187,9 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             onChange={handleInputChange}
             disabled={isViewMode}
             placeholder="URL-friendly tên sản phẩm"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
           />
-          <p className="text-xs text-gray-500">Tự động tạo từ tên sản phẩm, có thể chỉnh sửa.</p>
+          <p className="text-xs text-gray-500 italic">Tự động tạo từ tên sản phẩm, có thể chỉnh sửa.</p>
         </div>
 
         {/* Trạng thái */}
@@ -124,7 +203,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             value={formData.status}
             onChange={handleInputChange}
             disabled={isViewMode}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100 appearance-none bg-white"
           >
             <option value="active">Đang bán</option>
             <option value="out_of_stock">Hết hàng</option>
@@ -147,7 +226,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               disabled={isViewMode}
               min="0"
               step="1000"
-              className="block w-full rounded-md border-gray-300 pl-7 pr-12 focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+              className="block w-full rounded-md border border-gray-300 pl-7 pr-12 py-2 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
               placeholder="0"
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -171,7 +250,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               disabled={isViewMode}
               min="0"
               step="1000"
-              className="block w-full rounded-md border-gray-300 pl-7 pr-12 focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
+              className="block w-full rounded-md border border-gray-300 pl-7 pr-12 py-2 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
               placeholder="0"
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -185,32 +264,51 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           <label htmlFor="brandId" className="block text-sm font-medium text-gray-700">
             Thương hiệu <span className="text-red-500">*</span>
           </label>
-          <select
-            id="brandId"
-            name="brandId"
-            value={formData.brandId || ''}
-            onChange={handleInputChange}
-            required
-            disabled={isViewMode}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm disabled:bg-gray-100"
-          >
-            <option value="">Chọn thương hiệu</option>
-            {brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>
-                {brand.name}
-              </option>
-            ))}
-            {/* Thêm thương hiệu hiện tại nếu không tồn tại trong danh sách */}
-            {formData.brandId && !currentBrand && (
-              <option key={formData.brandId} value={formData.brandId}>
-                {formData.brandId} (Không tìm thấy thương hiệu)
-              </option>
-            )}
-          </select>
-          {formData.brandId && !currentBrand && (
-            <p className="text-xs text-red-500">
-              Thương hiệu này không còn tồn tại trong hệ thống hoặc đã bị xóa.
-            </p>
+          {!isViewMode ? (
+            <>
+              <Select
+                id="brandId"
+                name="brandId"
+                value={brandOptions.find(option => option.value === formData.brandId) || null}
+                onChange={handleBrandChange}
+                options={brandOptions}
+                isDisabled={isViewMode}
+                placeholder="Chọn thương hiệu"
+                className="react-select-container"
+                classNamePrefix="react-select"
+                isClearable
+                isSearchable
+                styles={{
+                  control: (baseStyles, state) => ({
+                    ...baseStyles,
+                    borderColor: state.isFocused ? '#d53f8c' : '#e2e8f0',
+                    boxShadow: state.isFocused ? '0 0 0 1px #d53f8c' : 'none',
+                    '&:hover': {
+                      borderColor: state.isFocused ? '#d53f8c' : '#cbd5e0',
+                    },
+                    borderRadius: '0.375rem',
+                    padding: '1px',
+                  }),
+                  option: (baseStyles, state) => ({
+                    ...baseStyles,
+                    backgroundColor: state.isSelected ? '#d53f8c' : state.isFocused ? '#fce7f3' : 'white',
+                    color: state.isSelected ? 'white' : '#1a202c',
+                    '&:hover': {
+                      backgroundColor: state.isSelected ? '#d53f8c' : '#fce7f3',
+                    },
+                  }),
+                }}
+              />
+              {formData.brandId && !currentBrand && (
+                <p className="text-xs text-red-500 mt-1">
+                  Thương hiệu này không còn tồn tại trong hệ thống hoặc đã bị xóa.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
+              {currentBrand ? currentBrand.name : formData.brandId ? `${formData.brandId} (Không tìm thấy)` : 'Không có'}
+            </div>
           )}
         </div>
 
@@ -221,41 +319,72 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           </label>
           {!isViewMode ? (
             <>
-              <select
+              <Select
                 id="categoryIds"
                 name="categoryIds"
-                multiple
-                value={formData.categoryIds}
-                onChange={handleMultiSelectChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-                size={4}
-              >
-                {/* Danh mục hiện tại trong hệ thống */}
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-                
-                {/* Danh mục không tìm thấy trong hệ thống (nếu có) */}
-                {missingCategories.map((category) => (
-                  <option key={category.id} value={category.id} className="text-red-500">
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              
+                isMulti
+                value={categoryOptions.filter(option => formData.categoryIds?.includes(option.value))}
+                onChange={handleCategoriesChange}
+                options={categoryOptions}
+                isDisabled={isViewMode}
+                placeholder="Chọn danh mục"
+                className="react-select-container"
+                classNamePrefix="react-select"
+                isClearable
+                isSearchable
+                styles={{
+                  control: (baseStyles, state) => ({
+                    ...baseStyles,
+                    borderColor: state.isFocused ? '#d53f8c' : '#e2e8f0',
+                    boxShadow: state.isFocused ? '0 0 0 1px #d53f8c' : 'none',
+                    '&:hover': {
+                      borderColor: state.isFocused ? '#d53f8c' : '#cbd5e0',
+                    },
+                    borderRadius: '0.375rem',
+                    padding: '1px',
+                  }),
+                  option: (baseStyles, state) => ({
+                    ...baseStyles,
+                    backgroundColor: state.isSelected ? '#d53f8c' : state.isFocused ? '#fce7f3' : 'white',
+                    color: state.isSelected ? 'white' : '#1a202c',
+                    '&:hover': {
+                      backgroundColor: state.isSelected ? '#d53f8c' : '#fce7f3',
+                    },
+                  }),
+                  multiValue: (baseStyles) => ({
+                    ...baseStyles,
+                    backgroundColor: '#fce7f3',
+                    borderRadius: '0.25rem',
+                  }),
+                  multiValueLabel: (baseStyles) => ({
+                    ...baseStyles,
+                    color: '#d53f8c',
+                    fontWeight: 500,
+                  }),
+                  multiValueRemove: (baseStyles) => ({
+                    ...baseStyles,
+                    color: '#d53f8c',
+                    '&:hover': {
+                      backgroundColor: '#d53f8c',
+                      color: 'white',
+                    },
+                  }),
+                }}
+              />
+
               {/* Hiển thị cảnh báo nếu có danh mục không tồn tại */}
               {missingCategories.length > 0 && (
-                <p className="text-xs text-red-500 mt-1">
-                  Có {missingCategories.length} danh mục không còn tồn tại trong hệ thống.
-                </p>
+                <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-2">
+                  <p className="text-xs text-red-500">
+                    Có {missingCategories.length} danh mục không còn tồn tại trong hệ thống.
+                  </p>
+                </div>
               )}
             </>
           ) : (
-            <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
-              {formData.categoryIds.length > 0 ? (
-                <ul className="list-disc pl-5">
+            <div className="mt-1 py-3 px-4 bg-gray-50 rounded-md text-sm border border-gray-200">
+              {formData.categoryIds && formData.categoryIds.length > 0 ? (
+                <ul className="list-disc pl-5 space-y-1">
                   {formData.categoryIds.map((id) => {
                     const category = categories.find((c) => c.id === id);
                     return (
@@ -266,16 +395,15 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                   })}
                 </ul>
               ) : (
-                <span className="text-gray-500">Không có danh mục nào được chọn</span>
+                <span className="text-gray-500 italic">Không có danh mục nào được chọn</span>
               )}
             </div>
           )}
-          <p className="text-xs text-gray-500">Giữ Ctrl để chọn nhiều danh mục.</p>
         </div>
       </div>
 
       {/* Tags */}
-      <div className="space-y-2">
+      <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
         <label htmlFor="tags-input" className="block text-sm font-medium text-gray-700">
           Tags/Nhãn
         </label>
@@ -284,29 +412,29 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             <div className="flex items-center">
               <div className="relative rounded-md shadow-sm flex-grow">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiTag className="h-4 w-4 text-gray-400" />
+                  <FiTag className="h-4 w-4 text-pink-500" />
                 </div>
                 <input
                   type="text"
                   id="tags-input"
                   placeholder="Thêm tag và nhấn Enter"
                   onKeyDown={handleTagsChange}
-                  className="focus:ring-pink-500 focus:border-pink-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                  className="block w-full pl-10 py-2 border border-gray-300 rounded-md focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
                 />
               </div>
             </div>
 
-            <div className="mt-2 flex flex-wrap gap-2">
-              {formData.tags.map((tag, index) => (
-                <span 
-                  key={index} 
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800"
+            <div className="mt-3 flex flex-wrap gap-2">
+              {formData.tags?.map((tag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800 border border-pink-200 shadow-sm transition-all duration-200 hover:bg-pink-200"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => removeTag(tag)}
-                    className="ml-1 inline-flex text-pink-400 hover:text-pink-600 focus:outline-none"
+                    className="ml-1.5 inline-flex text-pink-400 hover:text-pink-600 focus:outline-none"
                   >
                     <span className="sr-only">Xóa</span>
                     ×
@@ -317,67 +445,67 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
-            {formData.tags.length > 0 ? (
+            {formData.tags && formData.tags.length > 0 ? (
               formData.tags.map((tag, index) => (
-                <span 
-                  key={index} 
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                <span
+                  key={index}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200"
                 >
                   {tag}
                 </span>
               ))
             ) : (
-              <span className="text-sm text-gray-500">Không có tag nào</span>
+              <span className="text-sm text-gray-500 italic">Không có tag nào</span>
             )}
           </div>
         )}
       </div>
 
       {/* Flags */}
-      <div className="space-y-2">
+      <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
         <span className="block text-sm font-medium text-gray-700">Đánh dấu sản phẩm</span>
-        <div className="mt-2 flex flex-wrap gap-4">
-          <div className="flex items-center">
+        <div className="mt-3 flex flex-wrap gap-6">
+          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
             <input
               id="isBestSeller"
               name="flags.isBestSeller"
               type="checkbox"
-              checked={formData.flags.isBestSeller}
+              checked={formData.flags?.isBestSeller || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isBestSeller" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="isBestSeller" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
               Sản phẩm bán chạy
             </label>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
             <input
               id="isNew"
               name="flags.isNew"
               type="checkbox"
-              checked={formData.flags.isNew}
+              checked={formData.flags?.isNew || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isNew" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="isNew" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
               Sản phẩm mới
             </label>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
             <input
               id="isOnSale"
               name="flags.isOnSale"
               type="checkbox"
-              checked={formData.flags.isOnSale}
+              checked={formData.flags?.isOnSale || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isOnSale" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="isOnSale" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
               Đang giảm giá
             </label>
           </div>
@@ -387,4 +515,4 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
   );
 };
 
-export default BasicInfoTab; 
+export default BasicInfoTab;
