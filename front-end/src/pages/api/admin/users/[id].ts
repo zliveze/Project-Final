@@ -14,7 +14,7 @@ export default async function handler(
 
     try {
       const token = req.headers.authorization;
-      
+
       if (!token) {
         return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
       }
@@ -39,7 +39,7 @@ export default async function handler(
   if (req.method === 'GET') {
     try {
       const token = req.headers.authorization;
-      
+
       if (!token) {
         return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
       }
@@ -59,7 +59,7 @@ export default async function handler(
   } else if (req.method === 'PUT') {
     try {
       const token = req.headers.authorization;
-      
+
       if (!token) {
         return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
       }
@@ -92,7 +92,7 @@ export default async function handler(
   } else if (req.method === 'PATCH') {
     try {
       const token = req.headers.authorization;
-      
+
       if (!token) {
         return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
       }
@@ -112,7 +112,37 @@ export default async function handler(
       console.error('Lỗi cập nhật thông tin người dùng:', error);
       return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
     }
+  } else if (req.method === 'DELETE') {
+    try {
+      const token = req.headers.authorization;
+
+      if (!token) {
+        return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
+      }
+
+      console.log(`Đang gửi DELETE request đến: ${process.env.NEXT_PUBLIC_API_URL}/admin/users/${id}`);
+      console.log('Token:', token);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': token
+        }
+      });
+
+      // Nếu xóa thành công, backend trả về 204 No Content
+      if (response.status === 204) {
+        return res.status(204).end();
+      }
+
+      // Nếu có lỗi, backend sẽ trả về JSON với thông báo lỗi
+      const data = await response.json().catch(() => ({ message: 'Không thể xóa người dùng' }));
+      return res.status(response.status).json(data);
+    } catch (error: any) {
+      console.error('Lỗi khi xóa người dùng:', error);
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+    }
   } else {
     return res.status(405).json({ message: 'Phương thức không được hỗ trợ' });
   }
-} 
+}
