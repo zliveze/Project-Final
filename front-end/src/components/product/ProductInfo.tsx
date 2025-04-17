@@ -141,30 +141,38 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   const sortedBranches = [...branches].sort((a, b) => b.quantity - a.quantity);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Chọn chi nhánh</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden animate-fade-in">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-800">Chọn chi nhánh</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            &times;
+          </button>
         </div>
 
         <div className="px-6 py-4">
-          <p className="text-sm text-gray-600 mb-4">
-            Bạn đang muốn mua <span className="font-medium">{currentQuantity}</span> sản phẩm.
-            Vui lòng chọn chi nhánh để tiếp tục.
-          </p>
-          <p className="text-xs text-blue-600 mb-4">
-            Lưu ý: Số lượng tối đa bạn có thể mua từ mỗi chi nhánh phụ thuộc vào tồn kho của chi nhánh đó.
-          </p>
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-800">
+              Bạn đang muốn mua <span className="font-medium">{currentQuantity}</span> sản phẩm.
+              Vui lòng chọn chi nhánh để tiếp tục.
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              Lưu ý: Số lượng tối đa bạn có thể mua từ mỗi chi nhánh phụ thuộc vào tồn kho của chi nhánh đó.
+            </p>
+          </div>
 
-          <div className="space-y-3 max-h-60 overflow-y-auto">
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
             {sortedBranches.map((branch) => (
               <div
                 key={branch.branchId}
-                className={`border rounded-md p-3 transition-colors ${branch.quantity > 0 ?
+                className={`rounded-lg p-3 transition-all duration-200 ${branch.quantity > 0 ?
                   (branch.branchId === selectedBranchId ?
-                    'border-pink-500 bg-pink-50' :
-                    'border-gray-200 hover:border-pink-300 cursor-pointer') :
-                  'border-gray-200 bg-gray-50 cursor-not-allowed'}`}
+                    'bg-gradient-to-r from-pink-50 to-white border border-pink-200 shadow-sm' :
+                    'border border-gray-200 hover:border-pink-200 hover:bg-pink-50/30 cursor-pointer') :
+                  'border border-gray-100 bg-gray-50 cursor-not-allowed'}`}
                 onClick={() => {
                   if (branch.quantity > 0) {
                     setSelectedBranchId(branch.branchId);
@@ -174,16 +182,16 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <h4 className="font-medium text-gray-800">
+                    <h4 className={`font-medium ${branch.branchId === selectedBranchId ? 'text-pink-700' : 'text-gray-800'}`}>
                       {branch.branchName || getBranchName(branch.branchId)}
                     </h4>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 mt-1">
                       Còn <span className="font-medium">{branch.quantity}</span> sản phẩm
                     </p>
                   </div>
                   {branch.quantity > 0 && (
-                    <span className="text-pink-500">
-                      <FiMapPin />
+                    <span className={`${branch.branchId === selectedBranchId ? 'text-pink-500' : 'text-gray-400'}`}>
+                      <FiMapPin size={18} />
                     </span>
                   )}
                 </div>
@@ -192,12 +200,24 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
           </div>
         </div>
 
-        <div className="px-6 py-3 bg-gray-50 text-right">
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 mr-2"
           >
             Hủy
+          </button>
+          <button
+            onClick={() => {
+              if (selectedBranchId) {
+                onSelectBranch(selectedBranchId);
+                onClose();
+              }
+            }}
+            disabled={!selectedBranchId}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 rounded-md hover:from-pink-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Xác nhận
           </button>
         </div>
       </div>
@@ -635,53 +655,70 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
 
   return (
-    <div className="space-y-6">
-      {/* Thương hiệu */}
-      <div className="flex items-center space-x-2">
-        {brand.logo?.url && (
-          <div className="relative h-6 w-6 flex-shrink-0">
-            <Image src={brand.logo.url} alt={brand.logo.alt || brand.name} fill className="object-contain rounded-sm" />
+    <div className="space-y-5">
+      {/* Thương hiệu và badges */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center">
+          {brand.logo?.url && (
+            <div className="relative h-6 w-6 flex-shrink-0 mr-2">
+              <Image src={brand.logo.url} alt={brand.logo.alt || brand.name} fill className="object-contain rounded-sm" />
+            </div>
+          )}
+          <Link href={`/brands/${brand.slug}`} className="text-[#d53f8c] text-sm font-medium hover:underline">
+            {brand.name}
+          </Link>
+        </div>
+
+        {flags.isBestSeller && (
+          <div className="flex items-center text-amber-500 bg-amber-50 px-2 py-1 rounded-full text-xs font-medium">
+            <FiAward className="mr-1" />
+            <span>Bán chạy nhất</span>
           </div>
         )}
-        <Link href={`/brands/${brand.slug}`} className="text-[#d53f8c] text-sm font-medium hover:underline">
-          {brand.name}
-        </Link>
-        {flags.isBestSeller && ( <div className="ml-3 flex items-center text-amber-500 bg-amber-50 px-2 py-1 rounded-full text-xs font-medium"><FiAward className="mr-1" /><span>Bán chạy nhất</span></div> )}
-        {flags.isNew && ( <div className="ml-3 flex items-center text-blue-500 bg-blue-50 px-2 py-1 rounded-full text-xs font-medium"><span>Mới</span></div> )}
+
+        {flags.isNew && (
+          <div className="flex items-center text-blue-500 bg-blue-50 px-2 py-1 rounded-full text-xs font-medium">
+            <span>Mới</span>
+          </div>
+        )}
       </div>
 
       {/* Tên sản phẩm */}
       <h1 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">{name}</h1>
 
       {/* Mô tả ngắn */}
-      <p className="text-gray-600 leading-relaxed">{description.short}</p>
+      <p className="text-gray-600 leading-relaxed text-sm md:text-base">{description.short}</p>
 
-      {/* Đánh giá */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center">
+      {/* Đánh giá và SKU */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 pb-4">
+        <div className="flex items-center bg-gray-50 px-3 py-1.5 rounded-md">
           <div className="flex items-center text-amber-400">
-            {[...Array(5)].map((_, i) => ( <FiStar key={i} className={`w-4 h-4 ${i < Math.floor(reviews.averageRating) ? 'fill-current' : ''}`} /> ))}
+            {[...Array(5)].map((_, i) => (
+              <FiStar key={i} className={`w-4 h-4 ${i < Math.floor(reviews.averageRating) ? 'fill-current' : ''}`} />
+            ))}
           </div>
-          <span className="ml-2 text-gray-600 text-sm">{reviews.averageRating.toFixed(1)}</span>
+          <span className="ml-2 text-gray-600 text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
         </div>
-        <span className="text-gray-400">|</span>
-        <Link href="#reviews" className="text-sm text-gray-600 hover:text-[#d53f8c] hover:underline">
-          {reviews.reviewCount} đánh giá
+
+        <Link href="#reviews" className="text-sm text-gray-600 hover:text-[#d53f8c] hover:underline flex items-center">
+          <span className="mr-1">{reviews.reviewCount}</span> đánh giá
         </Link>
-        <span className="text-gray-400">|</span>
-        <span className="text-sm text-gray-600">SKU: {selectedVariant?.sku || sku}</span> {/* Show variant SKU if selected */}
+
+        <div className="text-sm text-gray-500 flex items-center">
+          <span className="font-medium mr-1">SKU:</span> {selectedVariant?.sku || sku}
+        </div>
       </div>
 
       {/* Giá */}
-      <div className="flex items-end space-x-3 mt-2">
+      <div className="flex flex-wrap items-end gap-3 pt-2">
         <span className="text-2xl md:text-3xl font-bold text-[#d53f8c]">
           {displayCurrentPrice.toLocaleString('vi-VN')}đ
         </span>
         {discount > 0 && (
-          <>
+          <div className="flex items-center gap-2">
             <span className="text-lg text-gray-400 line-through">{displayPrice.toLocaleString('vi-VN')}đ</span>
-            <span className="text-sm font-medium text-red-500 bg-red-50 px-2 py-1 rounded-full">-{discount}%</span>
-          </>
+            <span className="text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 px-2 py-1 rounded-full">-{discount}%</span>
+          </div>
         )}
       </div>
 
@@ -698,83 +735,98 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
       {/* Quà tặng */}
       {flags.hasGifts && gifts.length > 0 && (
-        <div className="border border-[#fdf2f8] rounded-lg p-4 bg-[#fdf2f8] bg-opacity-20">
-          <div className="flex justify-between items-center cursor-pointer" onClick={() => setShowGifts(!showGifts)}>
-            <div className="flex items-center text-[#d53f8c] font-medium"><FiGift className="mr-2" /><span>Quà tặng kèm khi mua sản phẩm</span></div>
-            <span className="text-[#d53f8c]">{showGifts ? '−' : '+'}</span>
+        <div className="border border-pink-100 rounded-lg overflow-hidden bg-gradient-to-r from-pink-50 to-white">
+          <div
+            className="flex justify-between items-center cursor-pointer px-4 py-3 hover:bg-pink-50/50 transition-colors"
+            onClick={() => setShowGifts(!showGifts)}
+          >
+            <div className="flex items-center text-[#d53f8c] font-medium">
+              <FiGift className="mr-2" />
+              <span>Quà tặng kèm khi mua sản phẩm</span>
+            </div>
+            <span className="text-[#d53f8c] text-lg">{showGifts ? '−' : '+'}</span>
           </div>
+
           {showGifts && (
-            <div className="mt-3 space-y-2">
+            <div className="px-4 py-3 border-t border-pink-100 space-y-3">
               {gifts.map((gift) => (
-                <div key={gift.giftId} className="flex items-center space-x-3 bg-white p-2 rounded-md">
-                  <div className="w-10 h-10 min-w-[40px] flex items-center justify-center rounded-md overflow-hidden border border-gray-200">
-                    <Image src={gift.image.url} alt={gift.image.alt} width={40} height={40} className="object-cover" />
+                <div key={gift.giftId} className="flex items-center gap-3 bg-white p-3 rounded-md shadow-sm">
+                  <div className="w-12 h-12 min-w-[48px] flex items-center justify-center rounded-md overflow-hidden border border-gray-100">
+                    <Image src={gift.image.url} alt={gift.image.alt} width={48} height={48} className="object-cover" />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium text-gray-800">{gift.name}</div>
                     <div className="text-xs text-gray-500 leading-tight">{gift.description}</div>
                   </div>
-                  <div className="text-xs font-medium text-[#d53f8c]">{gift.value.toLocaleString('vi-VN')}đ</div>
+                  <div className="text-xs font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 px-2 py-1 rounded-full">
+                    {gift.value.toLocaleString('vi-VN')}đ
+                  </div>
                 </div>
               ))}
-              <div className="text-xs text-gray-500 pt-1">* Áp dụng cho đơn hàng từ {gifts[0].conditions.minPurchaseAmount.toLocaleString('vi-VN')}đ</div>
+              <div className="text-xs text-gray-500 pt-1 italic">
+                * Áp dụng cho đơn hàng từ {gifts[0].conditions.minPurchaseAmount.toLocaleString('vi-VN')}đ
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* Số lượng và nút mua hàng */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 pt-2">
-        {/* Số lượng */}
-        <div className="flex flex-col">
-          <div className={`flex items-center h-12 border rounded-md overflow-hidden ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
-            <button
-              onClick={() => handleQuantityChange(quantity - 1)}
-              disabled={quantity <= 1 || !isAvailable}
-              className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FiMinus />
-            </button>
-            <div className={`flex-1 h-full flex items-center justify-center ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
-            <button
-              onClick={() => handleQuantityChange(quantity + 1)}
-              disabled={!isAvailable || (maxQuantity > 0 && quantity >= maxQuantity)}
-              className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FiPlus />
-            </button>
-          </div>
-          <div className="flex flex-col space-y-1 mt-1">
-            <div className="flex flex-col space-y-1">
-              <div className={`text-xs text-center ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+      <div className="mt-6 border-t border-gray-100 pt-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Số lượng */}
+          <div className="w-full md:w-1/4">
+            <div className="mb-2 text-sm font-medium text-gray-700">Số lượng:</div>
+            <div className="flex">
+              <div className={`flex items-center h-12 border rounded-md overflow-hidden w-full ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
+                <button
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                  disabled={quantity <= 1 || !isAvailable}
+                  className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiMinus />
+                </button>
+                <div className={`flex-1 h-full flex items-center justify-center ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
+                <button
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                  disabled={!isAvailable || (maxQuantity > 0 && quantity >= maxQuantity)}
+                  className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiPlus />
+                </button>
+              </div>
+            </div>
+
+            {/* Thông tin tồn kho */}
+            <div className="mt-2">
+              <div className={`text-xs ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
                 {displayTotalStock > 0 ? `Tổng còn ${displayTotalStock} sản phẩm` : 'Hết hàng'}
               </div>
               {cartQuantity > 0 && (
-                <div className="text-xs text-blue-500 text-center">
+                <div className="text-xs text-blue-500 mt-1">
                   Đã thêm {cartQuantity} sản phẩm vào giỏ hàng
                 </div>
               )}
-              {maxQuantity > 0 && cartQuantity > 0 && (
-                <div className="text-xs text-green-500 text-center">
-                  Còn có thể thêm {maxQuantity} sản phẩm nữa
-                </div>
-              )}
             </div>
+          </div>
 
+          {/* Chi nhánh */}
+          <div className="w-full md:w-1/4">
+            <div className="mb-2 text-sm font-medium text-gray-700">Chi nhánh:</div>
             {/* Branch selection for products with variants */}
             {hasVariants && selectedVariant && selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
-              <div className="text-xs text-center mt-2">
+              <div>
                 {selectedBranchId ? (
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 mb-1">
-                      <FiMapPin className="text-pink-500 mr-1" size={12} />
+                  <div className="flex flex-col">
+                    <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
+                      <FiMapPin className="text-pink-500 mr-2" size={14} />
                       <span className="font-medium text-pink-700">
                         {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
                       </span>
                     </div>
                     <button
                       onClick={() => setShowBranchModal(true)}
-                      className="text-blue-500 hover:text-blue-700 hover:underline"
+                      className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
                     >
                       Thay đổi chi nhánh
                     </button>
@@ -782,10 +834,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                 ) : (
                   <button
                     onClick={() => setShowBranchModal(true)}
-                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center justify-center mx-auto"
+                    className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
                   >
-                    <FiMapPin className="mr-1" size={12} />
-                    Chọn chi nhánh
+                    <FiMapPin className="mr-2 text-gray-500" />
+                    <span>Chọn chi nhánh</span>
                   </button>
                 )}
               </div>
@@ -793,18 +845,18 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
             {/* Branch selection for products without variants */}
             {!hasVariants && productInventory.length > 0 && (
-              <div className="text-xs text-center mt-2">
+              <div>
                 {selectedBranchId ? (
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 mb-1">
-                      <FiMapPin className="text-pink-500 mr-1" size={12} />
+                  <div className="flex flex-col">
+                    <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
+                      <FiMapPin className="text-pink-500 mr-2" size={14} />
                       <span className="font-medium text-pink-700">
                         {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
                       </span>
                     </div>
                     <button
                       onClick={() => setShowBranchModal(true)}
-                      className="text-blue-500 hover:text-blue-700 hover:underline"
+                      className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
                     >
                       Thay đổi chi nhánh
                     </button>
@@ -812,30 +864,58 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                 ) : (
                   <button
                     onClick={() => setShowBranchModal(true)}
-                    className="text-blue-500 hover:text-blue-700 hover:underline flex items-center justify-center mx-auto"
+                    className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
                   >
-                    <FiMapPin className="mr-1" size={12} />
-                    Chọn chi nhánh
+                    <FiMapPin className="mr-2 text-gray-500" />
+                    <span>Chọn chi nhánh</span>
                   </button>
                 )}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Button thêm vào giỏ hàng */}
-        <button
-          onClick={handleAddToCart}
-          disabled={!isAvailable}
-          className={`lg:col-span-2 h-12 rounded-md font-medium text-white ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center space-x-2`}
-        >
-          <FiShoppingCart className="w-4 h-4" />
-          <span>
-            {!inStock ? 'Hết hàng' :
-             (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
-             'Thêm vào giỏ hàng'}
-          </span>
-        </button>
+          {/* Các nút hành động */}
+          <div className="w-full md:w-1/2 flex flex-col md:flex-row gap-3">
+            {/* Button thêm vào giỏ hàng */}
+            <button
+              onClick={handleAddToCart}
+              disabled={!isAvailable}
+              className={`h-12 rounded-md font-medium text-white flex-1 ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center gap-2`}
+            >
+              <FiShoppingCart className="w-4 h-4" />
+              <span>
+                {!inStock ? 'Hết hàng' :
+                 (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
+                 'Thêm vào giỏ hàng'}
+              </span>
+            </button>
+
+            {/* Button yêu thích */}
+            <button
+              onClick={handleToggleWishlist}
+              disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)}
+              className={`h-12 w-12 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center
+                ${isCurrentVariantInWishlist
+                  ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
+                  : 'border-gray-300 text-gray-700 hover:text-pink-600 hover:border-pink-600'}
+                ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
+                ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
+              `}
+              title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+            >
+              <FiHeart className={`w-5 h-5 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
+            </button>
+
+            {/* Nút chia sẻ */}
+            <button
+              onClick={handleShare}
+              className="h-12 w-12 border border-gray-300 rounded-md text-gray-700 hover:text-[#d53f8c] hover:border-pink-300 transition-colors duration-300 flex items-center justify-center"
+              title="Chia sẻ sản phẩm"
+            >
+              <FiShare2 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
         {/* Branch Selection Modal for products with variants */}
         {hasVariants && selectedVariant && selectedVariant.inventory && (
@@ -868,29 +948,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             onSelectBranch={handleSelectBranch}
           />
         )}
-
-        {/* Button yêu thích */}
-        <button
-          onClick={handleToggleWishlist} // Updated onClick handler
-          disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)} // Disable if loading or variant needed but not selected
-          className={`h-12 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center
-            ${isCurrentVariantInWishlist
-              ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
-              : 'border-gray-300 text-gray-700 hover:text-pink-600 hover:border-pink-600'}
-            ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
-            ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
-          `}
-          title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
-        >
-          <FiHeart className={`w-4 h-4 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
-        </button>
       </div>
-
-      {/* Nút chia sẻ */}
-      <button onClick={handleShare} className="text-gray-600 hover:text-[#d53f8c] flex items-center text-sm font-medium">
-        <FiShare2 className="mr-1" />
-        <span>Chia sẻ sản phẩm</span>
-      </button>
     </div>
   );
 };

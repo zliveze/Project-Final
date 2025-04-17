@@ -94,76 +94,72 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="flex flex-col">
       {/* Ảnh chính */}
-      <div
-        className={`relative h-[450px] md:h-[550px] w-full rounded-lg overflow-hidden border border-gray-200 group ${
-          isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-        }`}
-        onClick={() => setIsZoomed(!isZoomed)}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => isZoomed && setIsZoomed(false)}
-      >
-        <Image
-          src={formatImageUrl(mainImage.url)}
-          alt={mainImage.alt || productName}
-          fill
-          className={`object-contain transition-transform duration-300 ${
-            isZoomed
-              ? 'scale-150'
-              : 'group-hover:scale-105'
-          }`}
-          style={
-            isZoomed
-              ? {
-                  transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                }
-              : undefined
-          }
-          priority
-          onError={(e) => handleImageError(e)}
-        />
+      <div className="relative">
+        <div
+          className={`relative h-[350px] md:h-[500px] w-full rounded-lg overflow-hidden group ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+          onClick={() => setIsZoomed(!isZoomed)}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => isZoomed && setIsZoomed(false)}
+        >
+          <Image
+            src={formatImageUrl(mainImage.url)}
+            alt={mainImage.alt || productName}
+            fill
+            className={`object-contain transition-transform duration-300 ${isZoomed ? 'scale-150' : 'group-hover:scale-105'}`}
+            style={isZoomed ? { transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%` } : undefined}
+            priority
+            onError={(e) => handleImageError(e)}
+          />
 
-        {/* Nút zoom */}
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button
-            className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors"
-            onClick={handleZoomToggle}
-          >
-            <FiZoomIn className="w-5 h-5" />
-          </button>
+          {/* Nút zoom */}
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              className="bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-sm text-gray-700 hover:text-[#d53f8c] transition-colors"
+              onClick={handleZoomToggle}
+            >
+              <FiZoomIn className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Nút điều hướng */}
+          {images.length > 1 && (
+            <>
+              <button
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-sm text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
+                onClick={handlePrevImage}
+              >
+                <FiChevronLeft className="w-4 h-4" />
+              </button>
+
+              <button
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-sm text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
+                onClick={handleNextImage}
+              >
+                <FiChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Nút điều hướng */}
+        {/* Chỉ số ảnh hiện tại */}
         {images.length > 1 && (
-          <>
-            <button
-              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
-              onClick={handlePrevImage}
-            >
-              <FiChevronLeft className="w-5 h-5" />
-            </button>
-
-            <button
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md text-gray-700 hover:text-[#d53f8c] transition-colors opacity-0 group-hover:opacity-100"
-              onClick={handleNextImage}
-            >
-              <FiChevronRight className="w-5 h-5" />
-            </button>
-          </>
+          <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
+            {currentIndex + 1} / {images.length}
+          </div>
         )}
       </div>
 
-      {/* Danh sách ảnh nhỏ */}
+      {/* Danh sách ảnh nhỏ - Hiển thị bên dưới */}
       {images.length > 1 && (
-        <div className="flex space-x-3 overflow-x-auto py-2 scrollbar-hide">
+        <div className="flex flex-wrap gap-2 mt-4 justify-center">
           {images.map((image, index) => (
             <div
               key={index}
-              className={`relative h-20 w-20 flex-shrink-0 cursor-pointer rounded-md border-2 overflow-hidden transition-all duration-200 hover:shadow-md ${
-                mainImage.url === image.url
-                  ? 'border-[#d53f8c] shadow-md scale-105'
-                  : 'border-gray-200 hover:border-gray-300'
+              className={`relative h-16 w-16 flex-shrink-0 cursor-pointer rounded-md overflow-hidden transition-all duration-200 ${mainImage.url === image.url
+                ? 'ring-2 ring-[#d53f8c] shadow-sm scale-105'
+                : 'ring-1 ring-gray-200 hover:ring-gray-300'
               }`}
               onClick={() => {
                 setMainImage(image);
@@ -179,7 +175,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
               />
               {/* Display Variant Name */}
               {image.variantName && (
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-[10px] px-1 py-0.5 truncate text-center">
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-[8px] px-1 py-0.5 truncate text-center">
                   {image.variantName}
                 </div>
               )}

@@ -213,12 +213,11 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-5">
       {/* Màu sắc */}
       {availableColors.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Màu sắc</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Màu sắc:</h3>
           <div className="flex flex-wrap gap-2">
             {availableColors.map((color) => {
               const { name, code } = parseColorString(color);
@@ -227,17 +226,17 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
                   key={color}
                   onClick={() => color && handleColorSelect(color)}
                   className={`
-                    h-10 rounded-md border-2 flex items-center px-2
+                    h-10 rounded-md flex items-center px-3 transition-all duration-200
                     ${selectedOptions.color === color
-                      ? 'border-[#d53f8c] ring-2 ring-[#d53f8c] ring-opacity-30'
-                      : 'border-gray-300'
+                      ? 'bg-gradient-to-r from-pink-50 to-white border border-pink-200 shadow-sm'
+                      : 'border border-gray-200 hover:border-pink-200 hover:bg-pink-50/30'
                     }
                   `}
                   title={color}
                 >
                   {code ? (
                     <span
-                      className="h-6 w-6 rounded-full mr-2"
+                      className={`h-6 w-6 rounded-full mr-2 ${selectedOptions.color === color ? 'ring-2 ring-pink-300' : ''}`}
                       style={{ backgroundColor: code }}
                     />
                   ) : (
@@ -248,7 +247,7 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
                       ?
                     </span>
                   )}
-                  <span className="text-xs font-medium">{name}</span>
+                  <span className={`text-sm ${selectedOptions.color === color ? 'font-medium text-pink-700' : 'text-gray-700'}`}>{name}</span>
                 </button>
               );
             })}
@@ -259,20 +258,20 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
       {/* Kích thước */}
       {availableSizes.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Dung tích</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Dung tích:</h3>
           <div className="flex flex-wrap gap-2">
             {availableSizes.map((size) => (
               <button
                 key={size}
                 onClick={() => handleSizeSelect(size)}
-                disabled={!isSizeValid(size)} // Disable if not valid for current color/shade selection
+                disabled={!isSizeValid(size)}
                 className={`
-                  px-3 py-1 border rounded-md text-sm transition-colors duration-150
+                  px-4 py-2 rounded-md text-sm transition-all duration-200
                   ${selectedOptions.size === size
-                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]' // Selected style
+                    ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
                     : isSizeValid(size)
-                      ? 'border-gray-300 text-gray-700 hover:border-gray-400' // Available style
-                      : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed' // Disabled style
+                      ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
+                      : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
                   }
                 `}
               >
@@ -283,23 +282,23 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
         </div>
       )}
 
-      {/* Tone màu (cho son, phấn) */}
+      {/* Tone màu */}
       {availableShades.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Tone màu</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Tone màu:</h3>
           <div className="flex flex-wrap gap-2">
             {availableShades.map((shade) => (
               <button
                 key={shade}
                 onClick={() => handleShadeSelect(shade)}
-                disabled={!isShadeValid(shade)} // Disable if not valid for current color/size selection
+                disabled={!isShadeValid(shade)}
                 className={`
-                  px-3 py-1 border rounded-md text-sm transition-colors duration-150
+                  px-4 py-2 rounded-md text-sm transition-all duration-200
                   ${selectedOptions.shade === shade
-                    ? 'border-[#d53f8c] bg-[#fdf2f8] text-[#d53f8c]' // Selected style
+                    ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
                     : isShadeValid(shade)
-                      ? 'border-gray-300 text-gray-700 hover:border-gray-400' // Available style
-                      : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed' // Disabled style
+                      ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
+                      : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
                   }
                 `}
               >

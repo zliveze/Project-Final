@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { FiArrowLeft } from 'react-icons/fi';
+import { FiArrowLeft, FiMapPin } from 'react-icons/fi';
 // Toast container is now in DefaultLayout
 import { formatImageUrl } from '@/utils/imageUtils';
 
@@ -201,9 +201,9 @@ const ProductPage: React.FC<ProductPageProps> = ({
         categories={categories} // Pass all categories here
       />
 
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
+      <main className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Nút quay lại */}
-        <div className="mb-8">
+        <div className="mb-6">
           <button
             onClick={() => router.back()}
             className="flex items-center text-gray-600 hover:text-[#d53f8c] transition-colors duration-200"
@@ -213,130 +213,184 @@ const ProductPage: React.FC<ProductPageProps> = ({
           </button>
         </div>
 
-        {/* Thông tin sản phẩm */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10 bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-6 shadow-sm">
-          {/* Ảnh sản phẩm */}
-          <div className="space-y-6">
-            {/* Pass the aggregated images and the initial image URL */}
-            <ProductImages
-              images={allImages}
-              initialImageUrl={initialImageUrl}
-              productName={product.name}
-            />
+        {/* Thông tin sản phẩm - Section chính */}
+        <div className="mb-10">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              {/* Ảnh sản phẩm - Bên trái */}
+              <div className="p-6 bg-gradient-to-br from-white to-[#fdf2f8]/20">
+                <ProductImages
+                  images={allImages}
+                  initialImageUrl={initialImageUrl}
+                  productName={product.name}
+                />
+              </div>
+
+              {/* Thông tin chi tiết - Bên phải */}
+              <div className="p-6 md:p-8 flex flex-col h-full">
+                <ProductInfo
+                  _id={product._id}
+                  name={product.name}
+                  sku={product.sku}
+                  description={{ short: product.description?.short || '' }}
+                  price={product.price || 0}
+                  currentPrice={product.currentPrice || product.price || 0}
+                  status={product.status || 'active'}
+                  brand={fullBrand}
+                  cosmetic_info={product.cosmetic_info || {}}
+                  variants={processedVariants}
+                  flags={product.flags || {}}
+                  gifts={product.gifts || []}
+                  reviews={product.reviews || { averageRating: 0, reviewCount: 0 }}
+                  selectedVariant={selectedVariant}
+                  onSelectVariant={handleSelectVariant}
+                  branches={branches}
+                  product={{ inventory: product.inventory || [] }}
+                />
+              </div>
+            </div>
 
             {/* Thông tin nhanh về sản phẩm */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-800 mb-3">Thông tin nhanh:</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Loại da:</p>
+            <div className="border-t border-gray-100 px-6 py-4 bg-gray-50/50">
+              <div className="flex flex-wrap gap-6 justify-between">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">Loại da:</span>
                   <div className="flex flex-wrap gap-1">
                     {product.cosmetic_info?.skinType?.map((type: string, index: number) => (
-                      <span key={index} className="px-2 py-1 bg-[#fdf2f8] text-[#d53f8c] text-xs rounded-full">
+                      <span key={index} className="px-2 py-0.5 bg-[#fdf2f8] text-[#d53f8c] text-xs rounded-full">
                         {type}
                       </span>
                     ))}
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Dung tích:</p>
-                  <p className="text-sm font-medium">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">Dung tích:</span>
+                  <span className="text-sm">
                     {product.cosmetic_info?.volume?.value || 0} {product.cosmetic_info?.volume?.unit || 'ml'}
-                  </p>
+                  </span>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Xuất xứ:</p>
-                  <p className="text-sm font-medium">{product.cosmetic_info?.madeIn || 'N/A'}</p>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">Xuất xứ:</span>
+                  <span className="text-sm">{product.cosmetic_info?.madeIn || 'N/A'}</span>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Hạn sử dụng:</p>
-                  <p className="text-sm font-medium">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">Hạn sử dụng:</span>
+                  <span className="text-sm">
                     {product.cosmetic_info?.expiry?.shelf || 0} tháng
-                  </p>
+                  </span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Thông tin chi tiết */}
-          <div className="space-y-8">
-            <ProductInfo
-              _id={product._id}
-              name={product.name}
-              sku={product.sku}
-              description={{ short: product.description?.short || '' }}
-              price={product.price || 0}
-              currentPrice={product.currentPrice || product.price || 0}
-              status={product.status || 'active'}
-              brand={fullBrand} // Pass the full brand object
-              cosmetic_info={product.cosmetic_info || {}}
-              variants={processedVariants}
-              flags={product.flags || {}}
-              gifts={product.gifts || []}
-              reviews={product.reviews || { averageRating: 0, reviewCount: 0 }}
-              // Pass state and handler down
-              selectedVariant={selectedVariant}
-              onSelectVariant={handleSelectVariant}
-              branches={branches}
-              // Pass the product inventory for products without variants
-              product={{ inventory: product.inventory || [] }}
+        {/* Tabs cho thông tin chi tiết */}
+        <div className="mb-10">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <ProductDescription
+              fullDescription={product.description?.full || ''}
+              cosmeticInfo={product.cosmetic_info || {}}
             />
           </div>
         </div>
 
-        {/* Thông tin bổ sung */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {/* Thông tin bổ sung - Grid 3 cột */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {/* Tồn kho theo chi nhánh */}
-          <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductInventory
-              inventory={product.inventory || []}
-              branches={branches}
-            />
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-3">
+              <h3 className="font-medium text-gray-800 flex items-center">
+                <FiMapPin className="mr-2 text-pink-500" />
+                Tồn kho theo chi nhánh
+              </h3>
+            </div>
+            <div className="p-5">
+              <ProductInventory
+                inventory={product.inventory || []}
+                branches={branches}
+              />
+            </div>
           </div>
 
           {/* Khuyến mãi đang áp dụng */}
-          <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductPromotions
-              events={events}
-              campaigns={campaigns}
-            />
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-3">
+              <h3 className="font-medium text-gray-800 flex items-center">
+                <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                </svg>
+                Khuyến mãi đang áp dụng
+              </h3>
+            </div>
+            <div className="p-5">
+              <ProductPromotions
+                events={events}
+                campaigns={campaigns}
+              />
+            </div>
           </div>
 
-          {/* Danh mục và tags - Pass specific product categories */}
-          <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-xl p-5 shadow-sm">
-            <ProductCategories
-              categories={productCategories} // Pass specific categories here
-              tags={product.tags || []}
-            />
+          {/* Danh mục và tags */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-3">
+              <h3 className="font-medium text-gray-800 flex items-center">
+                <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Danh mục và tags
+              </h3>
+            </div>
+            <div className="p-5">
+              <ProductCategories
+                categories={productCategories}
+                tags={product.tags || []}
+              />
+            </div>
           </div>
-        </div>
-
-        {/* Mô tả sản phẩm */}
-        <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-8 shadow-sm mb-12">
-          <ProductDescription
-            fullDescription={product.description?.full || ''}
-            cosmeticInfo={product.cosmetic_info || {}}
-          />
         </div>
 
         {/* Đánh giá sản phẩm */}
-        <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-8 shadow-sm mb-12">
-          <ProductReviews
-            productId={product._id}
-            reviews={reviews}
-            averageRating={product.reviews?.averageRating || 0}
-            reviewCount={product.reviews?.reviewCount || 0}
-            isAuthenticated={isAuthenticated}
-            hasPurchased={hasPurchased}
-            hasReviewed={hasReviewed}
-          />
+        <div className="mb-10" id="reviews">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-6 py-4">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <svg className="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                Đánh giá sản phẩm ({product.reviews?.reviewCount || 0})
+              </h2>
+            </div>
+            <div className="p-6">
+              <ProductReviews
+                productId={product._id}
+                reviews={reviews}
+                averageRating={product.reviews?.averageRating || 0}
+                reviewCount={product.reviews?.reviewCount || 0}
+                isAuthenticated={isAuthenticated}
+                hasPurchased={hasPurchased}
+                hasReviewed={hasReviewed}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Sản phẩm gợi ý */}
-        <div className="bg-gradient-to-r from-white to-[#fdf2f8] bg-opacity-50 rounded-2xl p-8 shadow-sm mb-12">
-          <RecommendedProducts
-            products={recommendedProducts}
-          />
+        <div className="mb-10">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-6 py-4">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <svg className="w-5 h-5 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Sản phẩm tương tự
+              </h2>
+            </div>
+            <div className="p-6">
+              <RecommendedProducts
+                products={recommendedProducts}
+              />
+            </div>
+          </div>
         </div>
       </main>
 
