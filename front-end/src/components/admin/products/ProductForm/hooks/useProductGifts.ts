@@ -8,42 +8,72 @@ export const useProductGifts = (
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
 ) => {
   /**
-   * Cập nhật thông tin quà tặng
+   * Cập nhật thông tin quà tặng (đảm bảo tính bất biến)
    */
   const handleGiftChange = (index: number, field: string, value: any) => {
-    if (!formData.gifts || !Array.isArray(formData.gifts)) {
-      return;
-    }
-    
-    const updatedGifts = [...formData.gifts];
-    
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      const parentValue = updatedGifts[index][parent as keyof GiftItem];
+    setFormData(prev => {
+      // Đảm bảo gifts là một mảng
+      const currentGifts = Array.isArray(prev.gifts) ? prev.gifts : [];
       
-      // Đảm bảo parentValue là object
-      if (parentValue && typeof parentValue === 'object') {
-        updatedGifts[index] = {
-          ...updatedGifts[index],
-          [parent]: {
-            ...parentValue,
-            [child]: value
-          }
+      // Tạo một bản sao mới của mảng gifts
+      const updatedGifts = [...currentGifts];
+
+      // Lấy đối tượng gift cần cập nhật
+      const giftToUpdate = updatedGifts[index];
+
+      // Nếu không tìm thấy gift (index không hợp lệ), không làm gì cả
+      if (!giftToUpdate) {
+        console.error(`[useProductGifts] Invalid index ${index} for gifts array.`);
+        return prev; 
+      }
+
+      let newGiftData;
+
+      // Xử lý trường lồng nhau (ví dụ: 'image.url', 'conditions.startDate')
+      if (field.includes('.')) {
+        const [parentKey, childKey] = field.split('.') as [keyof GiftItem, string];
+        const currentParentValue = giftToUpdate[parentKey];
+
+        // Đảm bảo parent là một object trước khi cập nhật con
+        if (currentParentValue && typeof currentParentValue === 'object') {
+          // Tạo một bản sao mới của object cha với giá trị con được cập nhật
+          const newParentValue = {
+            ...(currentParentValue as object), // Type assertion needed here
+            [childKey]: value,
+          };
+          // Tạo một bản sao mới của gift với object cha đã được cập nhật
+          newGiftData = {
+            ...giftToUpdate,
+            [parentKey]: newParentValue,
+          };
+        } else {
+           // Nếu parent không tồn tại hoặc không phải object, tạo mới nó
+           console.warn(`[useProductGifts] Initializing parent key "${String(parentKey)}" for gift index ${index}.`);
+           newGiftData = {
+             ...giftToUpdate,
+             [parentKey]: { [childKey]: value },
+           };
+        }
+      } 
+      // Xử lý trường ở cấp độ gốc (ví dụ: 'name', 'productId')
+      else {
+        newGiftData = {
+          ...giftToUpdate,
+          [field as keyof GiftItem]: value,
         };
       }
-    } else {
-      updatedGifts[index] = {
-        ...updatedGifts[index],
-        [field]: value
+
+      // Thay thế gift cũ bằng gift mới trong mảng đã sao chép
+      updatedGifts[index] = newGiftData;
+
+      // Trả về state formData mới với mảng gifts đã được cập nhật
+      return {
+        ...prev,
+        gifts: updatedGifts,
       };
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      gifts: updatedGifts
-    }));
+    });
   };
-  
+
   /**
    * Xóa một quà tặng
    */
@@ -131,12 +161,15 @@ export const useProductGifts = (
   };
 
   /**
-   * Kiểm tra xem sản phẩm có quà tặng hay không
+   * Kiểm tra xem sản phẩm có quà tặng hay không (xử lý flags có thể undefined)
    */
   const hasGifts = (): boolean => {
+    // Sử dụng optional chaining (?.) và nullish coalescing (??)
+    // để kiểm tra an toàn và cung cấp giá trị mặc định false
+    const hasGiftsFlag = formData.flags?.hasGifts ?? false; 
+    
     return (
-      formData.flags.hasGifts && 
-      formData.gifts && 
+      hasGiftsFlag && 
       Array.isArray(formData.gifts) && 
       formData.gifts.length > 0
     );
@@ -165,4 +198,4 @@ export const useProductGifts = (
   };
 };
 
-export default useProductGifts; 
+export default useProductGifts;
