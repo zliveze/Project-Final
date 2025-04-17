@@ -59,105 +59,78 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   const [selectedOptions, setSelectedOptions] = useState<{ color?: string; size?: string; shade?: string }>({});
   const [selectedCombinationId, setSelectedCombinationId] = useState<string | null>(selectedCombination?.combinationId || null);
 
-  // Initialize/Update selectedOptions based on selectedVariant prop or first variant
+  // Chỉ khởi tạo màu sắc ban đầu, không tự động chọn các thuộc tính khác
   useEffect(() => {
     if (selectedVariant) {
-      // If a variant is selected externally, try to populate options
-      setSelectedOptions({
-        color: selectedVariant.options?.color,
-        size: selectedVariant.options?.sizes?.[0], // Default to first size/shade of the variant
-        shade: selectedVariant.options?.shades?.[0],
-      });
+      // Nếu variant được chọn từ bên ngoài, chỉ lấy màu sắc
+      setSelectedOptions(prev => ({
+        ...prev,
+        color: selectedVariant.options?.color
+      }));
 
-      // If there's a selected combination, update the selectedCombinationId
+      // Nếu có combination được chọn, cập nhật selectedCombinationId
       if (selectedCombination) {
         setSelectedCombinationId(selectedCombination.combinationId);
-      } else if (selectedVariant.combinations && selectedVariant.combinations.length > 0) {
-        // If no combination is selected but the variant has combinations, select the first one
-        setSelectedCombinationId(selectedVariant.combinations[0].combinationId);
+
+        // Cập nhật các thuộc tính dựa trên combination được chọn
+        if (selectedCombination.attributes) {
+          setSelectedOptions(prev => ({
+            ...prev,
+            color: selectedVariant.options?.color,
+            size: selectedCombination.attributes.size,
+            shade: selectedCombination.attributes.shade
+          }));
+        }
       } else {
         setSelectedCombinationId(null);
       }
     } else if (!selectedOptions.color && variants.length > 0) {
-      // If no color is selected yet, default to the first variant's options
+      // Nếu chưa có màu nào được chọn, chỉ chọn màu đầu tiên
       const firstVariant = variants[0];
-      setSelectedOptions({
-        color: firstVariant.options?.color,
-        size: firstVariant.options?.sizes?.[0],
-        shade: firstVariant.options?.shades?.[0],
-      });
-
-      // If the first variant has combinations, select the first one
-      if (firstVariant.combinations && firstVariant.combinations.length > 0) {
-        setSelectedCombinationId(firstVariant.combinations[0].combinationId);
-      } else {
-        setSelectedCombinationId(null);
-      }
+      setSelectedOptions(prev => ({
+        ...prev,
+        color: firstVariant.options?.color
+      }));
     }
-  }, [selectedVariant, selectedCombination, variants]); // Rerun if selectedVariant changes externally
+  }, [selectedVariant, selectedCombination, variants]); // Chạy lại khi selectedVariant thay đổi
 
 
-  // Find and select the corresponding variant when options change
+  // Tìm và chọn tổ hợp phù hợp khi các thuộc tính thay đổi
   useEffect(() => {
     const { color, size, shade } = selectedOptions;
 
-    // Only attempt to find a variant if all necessary options are selected
-    // Adjust this condition based on which options actually define a unique variant
-    if (color && size && shade) {
-       const matchingVariant = variants.find(v =>
-         v.options?.color === color &&
-         v.options?.sizes?.includes(size) &&
-         v.options?.shades?.includes(shade)
-       );
+    // Chỉ tìm variant nếu có ít nhất màu sắc được chọn
+    if (color) {
+      // Tìm variant phù hợp với các lựa chọn hiện tại
+      const matchingVariant = variants.find(v =>
+        v.options?.color === color &&
+        (!size || v.options?.sizes?.includes(size)) &&
+        (!shade || v.options?.shades?.includes(shade))
+      );
 
-       if (matchingVariant && matchingVariant.variantId !== selectedVariant?.variantId) {
-         // Find matching combination if available
-         if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
-           const matchingCombination = matchingVariant.combinations.find(c =>
-             c.attributes.shade === shade && c.attributes.size === size
-           );
+      // Nếu tìm thấy variant phù hợp và khác với variant hiện tại
+      if (matchingVariant && matchingVariant.variantId !== selectedVariant?.variantId) {
+        // Chỉ tìm tổ hợp nếu có đủ cả size và shade
+        if (matchingVariant.combinations && matchingVariant.combinations.length > 0 && size && shade) {
+          const matchingCombination = matchingVariant.combinations.find(c =>
+            c.attributes.shade === shade && c.attributes.size === size
+          );
 
-           if (matchingCombination) {
-             setSelectedCombinationId(matchingCombination.combinationId);
-             onSelectVariant(matchingVariant, matchingCombination);
-           } else {
-             setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
-             onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
-           }
-         } else {
-           setSelectedCombinationId(null);
-           onSelectVariant(matchingVariant);
-         }
-       }
-    } else if (color && (size || shade)) {
-        // Handle cases where only color+size or color+shade might be enough
-        const partiallyMatchingVariant = variants.find(v =>
-            v.options?.color === color &&
-            (!size || v.options?.sizes?.includes(size)) &&
-            (!shade || v.options?.shades?.includes(shade))
-        );
-
-        if (partiallyMatchingVariant && partiallyMatchingVariant.variantId !== selectedVariant?.variantId) {
-          // Find matching combination if available
-          if (partiallyMatchingVariant.combinations && partiallyMatchingVariant.combinations.length > 0) {
-            const matchingCombination = partiallyMatchingVariant.combinations.find(c =>
-              (!shade || c.attributes.shade === shade) && (!size || c.attributes.size === size)
-            );
-
-            if (matchingCombination) {
-              setSelectedCombinationId(matchingCombination.combinationId);
-              onSelectVariant(partiallyMatchingVariant, matchingCombination);
-            } else {
-              setSelectedCombinationId(partiallyMatchingVariant.combinations[0].combinationId);
-              onSelectVariant(partiallyMatchingVariant, partiallyMatchingVariant.combinations[0]);
-            }
+          if (matchingCombination) {
+            setSelectedCombinationId(matchingCombination.combinationId);
+            onSelectVariant(matchingVariant, matchingCombination);
           } else {
+            // Không tự động chọn tổ hợp nếu không tìm thấy tổ hợp phù hợp
             setSelectedCombinationId(null);
-            onSelectVariant(partiallyMatchingVariant);
+            onSelectVariant(matchingVariant);
           }
+        } else {
+          // Nếu không có đủ thông tin để chọn tổ hợp
+          setSelectedCombinationId(null);
+          onSelectVariant(matchingVariant);
         }
+      }
     }
-
   }, [selectedOptions, variants, onSelectVariant, selectedVariant]);
 
 
@@ -204,64 +177,80 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   // --- Selection Handlers ---
 
   const handleColorSelect = (color: string) => {
-    // Reset size and shade when color changes
-    setSelectedOptions({ color: color, size: undefined, shade: undefined });
-    // Auto-select first valid size/shade for the new color?
-    const firstVariantOfColor = variants.find(v => v.options?.color === color);
-    if (firstVariantOfColor) {
-        setSelectedOptions({
-            color: color,
-            size: firstVariantOfColor.options?.sizes?.[0],
-            shade: firstVariantOfColor.options?.shades?.[0]
-        });
+    // Chỉ cập nhật màu sắc, giữ nguyên các lựa chọn khác nếu có
+    setSelectedOptions(prev => ({ ...prev, color }));
 
-        // If the variant has combinations, select the first one
-        if (firstVariantOfColor.combinations && firstVariantOfColor.combinations.length > 0) {
-          setSelectedCombinationId(firstVariantOfColor.combinations[0].combinationId);
-          onSelectVariant(firstVariantOfColor, firstVariantOfColor.combinations[0]);
+    // Tìm variant phù hợp với lựa chọn hiện tại
+    const { size, shade } = selectedOptions;
+    const matchingVariant = variants.find(v =>
+      v.options?.color === color &&
+      (!size || v.options?.sizes?.includes(size)) &&
+      (!shade || v.options?.shades?.includes(shade))
+    );
+
+    if (matchingVariant) {
+      // Tìm combination phù hợp nếu có
+      if (matchingVariant.combinations && matchingVariant.combinations.length > 0 && size && shade) {
+        const matchingCombination = matchingVariant.combinations.find(c =>
+          c.attributes.size === size && c.attributes.shade === shade
+        );
+
+        if (matchingCombination) {
+          setSelectedCombinationId(matchingCombination.combinationId);
+          onSelectVariant(matchingVariant, matchingCombination);
         } else {
+          // Không tự động chọn combination nếu không tìm thấy tổ hợp phù hợp
           setSelectedCombinationId(null);
-          onSelectVariant(firstVariantOfColor);
+          onSelectVariant(matchingVariant);
         }
+      } else {
+        setSelectedCombinationId(null);
+        onSelectVariant(matchingVariant);
+      }
     }
   };
 
   const handleSizeSelect = (size: string) => {
-     setSelectedOptions(prev => ({ ...prev, size: size }));
-     // Find and select the matching variant immediately
-     const { color, shade } = selectedOptions;
-     if (color) {
-       const matchingVariant = variants.find(v =>
-         v.options?.color === color &&
-         v.options?.sizes?.includes(size) &&
-         (!shade || v.options?.shades?.includes(shade))
-       );
+    // Chỉ cập nhật dung tích, giữ nguyên các lựa chọn khác
+    setSelectedOptions(prev => ({ ...prev, size }));
 
-       if (matchingVariant) {
-         // Find matching combination if available
-         if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
-           const matchingCombination = matchingVariant.combinations.find(c =>
-             c.attributes.size === size && (!shade || c.attributes.shade === shade)
-           );
+    // Tìm variant phù hợp với lựa chọn hiện tại
+    const { color, shade } = selectedOptions;
+    if (color) {
+      const matchingVariant = variants.find(v =>
+        v.options?.color === color &&
+        v.options?.sizes?.includes(size) &&
+        (!shade || v.options?.shades?.includes(shade))
+      );
 
-           if (matchingCombination) {
-             setSelectedCombinationId(matchingCombination.combinationId);
-             onSelectVariant(matchingVariant, matchingCombination);
-           } else {
-             setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
-             onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
-           }
-         } else {
-           setSelectedCombinationId(null);
-           onSelectVariant(matchingVariant);
-         }
-       }
-     }
+      if (matchingVariant) {
+        // Tìm combination phù hợp nếu có
+        if (matchingVariant.combinations && matchingVariant.combinations.length > 0 && shade) {
+          const matchingCombination = matchingVariant.combinations.find(c =>
+            c.attributes.size === size && c.attributes.shade === shade
+          );
+
+          if (matchingCombination) {
+            setSelectedCombinationId(matchingCombination.combinationId);
+            onSelectVariant(matchingVariant, matchingCombination);
+          } else {
+            // Không tự động chọn combination nếu không tìm thấy tổ hợp phù hợp
+            setSelectedCombinationId(null);
+            onSelectVariant(matchingVariant);
+          }
+        } else {
+          setSelectedCombinationId(null);
+          onSelectVariant(matchingVariant);
+        }
+      }
+    }
   };
 
   const handleShadeSelect = (shade: string) => {
-    setSelectedOptions(prev => ({ ...prev, shade: shade }));
-    // Find and select the matching variant immediately
+    // Chỉ cập nhật tone màu, giữ nguyên các lựa chọn khác
+    setSelectedOptions(prev => ({ ...prev, shade }));
+
+    // Tìm variant phù hợp với lựa chọn hiện tại
     const { color, size } = selectedOptions;
     if (color) {
       const matchingVariant = variants.find(v =>
@@ -271,18 +260,19 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
       );
 
       if (matchingVariant) {
-        // Find matching combination if available
-        if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
+        // Tìm combination phù hợp nếu có
+        if (matchingVariant.combinations && matchingVariant.combinations.length > 0 && size) {
           const matchingCombination = matchingVariant.combinations.find(c =>
-            c.attributes.shade === shade && (!size || c.attributes.size === size)
+            c.attributes.shade === shade && c.attributes.size === size
           );
 
           if (matchingCombination) {
             setSelectedCombinationId(matchingCombination.combinationId);
             onSelectVariant(matchingVariant, matchingCombination);
           } else {
-            setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
-            onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
+            // Không tự động chọn combination nếu không tìm thấy tổ hợp phù hợp
+            setSelectedCombinationId(null);
+            onSelectVariant(matchingVariant);
           }
         } else {
           setSelectedCombinationId(null);
@@ -314,6 +304,23 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   if (!hasAnyOptions) {
     return null; // Render nothing if no variants have any options
   }
+
+  // Tìm giá của tổ hợp được chọn
+  const selectedPrice = React.useMemo(() => {
+    if (!selectedVariant) return null;
+
+    // Nếu có combination được chọn, lấy giá của combination đó
+    if (selectedCombinationId && selectedVariant.combinations) {
+      const combination = selectedVariant.combinations.find(c => c.combinationId === selectedCombinationId);
+      if (combination) {
+        if (combination.price) return combination.price;
+        if (combination.additionalPrice) return selectedVariant.price + combination.additionalPrice;
+      }
+    }
+
+    // Nếu không có combination hoặc không tìm thấy, trả về giá của variant
+    return selectedVariant.price;
+  }, [selectedVariant, selectedCombinationId]);
 
   return (
     <div className="space-y-5">
@@ -412,45 +419,33 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
         </div>
       )}
 
-      {/* Tổ hợp biến thể */}
-      {selectedVariant && selectedVariant.combinations && selectedVariant.combinations.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Tổ hợp:</h3>
-          <div className="flex flex-wrap gap-2">
-            {selectedVariant.combinations.map((combination) => {
-              // Tạo tên hiển thị cho tổ hợp
-              const combinationName = Object.entries(combination.attributes)
-                .map(([key, value]) => `${key === 'shade' ? 'Tone' : key === 'size' ? 'Dung tích' : key}: ${value}`)
-                .join(', ');
-
-              return (
-                <button
-                  key={combination.combinationId}
-                  onClick={() => handleCombinationSelect(combination.combinationId, selectedVariant)}
-                  className={`
-                    px-4 py-2 rounded-md text-sm transition-all duration-200
-                    ${selectedCombinationId === combination.combinationId
-                      ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
-                      : 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
-                    }
-                  `}
-                >
-                  <div className="flex flex-col">
-                    <span>{combinationName}</span>
-                    {combination.price && (
-                      <span className="text-xs mt-1">
-                        {combination.price.toLocaleString('vi-VN')}đ
-                      </span>
-                    )}
-                    {!combination.price && combination.additionalPrice && combination.additionalPrice > 0 && (
-                      <span className="text-xs mt-1">
-                        +{combination.additionalPrice.toLocaleString('vi-VN')}đ
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+      {/* Hiển thị thông tin tổ hợp đã chọn */}
+      {selectedVariant && selectedCombinationId && selectedVariant.combinations && (
+        <div className="mt-4 p-3 bg-pink-50/50 rounded-lg border border-pink-100">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700">Tổ hợp đã chọn:</h3>
+              {selectedVariant.combinations.map((combination) => {
+                if (combination.combinationId === selectedCombinationId) {
+                  const combinationDetails = Object.entries(combination.attributes)
+                    .map(([key, value]) => `${key === 'shade' ? 'Tone' : key === 'size' ? 'Dung tích' : key}: ${value}`)
+                    .join(', ');
+                  return (
+                    <p key={combination.combinationId} className="text-sm text-gray-600 mt-1">
+                      {combinationDetails}
+                    </p>
+                  );
+                }
+                return null;
+              })}
+            </div>
+            {selectedPrice && (
+              <div className="text-right">
+                <span className="text-lg font-medium text-pink-600">
+                  {selectedPrice.toLocaleString('vi-VN')}đ
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
