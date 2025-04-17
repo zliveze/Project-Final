@@ -309,12 +309,18 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   // Check if the product/variant/combination is already in the cart
   const cartItem = hasVariants && selectedVariant ?
     (hasCombinations && selectedCombination ?
+      cartItems.find(item => {
+        // For items with combinations, check both variantId and combinationId
+        return item.variantId === selectedVariant.variantId &&
+               item.selectedOptions?.combinationId === selectedCombination.combinationId;
+      }) :
+      // For items without combinations, check variantId and ensure no combinationId exists
       cartItems.find(item =>
         item.variantId === selectedVariant.variantId &&
-        item.options?.combinationId === selectedCombination.combinationId
-      ) :
-      cartItems.find(item => item.variantId === selectedVariant.variantId)
+        (!item.selectedOptions || !item.selectedOptions.combinationId)
+      )
     ) :
+    // For products without variants
     cartItems.find(item => item.productId === _id && !item.variantId);
 
   const cartQuantity = cartItem ? cartItem.quantity : 0;

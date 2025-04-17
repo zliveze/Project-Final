@@ -241,11 +241,39 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const displayOptions = { ...enhancedOptions };
           delete displayOptions.selectedBranchId;
 
+          // Determine the correct price based on product type and selected combination
+          let originalPrice;
+          let itemPrice = item.price; // Default to the stored price
+
           // For products without variants, use the product's price
-          // For products with variants, use the variant's price
-          const originalPrice = isProductWithoutVariants
-            ? (productData.currentPrice || productData.price)
-            : embeddedVariant.price;
+          if (isProductWithoutVariants) {
+            originalPrice = productData.currentPrice || productData.price;
+          } else {
+            // For products with variants, use the variant's price
+            originalPrice = embeddedVariant.price;
+
+            // If there's a combinationId in selectedOptions, find the combination and use its price
+            const combinationId = item.selectedOptions?.combinationId;
+            if (combinationId && embeddedVariant.combinations) {
+              const combination = embeddedVariant.combinations.find(c => c.combinationId === combinationId);
+              if (combination) {
+                console.log(`Found combination for ${combinationId}:`, combination);
+
+                // If combination has a direct price, use it
+                if (combination.price) {
+                  originalPrice = combination.price;
+                  itemPrice = combination.price; // Update itemPrice too
+                }
+                // If combination has additionalPrice, add it to the variant price
+                else if (combination.additionalPrice) {
+                  originalPrice = embeddedVariant.price + combination.additionalPrice;
+                  itemPrice = embeddedVariant.price + combination.additionalPrice; // Update itemPrice too
+                }
+              } else {
+                console.log(`Combination ${combinationId} not found in variant:`, embeddedVariant);
+              }
+            }
+          }
 
           // For products without variants, use the product's images
           // For products with variants, use the variant's images if available
@@ -258,11 +286,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             : embeddedVariant.images?.[0]?.alt || productData.name;
 
           // Generate a unique ID for the cart item
-          // For products with variants, use the variantId
+          // For products with variants, use the variantId combined with combinationId if available
           // For products without variants, use the productId with a prefix
-          const itemId = isProductWithoutVariants
-            ? `product-${productData._id}`
-            : item.variantId;
+          let itemId;
+          if (isProductWithoutVariants) {
+            itemId = `product-${productData._id}`;
+          } else {
+            // If there's a combinationId, include it in the itemId to make it unique per combination
+            const combinationId = item.selectedOptions?.combinationId;
+            if (combinationId) {
+              itemId = `${item.variantId}-${combinationId}`;
+            } else {
+              itemId = item.variantId;
+            }
+          }
 
           return {
             _id: itemId,
@@ -435,11 +472,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
      // Tìm item hiện tại để lấy thông tin gốc (nếu cần rollback)
      // For products without variants, variantId will be empty string
-     const currentItem = cartItems.find(item =>
-       item.isProductWithoutVariants
-         ? (item.variantId === '' && variantId === '')
-         : item.variantId === variantId
-     );
+     // For products with variants and combinations, variantId might be a composite ID like "variantId-combinationId"
+     const currentItem = cartItems.find(item => {
+       if (item.isProductWithoutVariants) {
+         return item.variantId === '' && variantId === '';
+       } else {
+         // Check if this is a composite ID (contains a hyphen)
+         if (variantId.includes('-')) {
+           // For composite IDs, match the exact string
+           return item._id === variantId;
+         } else {
+           // For regular variantIds, match just the variantId
+           return item.variantId === variantId;
+         }
+       }
+     });
 
      if (!currentItem) {
        console.error(`Could not find cart item with variantId: ${variantId}`);
@@ -467,28 +514,75 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      // Optimistic UI update: Cập nhật state ngay lập tức
      const originalItems = [...cartItems];
      setCartItems(prevItems =>
-       prevItems.map(item =>
-         item.variantId === variantId
-           ? {
-               ...item,
-               quantity: validQuantity,
-               selectedBranchId: selectedBranchId || item.selectedBranchId
-             } // Đảm bảo số lượng hợp lệ và lưu chi nhánh đã chọn
-           : item
-       )
+       prevItems.map(item => {
+         // Match the item based on the same logic we used to find currentItem
+         let isMatchingItem = false;
+
+         if (item.isProductWithoutVariants) {
+           isMatchingItem = item.variantId === '' && variantId === '';
+         } else {
+           // Check if this is a composite ID (contains a hyphen)
+           if (variantId.includes('-')) {
+             // For composite IDs, match the exact string
+             isMatchingItem = item._id === variantId;
+           } else {
+             // For regular variantIds, match just the variantId
+             isMatchingItem = item.variantId === variantId;
+           }
+         }
+
+         if (isMatchingItem) {
+           return {
+             ...item,
+             quantity: validQuantity,
+             selectedBranchId: selectedBranchId || item.selectedBranchId
+           }; // Đảm bảo số lượng hợp lệ và lưu chi nhánh đã chọn
+         }
+         return item;
+       })
      );
 
     try {
       // Create DTO with quantity and selectedBranchId if provided
       const dto: any = { quantity: validQuantity };
 
-      // Add selectedBranchId to the DTO if it's provided
+      // Prepare selectedOptions for the DTO
+      // Start with current item's selectedOptions to preserve combinationId
+      let selectedOptions = { ...currentItem.selectedOptions } || {};
+
+      // Add or update selectedBranchId if provided
       if (selectedBranchId) {
-        dto.selectedOptions = { selectedBranchId };
+        selectedOptions.selectedBranchId = selectedBranchId;
+      }
+
+      // Add selectedOptions to the DTO if we have any
+      if (Object.keys(selectedOptions).length > 0) {
+        dto.selectedOptions = selectedOptions;
+      }
+
+      // For products with variants and combinations, format as "variantId:combinationId"
+      let apiVariantId;
+      if (variantId === '') {
+        apiVariantId = 'none';
+      } else if (variantId.includes('-')) {
+        // Extract parts from the composite ID (format: "variantId-combinationId")
+        const parts = variantId.split('-');
+        const actualVariantId = parts[0];
+        const combinationId = parts[1];
+
+        // Format as "variantId:combinationId" for backend to parse
+        apiVariantId = `${actualVariantId}:${combinationId}`;
+
+        // Make sure combinationId is included in selectedOptions
+        if (combinationId && selectedOptions) {
+          selectedOptions.combinationId = combinationId;
+        }
+      } else {
+        apiVariantId = variantId;
       }
 
       // Gọi API PATCH bằng fetch - encode variantId to handle special characters
-      const encodedVariantId = encodeURIComponent(variantId);
+      const encodedVariantId = encodeURIComponent(apiVariantId);
       const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
           method: 'PATCH',
           headers: {
@@ -543,15 +637,39 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const originalItems = [...cartItems];
 
     // For products without variants, variantId will be empty string
-    setCartItems(prevItems => prevItems.filter(item =>
-      item.isProductWithoutVariants
-        ? !(item.variantId === '' && variantId === '')
-        : item.variantId !== variantId
-    ));
+    // For products with variants and combinations, variantId might be a composite ID like "variantId-combinationId"
+    setCartItems(prevItems => prevItems.filter(item => {
+      if (item.isProductWithoutVariants) {
+        return !(item.variantId === '' && variantId === '');
+      } else {
+        // Check if this is a composite ID (contains a hyphen)
+        if (variantId.includes('-')) {
+          // For composite IDs, match the exact string
+          return item._id !== variantId;
+        } else {
+          // For regular variantIds, match just the variantId
+          return item.variantId !== variantId;
+        }
+      }
+    }));
 
     try {
       // For products without variants, use 'none' as the variantId in the API call
-      const apiVariantId = variantId === '' ? 'none' : variantId;
+      // For products with variants and combinations, format as "variantId:combinationId"
+      let apiVariantId;
+      if (variantId === '') {
+        apiVariantId = 'none';
+      } else if (variantId.includes('-')) {
+        // Extract parts from the composite ID (format: "variantId-combinationId")
+        const parts = variantId.split('-');
+        const actualVariantId = parts[0];
+        const combinationId = parts[1];
+
+        // Format as "variantId:combinationId" for backend to parse
+        apiVariantId = `${actualVariantId}:${combinationId}`;
+      } else {
+        apiVariantId = variantId;
+      }
 
       // Ghi log thông tin chi tiết về sản phẩm đang xóa
       console.log(`Đang xóa sản phẩm với variantId: ${apiVariantId} (${typeof variantId})`);

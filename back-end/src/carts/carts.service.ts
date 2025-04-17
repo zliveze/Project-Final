@@ -150,10 +150,26 @@ export class CartsService {
     // 3. Check stock BEFORE modifying cart
     console.log(`[CartsService] Checking existing item index for ${variantId ? 'variantId: ' + variantId : 'product without variant'}`);
 
-    // For products with variants, find by variantId
+    // For products with variants, find by variantId and combinationId (if provided)
     // For products without variants, find by productId and check that variantId is empty or not set
     const existingItemIndex = variantId ?
-        cart.items.findIndex(item => item.variantId?.toString() === variantId || item.variantId === variantId) :
+        cart.items.findIndex(item => {
+            // First check if variantId matches
+            const variantMatches = item.variantId?.toString() === variantId || item.variantId === variantId;
+
+            // If variantId matches and we have selectedOptions with combinationId
+            if (variantMatches && selectedOptions && selectedOptions.combinationId) {
+                // Check if the item has the same combinationId
+                return item.selectedOptions &&
+                       item.selectedOptions.combinationId === selectedOptions.combinationId;
+            }
+
+            // If no combinationId in selectedOptions, just match by variantId
+            // This handles the case for variants without combinations
+            return variantMatches &&
+                   (!selectedOptions || !selectedOptions.combinationId) &&
+                   (!item.selectedOptions || !item.selectedOptions.combinationId);
+        }) :
         cart.items.findIndex(item =>
             item.productId.toString() === productId &&
             (!item.variantId || item.variantId === '')
@@ -282,10 +298,26 @@ export class CartsService {
     // 2. Find item index
     console.log(`[CartsService] Finding item index for ${variantId ? 'variantId: ' + variantId : 'product without variant'}`);
 
-    // For products with variants, find by variantId
+    // For products with variants, find by variantId and combinationId (if provided in selectedOptions)
     // For products without variants, find by empty variantId or null
     const itemIndex = variantId ?
-      cart.items.findIndex(item => item.variantId === variantId) :
+      cart.items.findIndex(item => {
+        // First check if variantId matches
+        const variantMatches = item.variantId === variantId;
+
+        // If variantId matches and we have selectedOptions with combinationId
+        if (variantMatches && selectedOptions && selectedOptions.combinationId) {
+          // Check if the item has the same combinationId
+          return item.selectedOptions &&
+                 item.selectedOptions.combinationId === selectedOptions.combinationId;
+        }
+
+        // If no combinationId in selectedOptions, just match by variantId
+        // This handles the case for variants without combinations
+        return variantMatches &&
+               (!selectedOptions || !selectedOptions.combinationId) &&
+               (!item.selectedOptions || !item.selectedOptions.combinationId);
+      }) :
       cart.items.findIndex(item => !item.variantId || item.variantId === '');
 
     if (itemIndex === -1) {
@@ -427,9 +459,28 @@ export class CartsService {
     // Handle both products with and without variants
     if (variantId) {
       // For products with variants, filter by variantId
-      cart.items = cart.items.filter(
-        (item) => item.variantId !== variantId
-      );
+      // If the variantId contains a combinationId separator (e.g., "variantId:combinationId"),
+      // then we need to extract both parts and filter accordingly
+      if (variantId.includes(':')) {
+        const [actualVariantId, combinationId] = variantId.split(':');
+        cart.items = cart.items.filter(
+          (item) => {
+            // If this item doesn't match the variantId, keep it
+            if (item.variantId !== actualVariantId) return true;
+
+            // If this item matches the variantId but doesn't have the combinationId, keep it
+            if (!item.selectedOptions || !item.selectedOptions.combinationId) return true;
+
+            // If this item matches both variantId and combinationId, remove it
+            return item.selectedOptions.combinationId !== combinationId;
+          }
+        );
+      } else {
+        // For regular variantIds without combinationId, filter by variantId only
+        cart.items = cart.items.filter(
+          (item) => item.variantId !== variantId
+        );
+      }
     } else {
       // For products without variants, filter by empty variantId or null
       cart.items = cart.items.filter(

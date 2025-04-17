@@ -209,8 +209,8 @@ const CartItem: React.FC<CartItemProps> = ({
               <div className="mt-2 flex flex-wrap gap-2">
                 <div className="w-full text-xs text-gray-500 mb-1">Phiên bản đã chọn:</div>
                 {Object.entries(selectedOptions).map(([key, value]) => {
-                  // Skip selectedBranchId if it's in the options
-                  if (key === 'selectedBranchId') return null;
+                  // Skip selectedBranchId and combinationId if they're in the options
+                  if (key === 'selectedBranchId' || key === 'combinationId') return null;
 
                   // Map option keys to Vietnamese labels
                   const optionLabels: Record<string, string> = {
