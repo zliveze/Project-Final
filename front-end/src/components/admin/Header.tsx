@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FiBell, FiUser, FiSearch, FiLogOut, FiSettings } from 'react-icons/fi';
+import { FiBell, FiUser, FiLogOut, FiSettings } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function Header() {
   const [user, setUser] = useState<{ email: string; role: string; name: string } | null>(null);
@@ -31,36 +32,36 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm px-6 py-3">
+    <motion.header
+      className="bg-white shadow-sm px-6 py-3"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="relative max-w-xs">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <FiSearch className="h-5 w-5 text-gray-400" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
-            />
-          </div>
+        
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <button className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
+        <div className="flex items-center space-x-5">
+          <motion.div
+            className="relative"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <button className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors">
               <span className="sr-only">Xem thông báo</span>
-              <FiBell className="h-6 w-6" />
+              <FiBell className="h-5 w-5" />
               {notifications > 0 && (
-                <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-pink-500 text-xs text-white text-center">
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
                   {notifications}
                 </span>
               )}
             </button>
-          </div>
+          </motion.div>
 
           <div className="flex items-center">
-            <div className="hidden md:flex md:flex-col md:items-end md:leading-tight">
+            <div className="hidden md:flex md:flex-col md:items-end md:leading-tight mr-3">
               <span className="text-sm font-medium text-gray-700">
                 {user?.name || user?.email || 'Admin'}
               </span>
@@ -68,12 +69,12 @@ export default function Header() {
                 {user?.role || 'admin'}
               </span>
             </div>
-            <Menu as="div" className="ml-3 relative">
-              <div>
-                <Menu.Button className="h-8 w-8 rounded-full bg-pink-500 flex items-center justify-center text-white hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500">
+            <Menu as="div" className="relative">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Menu.Button className="h-9 w-9 rounded-md bg-pink-500 flex items-center justify-center text-white hover:bg-pink-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 shadow-sm">
                   <FiUser className="h-5 w-5" />
                 </Menu.Button>
-              </div>
+              </motion.div>
               <Transition
                 as={Fragment}
                 enter="transition ease-out duration-100"
@@ -83,14 +84,14 @@ export default function Header() {
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white border border-gray-100 focus:outline-none">
                   <Menu.Item>
                     {({ active }) => (
-                      <Link 
+                      <Link
                         href="/admin/profile"
                         className={`${
                           active ? 'bg-gray-100' : ''
-                        } flex items-center px-4 py-2 text-sm text-gray-700`}
+                        } flex items-center px-4 py-2 text-sm text-gray-700 hover:text-pink-600 transition-colors`}
                       >
                         <FiSettings className="mr-2 h-5 w-5 text-gray-500" aria-hidden="true" />
                         Thông tin tài khoản
@@ -103,7 +104,7 @@ export default function Header() {
                         onClick={handleLogout}
                         className={`${
                           active ? 'bg-gray-100' : ''
-                        } flex w-full items-center px-4 py-2 text-sm text-gray-700`}
+                        } flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:text-pink-600 transition-colors`}
                       >
                         <FiLogOut className="mr-2 h-5 w-5 text-gray-500" aria-hidden="true" />
                         Đăng xuất
@@ -116,6 +117,6 @@ export default function Header() {
           </div>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
-} 
+}

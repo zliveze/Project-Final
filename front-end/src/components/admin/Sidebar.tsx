@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { 
-  FiHome, 
-  FiShoppingBag, 
-  FiShoppingCart, 
-  FiUsers, 
-  FiTag, 
-  FiGift, 
+import {
+  FiHome,
+  FiShoppingBag,
+  FiShoppingCart,
+  FiUsers,
+  FiTag,
+  FiGift,
   FiCalendar,
   FiGrid,
   FiLogOut,
   FiImage,
   FiBell,
   FiStar,
-  FiMap
+  FiMap,
+  FiChevronLeft,
+  FiChevronRight
 } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
+import { motion } from 'framer-motion';
 
 const menuItems = [
   {
@@ -90,71 +93,78 @@ export default function Sidebar() {
   };
 
   return (
-    <div className={`bg-white shadow-lg h-screen transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'} flex flex-col`}>
+    <motion.div
+      className={`bg-white shadow-lg h-screen ${collapsed ? 'w-16' : 'w-64'} flex flex-col relative`}
+      initial={{ width: collapsed ? 64 : 256 }}
+      animate={{ width: collapsed ? 64 : 256 }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
+    >
       <div className="flex items-center justify-between p-4 border-b">
-        <div className={`flex items-center ${collapsed ? 'justify-center w-full' : ''}`}>
-          {!collapsed && (
-            <span className="text-xl font-bold text-pink-600">Yumin Admin</span>
-          )}
-          {collapsed && (
-            <span className="text-xl font-bold text-pink-600">Y</span>
-          )}
-        </div>
-        <button 
+        {!collapsed && (
+          <span className="text-xl font-bold text-pink-600">Yumin Admin</span>
+        )}
+
+        <motion.button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 rounded-full hover:bg-gray-100"
+          className={`${collapsed ? 'mx-auto' : 'ml-auto'} p-1.5 rounded-md hover:bg-pink-50 text-gray-500 hover:text-pink-500 transition-colors`}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          aria-label={collapsed ? "Mở rộng" : "Thu gọn"}
         >
           {collapsed ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
+            <FiChevronRight className="h-5 w-5" />
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
+            <FiChevronLeft className="h-5 w-5" />
           )}
-        </button>
+        </motion.button>
       </div>
-      
+
       <nav className="mt-6 flex-grow overflow-y-auto">
-        <ul>
+        <ul className="space-y-1 px-2">
           {menuItems.map((item) => {
             const isActive = router.pathname === item.href || router.pathname.startsWith(`${item.href}/`);
-            
+
             return (
-              <li key={item.name} className="px-2 py-1">
-                <Link 
+              <motion.li
+                key={item.name}
+                whileHover={{ x: collapsed ? 0 : 3 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link
                   href={item.href}
                   className={`flex items-center p-2 rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-pink-100 text-pink-600' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                    isActive
+                      ? 'bg-pink-100 text-pink-600'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-pink-500'
+                  } ${collapsed ? 'justify-center' : ''}`}
+                  title={collapsed ? item.name : ''}
                 >
-                  <item.icon className={`h-6 w-6 ${isActive ? 'text-pink-500' : 'text-gray-400'}`} />
+                  <item.icon className={`h-5 w-5 ${isActive ? 'text-pink-500' : 'text-gray-400'}`} />
                   {!collapsed && (
-                    <span className="ml-3">{item.name}</span>
+                    <span className="ml-3 font-medium">{item.name}</span>
                   )}
                 </Link>
-              </li>
+              </motion.li>
             );
           })}
         </ul>
       </nav>
-      
+
       <div className="p-4 border-t border-gray-200 mt-auto">
-        <button
+        <motion.button
           onClick={handleLogout}
-          className={`flex items-center p-2 rounded-md text-gray-600 hover:bg-gray-100 w-full ${
+          className={`flex items-center p-2 rounded-md text-gray-600 hover:bg-pink-50 hover:text-pink-500 transition-colors w-full ${
             collapsed ? 'justify-center' : ''
           }`}
+          whileHover={{ backgroundColor: '#FDF2F8' }}
+          whileTap={{ scale: 0.98 }}
         >
-          <FiLogOut className="h-6 w-6 text-gray-400" />
+          <FiLogOut className="h-5 w-5 text-gray-400" />
           {!collapsed && (
-            <span className="ml-3">Đăng xuất</span>
+            <span className="ml-3 font-medium">Đăng xuất</span>
           )}
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
-} 
+}

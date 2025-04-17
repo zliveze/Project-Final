@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAdminAuth } from '../../contexts/AdminAuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -27,7 +28,7 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
           authCheckRef.current = true;
           // Kiểm tra xác thực thông qua context
           const isAuth = await checkAuth();
-          
+
           if (!isAuth) {
             router.push('/admin/auth/login');
           }
@@ -40,7 +41,7 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
         setLoading(false);
       }
     };
-    
+
     verifyAuth();
   }, [router.pathname]); // Chỉ gọi lại khi router.pathname thay đổi
 
@@ -57,8 +58,16 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
   // Hiển thị loading khi đang kiểm tra xác thực
   if (loading || authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <motion.div
+          className="flex flex-col items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500 mb-4"></div>
+          <p className="text-gray-500 font-medium">Đang tải...</p>
+        </motion.div>
       </div>
     );
   }
@@ -80,18 +89,34 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
           style: {
             background: '#FFFFFF',
             color: '#333333',
+            borderRadius: '0.375rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           },
         }}
       />
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-            <div className="max-w mx-auto">
-              {children}
-            </div>
-          </main>
+          <motion.main
+            className="flex-1 overflow-y-auto p-6 bg-gray-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={router.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-full mx-auto"
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          </motion.main>
         </div>
       </div>
     </>
