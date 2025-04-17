@@ -167,6 +167,7 @@ export interface StoreData {
 export interface BrandItem {
   id: string;
   name: string;
+  origin?: string;
 }
 
 export interface CategoryItem {

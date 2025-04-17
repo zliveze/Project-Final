@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ProductFormData } from '../types';
 
 interface CosmeticInfoTabProps {
@@ -9,6 +9,7 @@ interface CosmeticInfoTabProps {
   removeConcern: (index: number) => void;
   removeIngredient: (index: number) => void;
   isViewMode?: boolean;
+  brands: { id: string; name: string; origin?: string }[];
 }
 
 /**
@@ -21,8 +22,25 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
   handleIngredientsChange,
   removeConcern,
   removeIngredient,
-  isViewMode = false
+  isViewMode = false,
+  brands
 }) => {
+  // Tìm thương hiệu hiện tại dựa trên brandId
+  const currentBrand = brands.find(brand => brand.id === formData.brandId);
+
+  // Tự động cập nhật trường xuất xứ khi thương hiệu thay đổi
+  useEffect(() => {
+    if (currentBrand?.origin && !formData.cosmetic_info?.madeIn) {
+      // Chỉ tự động điền nếu trường madeIn đang trống
+      handleInputChange({
+        target: {
+          name: 'cosmetic_info.madeIn',
+          value: currentBrand.origin
+        }
+      } as React.ChangeEvent<HTMLInputElement>);
+    }
+  }, [formData.brandId, currentBrand]);
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-medium mb-4">Thông tin mỹ phẩm</h3>
@@ -41,7 +59,7 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
             onChange={(e) => {
               const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
               const currentInfo = formData.cosmetic_info || {};
-              
+
               handleInputChange({
                 target: {
                   name: 'cosmetic_info.skinType',
@@ -104,8 +122,8 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
 
             <div className="mt-2 flex flex-wrap gap-2">
               {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.map((concern, index) => (
-                <span 
-                  key={index} 
+                <span
+                  key={index}
                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                 >
                   {concern}
@@ -125,8 +143,8 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
           <div className="mt-2 flex flex-wrap gap-2">
             {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.length > 0 ? (
               formData.cosmetic_info.concerns.map((concern, index) => (
-                <span 
-                  key={index} 
+                <span
+                  key={index}
                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                 >
                   {concern}
@@ -158,8 +176,8 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
 
             <div className="mt-2 flex flex-wrap gap-2">
               {formData.cosmetic_info?.ingredients && formData.cosmetic_info.ingredients.map((ingredient, index) => (
-                <span 
-                  key={index} 
+                <span
+                  key={index}
                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
                 >
                   {ingredient}
@@ -179,8 +197,8 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
           <div className="mt-2 flex flex-wrap gap-2">
             {formData.cosmetic_info?.ingredients && formData.cosmetic_info.ingredients.length > 0 ? (
               formData.cosmetic_info.ingredients.map((ingredient, index) => (
-                <span 
-                  key={index} 
+                <span
+                  key={index}
                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                 >
                   {ingredient}
@@ -231,17 +249,27 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
         <div className="space-y-2">
           <label htmlFor="madeIn" className="block text-sm font-medium text-gray-700">
             Xuất xứ
+            {currentBrand?.origin && !formData.cosmetic_info?.madeIn && (
+              <span className="ml-1 text-xs text-pink-500">(Tự động từ thương hiệu)</span>
+            )}
           </label>
-          <input
-            type="text"
-            id="madeIn"
-            name="cosmetic_info.madeIn"
-            value={formData.cosmetic_info?.madeIn || ''}
-            onChange={handleInputChange}
-            disabled={isViewMode}
-            placeholder="Quốc gia sản xuất"
-            className="mt-1 focus:ring-pink-500 focus:border-pink-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              id="madeIn"
+              name="cosmetic_info.madeIn"
+              value={formData.cosmetic_info?.madeIn || ''}
+              onChange={handleInputChange}
+              disabled={isViewMode}
+              placeholder={currentBrand?.origin ? `${currentBrand.origin} (từ thương hiệu)` : "Quốc gia sản xuất"}
+              className="mt-1 focus:ring-pink-500 focus:border-pink-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
+            />
+            {currentBrand?.origin && formData.cosmetic_info?.madeIn !== currentBrand.origin && (
+              <div className="mt-1 text-xs text-gray-500">
+                Gợi ý từ thương hiệu: {currentBrand.origin}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Hạn sử dụng */}
@@ -299,4 +327,4 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
   );
 };
 
-export default CosmeticInfoTab; 
+export default CosmeticInfoTab;

@@ -186,7 +186,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
       // Chuyển đổi từ định dạng backend sang định dạng component
       const formattedBrands = backendBrands.map(brand => ({
         id: brand.id,
-        name: brand.name
+        name: brand.name,
+        origin: brand.origin // Thêm thông tin origin từ brand
       }));
       setBrands(formattedBrands);
     }
@@ -392,6 +393,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               removeConcern={removeConcern}
               removeIngredient={removeIngredient}
               isViewMode={isViewMode}
+              brands={brands}
             />
           </Tab.Panel>
 
