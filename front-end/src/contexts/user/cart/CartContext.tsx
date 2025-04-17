@@ -177,10 +177,27 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           if (!isProductWithoutVariants) {
             // Find the specific embedded variant within the populated product data
-            embeddedVariant = productData.variants?.find(v => v.variantId?.toString() === item.variantId);
+            embeddedVariant = productData.variants?.find(v => {
+              // So sánh cả string và ObjectId
+              const variantIdStr = v.variantId?.toString();
+              const itemVariantIdStr = item.variantId?.toString();
+              return variantIdStr === itemVariantIdStr;
+            });
 
             if (!embeddedVariant) {
-              console.warn(`Could not find embedded variant details for variantId: ${item.variantId} in product ${productData._id}. Item will be skipped.`);
+              // Ghi log chi tiết hơn về lỗi
+              console.warn(`Could not find embedded variant details for variantId: ${item.variantId} (${typeof item.variantId}) in product ${productData._id}.`);
+              console.warn(`Available variants:`, productData.variants?.map(v => ({
+                variantId: v.variantId,
+                variantIdType: typeof v.variantId,
+                variantIdStr: v.variantId?.toString()
+              })));
+
+              // Kiểm tra xem có phải là ID tạm thời không (new-timestamp)
+              if (item.variantId && item.variantId.toString().startsWith('new-')) {
+                console.warn(`Detected temporary ID format: ${item.variantId}. This may be a newly created variant that hasn't been properly saved.`);
+              }
+
               return null; // Bỏ qua item nếu không lấy được chi tiết
             }
           } else {
@@ -284,7 +301,41 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Kiểm tra nếu có item bị loại bỏ do lỗi
       if (populatedItems.length < backendCart.items.length) {
-          toast.warn('Một vài sản phẩm trong giỏ hàng không thể hiển thị do lỗi dữ liệu.');
+          const missingCount = backendCart.items.length - populatedItems.length;
+          console.error(`${missingCount} sản phẩm trong giỏ hàng không thể hiển thị do lỗi dữ liệu.`);
+
+          // Tìm các item bị lỗi để ghi log chi tiết
+          const validVariantIds = populatedItems.map(item => item.variantId);
+          const missingItems = backendCart.items.filter(item => {
+              // Với sản phẩm không có biến thể, variantId có thể là '' hoặc null
+              const itemVariantId = item.variantId || '';
+              return !validVariantIds.includes(itemVariantId);
+          });
+
+          console.error('Chi tiết các sản phẩm bị lỗi:', missingItems);
+
+          // Hiển thị thông báo cho người dùng
+          toast.warn(`${missingCount} sản phẩm trong giỏ hàng không thể hiển thị do lỗi dữ liệu.`);
+
+          // Tự động xóa các item không hợp lệ khỏi giỏ hàng sau 2 giây
+          setTimeout(async () => {
+              try {
+                  for (const item of missingItems) {
+                      const apiVariantId = item.variantId || 'none';
+                      const encodedVariantId = encodeURIComponent(apiVariantId);
+                      await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
+                          method: 'DELETE',
+                          headers: {
+                              ...getAuthHeaders(),
+                          },
+                      });
+                      console.log(`Đã tự động xóa sản phẩm lỗi với variantId: ${apiVariantId}`);
+                  }
+                  // Không cần fetch lại giỏ hàng vì chúng ta đã lọc các item lỗi
+              } catch (cleanupErr) {
+                  console.error('Lỗi khi tự động dọn dẹp giỏ hàng:', cleanupErr);
+              }
+          }, 2000);
       }
 
       setCartItems(populatedItems);
@@ -338,8 +389,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
 
      } catch (err: any) {
-      console.error('Lỗi khi thêm vào giỏ hàng:', err.message);
-      const message = err.message || 'Thêm vào giỏ hàng thất bại. Có thể sản phẩm đã hết hàng hoặc số lượng không hợp lệ.';
+      console.error('Lỗi khi thêm vào giỏ hàng:', err);
+      console.error('Chi tiết sản phẩm gặp lỗi:', { productId, variantId, quantity, options });
+
+      // Xử lý các trường hợp lỗi cụ thể
+      let message = err.message || 'Thêm vào giỏ hàng thất bại. Có thể sản phẩm đã hết hàng hoặc số lượng không hợp lệ.';
+
+      // Kiểm tra các lỗi cụ thể và cung cấp thông báo hữu ích hơn
+      if (err.message?.includes('not found') || err.message?.includes('không tìm thấy')) {
+        message = 'Sản phẩm không tồn tại hoặc đã bị xóa khỏi hệ thống.';
+      } else if (err.message?.includes('out of stock') || err.message?.includes('hết hàng')) {
+        message = 'Sản phẩm đã hết hàng. Vui lòng chọn sản phẩm khác.';
+      } else if (err.message?.includes('invalid') || err.message?.includes('không hợp lệ')) {
+        message = 'Thông tin sản phẩm không hợp lệ. Vui lòng thử lại sau.';
+      }
+
       toast.error(message);
       setError(message); // Cập nhật lỗi chung nếu cần
       return false;
@@ -489,6 +553,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // For products without variants, use 'none' as the variantId in the API call
       const apiVariantId = variantId === '' ? 'none' : variantId;
 
+      // Ghi log thông tin chi tiết về sản phẩm đang xóa
+      console.log(`Đang xóa sản phẩm với variantId: ${apiVariantId} (${typeof variantId})`);
+
       // Gọi API DELETE bằng fetch - encode variantId to handle special characters
       const encodedVariantId = encodeURIComponent(apiVariantId);
       const response = await fetch(`${API_URL}/carts/items/${encodedVariantId}`, {
@@ -498,16 +565,25 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           },
       });
 
-       // API có thể trả về giỏ hàng mới (status 200) hoặc không (status 204)
-       if (response.ok) { // Checks for 2xx status codes
-         // Fetch lại giỏ hàng để đảm bảo đồng bộ
-         await fetchAndPopulateCart();
-         toast.info('Đã xóa sản phẩm khỏi giỏ hàng');
-         return true;
-       } else {
-           const errorData = await response.json().catch(() => ({ message: response.statusText }));
-           throw new Error(errorData.message || 'Failed to remove cart item');
-       }
+      // API có thể trả về giỏ hàng mới (status 200) hoặc không (status 204)
+      if (response.ok) { // Checks for 2xx status codes
+        console.log(`Xóa sản phẩm thành công với variantId: ${apiVariantId}`);
+
+        // Fetch lại giỏ hàng để đảm bảo đồng bộ
+        await fetchAndPopulateCart();
+        toast.info('Đã xóa sản phẩm khỏi giỏ hàng');
+        return true;
+      } else {
+        // Xử lý các trường hợp lỗi cụ thể
+        if (response.status === 404) {
+          console.warn(`Sản phẩm với variantId ${apiVariantId} không tồn tại trong giỏ hàng hoặc đã bị xóa trước đó.`);
+          // Vẫn trả về true vì mục tiêu là xóa sản phẩm khỏi giỏ hàng
+          return true;
+        }
+
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || 'Failed to remove cart item');
+      }
     } catch (err: any) {
       console.error('Lỗi khi xóa sản phẩm:', err.message);
       const message = err.message || 'Xóa sản phẩm thất bại. Vui lòng thử lại.';
