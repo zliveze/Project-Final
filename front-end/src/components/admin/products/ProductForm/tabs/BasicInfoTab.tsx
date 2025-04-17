@@ -129,17 +129,17 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
 
 
   return (
-    <div className="space-y-8 bg-white p-6 rounded-lg shadow-sm">
+    <div className="space-y-6 bg-white p-5 rounded-lg shadow-sm">
       {/* Tiêu đề */}
-      <div className="border-b border-gray-200 pb-4 mb-6">
+      <div className="border-b border-gray-200 pb-3 mb-4">
         <h3 className="text-lg font-medium text-gray-800">Thông tin cơ bản</h3>
         <p className="text-sm text-gray-500 mt-1">Nhập các thông tin cơ bản của sản phẩm</p>
       </div>
 
       {/* Thông tin chính */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         {/* Tên sản phẩm */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             Tên sản phẩm <span className="text-red-500">*</span>
           </label>
@@ -157,7 +157,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
         </div>
 
         {/* SKU */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
             Mã sản phẩm (SKU) <span className="text-red-500">*</span>
           </label>
@@ -175,7 +175,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
         </div>
 
         {/* Slug */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
             Slug
           </label>
@@ -189,11 +189,11 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
             placeholder="URL-friendly tên sản phẩm"
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200 disabled:bg-gray-100"
           />
-          <p className="text-xs text-gray-500 italic">Tự động tạo từ tên sản phẩm, có thể chỉnh sửa.</p>
+          <p className="text-xs text-gray-400 italic">Tự động tạo từ tên sản phẩm, có thể chỉnh sửa.</p>
         </div>
 
         {/* Trạng thái */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="status" className="block text-sm font-medium text-gray-700">
             Trạng thái
           </label>
@@ -212,11 +212,11 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
         </div>
 
         {/* Giá gốc */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="price" className="block text-sm font-medium text-gray-700">
             Giá gốc (VNĐ)
           </label>
-          <div className="mt-1 relative rounded-md shadow-sm">
+          <div className="relative rounded-md shadow-sm">
             <input
               type="number"
               id="price"
@@ -240,7 +240,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
           <label htmlFor="currentPrice" className="block text-sm font-medium text-gray-700">
             Giá bán (VNĐ)
           </label>
-          <div className="mt-1 relative rounded-md shadow-sm">
+          <div className="relative rounded-md shadow-sm">
             <input
               type="number"
               id="currentPrice"
@@ -260,7 +260,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
         </div>
 
         {/* Thương hiệu */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="brandId" className="block text-sm font-medium text-gray-700">
             Thương hiệu <span className="text-red-500">*</span>
           </label>
@@ -287,7 +287,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                       borderColor: state.isFocused ? '#d53f8c' : '#cbd5e0',
                     },
                     borderRadius: '0.375rem',
-                    padding: '1px',
+                    minHeight: '38px',
                   }),
                   option: (baseStyles, state) => ({
                     ...baseStyles,
@@ -306,14 +306,14 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               )}
             </>
           ) : (
-            <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
+            <div className="py-2 px-3 bg-gray-100 rounded-md text-sm">
               {currentBrand ? currentBrand.name : formData.brandId ? `${formData.brandId} (Không tìm thấy)` : 'Không có'}
             </div>
           )}
         </div>
 
         {/* Danh mục */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label htmlFor="categoryIds" className="block text-sm font-medium text-gray-700">
             Danh mục
           </label>
@@ -341,7 +341,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                       borderColor: state.isFocused ? '#d53f8c' : '#cbd5e0',
                     },
                     borderRadius: '0.375rem',
-                    padding: '1px',
+                    minHeight: '38px',
                   }),
                   option: (baseStyles, state) => ({
                     ...baseStyles,
@@ -374,7 +374,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
 
               {/* Hiển thị cảnh báo nếu có danh mục không tồn tại */}
               {missingCategories.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-2">
+                <div className="bg-red-50 border border-red-200 rounded-md px-3 py-1.5 mt-2">
                   <p className="text-xs text-red-500">
                     Có {missingCategories.length} danh mục không còn tồn tại trong hệ thống.
                   </p>
@@ -382,9 +382,9 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               )}
             </>
           ) : (
-            <div className="mt-1 py-3 px-4 bg-gray-50 rounded-md text-sm border border-gray-200">
+            <div className="py-2 px-3 bg-gray-50 rounded-md text-sm border border-gray-200">
               {formData.categoryIds && formData.categoryIds.length > 0 ? (
-                <ul className="list-disc pl-5 space-y-1">
+                <ul className="list-disc pl-4 space-y-0.5">
                   {formData.categoryIds.map((id) => {
                     const category = categories.find((c) => c.id === id);
                     return (
@@ -395,7 +395,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                   })}
                 </ul>
               ) : (
-                <span className="text-gray-500 italic">Không có danh mục nào được chọn</span>
+                <span className="text-gray-400 italic">Không có danh mục nào được chọn</span>
               )}
             </div>
           )}
@@ -403,7 +403,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
       </div>
 
       {/* Tags */}
-      <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+      <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
         <label htmlFor="tags-input" className="block text-sm font-medium text-gray-700">
           Tags/Nhãn
         </label>
@@ -424,7 +424,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               {formData.tags?.map((tag, index) => (
                 <span
                   key={index}
@@ -455,17 +455,17 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
                 </span>
               ))
             ) : (
-              <span className="text-sm text-gray-500 italic">Không có tag nào</span>
+              <span className="text-sm text-gray-400 italic">Không có tag nào</span>
             )}
           </div>
         )}
       </div>
 
       {/* Flags */}
-      <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+      <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
         <span className="block text-sm font-medium text-gray-700">Đánh dấu sản phẩm</span>
-        <div className="mt-3 flex flex-wrap gap-6">
-          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center hover:bg-white py-1.5 px-2 rounded-md transition-colors duration-200">
             <input
               id="isBestSeller"
               name="flags.isBestSeller"
@@ -473,14 +473,14 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               checked={formData.flags?.isBestSeller || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isBestSeller" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <label htmlFor="isBestSeller" className="ml-2 block text-sm text-gray-700 cursor-pointer select-none">
               Sản phẩm bán chạy
             </label>
           </div>
 
-          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
+          <div className="flex items-center hover:bg-white py-1.5 px-2 rounded-md transition-colors duration-200">
             <input
               id="isNew"
               name="flags.isNew"
@@ -488,14 +488,14 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               checked={formData.flags?.isNew || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isNew" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <label htmlFor="isNew" className="ml-2 block text-sm text-gray-700 cursor-pointer select-none">
               Sản phẩm mới
             </label>
           </div>
 
-          <div className="flex items-center hover:bg-white p-2 rounded-md transition-colors duration-200">
+          <div className="flex items-center hover:bg-white py-1.5 px-2 rounded-md transition-colors duration-200">
             <input
               id="isOnSale"
               name="flags.isOnSale"
@@ -503,9 +503,9 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
               checked={formData.flags?.isOnSale || false}
               onChange={handleCheckboxChange}
               disabled={isViewMode}
-              className="h-5 w-5 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 focus:ring-2 focus:ring-offset-0 border-gray-300 rounded transition-all duration-200"
             />
-            <label htmlFor="isOnSale" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer select-none">
+            <label htmlFor="isOnSale" className="ml-2 block text-sm text-gray-700 cursor-pointer select-none">
               Đang giảm giá
             </label>
           </div>
