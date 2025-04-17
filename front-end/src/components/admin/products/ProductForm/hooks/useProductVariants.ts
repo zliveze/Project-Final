@@ -5,6 +5,12 @@ import { ProductFormData, ProductVariant, ProductImage } from '../types';
 type ExtendedProductVariant = Omit<ProductVariant, 'images' | 'name'> & {
   name?: string;
   images?: (string | ProductImage)[];
+  combinations?: Array<{
+    combinationId?: string;
+    attributes: Record<string, string>;
+    price?: number;
+    additionalPrice?: number;
+  }>;
 };
 
 // Helper to create a default empty variant structure using the extended type
@@ -18,7 +24,8 @@ const createDefaultVariant = (): ExtendedProductVariant => ({
     shades: [],
     sizes: []
   },
-  images: []
+  images: [],
+  combinations: []
 });
 
 /**
@@ -92,6 +99,13 @@ export const useProductVariants = (
             ...currentOptions,
             [optionKey]: parsedValue
           }
+        };
+      }
+      // Handle combinations
+      else if (name === 'combinations') {
+        return {
+          ...prev,
+          combinations: parsedValue
         };
       }
       // Handle top-level properties

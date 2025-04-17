@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck } from 'react-icons/fi';
-import { ProductFormData, BranchItem, ProductVariant } from '../types';
+import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiLayers } from 'react-icons/fi';
+import { ProductFormData, BranchItem, ProductVariant, VariantCombination } from '../types';
 
 // Thêm style cho animation
 const notificationAnimation = `
@@ -95,6 +95,16 @@ interface InventoryTabProps {
   handleSelectBranchForVariants?: (branchId: string) => void;
   handleClearBranchSelection?: () => void;
   handleVariantInventoryChange?: (variantId: string, quantity: number) => void;
+  // Combination inventory props
+  selectedVariantForCombinations?: string | null;
+  variantCombinations?: Array<{
+    combinationId: string;
+    attributes: Record<string, string>;
+    quantity: number;
+  }>;
+  handleSelectVariantForCombinations?: (variantId: string) => void;
+  handleClearVariantSelection?: () => void;
+  handleCombinationInventoryChange?: (combinationId: string, quantity: number) => void;
 }
 
 /**
@@ -120,7 +130,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   branchVariants = [],
   handleSelectBranchForVariants,
   handleClearBranchSelection,
-  handleVariantInventoryChange
+  handleVariantInventoryChange,
+  // Combination inventory props
+  selectedVariantForCombinations,
+  variantCombinations = [],
+  handleSelectVariantForCombinations,
+  handleClearVariantSelection,
+  handleCombinationInventoryChange
 }) => {
   // State cho phân trang chi nhánh
   const [currentPage, setCurrentPage] = useState(1);
@@ -371,6 +387,9 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Số lượng
                     </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Tổ hợp
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
@@ -402,6 +421,19 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                           className="w-20 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                         />
                       </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {variant.combinations && variant.combinations.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectVariantForCombinations?.(variant.variantId || '')}
+                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            <FiLayers className="mr-1" /> Quản lý tổ hợp ({variant.combinations.length})
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">Không có tổ hợp</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -412,6 +444,63 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
               Không có biến thể nào cho sản phẩm này
             </div>
           )}
+        </div>
+      )}
+
+      {/* Panel quản lý tồn kho tổ hợp biến thể */}
+      {selectedBranchForVariants && selectedVariantForCombinations && variantCombinations.length > 0 && (
+        <div className="mt-4 bg-pink-50 p-4 rounded-lg border border-pink-200 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-md font-medium text-pink-800">
+              Quản lý tồn kho tổ hợp cho biến thể: {branchVariants.find(v => v.variantId === selectedVariantForCombinations)?.name || 'Biến thể'}
+            </h4>
+            <button
+              type="button"
+              onClick={handleClearVariantSelection}
+              className="text-pink-600 hover:text-pink-800 text-sm"
+            >
+              <FiX className="inline mr-1" /> Đóng
+            </button>
+          </div>
+
+          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white">
+            <table className="min-w-full divide-y divide-gray-300">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                    Thuộc tính
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    Số lượng
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {variantCombinations.map((combo) => (
+                  <tr key={combo.combinationId}>
+                    <td className="py-4 pl-4 pr-3 text-sm text-gray-900 sm:pl-6">
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(combo.attributes).map(([key, value]) => (
+                          <span key={key} className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
+                            {key === 'shade' ? 'Tông màu' : key === 'size' ? 'Kích thước' : key}: {value}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <input
+                        type="number"
+                        value={combo.quantity}
+                        onChange={(e) => handleCombinationInventoryChange?.(combo.combinationId, parseInt(e.target.value) || 0)}
+                        min="0"
+                        className="w-20 border-gray-300 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

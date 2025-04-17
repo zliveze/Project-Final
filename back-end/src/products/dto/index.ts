@@ -1,7 +1,11 @@
 export { CreateProductDto } from './create-product.dto';
-export { 
+export {
   VariantOptionsDto,
+  VariantCombinationDto,
+  ProductVariantDto,
   ProductInventoryDto,
+  VariantInventoryDto,
+  CombinationInventoryDto,
   ProductDescriptionDto,
   ProductSeoDto,
   ProductVolumeDto,
@@ -31,6 +35,9 @@ import * as ResponseDtos from './product-response.dto';
 export const Create = {
   ProductImageDto: CreateDtos.ProductImageDto,
   ProductVariantDto: CreateDtos.ProductVariantDto,
+  VariantCombinationDto: CreateDtos.VariantCombinationDto,
+  VariantInventoryDto: CreateDtos.VariantInventoryDto,
+  CombinationInventoryDto: CreateDtos.CombinationInventoryDto,
 };
 
 export const Response = {

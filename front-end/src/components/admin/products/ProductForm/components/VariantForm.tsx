@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiCheck } from 'react-icons/fi'; // Import check icon
+import { FiCheck, FiDollarSign, FiPlus, FiTrash2 } from 'react-icons/fi'; // Import icons
 import { ProductVariant, ProductImage } from '../types';
 
 // Mở rộng interface ProductVariant để thêm trường name
@@ -38,6 +38,15 @@ const VariantForm: React.FC<VariantFormProps> = ({
   const [shadesInput, setShadesInput] = useState('');
   const [sizesInput, setSizesInput] = useState('');
 
+  // State for combinations
+  const [showCombinations, setShowCombinations] = useState(false);
+  const [combinations, setCombinations] = useState<Array<{
+    id: string;
+    attributes: Record<string, string>;
+    price: number;
+    additionalPrice: number;
+  }>>([]);
+
   // Ref để lưu giá trị thực tế của input
   const colorInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +63,20 @@ const VariantForm: React.FC<VariantFormProps> = ({
     // Sync local input states with currentVariant
     setShadesInput(Array.isArray(currentVariant.options?.shades) ? currentVariant.options.shades.join(', ') : '');
     setSizesInput(Array.isArray(currentVariant.options?.sizes) ? currentVariant.options.sizes.join(', ') : '');
+
+    // Sync combinations
+    if (Array.isArray(currentVariant.combinations) && currentVariant.combinations.length > 0) {
+      setCombinations(currentVariant.combinations.map(combo => ({
+        id: combo.combinationId || `combo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        attributes: combo.attributes || {},
+        price: combo.price || currentVariant.price || 0,
+        additionalPrice: combo.additionalPrice || 0
+      })));
+      setShowCombinations(true);
+    } else {
+      setCombinations([]);
+      setShowCombinations(false);
+    }
   }, [currentVariant]);
 
   // Hàm tách chuỗi màu thành tên và mã màu
@@ -117,6 +140,160 @@ const VariantForm: React.FC<VariantFormProps> = ({
         value: processedArray // Pass the processed array directly
       }
     } as unknown as React.ChangeEvent<HTMLInputElement>; // Use InputElement type assertion as handleVariantChange expects it
+    handleVariantChange(syntheticEvent);
+
+    // Generate combinations if both shades and sizes have values
+    if (inputName === 'options.shades' || inputName === 'options.sizes') {
+      const shades = inputName === 'options.shades' ? processedArray :
+                    Array.isArray(currentVariant.options?.shades) ? currentVariant.options.shades : [];
+      const sizes = inputName === 'options.sizes' ? processedArray :
+                   Array.isArray(currentVariant.options?.sizes) ? currentVariant.options.sizes : [];
+
+      if (shades.length > 0 || sizes.length > 0) {
+        generateCombinations(shades, sizes);
+      }
+    }
+  };
+
+  // Generate combinations from shades and sizes
+  const generateCombinations = (shades: string[], sizes: string[]) => {
+    const newCombinations: Array<{
+      id: string;
+      attributes: Record<string, string>;
+      price: number;
+      additionalPrice: number;
+    }> = [];
+
+    // If both shades and sizes exist, create combinations of both
+    if (shades.length > 0 && sizes.length > 0) {
+      for (const shade of shades) {
+        for (const size of sizes) {
+          // Check if this combination already exists
+          const existingCombo = combinations.find(c =>
+            c.attributes.shade === shade && c.attributes.size === size
+          );
+
+          if (existingCombo) {
+            newCombinations.push(existingCombo);
+          } else {
+            newCombinations.push({
+              id: `combo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              attributes: { shade, size },
+              price: currentVariant.price || 0,
+              additionalPrice: 0
+            });
+          }
+        }
+      }
+    }
+    // If only shades exist
+    else if (shades.length > 0) {
+      for (const shade of shades) {
+        // Check if this combination already exists
+        const existingCombo = combinations.find(c =>
+          c.attributes.shade === shade && !c.attributes.size
+        );
+
+        if (existingCombo) {
+          newCombinations.push(existingCombo);
+        } else {
+          newCombinations.push({
+            id: `combo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            attributes: { shade },
+            price: currentVariant.price || 0,
+            additionalPrice: 0
+          });
+        }
+      }
+    }
+    // If only sizes exist
+    else if (sizes.length > 0) {
+      for (const size of sizes) {
+        // Check if this combination already exists
+        const existingCombo = combinations.find(c =>
+          c.attributes.size === size && !c.attributes.shade
+        );
+
+        if (existingCombo) {
+          newCombinations.push(existingCombo);
+        } else {
+          newCombinations.push({
+            id: `combo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            attributes: { size },
+            price: currentVariant.price || 0,
+            additionalPrice: 0
+          });
+        }
+      }
+    }
+
+    setCombinations(newCombinations);
+    setShowCombinations(newCombinations.length > 0);
+
+    // Update the currentVariant with the new combinations
+    const syntheticEvent = {
+      target: {
+        name: 'combinations',
+        value: newCombinations.map(combo => ({
+          combinationId: combo.id,
+          attributes: combo.attributes,
+          price: combo.price,
+          additionalPrice: combo.additionalPrice
+        }))
+      }
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+    handleVariantChange(syntheticEvent);
+  };
+
+  // Handle combination price change
+  const handleCombinationPriceChange = (id: string, value: number) => {
+    const updatedCombinations = combinations.map(combo => {
+      if (combo.id === id) {
+        return { ...combo, price: value };
+      }
+      return combo;
+    });
+
+    setCombinations(updatedCombinations);
+
+    // Update the currentVariant with the new combinations
+    const syntheticEvent = {
+      target: {
+        name: 'combinations',
+        value: updatedCombinations.map(combo => ({
+          combinationId: combo.id,
+          attributes: combo.attributes,
+          price: combo.price,
+          additionalPrice: combo.additionalPrice
+        }))
+      }
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+    handleVariantChange(syntheticEvent);
+  };
+
+  // Handle combination additional price change
+  const handleCombinationAdditionalPriceChange = (id: string, value: number) => {
+    const updatedCombinations = combinations.map(combo => {
+      if (combo.id === id) {
+        return { ...combo, additionalPrice: value };
+      }
+      return combo;
+    });
+
+    setCombinations(updatedCombinations);
+
+    // Update the currentVariant with the new combinations
+    const syntheticEvent = {
+      target: {
+        name: 'combinations',
+        value: updatedCombinations.map(combo => ({
+          combinationId: combo.id,
+          attributes: combo.attributes,
+          price: combo.price,
+          additionalPrice: combo.additionalPrice
+        }))
+      }
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
     handleVariantChange(syntheticEvent);
   };
 
@@ -405,6 +582,76 @@ const VariantForm: React.FC<VariantFormProps> = ({
           </div>
         </div>
       )}
+
+      {/* Tổ hợp biến thể */}
+      {(Array.isArray(currentVariant.options?.shades) && currentVariant.options.shades.length > 0) ||
+       (Array.isArray(currentVariant.options?.sizes) && currentVariant.options.sizes.length > 0) ? (
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium">Tổ hợp biến thể</h4>
+            <button
+              type="button"
+              onClick={() => setShowCombinations(!showCombinations)}
+              className="text-sm text-pink-600 hover:text-pink-700"
+            >
+              {showCombinations ? 'Ẩn tổ hợp' : 'Hiển thị tổ hợp'}
+            </button>
+          </div>
+
+          {showCombinations && combinations.length > 0 && (
+            <div className="border rounded-md overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Thuộc tính</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Giá</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Giá chênh lệch</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {combinations.map((combo) => (
+                    <tr key={combo.id} className="hover:bg-gray-50">
+                      <td className="py-4 pl-4 pr-3 text-sm text-gray-900">
+                        {Object.entries(combo.attributes).map(([key, value]) => (
+                          <span key={key} className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded mr-1 mb-1">
+                            {key}: {value}
+                          </span>
+                        ))}
+                      </td>
+                      <td className="px-3 py-4 text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <FiDollarSign className="text-gray-400 mr-1" />
+                          <input
+                            type="number"
+                            value={combo.price}
+                            onChange={(e) => handleCombinationPriceChange(combo.id, Number(e.target.value))}
+                            min="0"
+                            step="1000"
+                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-4 text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <FiPlus className="text-gray-400 mr-1" />
+                          <input
+                            type="number"
+                            value={combo.additionalPrice}
+                            onChange={(e) => handleCombinationAdditionalPriceChange(combo.id, Number(e.target.value))}
+                            min="0"
+                            step="1000"
+                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* Nút điều khiển */}
       <div className="flex justify-end space-x-2">

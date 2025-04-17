@@ -33,10 +33,19 @@ export interface ProductImage {
   preview?: string; // Chỉ lưu giữ URL.createObjectURL tạm thời để hiển thị
 }
 
+// Định nghĩa interface cho tổ hợp biến thể
+export interface VariantCombination {
+  combinationId?: string;
+  attributes: Record<string, string>; // Ví dụ: { shade: 'Đỏ', size: 'Mini' }
+  price?: number; // Giá riêng cho tổ hợp
+  additionalPrice?: number; // Giá chênh lệch so với biến thể gốc
+}
+
 // Định nghĩa interface cho biến thể sản phẩm
 export interface ProductVariant {
   variantId?: string;
   id?: string;
+  name?: string;
   sku: string;
   price?: number;
   stock?: number;
@@ -46,6 +55,7 @@ export interface ProductVariant {
     sizes?: string[];  // Renamed and changed to array
   };
   images?: ProductImage[];
+  combinations?: VariantCombination[];
 }
 
 // Định nghĩa interface cho quà tặng
@@ -88,6 +98,16 @@ export interface VariantInventoryItem {
   lowStockThreshold?: number;
 }
 
+// Định nghĩa interface cho tồn kho tổ hợp biến thể
+export interface CombinationInventoryItem {
+  branchId: string;
+  branchName?: string; // Tên chi nhánh
+  variantId: string;
+  combinationId: string;
+  quantity: number;
+  lowStockThreshold?: number;
+}
+
 // Định nghĩa interface cho data của form sản phẩm
 export interface ProductFormData {
   id?: string;
@@ -126,6 +146,7 @@ export interface ProductFormData {
   };
   inventory?: InventoryItem[];
   variantInventory?: VariantInventoryItem[];
+  combinationInventory?: CombinationInventoryItem[];
   variants?: ProductVariant[];
   images?: ProductImage[];
   flags?: {

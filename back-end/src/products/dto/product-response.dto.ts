@@ -20,6 +20,27 @@ export class ProductImageDto {
   isPrimary: boolean;
 }
 
+export class VariantCombinationDto {
+  @ApiProperty({ description: 'The ID of the combination' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({ description: 'Combination attributes' })
+  attributes: Record<string, string>;
+
+  @ApiProperty({ description: 'The price of the combination' })
+  @IsNumber()
+  price: number;
+
+  @ApiProperty({ description: 'Additional price compared to base variant price' })
+  @IsNumber()
+  additionalPrice: number;
+
+  @ApiProperty({ description: 'The inventory level of the combination' })
+  @IsNumber()
+  inventoryQuantity: number;
+}
+
 export class ProductVariantDto {
   @ApiProperty({ description: 'The ID of the variant' })
   @IsString()
@@ -44,6 +65,12 @@ export class ProductVariantDto {
   @ApiProperty({ description: 'Additional options for the variant' })
   @IsOptional()
   options?: Record<string, any>;
+
+  @ApiProperty({ description: 'Combinations of the variant', type: [VariantCombinationDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantCombinationDto)
+  combinations: VariantCombinationDto[];
 }
 
 export class ProductResponseDto {

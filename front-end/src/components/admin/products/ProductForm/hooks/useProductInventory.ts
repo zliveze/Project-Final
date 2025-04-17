@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'; // Thêm useCallback
-import { ProductFormData, InventoryItem, BranchItem, VariantInventoryItem, ProductVariant } from '../types';
+import { ProductFormData, InventoryItem, BranchItem, VariantInventoryItem, ProductVariant, CombinationInventoryItem } from '../types';
 
 // Helper function to calculate total inventory based on provided form data
 const calculateTotalInventory = (data: ProductFormData): number => {
@@ -38,6 +38,16 @@ export const useProductInventory = (
 
   // State cho danh sách biến thể của chi nhánh đang chọn
   const [branchVariants, setBranchVariants] = useState<(ProductVariant & {quantity: number})[]>([]);
+
+  // State cho biến thể đang được chọn để quản lý tồn kho tổ hợp
+  const [selectedVariantForCombinations, setSelectedVariantForCombinations] = useState<string | null>(null);
+
+  // State cho danh sách tổ hợp của biến thể đang chọn
+  const [variantCombinations, setVariantCombinations] = useState<Array<{
+    combinationId: string;
+    attributes: Record<string, string>;
+    quantity: number;
+  }>>([]);
 
   /**
    * Kiểm tra xem sản phẩm có biến thể hay không
@@ -435,6 +445,175 @@ export const useProductInventory = (
     });
   };
 
+  /**
+   * Chọn biến thể để quản lý tồn kho tổ hợp
+   */
+  const handleSelectVariantForCombinations = useCallback((variantId: string) => {
+    if (!selectedBranchForVariants) {
+      alert('Vui lòng chọn chi nhánh trước');
+      return;
+    }
+
+    setSelectedVariantForCombinations(variantId);
+
+    // Tìm biến thể được chọn
+    const selectedVariant = formData.variants?.find(v => v.variantId === variantId);
+    if (!selectedVariant || !selectedVariant.combinations) return;
+
+    // Lấy danh sách tổ hợp và số lượng hiện tại của chúng
+    const combinations = selectedVariant.combinations.map(combo => {
+      // Tìm số lượng hiện tại của tổ hợp trong chi nhánh này
+      const combinationInventory = formData.combinationInventory?.find(
+        item => item.branchId === selectedBranchForVariants &&
+               item.variantId === variantId &&
+               item.combinationId === combo.combinationId
+      );
+
+      return {
+        combinationId: combo.combinationId || '',
+        attributes: combo.attributes || {},
+        quantity: combinationInventory?.quantity || 0
+      };
+    });
+
+    setVariantCombinations(combinations);
+  }, [selectedBranchForVariants, formData.variants, formData.combinationInventory]);
+
+  /**
+   * Hủy chọn biến thể để quản lý tồn kho tổ hợp
+   */
+  const handleClearVariantSelection = useCallback(() => {
+    setSelectedVariantForCombinations(null);
+    setVariantCombinations([]);
+  }, []);
+
+  /**
+   * Cập nhật số lượng tồn kho cho tổ hợp
+   */
+  const handleCombinationInventoryChange = useCallback((combinationId: string, quantity: number) => {
+    if (!selectedBranchForVariants || !selectedVariantForCombinations) return;
+
+    // Get the old quantity for this combination
+    const oldCombination = variantCombinations.find(c => c.combinationId === combinationId);
+    const oldQuantity = oldCombination ? oldCombination.quantity : 0;
+    const quantityDifference = quantity - oldQuantity;
+
+    // Cập nhật state variantCombinations
+    const updatedCombinations = variantCombinations.map(combo => {
+      if (combo.combinationId === combinationId) {
+        return { ...combo, quantity };
+      }
+      return combo;
+    });
+    setVariantCombinations(updatedCombinations);
+
+    // Cập nhật formData.combinationInventory
+    const updatedCombinationInventory = [...(formData.combinationInventory || [])];
+
+    // Tìm xem đã có mục tồn kho cho tổ hợp này chưa
+    const existingIndex = updatedCombinationInventory.findIndex(
+      item => item.branchId === selectedBranchForVariants &&
+             item.variantId === selectedVariantForCombinations &&
+             item.combinationId === combinationId
+    );
+
+    // Lấy tên chi nhánh
+    let branchName = formData.inventory?.find(item => item.branchId === selectedBranchForVariants)?.branchName || '';
+
+    // Nếu không tìm thấy tên chi nhánh trong inventory, tìm trong danh sách chi nhánh
+    if (!branchName) {
+      const branch = branches.find(b => b.id === selectedBranchForVariants);
+      branchName = branch ? branch.name : 'Chi nhánh không xác định';
+    }
+
+    if (existingIndex >= 0) {
+      // Cập nhật mục đã tồn tại
+      updatedCombinationInventory[existingIndex].quantity = quantity;
+    } else {
+      // Thêm mục mới
+      updatedCombinationInventory.push({
+        branchId: selectedBranchForVariants,
+        branchName,
+        variantId: selectedVariantForCombinations,
+        combinationId,
+        quantity,
+        lowStockThreshold: 5
+      });
+    }
+
+    // Cập nhật tổng số lượng của biến thể dựa trên tổng số lượng của các tổ hợp
+    const updatedVariantInventory = [...(formData.variantInventory || [])];
+
+    // Tính tổng số lượng của biến thể dựa trên tất cả các tổ hợp
+    const variantCombinationInventory = updatedCombinationInventory.filter(
+      item => item.branchId === selectedBranchForVariants && item.variantId === selectedVariantForCombinations
+    );
+
+    const newVariantTotal = variantCombinationInventory.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
+
+    // Tìm xem đã có mục tồn kho cho biến thể này chưa
+    const variantInventoryIndex = updatedVariantInventory.findIndex(
+      item => item.branchId === selectedBranchForVariants && item.variantId === selectedVariantForCombinations
+    );
+
+    if (variantInventoryIndex >= 0) {
+      // Cập nhật mục đã tồn tại
+      updatedVariantInventory[variantInventoryIndex].quantity = newVariantTotal;
+    } else {
+      // Thêm mục mới
+      updatedVariantInventory.push({
+        branchId: selectedBranchForVariants,
+        branchName,
+        variantId: selectedVariantForCombinations,
+        quantity: newVariantTotal,
+        lowStockThreshold: 5
+      });
+    }
+
+    // Cập nhật lại branchVariants
+    const updatedBranchVariants = branchVariants.map(variant => {
+      if (variant.variantId === selectedVariantForCombinations) {
+        return { ...variant, quantity: newVariantTotal };
+      }
+      return variant;
+    });
+    setBranchVariants(updatedBranchVariants);
+
+    // Cập nhật tổng số lượng của chi nhánh dựa trên tất cả các biến thể
+    const updatedInventory = [...(formData.inventory || [])];
+    const branchIndex = updatedInventory.findIndex(item => item.branchId === selectedBranchForVariants);
+
+    // Tính tổng số lượng mới của chi nhánh dựa trên tất cả các biến thể
+    const branchVariantInventory = updatedVariantInventory.filter(
+      item => item.branchId === selectedBranchForVariants
+    );
+
+    const newBranchTotal = branchVariantInventory.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
+
+    if (branchIndex >= 0) {
+      // Cập nhật số lượng mới cho chi nhánh
+      updatedInventory[branchIndex].quantity = newBranchTotal;
+    }
+
+    setFormData(prev => {
+      const nextFormData = {
+        ...prev,
+        combinationInventory: updatedCombinationInventory,
+        variantInventory: updatedVariantInventory,
+        inventory: updatedInventory
+      };
+      const totalInventory = calculateTotalInventory(nextFormData);
+      const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
+      return { ...nextFormData, status: newStatus as ProductFormData['status'] };
+    });
+  }, [selectedBranchForVariants, selectedVariantForCombinations, variantCombinations, formData, branchVariants, branches]);
+
   return {
     showBranchModal,
     availableBranches,
@@ -452,7 +631,13 @@ export const useProductInventory = (
     branchVariants,
     handleSelectBranchForVariants,
     handleClearBranchSelection,
-    handleVariantInventoryChange
+    handleVariantInventoryChange,
+    // Combination inventory methods
+    selectedVariantForCombinations,
+    variantCombinations,
+    handleSelectVariantForCombinations,
+    handleClearVariantSelection,
+    handleCombinationInventoryChange
   };
 };
 

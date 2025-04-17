@@ -7,18 +7,27 @@ interface VariantOption {
   sizes?: string[];  // Changed from size?: string
 }
 
+export interface VariantCombination {
+  combinationId: string;
+  attributes: Record<string, string>; // Ví dụ: { shade: 'Đỏ', size: 'Mini' }
+  price?: number; // Giá riêng cho tổ hợp
+  additionalPrice?: number; // Giá chênh lệch so với biến thể gốc
+}
+
 export interface Variant {
   variantId: string;
   sku: string;
   options: VariantOption;
   price: number;
   images?: string[];
+  combinations?: VariantCombination[];
 }
 
 interface ProductVariantsProps {
   variants: Variant[];
   selectedVariant: Variant | null;
-  onSelectVariant: (variant: Variant) => void;
+  onSelectVariant: (variant: Variant, combination?: VariantCombination) => void;
+  selectedCombination?: VariantCombination | null;
 }
 
 // Hàm phân tích chuỗi màu thành tên và mã màu
@@ -45,8 +54,10 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   variants = [],
   selectedVariant,
   onSelectVariant,
+  selectedCombination = null,
 }) => {
   const [selectedOptions, setSelectedOptions] = useState<{ color?: string; size?: string; shade?: string }>({});
+  const [selectedCombinationId, setSelectedCombinationId] = useState<string | null>(selectedCombination?.combinationId || null);
 
   // Initialize/Update selectedOptions based on selectedVariant prop or first variant
   useEffect(() => {
@@ -57,6 +68,16 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
         size: selectedVariant.options?.sizes?.[0], // Default to first size/shade of the variant
         shade: selectedVariant.options?.shades?.[0],
       });
+
+      // If there's a selected combination, update the selectedCombinationId
+      if (selectedCombination) {
+        setSelectedCombinationId(selectedCombination.combinationId);
+      } else if (selectedVariant.combinations && selectedVariant.combinations.length > 0) {
+        // If no combination is selected but the variant has combinations, select the first one
+        setSelectedCombinationId(selectedVariant.combinations[0].combinationId);
+      } else {
+        setSelectedCombinationId(null);
+      }
     } else if (!selectedOptions.color && variants.length > 0) {
       // If no color is selected yet, default to the first variant's options
       const firstVariant = variants[0];
@@ -65,8 +86,15 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
         size: firstVariant.options?.sizes?.[0],
         shade: firstVariant.options?.shades?.[0],
       });
+
+      // If the first variant has combinations, select the first one
+      if (firstVariant.combinations && firstVariant.combinations.length > 0) {
+        setSelectedCombinationId(firstVariant.combinations[0].combinationId);
+      } else {
+        setSelectedCombinationId(null);
+      }
     }
-  }, [selectedVariant, variants]); // Rerun if selectedVariant changes externally
+  }, [selectedVariant, selectedCombination, variants]); // Rerun if selectedVariant changes externally
 
 
   // Find and select the corresponding variant when options change
@@ -83,24 +111,51 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
        );
 
        if (matchingVariant && matchingVariant.variantId !== selectedVariant?.variantId) {
-         onSelectVariant(matchingVariant);
+         // Find matching combination if available
+         if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
+           const matchingCombination = matchingVariant.combinations.find(c =>
+             c.attributes.shade === shade && c.attributes.size === size
+           );
+
+           if (matchingCombination) {
+             setSelectedCombinationId(matchingCombination.combinationId);
+             onSelectVariant(matchingVariant, matchingCombination);
+           } else {
+             setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
+             onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
+           }
+         } else {
+           setSelectedCombinationId(null);
+           onSelectVariant(matchingVariant);
+         }
        }
-       // Optional: Handle case where the combination is invalid (no matchingVariant)
-       // else if (!matchingVariant && selectedVariant) {
-       //   // Maybe revert selection or show an error?
-       // }
     } else if (color && (size || shade)) {
         // Handle cases where only color+size or color+shade might be enough
-        // Or if only color defines the variant (if sizes/shades are just attributes)
-        // This part depends heavily on how variants are uniquely identified
         const partiallyMatchingVariant = variants.find(v =>
             v.options?.color === color &&
             (!size || v.options?.sizes?.includes(size)) &&
             (!shade || v.options?.shades?.includes(shade))
         );
-         if (partiallyMatchingVariant && partiallyMatchingVariant.variantId !== selectedVariant?.variantId) {
-             onSelectVariant(partiallyMatchingVariant);
-         }
+
+        if (partiallyMatchingVariant && partiallyMatchingVariant.variantId !== selectedVariant?.variantId) {
+          // Find matching combination if available
+          if (partiallyMatchingVariant.combinations && partiallyMatchingVariant.combinations.length > 0) {
+            const matchingCombination = partiallyMatchingVariant.combinations.find(c =>
+              (!shade || c.attributes.shade === shade) && (!size || c.attributes.size === size)
+            );
+
+            if (matchingCombination) {
+              setSelectedCombinationId(matchingCombination.combinationId);
+              onSelectVariant(partiallyMatchingVariant, matchingCombination);
+            } else {
+              setSelectedCombinationId(partiallyMatchingVariant.combinations[0].combinationId);
+              onSelectVariant(partiallyMatchingVariant, partiallyMatchingVariant.combinations[0]);
+            }
+          } else {
+            setSelectedCombinationId(null);
+            onSelectVariant(partiallyMatchingVariant);
+          }
+        }
     }
 
   }, [selectedOptions, variants, onSelectVariant, selectedVariant]);
@@ -159,8 +214,15 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
             size: firstVariantOfColor.options?.sizes?.[0],
             shade: firstVariantOfColor.options?.shades?.[0]
         });
-        // Immediately select the variant to update the price
-        onSelectVariant(firstVariantOfColor);
+
+        // If the variant has combinations, select the first one
+        if (firstVariantOfColor.combinations && firstVariantOfColor.combinations.length > 0) {
+          setSelectedCombinationId(firstVariantOfColor.combinations[0].combinationId);
+          onSelectVariant(firstVariantOfColor, firstVariantOfColor.combinations[0]);
+        } else {
+          setSelectedCombinationId(null);
+          onSelectVariant(firstVariantOfColor);
+        }
     }
   };
 
@@ -176,7 +238,23 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
        );
 
        if (matchingVariant) {
-         onSelectVariant(matchingVariant);
+         // Find matching combination if available
+         if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
+           const matchingCombination = matchingVariant.combinations.find(c =>
+             c.attributes.size === size && (!shade || c.attributes.shade === shade)
+           );
+
+           if (matchingCombination) {
+             setSelectedCombinationId(matchingCombination.combinationId);
+             onSelectVariant(matchingVariant, matchingCombination);
+           } else {
+             setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
+             onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
+           }
+         } else {
+           setSelectedCombinationId(null);
+           onSelectVariant(matchingVariant);
+         }
        }
      }
   };
@@ -193,8 +271,33 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
       );
 
       if (matchingVariant) {
-        onSelectVariant(matchingVariant);
+        // Find matching combination if available
+        if (matchingVariant.combinations && matchingVariant.combinations.length > 0) {
+          const matchingCombination = matchingVariant.combinations.find(c =>
+            c.attributes.shade === shade && (!size || c.attributes.size === size)
+          );
+
+          if (matchingCombination) {
+            setSelectedCombinationId(matchingCombination.combinationId);
+            onSelectVariant(matchingVariant, matchingCombination);
+          } else {
+            setSelectedCombinationId(matchingVariant.combinations[0].combinationId);
+            onSelectVariant(matchingVariant, matchingVariant.combinations[0]);
+          }
+        } else {
+          setSelectedCombinationId(null);
+          onSelectVariant(matchingVariant);
+        }
       }
+    }
+  };
+
+  // Handle combination selection
+  const handleCombinationSelect = (combinationId: string, variant: Variant) => {
+    setSelectedCombinationId(combinationId);
+    const combination = variant.combinations?.find(c => c.combinationId === combinationId);
+    if (combination) {
+      onSelectVariant(variant, combination);
     }
   };
 
@@ -305,6 +408,49 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
                 {shade}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tổ hợp biến thể */}
+      {selectedVariant && selectedVariant.combinations && selectedVariant.combinations.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Tổ hợp:</h3>
+          <div className="flex flex-wrap gap-2">
+            {selectedVariant.combinations.map((combination) => {
+              // Tạo tên hiển thị cho tổ hợp
+              const combinationName = Object.entries(combination.attributes)
+                .map(([key, value]) => `${key === 'shade' ? 'Tone' : key === 'size' ? 'Dung tích' : key}: ${value}`)
+                .join(', ');
+
+              return (
+                <button
+                  key={combination.combinationId}
+                  onClick={() => handleCombinationSelect(combination.combinationId, selectedVariant)}
+                  className={`
+                    px-4 py-2 rounded-md text-sm transition-all duration-200
+                    ${selectedCombinationId === combination.combinationId
+                      ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
+                      : 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
+                    }
+                  `}
+                >
+                  <div className="flex flex-col">
+                    <span>{combinationName}</span>
+                    {combination.price && (
+                      <span className="text-xs mt-1">
+                        {combination.price.toLocaleString('vi-VN')}đ
+                      </span>
+                    )}
+                    {!combination.price && combination.additionalPrice && combination.additionalPrice > 0 && (
+                      <span className="text-xs mt-1">
+                        +{combination.additionalPrice.toLocaleString('vi-VN')}đ
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

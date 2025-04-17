@@ -21,11 +21,26 @@ export class VariantOptions {
   @Prop()
   color: string;
 
-  @Prop({ type: [String], default: [] }) // Changed to array
+  @Prop({ type: [String], default: [] }) // Array of shade options
   shades: string[];
 
-  @Prop({ type: [String], default: [] }) // Changed to array
+  @Prop({ type: [String], default: [] }) // Array of size options
   sizes: string[];
+}
+
+// Schema for variant combination
+export class VariantCombination {
+  @Prop({ type: MongooseSchema.Types.ObjectId, auto: true })
+  combinationId: Types.ObjectId;
+
+  @Prop({ type: Object, required: true })
+  attributes: Record<string, string>; // Ví dụ: { shade: 'Đỏ', size: 'Mini' }
+
+  @Prop({ type: Number })
+  price: number; // Giá riêng cho tổ hợp
+
+  @Prop({ type: Number, default: 0 })
+  additionalPrice: number; // Giá chênh lệch so với biến thể gốc (tùy chọn)
 }
 
 // Schema for product variant
@@ -36,6 +51,9 @@ export class ProductVariant {
   @Prop({ required: true, unique: true, sparse: true })
   sku: string;
 
+  @Prop()
+  name: string;
+
   @Prop({ type: VariantOptions })
   options: VariantOptions;
 
@@ -44,6 +62,9 @@ export class ProductVariant {
 
   @Prop({ type: [ProductImage] })
   images: ProductImage[];
+
+  @Prop({ type: [VariantCombination], default: [] })
+  combinations: VariantCombination[]; // Mảng tổ hợp biến thể
 }
 
 // Schema for product inventory
@@ -65,6 +86,24 @@ export class VariantInventory {
 
   @Prop({ type: MongooseSchema.Types.ObjectId })
   variantId: Types.ObjectId;
+
+  @Prop({ required: true, default: 0 })
+  quantity: number;
+
+  @Prop({ default: 5 })
+  lowStockThreshold: number;
+}
+
+// Schema for combination inventory
+export class CombinationInventory {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch' })
+  branchId: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  variantId: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  combinationId: Types.ObjectId;
 
   @Prop({ required: true, default: 0 })
   quantity: number;
@@ -265,6 +304,9 @@ export class Product {
 
   @Prop({ type: [VariantInventory], default: [] })
   variantInventory: VariantInventory[];
+
+  @Prop({ type: [CombinationInventory], default: [] })
+  combinationInventory: CombinationInventory[];
 
   @Prop({ type: ProductReviews, default: {} })
   reviews: ProductReviews;

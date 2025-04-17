@@ -9,6 +9,7 @@ import { formatImageUrl } from '@/utils/imageUtils';
 import ProductSEO from '@/components/product/ProductSEO';
 import ProductImages, { ImageType } from '@/components/product/ProductImages';
 import ProductInfo, { Variant } from '@/components/product/ProductInfo'; // Import Variant type
+import { VariantCombination } from '@/components/product/ProductVariants'; // Import VariantCombination type
 import ProductDescription from '@/components/product/ProductDescription';
 import ProductReviews from '@/components/product/ProductReviews';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
@@ -54,13 +55,18 @@ const ProductPage: React.FC<ProductPageProps> = ({
   // We'll use the ShopProductContext if needed in the future
   // const shopProductContext = useShopProduct();
 
-  // Process variants to include total stock information
+  // Process variants to include total stock information and combination inventory
   const processedVariants = React.useMemo(() => {
     if (!product?.variants?.length) return [];
 
     return product.variants.map((variant: any) => {
       // Get variant inventory from product.variantInventory
       const variantInventory = product.variantInventory?.filter(
+        (inv: any) => inv.variantId === variant.variantId
+      ) || [];
+
+      // Get combination inventory for this variant
+      const combinationInventory = product.combinationInventory?.filter(
         (inv: any) => inv.variantId === variant.variantId
       ) || [];
 
@@ -72,25 +78,36 @@ const ProductPage: React.FC<ProductPageProps> = ({
 
       // Log for debugging
       console.log(`Variant ${variant.variantId} (${variant.options?.color || 'unknown'}) has totalStock: ${totalStock}`);
-      console.log('Inventory details:', variantInventory);
+      console.log('Variant inventory details:', variantInventory);
+
+      // Process combinations if they exist
+      let combinations = variant.combinations || [];
+      if (combinations.length > 0) {
+        console.log(`Variant ${variant.variantId} has ${combinations.length} combinations`);
+        console.log('Combination inventory details:', combinationInventory);
+      }
 
       return {
         ...variant,
         inventory: variantInventory,
+        combinationInventory: combinationInventory,
         totalStock
       };
     });
-  }, [product?.variants, product?.variantInventory]);
+  }, [product?.variants, product?.variantInventory, product?.combinationInventory]);
 
-  // State for the currently selected variant
+  // State for the currently selected variant and combination
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(() => {
     // Initialize with the first processed variant if available
     return processedVariants.length > 0 ? processedVariants[0] : null;
   });
 
-  // Handler to update the selected variant state
-  const handleSelectVariant = (variant: Variant | null) => {
+  const [selectedCombination, setSelectedCombination] = useState<VariantCombination | null>(null);
+
+  // Handler to update the selected variant and combination state
+  const handleSelectVariant = (variant: Variant | null, combination?: VariantCombination | null) => {
     setSelectedVariant(variant);
+    setSelectedCombination(combination || null);
   };
 
   // --- Helper Functions for Variant Names ---
@@ -245,7 +262,10 @@ const ProductPage: React.FC<ProductPageProps> = ({
                   selectedVariant={selectedVariant}
                   onSelectVariant={handleSelectVariant}
                   branches={branches}
-                  product={{ inventory: product.inventory || [] }}
+                  product={{
+                    inventory: product.inventory || [],
+                    combinationInventory: product.combinationInventory || []
+                  }}
                 />
               </div>
             </div>

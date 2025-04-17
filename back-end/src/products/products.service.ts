@@ -638,8 +638,8 @@ export class ProductsService {
       }
 
       // Check if variant exists
-      const variantExists = product.variants.some(variant => variant.variantId.toString() === variantId);
-      if (!variantExists) {
+      const variantIndex = product.variants.findIndex(variant => variant.variantId.toString() === variantId);
+      if (variantIndex === -1) {
         throw new NotFoundException(`Không tìm thấy biến thể với ID: ${variantId} trong sản phẩm này`);
       }
 
@@ -667,6 +667,52 @@ export class ProductsService {
       } else {
         // Update existing inventory entry
         product.variantInventory[inventoryIndex].quantity = quantity;
+      }
+
+      // Kiểm tra xem biến thể có tổ hợp không
+      const variant = product.variants[variantIndex];
+      const hasCombinations = variant.combinations && variant.combinations.length > 0;
+
+      // Nếu biến thể có tổ hợp và số lượng thay đổi, cập nhật tồn kho cho các tổ hợp
+      if (hasCombinations && quantity !== oldQuantity) {
+        // Khởi tạo mảng combinationInventory nếu chưa có
+        if (!product.combinationInventory) {
+          product.combinationInventory = [];
+        }
+
+        // Tính toán số lượng cần phân bổ cho mỗi tổ hợp
+        const combinationsCount = variant.combinations.length;
+        const quantityPerCombination = Math.floor(quantity / combinationsCount);
+        const remainder = quantity % combinationsCount;
+
+        // Cập nhật tồn kho cho từng tổ hợp
+        variant.combinations.forEach((combination, index) => {
+          // Tính số lượng cho tổ hợp này (phân bổ số dư cho các tổ hợp đầu tiên)
+          const combinationQuantity = quantityPerCombination + (index < remainder ? 1 : 0);
+
+          // Tìm mục tồn kho của tổ hợp này
+          const combinationInventoryIndex = product.combinationInventory.findIndex(
+            inv => inv.branchId.toString() === branchId &&
+                  inv.variantId.toString() === variantId &&
+                  inv.combinationId.toString() === combination.combinationId.toString()
+          );
+
+          if (combinationInventoryIndex === -1) {
+            // Thêm mới nếu chưa tồn tại
+            product.combinationInventory.push({
+              branchId: new Types.ObjectId(branchId),
+              variantId: new Types.ObjectId(variantId),
+              combinationId: combination.combinationId,
+              quantity: combinationQuantity,
+              lowStockThreshold: 5
+            });
+          } else {
+            // Cập nhật nếu đã tồn tại
+            product.combinationInventory[combinationInventoryIndex].quantity = combinationQuantity;
+          }
+
+          this.logger.log(`Cập nhật tồn kho tổ hợp: Sản phẩm ${id}, Chi nhánh ${branchId}, Biến thể ${variantId}, Tổ hợp ${combination.combinationId}, Số lượng ${combinationQuantity}`);
+        });
       }
 
       // Find the branch inventory entry
@@ -722,6 +768,138 @@ export class ProductsService {
     }
   }
 
+  async updateCombinationInventory(id: string, branchId: string, variantId: string, combinationId: string, quantity: number): Promise<ProductResponseDto> {
+    try {
+      const product = await this.productModel.findById(id);
+
+      if (!product) {
+        throw new NotFoundException(`Không tìm thấy sản phẩm với ID: ${id}`);
+      }
+
+      // Kiểm tra biến thể có tồn tại không
+      const variantIndex = product.variants.findIndex(variant => variant.variantId.toString() === variantId);
+      if (variantIndex === -1) {
+        throw new NotFoundException(`Không tìm thấy biến thể với ID: ${variantId} trong sản phẩm này`);
+      }
+
+      // Kiểm tra tổ hợp có tồn tại không
+      const variant = product.variants[variantIndex];
+      const combinationIndex = variant.combinations?.findIndex(c => c.combinationId.toString() === combinationId);
+
+      if (combinationIndex === undefined || combinationIndex === -1) {
+        throw new NotFoundException(`Không tìm thấy tổ hợp với ID: ${combinationId} trong biến thể này`);
+      }
+
+      // Khởi tạo mảng combinationInventory nếu chưa có
+      if (!product.combinationInventory) {
+        product.combinationInventory = [];
+      }
+
+      // Tìm mục tồn kho của tổ hợp trong chi nhánh
+      const inventoryIndex = product.combinationInventory.findIndex(
+        inv => inv.branchId.toString() === branchId &&
+              inv.variantId.toString() === variantId &&
+              inv.combinationId.toString() === combinationId
+      );
+
+      // Lưu lại số lượng cũ để tính sự thay đổi
+      const oldQuantity = inventoryIndex !== -1 ? product.combinationInventory[inventoryIndex].quantity : 0;
+      const quantityDifference = quantity - oldQuantity;
+
+      if (inventoryIndex === -1) {
+        // Thêm mới mục tồn kho nếu chưa tồn tại
+        product.combinationInventory.push({
+          branchId: new Types.ObjectId(branchId),
+          variantId: new Types.ObjectId(variantId),
+          combinationId: new Types.ObjectId(combinationId),
+          quantity,
+          lowStockThreshold: 5
+        });
+      } else {
+        // Cập nhật mục tồn kho hiện tại
+        product.combinationInventory[inventoryIndex].quantity = quantity;
+      }
+
+      // Cập nhật tổng số lượng của biến thể trong chi nhánh
+      // Tìm mục tồn kho của biến thể trong chi nhánh
+      const variantInventoryIndex = product.variantInventory.findIndex(
+        inv => inv.branchId.toString() === branchId && inv.variantId.toString() === variantId
+      );
+
+      // Tính tổng số lượng của tất cả các tổ hợp của biến thể này trong chi nhánh
+      const combinationInventories = product.combinationInventory.filter(
+        inv => inv.branchId.toString() === branchId && inv.variantId.toString() === variantId
+      );
+
+      const totalCombinationQuantity = combinationInventories.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0
+      );
+
+      if (variantInventoryIndex === -1) {
+        // Thêm mới mục tồn kho biến thể nếu chưa tồn tại
+        product.variantInventory.push({
+          branchId: new Types.ObjectId(branchId),
+          variantId: new Types.ObjectId(variantId),
+          quantity: totalCombinationQuantity,
+          lowStockThreshold: 5
+        });
+      } else {
+        // Cập nhật mục tồn kho biến thể hiện tại
+        product.variantInventory[variantInventoryIndex].quantity = totalCombinationQuantity;
+      }
+
+      // Cập nhật tổng số lượng của chi nhánh
+      const branchInventoryIndex = product.inventory.findIndex(
+        inv => inv.branchId.toString() === branchId
+      );
+
+      // Tính tổng số lượng của tất cả các biến thể trong chi nhánh
+      const branchVariantInventory = product.variantInventory.filter(
+        inv => inv.branchId.toString() === branchId
+      );
+
+      const totalVariantQuantity = branchVariantInventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0
+      );
+
+      if (branchInventoryIndex === -1) {
+        // Thêm mới mục tồn kho chi nhánh nếu chưa tồn tại
+        product.inventory.push({
+          branchId: new Types.ObjectId(branchId),
+          quantity: totalVariantQuantity,
+          lowStockThreshold: 5
+        });
+      } else {
+        // Cập nhật mục tồn kho chi nhánh hiện tại
+        product.inventory[branchInventoryIndex].quantity = totalVariantQuantity;
+      }
+
+      // Cập nhật trạng thái sản phẩm dựa trên tổng tồn kho
+      const totalInventory = product.inventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0
+      );
+
+      if (totalInventory === 0 && product.status !== 'discontinued') {
+        product.status = 'out_of_stock';
+      } else if (totalInventory > 0 && product.status === 'out_of_stock') {
+        product.status = 'active';
+      }
+
+      // Ghi log cập nhật tồn kho
+      this.logger.log(`Cập nhật tồn kho tổ hợp: Sản phẩm ${id}, Chi nhánh ${branchId}, Biến thể ${variantId}, Tổ hợp ${combinationId}, Số lượng ${quantity}`);
+      this.logger.log(`Tổng số lượng biến thể ${variantId}: ${totalCombinationQuantity}, Tổng số lượng chi nhánh ${branchId}: ${totalVariantQuantity}`);
+
+      const updatedProduct = await product.save();
+      return this.mapProductToResponseDto(updatedProduct);
+    } catch (error) {
+      this.logger.error(`Error updating combination inventory: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   async updateProductFlags(id: string, flags: any): Promise<ProductResponseDto> {
     try {
       const product = await this.productModel.findById(id);
@@ -759,6 +937,56 @@ export class ProductsService {
         throw new BadRequestException(`Biến thể với SKU ${variantDto.sku} đã tồn tại`);
       }
 
+      // Xử lý tổ hợp biến thể nếu có
+      if (variantDto.options &&
+          ((Array.isArray(variantDto.options.shades) && variantDto.options.shades.length > 0) ||
+           (Array.isArray(variantDto.options.sizes) && variantDto.options.sizes.length > 0))) {
+
+        // Tạo tổ hợp từ shades và sizes
+        const shades = Array.isArray(variantDto.options.shades) ? variantDto.options.shades : [];
+        const sizes = Array.isArray(variantDto.options.sizes) ? variantDto.options.sizes : [];
+
+        // Nếu có cả shades và sizes, tạo tổ hợp từ cả hai
+        if (shades.length > 0 && sizes.length > 0) {
+          variantDto.combinations = [];
+
+          for (const shade of shades) {
+            for (const size of sizes) {
+              variantDto.combinations.push({
+                combinationId: new Types.ObjectId(),
+                attributes: { shade, size },
+                price: variantDto.price || 0,
+                additionalPrice: 0
+              });
+            }
+          }
+
+          this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${shades.length} shades và ${sizes.length} sizes`);
+        }
+        // Nếu chỉ có shades, tạo tổ hợp từ shades
+        else if (shades.length > 0) {
+          variantDto.combinations = shades.map(shade => ({
+            combinationId: new Types.ObjectId(),
+            attributes: { shade },
+            price: variantDto.price || 0,
+            additionalPrice: 0
+          }));
+
+          this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${shades.length} shades`);
+        }
+        // Nếu chỉ có sizes, tạo tổ hợp từ sizes
+        else if (sizes.length > 0) {
+          variantDto.combinations = sizes.map(size => ({
+            combinationId: new Types.ObjectId(),
+            attributes: { size },
+            price: variantDto.price || 0,
+            additionalPrice: 0
+          }));
+
+          this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${sizes.length} sizes`);
+        }
+      }
+
       // Add new variant
       product.variants.push(variantDto);
 
@@ -786,6 +1014,33 @@ export class ProductsService {
               });
 
               this.logger.log(`Đã chuyển ${inv.quantity} sản phẩm từ chi nhánh ${inv.branchId} sang biến thể ${product.variants[0].variantId}`);
+
+              // Nếu biến thể có tổ hợp, phân bổ số lượng cho các tổ hợp
+              if (product.variants[0].combinations && product.variants[0].combinations.length > 0) {
+                // Khởi tạo mảng combinationInventory nếu chưa có
+                if (!product.combinationInventory) {
+                  product.combinationInventory = [];
+                }
+
+                // Phân bổ số lượng đều cho các tổ hợp
+                const quantityPerCombination = Math.floor(inv.quantity / product.variants[0].combinations.length);
+                const remainder = inv.quantity % product.variants[0].combinations.length;
+
+                product.variants[0].combinations.forEach((combination, index) => {
+                  // Thêm số lượng cho tổ hợp, cộng thêm 1 cho các tổ hợp đầu tiên nếu có số dư
+                  const combinationQuantity = quantityPerCombination + (index < remainder ? 1 : 0);
+
+                  product.combinationInventory.push({
+                    branchId: inv.branchId,
+                    variantId: product.variants[0].variantId,
+                    combinationId: combination.combinationId,
+                    quantity: combinationQuantity,
+                    lowStockThreshold: inv.lowStockThreshold || 5
+                  });
+
+                  this.logger.log(`Đã phân bổ ${combinationQuantity} sản phẩm cho tổ hợp ${combination.combinationId} của biến thể ${product.variants[0].variantId} tại chi nhánh ${inv.branchId}`);
+                });
+              }
             }
           }
         }
@@ -825,6 +1080,136 @@ export class ProductsService {
         throw new BadRequestException(`Biến thể với SKU ${variantDto.sku} đã tồn tại`);
       }
 
+      // Lưu lại các tổ hợp hiện tại (nếu có)
+      const existingCombinations = product.variants[variantIndex].combinations || [];
+
+      // Xử lý tổ hợp biến thể nếu có thay đổi trong options
+      if (variantDto.options &&
+          ((Array.isArray(variantDto.options.shades) && variantDto.options.shades.length > 0) ||
+           (Array.isArray(variantDto.options.sizes) && variantDto.options.sizes.length > 0))) {
+
+        // Tạo tổ hợp từ shades và sizes
+        const shades = Array.isArray(variantDto.options.shades) ? variantDto.options.shades : [];
+        const sizes = Array.isArray(variantDto.options.sizes) ? variantDto.options.sizes : [];
+
+        // Kiểm tra xem có sự thay đổi trong shades hoặc sizes không
+        const currentOptions = product.variants[variantIndex].options || {};
+        const currentShades = Array.isArray(currentOptions.shades) ? currentOptions.shades : [];
+        const currentSizes = Array.isArray(currentOptions.sizes) ? currentOptions.sizes : [];
+
+        // Kiểm tra sự thay đổi bằng cách so sánh mảng
+        const shadesChanged = JSON.stringify(shades.sort()) !== JSON.stringify(currentShades.sort());
+        const sizesChanged = JSON.stringify(sizes.sort()) !== JSON.stringify(currentSizes.sort());
+
+        // Nếu có sự thay đổi, tạo lại các tổ hợp
+        if (shadesChanged || sizesChanged) {
+          this.logger.log(`Phát hiện thay đổi trong shades hoặc sizes, tạo lại tổ hợp biến thể`);
+
+          // Nếu có cả shades và sizes, tạo tổ hợp từ cả hai
+          if (shades.length > 0 && sizes.length > 0) {
+            variantDto.combinations = [];
+
+            for (const shade of shades) {
+              for (const size of sizes) {
+                // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+                const existingCombination = existingCombinations.find(c =>
+                  c.attributes && c.attributes.shade === shade && c.attributes.size === size
+                );
+
+                if (existingCombination) {
+                  // Sử dụng lại tổ hợp hiện tại
+                  variantDto.combinations.push(existingCombination);
+                } else {
+                  // Tạo tổ hợp mới
+                  variantDto.combinations.push({
+                    combinationId: new Types.ObjectId(),
+                    attributes: { shade, size },
+                    price: variantDto.price || 0,
+                    additionalPrice: 0
+                  });
+                }
+              }
+            }
+
+            this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${shades.length} shades và ${sizes.length} sizes`);
+          }
+          // Nếu chỉ có shades, tạo tổ hợp từ shades
+          else if (shades.length > 0) {
+            variantDto.combinations = [];
+
+            for (const shade of shades) {
+              // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+              const existingCombination = existingCombinations.find(c =>
+                c.attributes && c.attributes.shade === shade && !c.attributes.size
+              );
+
+              if (existingCombination) {
+                // Sử dụng lại tổ hợp hiện tại
+                variantDto.combinations.push(existingCombination);
+              } else {
+                // Tạo tổ hợp mới
+                variantDto.combinations.push({
+                  combinationId: new Types.ObjectId(),
+                  attributes: { shade },
+                  price: variantDto.price || 0,
+                  additionalPrice: 0
+                });
+              }
+            }
+
+            this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${shades.length} shades`);
+          }
+          // Nếu chỉ có sizes, tạo tổ hợp từ sizes
+          else if (sizes.length > 0) {
+            variantDto.combinations = [];
+
+            for (const size of sizes) {
+              // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+              const existingCombination = existingCombinations.find(c =>
+                c.attributes && c.attributes.size === size && !c.attributes.shade
+              );
+
+              if (existingCombination) {
+                // Sử dụng lại tổ hợp hiện tại
+                variantDto.combinations.push(existingCombination);
+              } else {
+                // Tạo tổ hợp mới
+                variantDto.combinations.push({
+                  combinationId: new Types.ObjectId(),
+                  attributes: { size },
+                  price: variantDto.price || 0,
+                  additionalPrice: 0
+                });
+              }
+            }
+
+            this.logger.log(`Đã tạo ${variantDto.combinations.length} tổ hợp biến thể từ ${sizes.length} sizes`);
+          }
+
+          // Cập nhật tồn kho cho các tổ hợp mới
+          if (variantDto.combinations && variantDto.combinations.length > 0) {
+            // Lấy danh sách các combinationId cũ
+            const oldCombinationIds = existingCombinations.map(c => c.combinationId.toString());
+            // Lấy danh sách các combinationId mới
+            const newCombinationIds = variantDto.combinations
+              .filter(c => c.combinationId && typeof c.combinationId === 'object')
+              .map(c => c.combinationId.toString());
+
+            // Tìm các combinationId đã bị xóa
+            const removedCombinationIds = oldCombinationIds.filter(id => !newCombinationIds.includes(id));
+
+            // Xóa tồn kho của các tổ hợp đã bị xóa
+            if (removedCombinationIds.length > 0 && product.combinationInventory) {
+              product.combinationInventory = product.combinationInventory.filter(inv =>
+                !removedCombinationIds.includes(inv.combinationId.toString())
+              );
+
+              this.logger.log(`Đã xóa tồn kho của ${removedCombinationIds.length} tổ hợp đã bị loại bỏ`);
+            }
+          }
+        }
+      }
+
       // Update variant
       product.variants[variantIndex] = {
         ...product.variants[variantIndex],
@@ -860,6 +1245,10 @@ export class ProductsService {
       // Lưu lại số lượng biến thể trước khi xóa
       const variantCountBeforeRemove = product.variants.length;
 
+      // Lưu lại danh sách các tổ hợp của biến thể này (nếu có)
+      const variantCombinations = product.variants[variantIndex].combinations || [];
+      const combinationIds = variantCombinations.map(c => c.combinationId.toString());
+
       // Remove variant
       product.variants.splice(variantIndex, 1);
 
@@ -880,6 +1269,15 @@ export class ProductsService {
         product.variantInventory = product.variantInventory.filter(
           inv => inv.variantId.toString() !== variantId
         );
+
+        // Xóa tồn kho của các tổ hợp của biến thể này
+        if (product.combinationInventory && product.combinationInventory.length > 0 && combinationIds.length > 0) {
+          product.combinationInventory = product.combinationInventory.filter(inv =>
+            !combinationIds.includes(inv.combinationId.toString())
+          );
+
+          this.logger.log(`Đã xóa tồn kho của ${combinationIds.length} tổ hợp thuộc biến thể ${variantId}`);
+        }
 
         // Cập nhật lại số lượng tồn kho của các chi nhánh
         for (const [branchIdStr, quantity] of branchQuantities.entries()) {
@@ -906,10 +1304,11 @@ export class ProductsService {
         }
       }
 
-      // Nếu đã xóa biến thể cuối cùng, cần xóa tất cả variantInventory
+      // Nếu đã xóa biến thể cuối cùng, cần xóa tất cả variantInventory và combinationInventory
       if (variantCountBeforeRemove === 1 && product.variants.length === 0) {
-        this.logger.log(`Đã xóa biến thể cuối cùng của sản phẩm ${id}. Xóa tất cả tồn kho biến thể.`);
+        this.logger.log(`Đã xóa biến thể cuối cùng của sản phẩm ${id}. Xóa tất cả tồn kho biến thể và tổ hợp.`);
         product.variantInventory = [];
+        product.combinationInventory = [];
       }
 
       const updatedProduct = await product.save();

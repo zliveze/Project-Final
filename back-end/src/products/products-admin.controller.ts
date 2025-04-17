@@ -172,6 +172,24 @@ export class ProductsAdminController {
     return this.productsService.updateVariantInventory(id, branchId, variantId, quantity);
   }
 
+  @Post(':id/inventory/:branchId/variant/:variantId/combination/:combinationId')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Update inventory for a specific combination in a specific branch' })
+  @ApiResponse({
+    status: 200,
+    description: 'The combination inventory has been successfully updated',
+    type: ProductResponseDto
+  })
+  async updateCombinationInventory(
+    @Param('id') id: string,
+    @Param('branchId') branchId: string,
+    @Param('variantId') variantId: string,
+    @Param('combinationId') combinationId: string,
+    @Body('quantity') quantity: number
+  ): Promise<ProductResponseDto> {
+    return this.productsService.updateCombinationInventory(id, branchId, variantId, combinationId, quantity);
+  }
+
   @Patch(':id/flags')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Update product flags' })

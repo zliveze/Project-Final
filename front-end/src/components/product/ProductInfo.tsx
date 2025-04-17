@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiMapPin } from 'react-icons/fi';
 // Use standardized toast utility
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '@/utils/toast';
-import ProductVariants, { Variant as ImportedVariant } from './ProductVariants'; // Import the Variant interface
+import ProductVariants, { Variant as ImportedVariant, VariantCombination } from './ProductVariants'; // Import the Variant and VariantCombination interfaces
 
 // Extend the imported Variant interface to include totalStock
 interface Variant extends ImportedVariant {
   totalStock?: number;
   inventory?: Array<{ branchId: string; quantity: number; branchName?: string }>;
+  combinationInventory?: Array<{ branchId: string; variantId: string; combinationId: string; quantity: number; branchName?: string }>;
 }
 import Link from 'next/link';
 import Image from 'next/image';
@@ -92,12 +93,13 @@ interface ProductInfoProps {
   };
   // Add props for selected variant state management
   selectedVariant: Variant | null;
-  onSelectVariant: (variant: Variant | null) => void;
+  onSelectVariant: (variant: Variant | null, combination?: VariantCombination | null) => void;
   // Add branches prop
   branches?: Array<{ _id: string; name: string; address?: string; }>;
   // Add product inventory for products without variants
   product?: {
     inventory?: Array<{ branchId: string; quantity: number; branchName?: string; }>;
+    combinationInventory?: Array<{ branchId: string; variantId: string; combinationId: string; quantity: number; branchName?: string; }>;
   };
 }
 
@@ -243,7 +245,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   selectedVariant,
   onSelectVariant,
   branches = [],
-  product = { inventory: [] },
+  product = { inventory: [], combinationInventory: [] },
 }) => {
   const { addItemToCart, cartItems } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -258,6 +260,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   const [showGifts, setShowGifts] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [selectedCombination, setSelectedCombination] = useState<VariantCombination | null>(null);
 
   // Helper to parse color string (duplicate from ProductVariants for now, consider moving to utils)
   const parseColorString = (colorString?: string): { name: string, code: string } => {
@@ -272,22 +275,46 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
   const inStock = status === 'active';
 
-  // Calculate total stock based on product inventory or selected variant's inventory
+  // Calculate total stock based on product inventory, selected variant's inventory, or selected combination's inventory
   const hasVariants = variants && variants.length > 0;
+  const hasCombinations = selectedVariant?.combinations && selectedVariant.combinations.length > 0;
 
   // Calculate total stock for products without variants
   const productTotalStock = !hasVariants ?
     (product?.inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0) : 0;
 
-  // Calculate total stock for products with variants
+  // Calculate total stock for products with variants but no combinations
   const variantTotalStock = selectedVariant?.totalStock || 0;
 
-  // Use the appropriate total stock based on whether the product has variants
-  const totalStock = hasVariants ? variantTotalStock : productTotalStock;
+  // Calculate total stock for the selected combination
+  let combinationTotalStock = 0;
+  if (hasCombinations && selectedCombination && selectedVariant?.combinationInventory) {
+    // Filter inventory for the selected combination
+    const combinationInventory = selectedVariant.combinationInventory.filter(
+      inv => inv.combinationId === selectedCombination.combinationId
+    );
 
-  // Check if the product/variant is already in the cart
+    // Calculate total stock for the selected combination
+    combinationTotalStock = combinationInventory.reduce(
+      (sum, inv) => sum + (inv.quantity || 0),
+      0
+    );
+
+    console.log(`Selected combination ${selectedCombination.combinationId} has totalStock: ${combinationTotalStock}`);
+  }
+
+  // Use the appropriate total stock based on whether the product has variants and combinations
+  const totalStock = hasCombinations && selectedCombination ? combinationTotalStock : (hasVariants ? variantTotalStock : productTotalStock);
+
+  // Check if the product/variant/combination is already in the cart
   const cartItem = hasVariants && selectedVariant ?
-    cartItems.find(item => item.variantId === selectedVariant.variantId) :
+    (hasCombinations && selectedCombination ?
+      cartItems.find(item =>
+        item.variantId === selectedVariant.variantId &&
+        item.options?.combinationId === selectedCombination.combinationId
+      ) :
+      cartItems.find(item => item.variantId === selectedVariant.variantId)
+    ) :
     cartItems.find(item => item.productId === _id && !item.variantId);
 
   const cartQuantity = cartItem ? cartItem.quantity : 0;
@@ -306,10 +333,16 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   // For display purposes - show total stock, not just available stock
   const displayTotalStock = totalStock;
 
-  // Use the selected variant's price if available, otherwise use the base product price
-  const displayPrice = selectedVariant?.price || price;
-  const displayCurrentPrice = selectedVariant?.price || currentPrice;
-  const discount = displayPrice > displayCurrentPrice ? Math.round(((displayPrice - displayCurrentPrice) / displayPrice) * 100) : 0;
+  // Use the selected combination's price if available, otherwise use the selected variant's price or base product price
+  const displayPrice = selectedCombination?.price || selectedVariant?.price || price;
+  const displayCurrentPrice = selectedCombination?.price || selectedVariant?.price || currentPrice;
+  // If combination has additionalPrice, add it to the variant price
+  const combinationPrice = selectedCombination?.additionalPrice && selectedVariant?.price
+    ? selectedVariant.price + selectedCombination.additionalPrice
+    : displayCurrentPrice;
+  // Use combinationPrice if it exists
+  const finalDisplayPrice = selectedCombination?.additionalPrice ? combinationPrice : displayCurrentPrice;
+  const discount = displayPrice > finalDisplayPrice ? Math.round(((displayPrice - finalDisplayPrice) / displayPrice) * 100) : 0;
 
   // Get product inventory for products without variants
   const productInventory = !hasVariants ? product?.inventory || [] : [];
@@ -332,6 +365,25 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
       // We can't directly modify selectedVariant, but we can log the updated inventory
       console.log('Updated inventory with branch names:', updatedInventory);
+
+      // If there's a selected combination, update its inventory with branch names
+      if (selectedCombination && selectedVariant.combinationInventory) {
+        const combinationInventory = selectedVariant.combinationInventory.filter(
+          inv => inv.combinationId === selectedCombination.combinationId
+        );
+
+        if (combinationInventory.length > 0) {
+          const updatedCombinationInventory = combinationInventory.map(inv => {
+            const branch = branches.find(b => b._id === inv.branchId);
+            return {
+              ...inv,
+              branchName: branch?.name || 'Chi nhánh không xác định'
+            };
+          });
+
+          console.log('Updated combination inventory with branch names:', updatedCombinationInventory);
+        }
+      }
     }
 
     // For products without variants
@@ -347,7 +399,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
       console.log('Updated product inventory with branch names:', updatedInventory);
     }
-  }, [selectedVariant, branches, preloadBranches, hasVariants, productInventory]);
+  }, [selectedVariant, selectedCombination, branches, preloadBranches, hasVariants, productInventory]);
 
   // Xử lý thay đổi số lượng
   const handleQuantityChange = (value: number) => {
@@ -517,10 +569,19 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // Get the correct variantId to add
     const variantIdToAdd = selectedVariant?.variantId;
 
+    // Get the correct combinationId to add if available
+    const combinationIdToAdd = selectedCombination?.combinationId;
+
     // Double-check variantId requirement if variants exist
     if (variants && variants.length > 0 && !variantIdToAdd) {
         console.error("Lỗi logic: Có variants nhưng không có selectedVariant.variantId");
         showErrorToast('Đã xảy ra lỗi, không thể xác định phiên bản sản phẩm.');
+        return;
+    }
+
+    // Check if combination is required but missing
+    if (selectedVariant?.combinations && selectedVariant.combinations.length > 0 && !combinationIdToAdd) {
+        showWarningToast('Vui lòng chọn một tổ hợp sản phẩm');
         return;
     }
 
@@ -537,12 +598,24 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         const { name: colorName } = parseColorString(selectedVariant.options.color);
         if (colorName) optionsForBackend['Color'] = colorName;
     }
-    // Assuming the first selected size/shade is what we send (adjust if multiple selections are possible)
-    if (selectedVariant?.options?.sizes && selectedVariant.options.sizes.length > 0) {
-        optionsForBackend['Size'] = selectedVariant.options.sizes[0];
-    }
-    if (selectedVariant?.options?.shades && selectedVariant.options.shades.length > 0) {
-        optionsForBackend['Shade'] = selectedVariant.options.shades[0];
+
+    // If there's a selected combination, use its attributes
+    if (selectedCombination) {
+        // Add combinationId to options
+        optionsForBackend['combinationId'] = selectedCombination.combinationId;
+
+        // Add combination attributes
+        Object.entries(selectedCombination.attributes).forEach(([key, value]) => {
+            optionsForBackend[key.charAt(0).toUpperCase() + key.slice(1)] = value;
+        });
+    } else {
+        // Assuming the first selected size/shade is what we send (adjust if multiple selections are possible)
+        if (selectedVariant?.options?.sizes && selectedVariant.options.sizes.length > 0) {
+            optionsForBackend['Size'] = selectedVariant.options.sizes[0];
+        }
+        if (selectedVariant?.options?.shades && selectedVariant.options.shades.length > 0) {
+            optionsForBackend['Shade'] = selectedVariant.options.shades[0];
+        }
     }
 
     // Call the context function based on whether variants exist
@@ -712,7 +785,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       {/* Giá */}
       <div className="flex flex-wrap items-end gap-3 pt-2">
         <span className="text-2xl md:text-3xl font-bold text-[#d53f8c]">
-          {displayCurrentPrice.toLocaleString('vi-VN')}đ
+          {finalDisplayPrice.toLocaleString('vi-VN')}đ
         </span>
         {discount > 0 && (
           <div className="flex items-center gap-2">
@@ -728,7 +801,11 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           <ProductVariants
             variants={variants}
             selectedVariant={selectedVariant}
-            onSelectVariant={onSelectVariant}
+            selectedCombination={selectedCombination}
+            onSelectVariant={(variant, combination) => {
+              onSelectVariant(variant, combination);
+              setSelectedCombination(combination || null);
+            }}
           />
         </div>
       )}
@@ -800,7 +877,11 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             {/* Thông tin tồn kho */}
             <div className="mt-2">
               <div className={`text-xs ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                {displayTotalStock > 0 ? `Tổng còn ${displayTotalStock} sản phẩm` : 'Hết hàng'}
+                {displayTotalStock > 0 ? (
+                  hasCombinations && selectedCombination ?
+                    `Tổ hợp này còn ${displayTotalStock} sản phẩm` :
+                    `Tổng còn ${displayTotalStock} sản phẩm`
+                ) : 'Hết hàng'}
               </div>
               {cartQuantity > 0 && (
                 <div className="text-xs text-blue-500 mt-1">
@@ -814,31 +895,69 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           <div className="w-full md:w-1/4">
             <div className="mb-2 text-sm font-medium text-gray-700">Chi nhánh:</div>
             {/* Branch selection for products with variants */}
-            {hasVariants && selectedVariant && selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
+            {hasVariants && selectedVariant && (
               <div>
-                {selectedBranchId ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
-                      <FiMapPin className="text-pink-500 mr-2" size={14} />
-                      <span className="font-medium text-pink-700">
-                        {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setShowBranchModal(true)}
-                      className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
-                    >
-                      Thay đổi chi nhánh
-                    </button>
+                {/* If there's a selected combination, show combination inventory */}
+                {hasCombinations && selectedCombination && selectedVariant.combinationInventory &&
+                 selectedVariant.combinationInventory.filter(inv => inv.combinationId === selectedCombination.combinationId).length > 0 ? (
+                  <div>
+                    {selectedBranchId ? (
+                      <div className="flex flex-col">
+                        <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
+                          <FiMapPin className="text-pink-500 mr-2" size={14} />
+                          <span className="font-medium text-pink-700">
+                            {selectedVariant.combinationInventory
+                              .filter(inv => inv.combinationId === selectedCombination.combinationId)
+                              .find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setShowBranchModal(true)}
+                          className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
+                        >
+                          Thay đổi chi nhánh
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowBranchModal(true)}
+                        className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
+                      >
+                        <FiMapPin className="mr-2 text-gray-500" />
+                        <span>Chọn chi nhánh</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowBranchModal(true)}
-                    className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
-                  >
-                    <FiMapPin className="mr-2 text-gray-500" />
-                    <span>Chọn chi nhánh</span>
-                  </button>
+                  /* If there's no selected combination or no combination inventory, show variant inventory */
+                  selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
+                    <div>
+                      {selectedBranchId ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
+                            <FiMapPin className="text-pink-500 mr-2" size={14} />
+                            <span className="font-medium text-pink-700">
+                              {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setShowBranchModal(true)}
+                            className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
+                          >
+                            Thay đổi chi nhánh
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowBranchModal(true)}
+                          className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
+                        >
+                          <FiMapPin className="mr-2 text-gray-500" />
+                          <span>Chọn chi nhánh</span>
+                        </button>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             )}
@@ -918,15 +1037,28 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         </div>
 
         {/* Branch Selection Modal for products with variants */}
-        {hasVariants && selectedVariant && selectedVariant.inventory && (
+        {hasVariants && selectedVariant && (
           <BranchSelectionModal
             isOpen={showBranchModal}
             onClose={() => setShowBranchModal(false)}
-            branches={selectedVariant.inventory.map(inv => ({
-              branchId: inv.branchId,
-              branchName: inv.branchName || getBranchName(inv.branchId),
-              quantity: inv.quantity
-            }))}
+            branches={
+              // If there's a selected combination, show combination inventory
+              hasCombinations && selectedCombination && selectedVariant.combinationInventory ?
+                selectedVariant.combinationInventory
+                  .filter(inv => inv.combinationId === selectedCombination.combinationId)
+                  .map(inv => ({
+                    branchId: inv.branchId,
+                    branchName: inv.branchName || getBranchName(inv.branchId),
+                    quantity: inv.quantity
+                  })) :
+                // Otherwise, show variant inventory
+                selectedVariant.inventory ?
+                  selectedVariant.inventory.map(inv => ({
+                    branchId: inv.branchId,
+                    branchName: inv.branchName || getBranchName(inv.branchId),
+                    quantity: inv.quantity
+                  })) : []
+            }
             currentQuantity={quantity}
             initialBranchId={selectedBranchId}
             onSelectBranch={handleSelectBranch}

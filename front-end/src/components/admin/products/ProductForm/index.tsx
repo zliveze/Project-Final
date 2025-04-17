@@ -140,7 +140,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
     branchVariants,
     handleSelectBranchForVariants,
     handleClearBranchSelection,
-    handleVariantInventoryChange
+    handleVariantInventoryChange,
+    // Combination inventory methods
+    selectedVariantForCombinations,
+    variantCombinations,
+    handleSelectVariantForCombinations,
+    handleClearVariantSelection,
+    handleCombinationInventoryChange
   } = useProductInventory(formData, setFormData, branches); // Truyền danh sách chi nhánh vào hook
 
   // Sử dụng custom hook để quản lý quà tặng
@@ -421,6 +427,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
               handleSelectBranchForVariants={handleSelectBranchForVariants}
               handleClearBranchSelection={handleClearBranchSelection}
               handleVariantInventoryChange={handleVariantInventoryChange}
+              // Combination inventory props
+              selectedVariantForCombinations={selectedVariantForCombinations}
+              variantCombinations={variantCombinations}
+              handleSelectVariantForCombinations={handleSelectVariantForCombinations}
+              handleClearVariantSelection={handleClearVariantSelection}
+              handleCombinationInventoryChange={handleCombinationInventoryChange}
             />
           </Tab.Panel>
 

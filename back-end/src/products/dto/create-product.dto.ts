@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  IsString, 
-  IsNumber, 
-  IsOptional, 
-  IsArray, 
-  IsBoolean, 
-  IsEnum, 
-  ValidateNested, 
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  ValidateNested,
   IsMongoId,
   Min,
   IsNotEmpty,
@@ -58,12 +58,35 @@ export class VariantOptionsDto {
   sizes?: string[]; // Renamed and changed to array
 }
 
+// Variant Combination DTO
+export class VariantCombinationDto {
+  @ApiPropertyOptional({ description: 'Combination attributes' })
+  @IsOptional()
+  attributes: Record<string, string>;
+
+  @ApiPropertyOptional({ description: 'Combination price' })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  price?: number;
+
+  @ApiPropertyOptional({ description: 'Additional price compared to base variant price' })
+  @IsNumber()
+  @IsOptional()
+  additionalPrice?: number;
+}
+
 // Product Variant DTO
 export class ProductVariantDto {
   @ApiProperty({ description: 'Variant SKU' })
   @IsString()
   @IsNotEmpty()
   sku: string;
+
+  @ApiPropertyOptional({ description: 'Variant name' })
+  @IsString()
+  @IsOptional()
+  name?: string;
 
   @ApiPropertyOptional({ description: 'Variant options' })
   @ValidateNested()
@@ -83,6 +106,13 @@ export class ProductVariantDto {
   @Type(() => ProductImageDto)
   @IsOptional()
   images?: ProductImageDto[];
+
+  @ApiPropertyOptional({ description: 'Variant combinations', type: [VariantCombinationDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantCombinationDto)
+  @IsOptional()
+  combinations?: VariantCombinationDto[];
 }
 
 // Product Inventory DTO
@@ -90,6 +120,54 @@ export class ProductInventoryDto {
   @ApiProperty({ description: 'Branch ID' })
   @IsMongoId()
   branchId: string;
+
+  @ApiProperty({ description: 'Quantity in stock' })
+  @IsNumber()
+  @Min(0)
+  quantity: number;
+
+  @ApiPropertyOptional({ description: 'Low stock threshold' })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  lowStockThreshold?: number;
+}
+
+// Variant Inventory DTO
+export class VariantInventoryDto {
+  @ApiProperty({ description: 'Branch ID' })
+  @IsMongoId()
+  branchId: string;
+
+  @ApiProperty({ description: 'Variant ID' })
+  @IsMongoId()
+  variantId: string;
+
+  @ApiProperty({ description: 'Quantity in stock' })
+  @IsNumber()
+  @Min(0)
+  quantity: number;
+
+  @ApiPropertyOptional({ description: 'Low stock threshold' })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  lowStockThreshold?: number;
+}
+
+// Combination Inventory DTO
+export class CombinationInventoryDto {
+  @ApiProperty({ description: 'Branch ID' })
+  @IsMongoId()
+  branchId: string;
+
+  @ApiProperty({ description: 'Variant ID' })
+  @IsMongoId()
+  variantId: string;
+
+  @ApiProperty({ description: 'Combination ID' })
+  @IsMongoId()
+  combinationId: string;
 
   @ApiProperty({ description: 'Quantity in stock' })
   @IsNumber()
@@ -412,6 +490,20 @@ export class CreateProductDto {
   @Type(() => ProductInventoryDto)
   @IsOptional()
   inventory?: ProductInventoryDto[];
+
+  @ApiPropertyOptional({ description: 'Variant inventory', type: [VariantInventoryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantInventoryDto)
+  @IsOptional()
+  variantInventory?: VariantInventoryDto[];
+
+  @ApiPropertyOptional({ description: 'Combination inventory', type: [CombinationInventoryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CombinationInventoryDto)
+  @IsOptional()
+  combinationInventory?: CombinationInventoryDto[];
 
   @ApiPropertyOptional({ description: 'Product flags' })
   @ValidateNested()

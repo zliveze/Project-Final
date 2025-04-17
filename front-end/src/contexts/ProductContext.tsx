@@ -197,6 +197,7 @@ interface ProductContextType {
   deleteProduct: (id: string) => Promise<void>;
   updateInventory: (id: string, branchId: string, quantity: number) => Promise<Product>;
   updateVariantInventory: (id: string, branchId: string, variantId: string, quantity: number) => Promise<Product>;
+  updateCombinationInventory: (id: string, branchId: string, variantId: string, combinationId: string, quantity: number) => Promise<Product>;
   updateProductFlags: (id: string, flags: any) => Promise<Product>;
   addVariant: (id: string, variantData: any) => Promise<Product>;
   updateVariant: (id: string, variantId: string, variantData: any) => Promise<Product>;
@@ -291,6 +292,14 @@ export const useProduct = () => {
       },
       deleteProduct: async () => { console.warn('ProductProvider không khả dụng trên trang này'); },
       updateInventory: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      updateVariantInventory: async () => {
+        console.warn('ProductProvider không khả dụng trên trang này');
+        return {} as Product;
+      },
+      updateCombinationInventory: async () => {
         console.warn('ProductProvider không khả dụng trên trang này');
         return {} as Product;
       },
@@ -911,6 +920,34 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       return updatedProduct;
     } catch (error: any) {
       console.error('Error updating variant inventory:', error);
+      throw error;
+    }
+  }, [fetchAdminProducts]);
+
+  // Phương thức POST để cập nhật tồn kho tổ hợp biến thể sản phẩm
+  const updateCombinationInventory = useCallback(async (id: string, branchId: string, variantId: string, combinationId: string, quantity: number): Promise<Product> => {
+    try {
+      const response = await fetch(`${API_URL}/admin/products/${id}/inventory/${branchId}/variant/${variantId}/combination/${combinationId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ quantity })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update combination inventory: ${response.status}`);
+      }
+
+      const updatedProduct = await response.json();
+
+      // Refresh danh sách sản phẩm
+      fetchAdminProducts();
+
+      return updatedProduct;
+    } catch (error: any) {
+      console.error('Error updating combination inventory:', error);
       throw error;
     }
   }, [fetchAdminProducts]);
