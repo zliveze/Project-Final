@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ProductFormData } from '../types';
+import { skinTypes, skinConcerns } from '@/data/skinData';
+import { PlusCircle, X, Tag, Droplet } from 'lucide-react';
 
 interface CosmeticInfoTabProps {
   formData: ProductFormData;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
-  handleConcernsChange: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  handleConcernsChange: (concerns: string[]) => void;
   handleIngredientsChange: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   removeConcern: (index: number) => void;
   removeIngredient: (index: number) => void;
@@ -25,6 +27,16 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
   isViewMode = false,
   brands
 }) => {
+  // State cho input tùy chỉnh
+  const [customSkinType, setCustomSkinType] = useState<string>('');
+  const [customConcern, setCustomConcern] = useState<string>('');
+  const [showSkinTypeDropdown, setShowSkinTypeDropdown] = useState<boolean>(false);
+  const [showConcernDropdown, setShowConcernDropdown] = useState<boolean>(false);
+
+  // Refs cho dropdowns
+  const skinTypeDropdownRef = useRef<HTMLDivElement>(null);
+  const concernDropdownRef = useRef<HTMLDivElement>(null);
+
   // Tìm thương hiệu hiện tại dựa trên brandId
   const currentBrand = brands.find(brand => brand.id === formData.brandId);
 
@@ -41,115 +53,320 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
     }
   }, [formData.brandId, currentBrand]);
 
+  // Xử lý click bên ngoài dropdown để đóng
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (skinTypeDropdownRef.current && !skinTypeDropdownRef.current.contains(event.target as Node)) {
+        setShowSkinTypeDropdown(false);
+      }
+      if (concernDropdownRef.current && !concernDropdownRef.current.contains(event.target as Node)) {
+        setShowConcernDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Xử lý thêm loại da tùy chỉnh
+  const handleAddCustomSkinType = () => {
+    if (customSkinType.trim()) {
+      const currentSkinTypes = formData.cosmetic_info?.skinType || [];
+      if (!currentSkinTypes.includes(customSkinType.trim())) {
+        handleInputChange({
+          target: {
+            name: 'cosmetic_info.skinType',
+            value: [...currentSkinTypes, customSkinType.trim()]
+          }
+        } as React.ChangeEvent<HTMLSelectElement>);
+      }
+      setCustomSkinType('');
+    }
+  };
+
+  // Xử lý thêm vấn đề da tùy chỉnh
+  const handleAddCustomConcern = () => {
+    if (customConcern.trim()) {
+      const currentConcerns = formData.cosmetic_info?.concerns || [];
+      if (!currentConcerns.includes(customConcern.trim())) {
+        handleConcernsChange([...currentConcerns, customConcern.trim()]);
+      }
+      setCustomConcern('');
+    }
+  };
+
+  // Xử lý chọn loại da từ danh sách
+  const handleSelectSkinType = (skinType: string) => {
+    const currentSkinTypes = formData.cosmetic_info?.skinType || [];
+    if (!currentSkinTypes.includes(skinType)) {
+      handleInputChange({
+        target: {
+          name: 'cosmetic_info.skinType',
+          value: [...currentSkinTypes, skinType]
+        }
+      } as React.ChangeEvent<HTMLSelectElement>);
+    }
+    setShowSkinTypeDropdown(false);
+  };
+
+  // Xử lý chọn vấn đề da từ danh sách
+  const handleSelectConcern = (concern: string) => {
+    const currentConcerns = formData.cosmetic_info?.concerns || [];
+    if (!currentConcerns.includes(concern)) {
+      handleConcernsChange([...currentConcerns, concern]);
+    }
+    setShowConcernDropdown(false);
+  };
+
+  // Xử lý xóa loại da
+  const handleRemoveSkinType = (index: number) => {
+    const currentSkinTypes = [...(formData.cosmetic_info?.skinType || [])];
+    currentSkinTypes.splice(index, 1);
+    handleInputChange({
+      target: {
+        name: 'cosmetic_info.skinType',
+        value: currentSkinTypes
+      }
+    } as React.ChangeEvent<HTMLSelectElement>);
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-medium mb-4">Thông tin mỹ phẩm</h3>
 
       {/* Loại da */}
       <div className="space-y-2">
-        <label htmlFor="skinType" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="skinType" className="block text-sm font-medium text-gray-700 flex items-center">
+          <Droplet className="h-4 w-4 mr-1.5 text-blue-500" strokeWidth={1.5} />
           Loại da phù hợp
         </label>
         {!isViewMode ? (
-          <select
-            id="skinType"
-            name="cosmetic_info.skinType"
-            multiple
-            value={formData.cosmetic_info?.skinType || []}
-            onChange={(e) => {
-              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-              const currentInfo = formData.cosmetic_info || {};
+          <div className="mt-1">
+            <div className="relative" ref={skinTypeDropdownRef}>
+              <div
+                className="flex items-center border border-gray-300 rounded-md px-3 py-2 bg-white cursor-pointer"
+                onClick={() => setShowSkinTypeDropdown(!showSkinTypeDropdown)}
+              >
+                <span className="text-sm text-gray-500 flex-grow">
+                  {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.length > 0
+                    ? `${formData.cosmetic_info.skinType.length} loại da được chọn`
+                    : 'Chọn loại da phù hợp'}
+                </span>
+                <PlusCircle className="h-5 w-5 text-pink-500" />
+              </div>
 
-              handleInputChange({
-                target: {
-                  name: 'cosmetic_info.skinType',
-                  value: selectedOptions
-                }
-              } as any);
-            }}
-            className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
-            size={5}
-          >
-            <option value="normal">Da thường</option>
-            <option value="dry">Da khô</option>
-            <option value="oily">Da dầu</option>
-            <option value="combination">Da hỗn hợp</option>
-            <option value="sensitive">Da nhạy cảm</option>
-            <option value="all">Mọi loại da</option>
-          </select>
+              {showSkinTypeDropdown && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="p-2 border-b border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Loại da phổ biến</div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {skinTypes.map((type) => {
+                        const isSelected = formData.cosmetic_info?.skinType?.includes(type.id);
+                        return (
+                          <div
+                            key={type.id}
+                            className={`text-sm p-2 rounded-md cursor-pointer ${isSelected ? 'bg-pink-50 text-pink-600' : 'hover:bg-gray-100'}`}
+                            onClick={() => handleSelectSkinType(type.id)}
+                          >
+                            {type.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Thêm loại da tùy chỉnh</div>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        value={customSkinType}
+                        onChange={(e) => setCustomSkinType(e.target.value)}
+                        placeholder="Nhập loại da khác..."
+                        className="flex-grow border border-gray-300 rounded-l-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomSkinType();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomSkinType}
+                        className="bg-pink-500 text-white px-3 py-1.5 rounded-r-md text-sm hover:bg-pink-600 focus:outline-none"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Hiển thị các loại da đã chọn */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.map((type, index) => {
+                // Tìm label tương ứng từ danh sách có sẵn
+                const skinTypeObj = skinTypes.find(item => item.id === type);
+                const label = skinTypeObj ? skinTypeObj.label : type;
+
+                return (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  >
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSkinType(index)}
+                      className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
         ) : (
           <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
             {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.length > 0 ? (
-              <ul className="list-disc pl-5">
+              <div className="flex flex-wrap gap-2">
                 {formData.cosmetic_info.skinType.map((type, index) => {
-                  let skinTypeName = '';
-                  switch (type) {
-                    case 'normal': skinTypeName = 'Da thường'; break;
-                    case 'dry': skinTypeName = 'Da khô'; break;
-                    case 'oily': skinTypeName = 'Da dầu'; break;
-                    case 'combination': skinTypeName = 'Da hỗn hợp'; break;
-                    case 'sensitive': skinTypeName = 'Da nhạy cảm'; break;
-                    case 'all': skinTypeName = 'Mọi loại da'; break;
-                    default: skinTypeName = type;
-                  }
-                  return <li key={index}>{skinTypeName}</li>;
+                  // Tìm label tương ứng từ danh sách có sẵn
+                  const skinTypeObj = skinTypes.find(item => item.id === type);
+                  const label = skinTypeObj ? skinTypeObj.label : type;
+
+                  return (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                    >
+                      {label}
+                    </span>
+                  );
                 })}
-              </ul>
+              </div>
             ) : (
               <span className="text-gray-500">Không có loại da được chọn</span>
             )}
           </div>
         )}
-        {!isViewMode && <p className="text-xs text-gray-500 mt-1">Giữ Ctrl để chọn nhiều loại da</p>}
       </div>
 
       {/* Vấn đề da */}
       <div className="space-y-2">
-        <label htmlFor="concerns" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="concerns" className="block text-sm font-medium text-gray-700 flex items-center">
+          <Tag className="h-4 w-4 mr-1.5 text-purple-500" strokeWidth={1.5} />
           Vấn đề da đặc trị
         </label>
         {!isViewMode ? (
           <div className="mt-1">
-            <div className="flex rounded-md shadow-sm">
-              <input
-                type="text"
-                id="concerns"
-                placeholder="Nhập vấn đề da và nhấn Enter"
-                onKeyDown={handleConcernsChange}
-                className="focus:ring-pink-500 focus:border-pink-500 flex-1 block w-full rounded-md sm:text-sm border-gray-300"
-              />
+            <div className="relative" ref={concernDropdownRef}>
+              <div
+                className="flex items-center border border-gray-300 rounded-md px-3 py-2 bg-white cursor-pointer"
+                onClick={() => setShowConcernDropdown(!showConcernDropdown)}
+              >
+                <span className="text-sm text-gray-500 flex-grow">
+                  {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.length > 0
+                    ? `${formData.cosmetic_info.concerns.length} vấn đề da được chọn`
+                    : 'Chọn vấn đề da đặc trị'}
+                </span>
+                <PlusCircle className="h-5 w-5 text-pink-500" />
+              </div>
+
+              {showConcernDropdown && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="p-2 border-b border-gray-200">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Vấn đề da phổ biến</div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {skinConcerns.map((concern) => {
+                        const isSelected = formData.cosmetic_info?.concerns?.includes(concern.id);
+                        return (
+                          <div
+                            key={concern.id}
+                            className={`text-sm p-2 rounded-md cursor-pointer ${isSelected ? 'bg-pink-50 text-pink-600' : 'hover:bg-gray-100'}`}
+                            onClick={() => handleSelectConcern(concern.id)}
+                          >
+                            {concern.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Thêm vấn đề da tùy chỉnh</div>
+                    <div className="flex">
+                      <input
+                        type="text"
+                        value={customConcern}
+                        onChange={(e) => setCustomConcern(e.target.value)}
+                        placeholder="Nhập vấn đề da khác..."
+                        className="flex-grow border border-gray-300 rounded-l-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomConcern();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomConcern}
+                        className="bg-pink-500 text-white px-3 py-1.5 rounded-r-md text-sm hover:bg-pink-600 focus:outline-none"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Hiển thị các vấn đề da đã chọn */}
             <div className="mt-2 flex flex-wrap gap-2">
-              {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.map((concern, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                >
-                  {concern}
-                  <button
-                    type="button"
-                    onClick={() => removeConcern(index)}
-                    className="ml-1 inline-flex text-blue-400 hover:text-blue-600"
+              {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.map((concern, index) => {
+                // Tìm label tương ứng từ danh sách có sẵn
+                const concernObj = skinConcerns.find(item => item.id === concern);
+                const label = concernObj ? concernObj.label : concern;
+
+                return (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
                   >
-                    <span className="sr-only">Xóa</span>
-                    ×
-                  </button>
-                </span>
-              ))}
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => removeConcern(index)}
+                      className="ml-1.5 inline-flex text-purple-400 hover:text-purple-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.length > 0 ? (
-              formData.cosmetic_info.concerns.map((concern, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                >
-                  {concern}
-                </span>
-              ))
+              formData.cosmetic_info.concerns.map((concern, index) => {
+                // Tìm label tương ứng từ danh sách có sẵn
+                const concernObj = skinConcerns.find(item => item.id === concern);
+                const label = concernObj ? concernObj.label : concern;
+
+                return (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                  >
+                    {label}
+                  </span>
+                );
+              })
             ) : (
               <span className="text-sm text-gray-500">Không có vấn đề da được chỉ định</span>
             )}

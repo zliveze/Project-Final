@@ -14,10 +14,10 @@ export const useProductTags = (
   const handleTagsChange = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      
+
       const target = e.target as HTMLInputElement;
       const value = target.value.trim();
-      
+
       if (value && formData.tags && Array.isArray(formData.tags) && !formData.tags.includes(value)) {
         setFormData(prev => ({
           ...prev,
@@ -39,7 +39,7 @@ export const useProductTags = (
    */
   const removeTag = (tagToRemove: string) => {
     if (!formData.tags || !Array.isArray(formData.tags)) return;
-    
+
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
@@ -52,13 +52,13 @@ export const useProductTags = (
   const handleSeoKeywordsChange = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      
+
       const target = e.target as HTMLInputElement;
       const value = target.value.trim();
-      
+
       if (value && formData.seo) {
         const currentKeywords = (formData.seo.keywords || []);
-        
+
         if (!currentKeywords.includes(value)) {
           setFormData(prev => {
             // Đảm bảo seo tồn tại
@@ -67,7 +67,7 @@ export const useProductTags = (
               metaDescription: '',
               keywords: []
             };
-            
+
             return {
               ...prev,
               seo: {
@@ -87,7 +87,7 @@ export const useProductTags = (
    */
   const removeSeoKeyword = (index: number) => {
     if (!formData.seo || !Array.isArray(formData.seo.keywords)) return;
-    
+
     setFormData(prev => {
       // Đảm bảo seo tồn tại
       const prevSeo = prev.seo || {
@@ -95,7 +95,7 @@ export const useProductTags = (
         metaDescription: '',
         keywords: []
       };
-      
+
       return {
         ...prev,
         seo: {
@@ -107,18 +107,32 @@ export const useProductTags = (
   };
 
   /**
-   * Xử lý thêm vấn đề da
+   * Xử lý thêm vấn đề da (cập nhật để hỗ trợ cả array và event)
    */
-  const handleConcernsChange = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleConcernsChange = (concernsOrEvent: string[] | KeyboardEvent<HTMLInputElement>) => {
+    // Nếu là mảng concerns mới
+    if (Array.isArray(concernsOrEvent)) {
+      setFormData(prev => ({
+        ...prev,
+        cosmetic_info: {
+          ...prev.cosmetic_info,
+          concerns: concernsOrEvent
+        }
+      }));
+      return;
+    }
+
+    // Nếu là sự kiện keyboard
+    const e = concernsOrEvent;
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      
+
       const target = e.target as HTMLInputElement;
       const value = target.value.trim();
-      
+
       if (value && formData.cosmetic_info) {
         const currentConcerns = formData.cosmetic_info.concerns || [];
-        
+
         if (!currentConcerns.includes(value)) {
           setFormData(prev => ({
             ...prev,
@@ -138,10 +152,10 @@ export const useProductTags = (
    */
   const removeConcern = (index: number) => {
     if (!formData.cosmetic_info || !Array.isArray(formData.cosmetic_info.concerns)) return;
-    
+
     const updatedConcerns = [...formData.cosmetic_info.concerns];
     updatedConcerns.splice(index, 1);
-    
+
     setFormData(prev => ({
       ...prev,
       cosmetic_info: {
@@ -157,13 +171,13 @@ export const useProductTags = (
   const handleIngredientsChange = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      
+
       const target = e.target as HTMLInputElement;
       const value = target.value.trim();
-      
+
       if (value && formData.cosmetic_info) {
         const currentIngredients = formData.cosmetic_info.ingredients || [];
-        
+
         if (!currentIngredients.includes(value)) {
           setFormData(prev => ({
             ...prev,
@@ -183,10 +197,10 @@ export const useProductTags = (
    */
   const removeIngredient = (index: number) => {
     if (!formData.cosmetic_info || !Array.isArray(formData.cosmetic_info.ingredients)) return;
-    
+
     const updatedIngredients = [...formData.cosmetic_info.ingredients];
     updatedIngredients.splice(index, 1);
-    
+
     setFormData(prev => ({
       ...prev,
       cosmetic_info: {
@@ -208,4 +222,4 @@ export const useProductTags = (
   };
 };
 
-export default useProductTags; 
+export default useProductTags;

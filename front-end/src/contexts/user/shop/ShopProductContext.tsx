@@ -581,29 +581,26 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         // Xử lý lỗi nhưng không log ra console
       }
 
-      // Fallback options
-      const exampleOptions = [
-        { id: 'skibidi', label: 'skibidi' },
-        { id: 'dumb bitch', label: 'dumb bitch' }
-      ];
-      localStorage.setItem('skinTypeOptions', JSON.stringify(exampleOptions));
-      setSkinTypeOptions(exampleOptions);
+      // Import từ skinData.ts
+      const { skinTypes } = await import('@/data/skinData');
+      const defaultOptions = skinTypes.map(type => ({ id: type.id, label: type.label }));
+
+      localStorage.setItem('skinTypeOptions', JSON.stringify(defaultOptions));
+      setSkinTypeOptions(defaultOptions);
 
       // Cập nhật memory cache
       optionsCache.skinTypes = {
-        data: exampleOptions,
+        data: defaultOptions,
         timestamp: Date.now()
       };
 
-      return exampleOptions;
+      return defaultOptions;
     } catch (err) {
       // Fallback khi có lỗi
-      const exampleOptions = [
-        { id: 'skibidi', label: 'skibidi' },
-        { id: 'dumb bitch', label: 'dumb bitch' }
-      ];
-      setSkinTypeOptions(exampleOptions);
-      return exampleOptions;
+      const { skinTypes } = await import('@/data/skinData');
+      const defaultOptions = skinTypes.map(type => ({ id: type.id, label: type.label }));
+      setSkinTypeOptions(defaultOptions);
+      return defaultOptions;
     }
   }, []); // Không phụ thuộc vào state thay đổi thường xuyên
 
@@ -660,29 +657,26 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         // Xử lý lỗi nhưng không log ra console
       }
 
-      // Fallback options
-      const exampleOptions = [
-        { id: 'ugly', label: 'ugly' },
-        { id: 'too fat', label: 'too fat' }
-      ];
-      localStorage.setItem('concernOptions', JSON.stringify(exampleOptions));
-      setConcernOptions(exampleOptions);
+      // Import từ skinData.ts
+      const { skinConcerns } = await import('@/data/skinData');
+      const defaultOptions = skinConcerns.map(concern => ({ id: concern.id, label: concern.label }));
+
+      localStorage.setItem('concernOptions', JSON.stringify(defaultOptions));
+      setConcernOptions(defaultOptions);
 
       // Cập nhật memory cache
       optionsCache.concerns = {
-        data: exampleOptions,
+        data: defaultOptions,
         timestamp: Date.now()
       };
 
-      return exampleOptions;
+      return defaultOptions;
     } catch (err) {
       // Fallback khi có lỗi
-      const exampleOptions = [
-        { id: 'ugly', label: 'ugly' },
-        { id: 'too fat', label: 'too fat' }
-      ];
-      setConcernOptions(exampleOptions);
-      return exampleOptions;
+      const { skinConcerns } = await import('@/data/skinData');
+      const defaultOptions = skinConcerns.map(concern => ({ id: concern.id, label: concern.label }));
+      setConcernOptions(defaultOptions);
+      return defaultOptions;
     }
   }, []); // Không phụ thuộc vào state thay đổi thường xuyên
 
