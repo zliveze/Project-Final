@@ -105,10 +105,10 @@ interface ShopProductContextType {
   changePage: (newPage: number) => void;
   changeLimit: (newLimit: number) => void;
   fetchCampaign: (campaignId: string) => Promise<void>;
-  fetchSkinTypeOptions: () => Promise<{ id: string; label: string }[]>;
-  fetchConcernOptions: () => Promise<{ id: string; label: string }[]>;
-  skinTypeOptions: { id: string; label: string }[];
-  concernOptions: { id: string; label: string }[];
+  fetchSkinTypeOptions: () => Promise<string[]>; // Updated return type
+  fetchConcernOptions: () => Promise<string[]>; // Updated return type
+  skinTypeOptions: string[]; // Updated type
+  concernOptions: string[]; // Updated type
   addToWishlist?: (productId: string) => Promise<boolean>;
   addToCart?: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
 }
@@ -142,10 +142,10 @@ export const useShopProduct = (): ShopProductContextType => {
       changePage: () => { console.warn('ShopProductProvider not available.'); },
       changeLimit: () => { console.warn('ShopProductProvider not available.'); },
       fetchCampaign: async () => { console.warn('ShopProductProvider not available.'); },
-      fetchSkinTypeOptions: async () => { console.warn('ShopProductProvider not available.'); return []; },
-      fetchConcernOptions: async () => { console.warn('ShopProductProvider not available.'); return []; },
-      skinTypeOptions: [],
-      concernOptions: [],
+      fetchSkinTypeOptions: async () => { console.warn('ShopProductProvider not available.'); return []; }, // Keep return type consistent
+      fetchConcernOptions: async () => { console.warn('ShopProductProvider not available.'); return []; }, // Keep return type consistent
+      skinTypeOptions: [], // Updated type
+      concernOptions: [], // Updated type
       addToWishlist: async () => { console.warn('ShopProductProvider not available.'); return false; },
       addToCart: async () => { console.warn('ShopProductProvider not available.'); return false; }
     };
@@ -160,12 +160,12 @@ let debounceTimer: NodeJS.Timeout | null = null;
 const resultsCache: { [key: string]: { timestamp: number, data: LightProductsApiResponse } } = {};
 const CACHE_TTL = 300000; // Tăng lên 5 phút cache
 
-// Thêm cache cho các options
+// Thêm cache cho các options (sử dụng string[] giờ)
 const optionsCache = {
-  skinTypes: { data: null as any, timestamp: 0 },
-  concerns: { data: null as any, timestamp: 0 }
+  skinTypes: { data: null as string[] | null, timestamp: 0 },
+  concerns: { data: null as string[] | null, timestamp: 0 }
 };
-const OPTIONS_CACHE_TTL = 3600000; // 1 giờ cho options cache
+const OPTIONS_CACHE_TTL = 300000; // Giảm xuống 5 phút (300,000 ms) cho options cache
 
 // Provider component
 export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -178,8 +178,8 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [itemsPerPage, setItemsPerPage] = useState<number>(24); // Default for shop view
   const [filters, setFiltersState] = useState<ShopProductFilters>({});
   const [selectedCampaign, setSelectedCampaign] = useState<UserCampaign | null>(null);
-  const [skinTypeOptions, setSkinTypeOptions] = useState<{ id: string; label: string }[]>([]);
-  const [concernOptions, setConcernOptions] = useState<{ id: string; label: string }[]>([]);
+  const [skinTypeOptions, setSkinTypeOptions] = useState<string[]>([]); // Updated type
+  const [concernOptions, setConcernOptions] = useState<string[]>([]); // Updated type
 
   const fetchProducts = useCallback(async (
     page: number = currentPage,
@@ -528,7 +528,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, []);
 
   // --- Fetch Filter Options ---
-  const fetchSkinTypeOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
+  const fetchSkinTypeOptions = useCallback(async (): Promise<string[]> => {
     try {
       // Kiểm tra memory cache trước
       if (optionsCache.skinTypes.data &&
@@ -542,69 +542,44 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (cachedOptions) {
         try {
           const parsedOptions = JSON.parse(cachedOptions);
-          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+          // Validate if it's an array of strings
+          if (Array.isArray(parsedOptions) && parsedOptions.every(item => typeof item === 'string')) {
             setSkinTypeOptions(parsedOptions);
-            // Cập nhật memory cache
-            optionsCache.skinTypes = {
-              data: parsedOptions,
-              timestamp: Date.now()
-            };
+            optionsCache.skinTypes = { data: parsedOptions, timestamp: Date.now() };
             return parsedOptions;
+          } else {
+            localStorage.removeItem('skinTypeOptions'); // Remove invalid cache
           }
         } catch (e) {
-           localStorage.removeItem('skinTypeOptions'); // Xóa cache bị lỗi
+           localStorage.removeItem('skinTypeOptions'); // Remove corrupted cache
         }
       }
 
-      try {
-        // Gọi API để lấy dữ liệu từ database
-        const response = await axios.get(`${API_URL}/products/filters/skin-types`);
-        if (response.data && response.data.skinTypes && Array.isArray(response.data.skinTypes)) {
-          // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
-          const apiSkinTypes = response.data.skinTypes.map((type: string) => ({
-            id: type,
-            label: type // Sử dụng chính xác tên loại da từ database
-          }));
+      // Gọi API để lấy dữ liệu từ database
+      const response = await axios.get<{ skinTypes: string[] }>(`${API_URL}/products/filters/skin-types`);
+      if (response.data && response.data.skinTypes && Array.isArray(response.data.skinTypes)) {
+        const apiSkinTypes = response.data.skinTypes; // Directly use the string array
 
-          localStorage.setItem('skinTypeOptions', JSON.stringify(apiSkinTypes));
-          setSkinTypeOptions(apiSkinTypes);
-
-          // Cập nhật memory cache
-          optionsCache.skinTypes = {
-            data: apiSkinTypes,
-            timestamp: Date.now()
-          };
-
-          return apiSkinTypes;
-        }
-      } catch (apiError) {
-        // Xử lý lỗi nhưng không log ra console
+        localStorage.setItem('skinTypeOptions', JSON.stringify(apiSkinTypes));
+        setSkinTypeOptions(apiSkinTypes);
+        optionsCache.skinTypes = { data: apiSkinTypes, timestamp: Date.now() };
+        return apiSkinTypes;
+      } else {
+        // Handle case where API returns unexpected data but doesn't throw error
+        console.warn('API did not return expected skin types data.');
+        setSkinTypeOptions([]); // Set to empty array
+        return [];
       }
-
-      // Import từ skinData.ts
-      const { skinTypes } = await import('@/data/skinData');
-      const defaultOptions = skinTypes.map(type => ({ id: type.id, label: type.label }));
-
-      localStorage.setItem('skinTypeOptions', JSON.stringify(defaultOptions));
-      setSkinTypeOptions(defaultOptions);
-
-      // Cập nhật memory cache
-      optionsCache.skinTypes = {
-        data: defaultOptions,
-        timestamp: Date.now()
-      };
-
-      return defaultOptions;
     } catch (err) {
-      // Fallback khi có lỗi
-      const { skinTypes } = await import('@/data/skinData');
-      const defaultOptions = skinTypes.map(type => ({ id: type.id, label: type.label }));
-      setSkinTypeOptions(defaultOptions);
-      return defaultOptions;
+      console.error('Error fetching skin types from API:', err);
+      // Fallback to empty array on error
+      setSkinTypeOptions([]);
+      return [];
     }
-  }, []); // Không phụ thuộc vào state thay đổi thường xuyên
+  }, []); // Dependencies remain empty
 
-  const fetchConcernOptions = useCallback(async (): Promise<{ id: string; label: string }[]> => {
+  const fetchConcernOptions = useCallback(async (): Promise<string[]> => {
+    console.log('[fetchConcernOptions] Function entered.'); // <-- Thêm log ngay đây
     try {
       // Kiểm tra memory cache trước
       if (optionsCache.concerns.data &&
@@ -618,76 +593,57 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (cachedOptions) {
         try {
           const parsedOptions = JSON.parse(cachedOptions);
-          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+          // Validate if it's an array of strings
+          if (Array.isArray(parsedOptions) && parsedOptions.every(item => typeof item === 'string')) {
             setConcernOptions(parsedOptions);
-            // Cập nhật memory cache
-            optionsCache.concerns = {
-              data: parsedOptions,
-              timestamp: Date.now()
-            };
+            optionsCache.concerns = { data: parsedOptions, timestamp: Date.now() };
             return parsedOptions;
+          } else {
+            localStorage.removeItem('concernOptions'); // Remove invalid cache
           }
         } catch (e) {
-           localStorage.removeItem('concernOptions'); // Xóa cache bị lỗi
+           localStorage.removeItem('concernOptions'); // Remove corrupted cache
         }
       }
 
-      try {
-        // Gọi API để lấy dữ liệu từ database
-        const response = await axios.get(`${API_URL}/products/filters/concerns`);
-        if (response.data && response.data.concerns && Array.isArray(response.data.concerns)) {
-          // Sử dụng trực tiếp dữ liệu từ API mà không cần chuyển đổi
-          const apiConcerns = response.data.concerns.map((concern: string) => ({
-            id: concern,
-            label: concern // Sử dụng chính xác tên vấn đề da từ database
-          }));
+      // Gọi API để lấy dữ liệu từ database
+      console.log(`[fetchConcernOptions] Calling API: ${API_URL}/products/filters/concerns`); // Thêm log
+      const response = await axios.get<{ concerns: string[] }>(`${API_URL}/products/filters/concerns`);
+      console.log('[fetchConcernOptions] API Response:', response); // Thêm log chi tiết response
 
-          localStorage.setItem('concernOptions', JSON.stringify(apiConcerns));
-          setConcernOptions(apiConcerns);
+      if (response.data && response.data.concerns && Array.isArray(response.data.concerns)) {
+        const apiConcerns = response.data.concerns; // Directly use the string array
+        console.log('[fetchConcernOptions] Concerns received from API:', apiConcerns); // Thêm log dữ liệu nhận được
 
-          // Cập nhật memory cache
-          optionsCache.concerns = {
-            data: apiConcerns,
-            timestamp: Date.now()
-          };
-
-          return apiConcerns;
-        }
-      } catch (apiError) {
-        // Xử lý lỗi nhưng không log ra console
+        localStorage.setItem('concernOptions', JSON.stringify(apiConcerns));
+        setConcernOptions(apiConcerns);
+        optionsCache.concerns = { data: apiConcerns, timestamp: Date.now() };
+        return apiConcerns;
+      } else {
+        // Handle case where API returns unexpected data but doesn't throw error
+        console.warn('API did not return expected concerns data.');
+        setConcernOptions([]); // Set to empty array
+        return [];
       }
-
-      // Import từ skinData.ts
-      const { skinConcerns } = await import('@/data/skinData');
-      const defaultOptions = skinConcerns.map(concern => ({ id: concern.id, label: concern.label }));
-
-      localStorage.setItem('concernOptions', JSON.stringify(defaultOptions));
-      setConcernOptions(defaultOptions);
-
-      // Cập nhật memory cache
-      optionsCache.concerns = {
-        data: defaultOptions,
-        timestamp: Date.now()
-      };
-
-      return defaultOptions;
     } catch (err) {
-      // Fallback khi có lỗi
-      const { skinConcerns } = await import('@/data/skinData');
-      const defaultOptions = skinConcerns.map(concern => ({ id: concern.id, label: concern.label }));
-      setConcernOptions(defaultOptions);
-      return defaultOptions;
+      console.error('Error fetching concerns from API:', err);
+      // Fallback to empty array on error
+      setConcernOptions([]);
+      return [];
     }
-  }, []); // Không phụ thuộc vào state thay đổi thường xuyên
+  }, []); // Dependencies remain empty
 
   // Effect để fetch skin type và concern options khi component mount
   // Sử dụng Promise.all để tải song song
   useEffect(() => {
+    console.log('[ShopProductProvider useEffect] Running loadOptions effect.'); // Log khi effect chạy
     const loadOptions = async () => {
+      console.log('[ShopProductProvider loadOptions] Starting Promise.all.'); // Log trước Promise.all
       await Promise.all([
         fetchSkinTypeOptions(),
-        fetchConcernOptions()
+        fetchConcernOptions() // Kiểm tra xem lời gọi này có xảy ra không
       ]);
+      console.log('[ShopProductProvider loadOptions] Finished Promise.all.'); // Log sau Promise.all
     };
     loadOptions();
   }, [fetchSkinTypeOptions, fetchConcernOptions]);

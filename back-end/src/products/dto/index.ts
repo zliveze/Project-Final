@@ -28,6 +28,8 @@ export {
 
 export * from './light-product.dto';
 export * from './admin-list-product.dto';
+export * from './skin-types-response.dto'; // Thêm export
+export * from './concerns-response.dto'; // Thêm export
 
 import * as CreateDtos from './create-product.dto';
 import * as ResponseDtos from './product-response.dto';

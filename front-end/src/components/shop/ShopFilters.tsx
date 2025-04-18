@@ -81,10 +81,8 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <GiMilkCarton />,
       isOpen: true,
       type: 'checkbox',
-      options: skinTypeOptions.length > 0 ? skinTypeOptions : [
-        { id: 'skibidi', label: 'skibidi' },
-        { id: 'dumb bitch', label: 'dumb bitch' }
-      ]
+      // Map string[] to { id: string; label: string }[]
+      options: skinTypeOptions.map(type => ({ id: type, label: type }))
     },
     {
       title: 'Vấn đề da',
@@ -92,10 +90,8 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       icon: <TbBottle />,
       isOpen: true,
       type: 'checkbox',
-      options: concernOptions.length > 0 ? concernOptions : [
-        { id: 'ugly', label: 'ugly' },
-        { id: 'too fat', label: 'too fat' }
-      ]
+      // Map string[] to { id: string; label: string }[]
+      options: concernOptions.map(concern => ({ id: concern, label: concern }))
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [categories, brands, skinTypeOptions, concernOptions]); // Added skinTypeOptions and concernOptions to dependencies

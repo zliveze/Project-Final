@@ -5,7 +5,9 @@ import {
   QueryProductDto,
   ProductResponseDto,
   PaginatedProductsResponseDto,
-  LightProductResponseDto
+  LightProductResponseDto,
+  SkinTypesResponseDto, // Thêm import
+  ConcernsResponseDto // Thêm import
 } from './dto';
 
 @ApiTags('Products')
@@ -59,5 +61,29 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   async findBySlug(@Param('slug') slug: string): Promise<ProductResponseDto> {
     return this.productsService.findBySlug(slug);
+  }
+
+  @Get('filters/skin-types')
+  @ApiOperation({ summary: 'Get all unique skin types for filtering' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns a list of unique skin types', 
+    type: SkinTypesResponseDto 
+  })
+  async getSkinTypes(): Promise<SkinTypesResponseDto> {
+    this.logger.log('Request received for unique skin types');
+    return this.productsService.getSkinTypes();
+  }
+
+  @Get('filters/concerns')
+  @ApiOperation({ summary: 'Get all unique skin concerns for filtering' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns a list of unique skin concerns', 
+    type: ConcernsResponseDto 
+  })
+  async getConcerns(): Promise<ConcernsResponseDto> {
+    this.logger.log('Request received for unique concerns');
+    return this.productsService.getConcerns();
   }
 }

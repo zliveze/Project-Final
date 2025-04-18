@@ -2101,84 +2101,56 @@ export class ProductsService {
     }
   }
 
-  // Phương thức để lấy tất cả các loại da có trong sản phẩm
-  async getSkinTypes() {
+  // Phương thức để lấy tất cả các loại da duy nhất có trong sản phẩm
+  async getSkinTypes(): Promise<{ skinTypes: string[] }> {
     try {
-      // Log to check if there are any products with cosmetic_info
-      const productsWithCosmeticInfo = await this.productModel.find(
-        { 'cosmetic_info': { $exists: true } },
-        { 'cosmetic_info': 1, 'name': 1 }
-      ).limit(10);
+      this.logger.log('Bắt đầu lấy danh sách loại da duy nhất');
+      const result = await this.productModel.aggregate([
+        // Chỉ lấy các sản phẩm có trường cosmetic_info.skinType tồn tại và là mảng
+        { $match: { 'cosmetic_info.skinType': { $exists: true, $ne: null, $not: { $size: 0 } } } },
+        // Tách mảng skinType thành các document riêng lẻ
+        { $unwind: '$cosmetic_info.skinType' },
+        // Nhóm theo giá trị skinType để lấy các giá trị duy nhất
+        { $group: { _id: '$cosmetic_info.skinType' } },
+        // Sắp xếp theo alphabet
+        { $sort: { _id: 1 } },
+        // Chỉ lấy trường _id (chứa tên loại da)
+        { $project: { _id: 0, skinType: '$_id' } }
+      ]);
 
-      this.logger.log(`Found ${productsWithCosmeticInfo.length} products with cosmetic_info field`);
-      this.logger.log(`DETAILED COSMETIC INFO FOR ALL PRODUCTS: ${JSON.stringify(productsWithCosmeticInfo)}`);
-      productsWithCosmeticInfo.forEach(product => {
-        this.logger.log(`Product ${product.name}: ${JSON.stringify(product.cosmetic_info)}`);
-      });
+      const skinTypes = result.map(item => item.skinType);
+      this.logger.log(`Tìm thấy ${skinTypes.length} loại da duy nhất: ${JSON.stringify(skinTypes)}`);
 
-      // Lấy trực tiếp dữ liệu cosmetic_info.skinType từ các sản phẩm
-      const allSkinTypes: string[] = [];
-
-      // Thu thập tất cả các loại da từ các sản phẩm
-      productsWithCosmeticInfo.forEach(product => {
-        if (product.cosmetic_info && product.cosmetic_info.skinType && Array.isArray(product.cosmetic_info.skinType)) {
-          product.cosmetic_info.skinType.forEach((type: string) => {
-            if (!allSkinTypes.includes(type)) {
-              allSkinTypes.push(type);
-            }
-          });
-        }
-      });
-
-      this.logger.log(`Raw skin types found: ${JSON.stringify(allSkinTypes)}`);
-
-      // Trả về danh sách các loại da
-      return {
-        skinTypes: allSkinTypes
-      };
+      return { skinTypes };
     } catch (error) {
-      this.logger.error(`Error getting skin types: ${error.message}`, error.stack);
+      this.logger.error(`Lỗi khi lấy danh sách loại da: ${error.message}`, error.stack);
       throw error;
     }
   }
 
-  // Phương thức để lấy tất cả các vấn đề da có trong sản phẩm
-  async getConcerns() {
+  // Phương thức để lấy tất cả các vấn đề da duy nhất có trong sản phẩm
+  async getConcerns(): Promise<{ concerns: string[] }> {
     try {
-      // Log to check if there are any products with cosmetic_info.concerns
-      const productsWithConcerns = await this.productModel.find(
-        { 'cosmetic_info.concerns': { $exists: true } },
-        { 'cosmetic_info.concerns': 1, 'name': 1 }
-      ).limit(10);
+      this.logger.log('Bắt đầu lấy danh sách vấn đề da duy nhất');
+      const result = await this.productModel.aggregate([
+        // Chỉ lấy các sản phẩm có trường cosmetic_info.concerns tồn tại và là mảng
+        { $match: { 'cosmetic_info.concerns': { $exists: true, $ne: null, $not: { $size: 0 } } } },
+        // Tách mảng concerns thành các document riêng lẻ
+        { $unwind: '$cosmetic_info.concerns' },
+        // Nhóm theo giá trị concern để lấy các giá trị duy nhất
+        { $group: { _id: '$cosmetic_info.concerns' } },
+        // Sắp xếp theo alphabet
+        { $sort: { _id: 1 } },
+        // Chỉ lấy trường _id (chứa tên vấn đề da)
+        { $project: { _id: 0, concern: '$_id' } }
+      ]);
 
-      this.logger.log(`Found ${productsWithConcerns.length} products with cosmetic_info.concerns field`);
-      this.logger.log(`DETAILED CONCERNS INFO FOR ALL PRODUCTS: ${JSON.stringify(productsWithConcerns)}`);
-      productsWithConcerns.forEach(product => {
-        this.logger.log(`Product ${product.name} concerns: ${JSON.stringify(product.cosmetic_info?.concerns)}`);
-      });
+      const concerns = result.map(item => item.concern);
+      this.logger.log(`Tìm thấy ${concerns.length} vấn đề da duy nhất: ${JSON.stringify(concerns)}`);
 
-      // Lấy trực tiếp dữ liệu cosmetic_info.concerns từ các sản phẩm
-      const allConcerns: string[] = [];
-
-      // Thu thập tất cả các vấn đề da từ các sản phẩm
-      productsWithConcerns.forEach(product => {
-        if (product.cosmetic_info && product.cosmetic_info.concerns && Array.isArray(product.cosmetic_info.concerns)) {
-          product.cosmetic_info.concerns.forEach((concern: string) => {
-            if (!allConcerns.includes(concern)) {
-              allConcerns.push(concern);
-            }
-          });
-        }
-      });
-
-      this.logger.log(`Raw concerns found: ${JSON.stringify(allConcerns)}`);
-
-      // Trả về danh sách các vấn đề da
-      return {
-        concerns: allConcerns
-      };
+      return { concerns };
     } catch (error) {
-      this.logger.error(`Error getting skin concerns: ${error.message}`, error.stack);
+      this.logger.error(`Lỗi khi lấy danh sách vấn đề da: ${error.message}`, error.stack);
       throw error;
     }
   }

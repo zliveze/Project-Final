@@ -75,12 +75,12 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
     if (customSkinType.trim()) {
       const currentSkinTypes = formData.cosmetic_info?.skinType || [];
       if (!currentSkinTypes.includes(customSkinType.trim())) {
-        handleInputChange({
-          target: {
-            name: 'cosmetic_info.skinType',
-            value: [...currentSkinTypes, customSkinType.trim()]
-          }
-        } as React.ChangeEvent<HTMLSelectElement>);
+       handleInputChange({
+         target: {
+           name: 'cosmetic_info.skinType',
+           value: [...currentSkinTypes, customSkinType.trim()]
+         }
+       } as any); // Cast to any
       }
       setCustomSkinType('');
     }
@@ -98,24 +98,34 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
   };
 
   // Xử lý chọn loại da từ danh sách
-  const handleSelectSkinType = (skinType: string) => {
+  const handleSelectSkinType = (skinTypeId: string) => {
+    const selectedSkinType = skinTypes.find(type => type.id === skinTypeId);
+    if (!selectedSkinType) return; // Không tìm thấy loại da
+
+    const skinTypeLabel = selectedSkinType.label; // Lấy label thay vì id
     const currentSkinTypes = formData.cosmetic_info?.skinType || [];
-    if (!currentSkinTypes.includes(skinType)) {
-      handleInputChange({
-        target: {
-          name: 'cosmetic_info.skinType',
-          value: [...currentSkinTypes, skinType]
-        }
-      } as React.ChangeEvent<HTMLSelectElement>);
+
+    if (!currentSkinTypes.includes(skinTypeLabel)) {
+       handleInputChange({
+         target: {
+           name: 'cosmetic_info.skinType',
+           value: [...currentSkinTypes, skinTypeLabel] // Thêm label vào mảng
+         }
+       } as any); // Cast to any to bypass strict type check for manual event
     }
     setShowSkinTypeDropdown(false);
   };
 
   // Xử lý chọn vấn đề da từ danh sách
-  const handleSelectConcern = (concern: string) => {
+  const handleSelectConcern = (concernId: string) => {
+    const selectedConcern = skinConcerns.find(concern => concern.id === concernId);
+    if (!selectedConcern) return; // Không tìm thấy vấn đề da
+
+    const concernLabel = selectedConcern.label; // Lấy label thay vì id
     const currentConcerns = formData.cosmetic_info?.concerns || [];
-    if (!currentConcerns.includes(concern)) {
-      handleConcernsChange([...currentConcerns, concern]);
+
+    if (!currentConcerns.includes(concernLabel)) {
+       handleConcernsChange([...currentConcerns, concernLabel]); // Thêm label vào mảng
     }
     setShowConcernDropdown(false);
   };
@@ -124,12 +134,12 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
   const handleRemoveSkinType = (index: number) => {
     const currentSkinTypes = [...(formData.cosmetic_info?.skinType || [])];
     currentSkinTypes.splice(index, 1);
-    handleInputChange({
-      target: {
-        name: 'cosmetic_info.skinType',
-        value: currentSkinTypes
-      }
-    } as React.ChangeEvent<HTMLSelectElement>);
+       handleInputChange({
+         target: {
+           name: 'cosmetic_info.skinType',
+           value: currentSkinTypes
+         }
+       } as any); // Cast to any to bypass strict type check for manual event
   };
 
   return (
@@ -207,17 +217,12 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
 
             {/* Hiển thị các loại da đã chọn */}
             <div className="mt-2 flex flex-wrap gap-2">
-              {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.map((type, index) => {
-                // Tìm label tương ứng từ danh sách có sẵn
-                const skinTypeObj = skinTypes.find(item => item.id === type);
-                const label = skinTypeObj ? skinTypeObj.label : type;
-
-                return (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                  >
-                    {label}
+              {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.map((skinTypeName, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {skinTypeName} {/* Hiển thị trực tiếp tên */}
                     <button
                       type="button"
                       onClick={() => handleRemoveSkinType(index)}
@@ -226,28 +231,21 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
                       <X className="h-3 w-3" />
                     </button>
                   </span>
-                );
-              })}
+              ))}
             </div>
           </div>
         ) : (
           <div className="mt-1 py-2 px-3 bg-gray-100 rounded-md text-sm">
             {formData.cosmetic_info?.skinType && formData.cosmetic_info.skinType.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {formData.cosmetic_info.skinType.map((type, index) => {
-                  // Tìm label tương ứng từ danh sách có sẵn
-                  const skinTypeObj = skinTypes.find(item => item.id === type);
-                  const label = skinTypeObj ? skinTypeObj.label : type;
-
-                  return (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                    >
-                      {label}
-                    </span>
-                  );
-                })}
+                {formData.cosmetic_info.skinType.map((skinTypeName, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                  >
+                    {skinTypeName} {/* Hiển thị trực tiếp tên */}
+                  </span>
+                ))}
               </div>
             ) : (
               <span className="text-gray-500">Không có loại da được chọn</span>
@@ -327,17 +325,12 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
 
             {/* Hiển thị các vấn đề da đã chọn */}
             <div className="mt-2 flex flex-wrap gap-2">
-              {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.map((concern, index) => {
-                // Tìm label tương ứng từ danh sách có sẵn
-                const concernObj = skinConcerns.find(item => item.id === concern);
-                const label = concernObj ? concernObj.label : concern;
-
-                return (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                  >
-                    {label}
+              {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.map((concernName, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                >
+                  {concernName} {/* Hiển thị trực tiếp tên */}
                     <button
                       type="button"
                       onClick={() => removeConcern(index)}
@@ -346,27 +339,20 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
                       <X className="h-3 w-3" />
                     </button>
                   </span>
-                );
-              })}
+              ))}
             </div>
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {formData.cosmetic_info?.concerns && formData.cosmetic_info.concerns.length > 0 ? (
-              formData.cosmetic_info.concerns.map((concern, index) => {
-                // Tìm label tương ứng từ danh sách có sẵn
-                const concernObj = skinConcerns.find(item => item.id === concern);
-                const label = concernObj ? concernObj.label : concern;
-
-                return (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                  >
-                    {label}
-                  </span>
-                );
-              })
+              formData.cosmetic_info.concerns.map((concernName, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  {concernName} {/* Hiển thị trực tiếp tên */}
+                </span>
+              ))
             ) : (
               <span className="text-sm text-gray-500">Không có vấn đề da được chỉ định</span>
             )}
