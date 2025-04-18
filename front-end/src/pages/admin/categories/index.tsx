@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers, FiStar } from 'react-icons/fi';
+import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers, FiStar, FiSearch, FiFilter } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import AdminLayout from '@/components/admin/AdminLayout';
 import CategoryTable from '@/components/admin/categories/CategoryTable';
@@ -10,14 +10,15 @@ import CategoryEditModal from '@/components/admin/categories/CategoryEditModal';
 import CategoryDetailModal from '@/components/admin/categories/CategoryDetailModal';
 import CategoryDeleteModal from '@/components/admin/categories/CategoryDeleteModal';
 import { useCategory, Category } from '@/contexts/CategoryContext';
+import { StatCard, Card, Button, SearchInput } from '@/components/admin/common';
 
 type ViewMode = 'list' | 'hierarchy';
 
 export default function AdminCategories() {
-  const { 
-    categories, 
-    loading, 
-    error, 
+  const {
+    categories,
+    loading,
+    error,
     totalCategories,
     currentPage,
     totalPages,
@@ -33,33 +34,39 @@ export default function AdminCategories() {
     statistics,
     fetchStatistics
   } = useCategory();
-  
+
   // State cho chế độ xem
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  
+
   // State cho các modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+
   // State cho category đang được thao tác
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [parentCategory, setParentCategory] = useState<Category | null>(null);
   const [childCategories, setChildCategories] = useState<Category[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  
+
+  // State cho bộ lọc
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedLevel, setSelectedLevel] = useState<number | 'all'>('all');
+  const [selectedFeatured, setSelectedFeatured] = useState<boolean | 'all'>('all');
+
   // Fetch dữ liệu khi component mount
   useEffect(() => {
     fetchCategories();
     fetchStatistics();
   }, [fetchCategories, fetchStatistics]);
-  
+
   // Xử lý mở modal thêm danh mục mới
   const handleOpenAddModal = () => {
     setShowAddModal(true);
   };
-  
+
   // Xử lý xem chi tiết danh mục
   const handleViewCategory = async (id: string) => {
     try {
@@ -67,7 +74,7 @@ export default function AdminCategories() {
       const category = await fetchCategoryById(id);
       if (category) {
         setSelectedCategory(category);
-        
+
         // Lấy thông tin danh mục cha nếu có
         if (category.parentId) {
           const parent = await fetchCategoryById(category.parentId);
@@ -75,11 +82,11 @@ export default function AdminCategories() {
         } else {
           setParentCategory(null);
         }
-        
+
         // Lấy danh mục con
         const childCats = categories.filter(cat => cat.parentId === id);
         setChildCategories(childCats);
-        
+
         setShowDetailModal(true);
       }
     } catch (error) {
@@ -119,7 +126,7 @@ export default function AdminCategories() {
       if (showDetailModal) {
         setShowDetailModal(false);
       }
-      
+
       setLoadingDetails(true);
       const category = await fetchCategoryById(id);
       if (category) {
@@ -138,14 +145,14 @@ export default function AdminCategories() {
   const handleAddCategory = async (categoryData: Partial<Category>) => {
     try {
       const newCategory = await createCategory(categoryData);
-      
+
       // Đóng modal
       setShowAddModal(false);
-      
+
       // Refresh danh sách
       fetchCategories();
       fetchStatistics();
-      
+
       // Hiển thị thông báo thành công
       toast.success('Thêm danh mục mới thành công!', {
         duration: 3000,
@@ -165,38 +172,38 @@ export default function AdminCategories() {
         toast.error('Thiếu ID danh mục');
         return;
       }
-      
+
       console.log('Nhận dữ liệu cập nhật danh mục:', JSON.stringify({
         ...categoryData,
         imageData: categoryData.imageData ? '[base64 data]' : undefined
       }, null, 2));
-      
+
       // Tách imageData ra khỏi categoryData trước khi cập nhật
       const { imageData, ...dataToUpdate } = categoryData;
-      
+
       console.log('Dữ liệu đã xử lý để gửi đến API:', JSON.stringify(dataToUpdate, null, 2));
-      
+
       try {
         const updatedCategory = await updateCategory(categoryData._id, dataToUpdate);
         console.log('Phản hồi từ API cập nhật:', JSON.stringify(updatedCategory, null, 2));
-        
+
         // Xử lý upload ảnh nếu có
         if (imageData && categoryData._id) {
           console.log('Phát hiện dữ liệu hình ảnh, tiếp tục upload ảnh...');
           const uploadResult = await uploadImage(
-            categoryData._id, 
-            imageData, 
+            categoryData._id,
+            imageData,
             categoryData.image?.alt
           );
           console.log('Kết quả upload ảnh:', JSON.stringify(uploadResult, null, 2));
         }
-        
+
         // Đóng modal
         setShowEditModal(false);
-        
+
         // Refresh danh sách
         await fetchCategories();
-        
+
         // Hiển thị thông báo thành công
         toast.success('Cập nhật danh mục thành công!', {
           duration: 3000,
@@ -216,15 +223,15 @@ export default function AdminCategories() {
   const handleConfirmDelete = async (id: string) => {
     try {
       await deleteCategory(id);
-      
+
       // Đóng modal
       setShowDeleteModal(false);
       setSelectedCategory(null);
-      
+
       // Refresh danh sách
       fetchCategories();
       fetchStatistics();
-      
+
       // Hiển thị thông báo thành công
       toast.success('Xóa danh mục thành công!', {
         duration: 3000,
@@ -278,8 +285,8 @@ export default function AdminCategories() {
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 my-4">
           <h3 className="text-lg font-medium">Đã xảy ra lỗi</h3>
           <p>{error}</p>
-          <button 
-            onClick={() => fetchCategories()} 
+          <button
+            onClick={() => fetchCategories()}
             className="mt-2 bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded"
           >
             Thử lại
@@ -294,7 +301,7 @@ export default function AdminCategories() {
       <Head>
         <title>Quản lý danh mục | Yumin Admin</title>
       </Head>
-      
+
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -303,12 +310,12 @@ export default function AdminCategories() {
               Quản lý các danh mục sản phẩm của cửa hàng
             </p>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center bg-white rounded-md border border-gray-300 p-1">
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white rounded-md border border-gray-200 p-1 shadow-sm">
               <button
                 onClick={() => setViewMode('list')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'list'
                     ? 'bg-pink-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -319,7 +326,7 @@ export default function AdminCategories() {
               </button>
               <button
                 onClick={() => setViewMode('hierarchy')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'hierarchy'
                     ? 'bg-pink-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -330,115 +337,106 @@ export default function AdminCategories() {
               </button>
             </div>
 
-            <button
+            <Button
+              variant="primary"
+              size="md"
+              icon={<FiPlus className="h-5 w-5" />}
               onClick={handleOpenAddModal}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
             >
-              <FiPlus className="mr-2 -ml-1 h-5 w-5" />
               Thêm danh mục mới
-            </button>
+            </Button>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {/* Thống kê danh mục */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiGrid className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Tổng số danh mục
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900">
-                        {statistics?.total || categories.length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          <StatCard
+            title="Tổng số danh mục"
+            value={statistics?.total || categories.length}
+            icon={<FiGrid className="h-6 w-6" />}
+            iconColor="text-gray-400"
+          />
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiCheckCircle className="h-6 w-6 text-green-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Danh mục hoạt động
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900">
-                        {statistics?.active || categories.filter(c => c.status === 'active').length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          <StatCard
+            title="Danh mục hoạt động"
+            value={statistics?.active || categories.filter(c => c.status === 'active').length}
+            icon={<FiCheckCircle className="h-6 w-6" />}
+            iconColor="text-green-400"
+          />
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiXCircle className="h-6 w-6 text-red-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Danh mục không hoạt động
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900">
-                        {statistics?.inactive || categories.filter(c => c.status === 'inactive').length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          <StatCard
+            title="Danh mục không hoạt động"
+            value={statistics?.inactive || categories.filter(c => c.status === 'inactive').length}
+            icon={<FiXCircle className="h-6 w-6" />}
+            iconColor="text-red-400"
+          />
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiStar className="h-6 w-6 text-yellow-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Danh mục nổi bật
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900">
-                        {statistics?.featured || categories.filter(c => c.featured).length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          <StatCard
+            title="Danh mục nổi bật"
+            value={statistics?.featured || categories.filter(c => c.featured).length}
+            icon={<FiStar className="h-6 w-6" />}
+            iconColor="text-yellow-400"
+          />
         </div>
 
-        {loading || loadingDetails ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-pink-600 border-t-transparent" role="status">
+        {/* Bộ lọc tìm kiếm */}
+        <Card className="mb-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="w-full md:w-1/3">
+              <SearchInput
+                placeholder="Tìm kiếm danh mục..."
+                value={searchTerm || ''}
+                onChange={(value) => setSearchTerm(value)}
+                onSearch={() => console.log('Searching for:', searchTerm)}
+                showClearButton={true}
+              />
             </div>
-            <p className="ml-2 text-gray-600">Đang tải dữ liệu...</p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
+                value={selectedStatus || 'all'}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+              </select>
+
+              <select
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
+                value={selectedLevel === 'all' ? 'all' : selectedLevel?.toString() || 'all'}
+                onChange={(e) => setSelectedLevel(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+              >
+                <option value="all">Tất cả cấp độ</option>
+                <option value="1">Cấp 1</option>
+                <option value="2">Cấp 2</option>
+                <option value="3">Cấp 3</option>
+              </select>
+
+              <select
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
+                value={selectedFeatured === 'all' ? 'all' : selectedFeatured ? 'true' : 'false'}
+                onChange={(e) => setSelectedFeatured(e.target.value === 'all' ? 'all' : e.target.value === 'true')}
+              >
+                <option value="all">Tất cả danh mục</option>
+                <option value="true">Nổi bật</option>
+                <option value="false">Không nổi bật</option>
+              </select>
+            </div>
           </div>
+        </Card>
+
+        {loading || loadingDetails ? (
+          <Card>
+            <div className="flex items-center justify-center h-64">
+              <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-pink-600 border-t-transparent" role="status">
+              </div>
+              <p className="ml-2 text-gray-600">Đang tải dữ liệu...</p>
+            </div>
+          </Card>
         ) : (
-          <div className="mt-8">
+          <div>
             {viewMode === 'list' ? (
               <CategoryTable
                 categories={categories}
@@ -451,19 +449,25 @@ export default function AdminCategories() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page: number) => fetchCategories(page)}
+                searchTerm={searchTerm}
+                selectedStatus={selectedStatus}
+                selectedLevel={selectedLevel}
+                selectedFeatured={selectedFeatured}
               />
             ) : (
-              <CategoryHierarchy
-                categories={categories}
-                onView={handleViewCategory}
-                onEdit={handleEditCategory}
-                onDelete={handleDeleteCategory}
-              />
+              <Card>
+                <CategoryHierarchy
+                  categories={categories}
+                  onView={handleViewCategory}
+                  onEdit={handleEditCategory}
+                  onDelete={handleDeleteCategory}
+                />
+              </Card>
             )}
           </div>
         )}
       </div>
-      
+
       {/* Modal Thêm danh mục mới */}
       <CategoryAddModal
         isOpen={showAddModal}
@@ -471,7 +475,7 @@ export default function AdminCategories() {
         onSubmit={handleAddCategory}
         categories={categories}
       />
-      
+
       {/* Modal Chỉnh sửa danh mục */}
       <CategoryEditModal
         category={selectedCategory}
@@ -480,7 +484,7 @@ export default function AdminCategories() {
         onSubmit={handleUpdateCategory}
         categories={categories}
       />
-      
+
       {/* Modal Xem chi tiết danh mục */}
       <CategoryDetailModal
         category={selectedCategory}
@@ -491,7 +495,7 @@ export default function AdminCategories() {
         onEdit={handleEditCategory}
         onDelete={handleDeleteCategory}
       />
-      
+
       {/* Modal Xóa danh mục */}
       <CategoryDeleteModal
         category={selectedCategory}
@@ -501,4 +505,4 @@ export default function AdminCategories() {
       />
     </AdminLayout>
   );
-} 
+}

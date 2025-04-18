@@ -3,6 +3,7 @@ import { FiX, FiEdit2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
 import { Category } from '@/contexts/CategoryContext';
+import { Modal, Button } from '@/components/admin/common';
 
 interface CategoryEditModalProps {
   category: Category | null;
@@ -21,7 +22,7 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -35,31 +36,31 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
   const handleSubmit = async (values: any) => {
     try {
       setIsSubmitting(true);
-      
+
       console.log(`Đang chuẩn bị cập nhật danh mục ID: ${category?._id}`);
       console.log(`Dữ liệu form được submit:`, JSON.stringify(values, null, 2));
-      
+
       // Đảm bảo _id được đính kèm
       const dataToSubmit = {
         ...values,
         _id: category?._id
       };
-      
+
       console.log(`Dữ liệu sẽ gửi đến callback:`, JSON.stringify(dataToSubmit, null, 2));
-      
+
       // Giả lập độ trễ của API
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       setIsSubmitting(false);
       toast.success("Danh mục đã được cập nhật thành công!", {
         duration: 3000,
         position: "bottom-right",
         icon: '✅'
       });
-      
+
       // Đóng modal và gọi hàm callback để làm mới dữ liệu
       onClose();
-      
+
       if (onSubmit) {
         console.log('Gọi onSubmit callback với dữ liệu đã chuẩn bị');
         onSubmit(dataToSubmit);
@@ -76,7 +77,7 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
       });
     }
   };
-  
+
   if (!isOpen && !modalVisible || !category) return null;
 
   return (
@@ -90,8 +91,8 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
           &#8203;
         </span>
 
-        <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-sm transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
@@ -105,8 +106,8 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
-          <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center">
+
+          <div className="bg-blue-50 px-4 py-3 border-b border-gray-200 flex items-center">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
               <FiEdit2 className="text-blue-600" />
             </div>
@@ -116,7 +117,7 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
           </div>
 
           <div className="p-6 max-h-[80vh] overflow-y-auto">
-            <CategoryForm 
+            <CategoryForm
               initialData={category}
               categories={categories.filter(cat => cat._id !== category._id)}
               onSubmit={handleSubmit}
@@ -130,4 +131,4 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
   );
 };
 
-export default CategoryEditModal; 
+export default CategoryEditModal;

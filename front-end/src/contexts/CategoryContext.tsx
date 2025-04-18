@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAdminAuth } from './AdminAuthContext';
 
@@ -100,7 +100,7 @@ const CATEGORY_API = {
 // Provider component
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const router = useRouter();
-  const { accessToken } = useAdminAuth();
+  const { accessToken, checkAuth } = useAdminAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,13 +110,44 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [statistics, setStatistics] = useState<CategoryContextType['statistics']>(null);
 
+  // Kiểm tra xác thực khi component mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      // Chỉ kiểm tra khi ở trang admin
+      if (router.pathname.includes('/admin')) {
+        const isAuthed = await checkAuth();
+        if (!isAuthed && router.pathname !== '/admin/auth/login') {
+          console.log('Token không hợp lệ hoặc hết hạn. Chuyển hướng đến trang đăng nhập...');
+          router.push('/admin/auth/login?error=session_expired');
+        }
+      }
+    };
+    
+    verifyAuth();
+  }, [router.pathname, checkAuth, router]);
+
   // Hàm lấy header xác thực
   const getAuthHeader = useCallback(() => {
     const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      console.warn('Không tìm thấy admin token trong localStorage');
+      
+      // Nếu đang ở trang admin và không phải trang đăng nhập, chuyển hướng
+      if (router.pathname.includes('/admin') && !router.pathname.includes('/admin/auth/login')) {
+        console.log('Đang ở trang admin mà không có token, chuyển hướng đến trang đăng nhập...');
+        
+        // Đặt timeout để tránh lỗi trong quá trình render hiện tại
+        setTimeout(() => {
+          router.push('/admin/auth/login?error=no_token');
+        }, 100);
+      }
+    }
+    
     return {
       'Authorization': token ? `Bearer ${token}` : ''
     };
-  }, []);
+  }, [router]);
 
   // Xử lý lỗi chung
   const handleError = useCallback((error: any) => {
@@ -125,12 +156,45 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     setError(errorMessage);
     
     // Nếu là lỗi xác thực, chuyển hướng về trang đăng nhập
-    if (error.status === 401) {
-      router.push('/admin/login');
+    if (error.status === 401 || error.response?.status === 401 || 
+        errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
+      console.log('Phát hiện lỗi xác thực/hết hạn token. Chuyển hướng đến trang đăng nhập...');
+      
+      // Đánh dấu đã đăng xuất để ngăn các yêu cầu refresh token
+      sessionStorage.setItem('adminLoggedOut', 'true');
+      
+      // Xóa thông tin token
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminRefreshToken');
+      
+      // Chuyển hướng đến trang đăng nhập với thông báo
+      router.push('/admin/auth/login?error=session_expired');
     }
     
     return errorMessage;
   }, [router]);
+
+  // Hàm tiện ích để xử lý phản hồi không thành công một cách nhất quán
+  const handleApiError = useCallback(async (response: Response, errorPrefix: string): Promise<never> => {
+    const responseText = await response.text();
+    let errorData;
+    
+    try {
+      errorData = JSON.parse(responseText);
+    } catch (e) {
+      // Nếu không phải JSON, tạo đối tượng lỗi với văn bản gốc
+      errorData = { 
+        message: `${errorPrefix}: ${response.status} - ${responseText}`,
+        status: response.status 
+      };
+    }
+    
+    // Tạo đối tượng lỗi với thông tin bổ sung
+    const error = new Error(errorData.message || `${errorPrefix}: ${response.status}`);
+    (error as any).status = response.status;
+    (error as any).response = { status: response.status };
+    throw error;
+  }, []);
 
   // Upload ảnh lên Cloudinary thông qua API
   const uploadCategoryImage = useCallback(async (
@@ -202,8 +266,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error fetching categories: ${response.status}`);
+        await handleApiError(response, 'Error fetching categories');
       }
       
       const data = await response.json();
@@ -219,7 +282,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, [getAuthHeader, handleError, handleApiError]);
 
   // Fetch Active Categories (frontend)
   const fetchActiveCategories = useCallback(async () => {
@@ -264,8 +327,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error fetching category: ${response.status}`);
+        await handleApiError(response, 'Error fetching category');
       }
       
       const data = await response.json();
@@ -276,7 +338,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, handleError]);
+  }, [getAuthHeader, handleError, handleApiError]);
 
   // Fetch category by slug
   const fetchCategoryBySlug = useCallback(async (slug: string): Promise<Category> => {
@@ -286,8 +348,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       const response = await fetch(`${CATEGORY_API.PUBLIC}/slug/${slug}`);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error fetching category: ${response.status}`);
+        await handleApiError(response, 'Error fetching category by slug');
       }
       
       const data = await response.json();
@@ -298,7 +359,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     } finally {
       setLoading(false);
     }
-  }, [handleError]);
+  }, [handleError, handleApiError]);
 
   // Create category
   const createCategory = useCallback(async (categoryData: Partial<Category>): Promise<Category> => {

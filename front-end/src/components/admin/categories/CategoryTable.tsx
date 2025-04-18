@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { FiEdit2, FiTrash2, FiEye, FiStar, FiChevronUp, FiChevronDown } from 'react-icons/fi';
+import { useState, useEffect, useMemo } from 'react';
+import { FiEdit2, FiTrash2, FiEye, FiStar, FiChevronUp, FiChevronDown, FiCheck, FiX } from 'react-icons/fi';
 import Image from 'next/image';
-import Pagination from '@/components/admin/common/Pagination';
-import CategoryHierarchy from './CategoryHierarchy';
+import { Pagination, Badge, Button } from '@/components/admin/common';
 import { Category } from '@/contexts/CategoryContext';
 
 // Định nghĩa interface cho props
@@ -17,20 +16,29 @@ interface CategoryTableProps {
   currentPage?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;
+  searchTerm?: string;
+  selectedStatus?: string;
+  selectedLevel?: number | 'all';
+  selectedFeatured?: boolean | 'all';
 }
 
-export default function CategoryTable({ 
-  categories, 
-  onView, 
-  onEdit, 
+export default function CategoryTable({
+  categories,
+  onView,
+  onEdit,
   onDelete,
   onToggleStatus,
   onToggleFeatured,
   onChangeOrder,
   currentPage = 1,
   totalPages = 1,
-  onPageChange
+  onPageChange,
+  searchTerm: externalSearchTerm,
+  selectedStatus: externalSelectedStatus,
+  selectedLevel: externalSelectedLevel,
+  selectedFeatured: externalSelectedFeatured
 }: CategoryTableProps) {
+  // Sử dụng state nội bộ nếu không có prop từ bên ngoài
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState<number | 'all'>('all');
@@ -38,13 +46,19 @@ export default function CategoryTable({
   const [sortConfig, setSortConfig] = useState<{ key: keyof Category; direction: 'ascending' | 'descending' } | null>(null);
   const [itemsPerPage] = useState(10);
 
+  // Sử dụng giá trị từ props nếu có
+  const effectiveSearchTerm = externalSearchTerm !== undefined ? externalSearchTerm : searchTerm;
+  const effectiveSelectedStatus = externalSelectedStatus !== undefined ? externalSelectedStatus : selectedStatus;
+  const effectiveSelectedLevel = externalSelectedLevel !== undefined ? externalSelectedLevel : selectedLevel;
+  const effectiveSelectedFeatured = externalSelectedFeatured !== undefined ? externalSelectedFeatured : selectedFeatured;
+
   // Hàm sắp xếp
   const sortedCategories = [...categories];
   if (sortConfig && sortConfig.key) {
     sortedCategories.sort((a, b) => {
       const aValue = String(a[sortConfig.key as keyof Category] || '');
       const bValue = String(b[sortConfig.key as keyof Category] || '');
-      
+
       if (aValue < bValue) {
         return sortConfig.direction === 'ascending' ? -1 : 1;
       }
@@ -65,29 +79,31 @@ export default function CategoryTable({
   };
 
   // Hàm lọc danh mục
-  const filteredCategories = sortedCategories.filter(category => {
-    const matchesSearch = 
-      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = selectedStatus === 'all' || category.status === selectedStatus;
-    
-    const matchesLevel = selectedLevel === 'all' || category.level === selectedLevel;
-    
-    const matchesFeatured = selectedFeatured === 'all' || category.featured === selectedFeatured;
-    
-    return matchesSearch && matchesStatus && matchesLevel && matchesFeatured;
-  });
+  const filteredCategories = useMemo(() => {
+    return sortedCategories.filter(category => {
+      const matchesSearch = !effectiveSearchTerm ||
+        category.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
+        (category.description && category.description.toLowerCase().includes(effectiveSearchTerm.toLowerCase()));
 
-  // Hàm để hiển thị màu sắc dựa trên trạng thái danh mục
-  const getStatusColor = (status: string) => {
+      const matchesStatus = effectiveSelectedStatus === 'all' || category.status === effectiveSelectedStatus;
+
+      const matchesLevel = effectiveSelectedLevel === 'all' || category.level === effectiveSelectedLevel;
+
+      const matchesFeatured = effectiveSelectedFeatured === 'all' || category.featured === effectiveSelectedFeatured;
+
+      return matchesSearch && matchesStatus && matchesLevel && matchesFeatured;
+    });
+  }, [sortedCategories, effectiveSearchTerm, effectiveSelectedStatus, effectiveSelectedLevel, effectiveSelectedFeatured]);
+
+  // Hàm để hiển thị variant badge dựa trên trạng thái danh mục
+  const getStatusVariant = (status: string): 'success' | 'danger' | 'secondary' => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       case 'inactive':
-        return 'bg-red-100 text-red-800';
+        return 'danger';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'secondary';
     }
   };
 
@@ -100,6 +116,18 @@ export default function CategoryTable({
         return 'Không hoạt động';
       default:
         return status;
+    }
+  };
+
+  // Hàm để hiển thị icon trạng thái
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <FiCheck className="mr-1 h-3 w-3" />;
+      case 'inactive':
+        return <FiX className="mr-1 h-3 w-3" />;
+      default:
+        return null;
     }
   };
 
@@ -121,12 +149,12 @@ export default function CategoryTable({
   // Format date nếu cần
   const formatDate = (dateString?: string | Date) => {
     if (!dateString) return '';
-    
+
     try {
       if (typeof dateString === 'string' && dateString.includes('/')) {
         return dateString;
       }
-      
+
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('vi-VN', {
         day: '2-digit',
@@ -139,62 +167,15 @@ export default function CategoryTable({
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
-          <div className="w-full md:w-1/3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Tìm kiếm danh mục..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
-            </select>
+    <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+      {/* Bộ lọc đã được chuyển lên trang chính */}
 
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-              value={selectedLevel === 'all' ? 'all' : selectedLevel.toString()}
-              onChange={(e) => setSelectedLevel(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-            >
-              <option value="all">Tất cả cấp độ</option>
-              <option value="1">Cấp 1</option>
-              <option value="2">Cấp 2</option>
-              <option value="3">Cấp 3</option>
-            </select>
-
-            <select
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-              value={selectedFeatured === 'all' ? 'all' : selectedFeatured ? 'true' : 'false'}
-              onChange={(e) => setSelectedFeatured(e.target.value === 'all' ? 'all' : e.target.value === 'true')}
-            >
-              <option value="all">Tất cả danh mục</option>
-              <option value="true">Nổi bật</option>
-              <option value="false">Không nổi bật</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('name')}
               >
@@ -203,8 +184,8 @@ export default function CategoryTable({
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Mô tả
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('level')}
               >
@@ -213,8 +194,8 @@ export default function CategoryTable({
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Danh mục cha
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('order')}
               >
@@ -223,22 +204,22 @@ export default function CategoryTable({
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Con
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('status')}
               >
                 Trạng thái {getSortIcon('status')}
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('featured')}
               >
                 Nổi bật {getSortIcon('featured')}
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => requestSort('createdAt')}
               >
@@ -256,8 +237,8 @@ export default function CategoryTable({
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden">
                       {category.image && category.image.url ? (
-                        <Image 
-                          src={category.image.url} 
+                        <Image
+                          src={category.image.url}
                           alt={category.image.alt || category.name}
                           width={40}
                           height={40}
@@ -276,8 +257,8 @@ export default function CategoryTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.description && category.description.length > 50 
-                    ? `${category.description.substring(0, 50)}...` 
+                  {category.description && category.description.length > 50
+                    ? `${category.description.substring(0, 50)}...`
                     : category.description}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -291,7 +272,7 @@ export default function CategoryTable({
                     <span className="mr-2">{category.order}</span>
                     {onChangeOrder && (
                       <div className="flex flex-col">
-                        <button 
+                        <button
                           onClick={() => onChangeOrder(category._id || '', category.order - 1)}
                           disabled={category.order <= 0}
                           className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -299,7 +280,7 @@ export default function CategoryTable({
                         >
                           <FiChevronUp className="h-3 w-3" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => onChangeOrder(category._id || '', category.order + 1)}
                           className="text-gray-400 hover:text-gray-700"
                           title="Giảm thứ tự"
@@ -314,12 +295,17 @@ export default function CategoryTable({
                   {category.childrenCount || 0}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <button 
+                  <button
                     onClick={() => onToggleStatus && onToggleStatus(category._id || '')}
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(category.status)} ${onToggleStatus ? 'cursor-pointer' : ''}`}
+                    className={`${onToggleStatus ? 'cursor-pointer' : ''}`}
                     title={onToggleStatus ? 'Nhấp để thay đổi trạng thái' : ''}
                   >
-                    {getStatusText(category.status)}
+                    <Badge
+                      variant={getStatusVariant(category.status)}
+                      icon={getStatusIcon(category.status)}
+                    >
+                      {getStatusText(category.status)}
+                    </Badge>
                   </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -340,27 +326,30 @@ export default function CategoryTable({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">
-                    <button 
+                    <Button
+                      variant="light"
+                      size="xs"
+                      icon={<FiEye className="h-4 w-4" />}
                       onClick={() => onView(category._id || '')}
-                      className="text-gray-600 hover:text-gray-900"
                       title="Xem chi tiết"
-                    >
-                      <FiEye className="h-5 w-5" />
-                    </button>
-                    <button 
+                      className="text-gray-600 hover:text-gray-900"
+                    />
+                    <Button
+                      variant="light"
+                      size="xs"
+                      icon={<FiEdit2 className="h-4 w-4" />}
                       onClick={() => onEdit(category._id || '')}
-                      className="text-blue-600 hover:text-blue-900"
                       title="Chỉnh sửa"
-                    >
-                      <FiEdit2 className="h-5 w-5" />
-                    </button>
-                    <button 
+                      className="text-blue-600 hover:text-blue-900"
+                    />
+                    <Button
+                      variant="light"
+                      size="xs"
+                      icon={<FiTrash2 className="h-4 w-4" />}
                       onClick={() => onDelete(category._id || '')}
-                      className="text-red-600 hover:text-red-900"
                       title="Xóa"
-                    >
-                      <FiTrash2 className="h-5 w-5" />
-                    </button>
+                      className="text-red-600 hover:text-red-900"
+                    />
                   </div>
                 </td>
               </tr>
@@ -368,13 +357,13 @@ export default function CategoryTable({
           </tbody>
         </table>
       </div>
-      
+
       {filteredCategories.length === 0 && (
         <div className="px-6 py-4 text-center text-gray-500">
           Không tìm thấy danh mục nào
         </div>
       )}
-      
+
       <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
         {onPageChange ? (
           <Pagination
@@ -384,6 +373,7 @@ export default function CategoryTable({
             totalItems={categories.length}
             itemsPerPage={itemsPerPage}
             showItemsInfo={true}
+            className="w-full"
           />
         ) : (
           <Pagination
@@ -393,9 +383,10 @@ export default function CategoryTable({
             totalItems={filteredCategories.length}
             itemsPerPage={itemsPerPage}
             showItemsInfo={true}
+            className="w-full"
           />
         )}
       </div>
     </div>
   );
-} 
+}

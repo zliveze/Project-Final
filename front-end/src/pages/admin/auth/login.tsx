@@ -21,8 +21,20 @@ export default function AdminLogin() {
 
   // Kiểm tra lỗi từ query param
   useEffect(() => {
-    if (router.query.error === 'session_expired') {
-      setError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    if (router.query.error) {
+      switch(router.query.error) {
+        case 'session_expired':
+          setError('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+          break;
+        case 'no_token':
+          setError('Bạn cần đăng nhập để truy cập trang quản trị');
+          break;
+        case 'unauthorized':
+          setError('Bạn không có quyền truy cập trang này');
+          break;
+        default:
+          setError('Có lỗi xảy ra, vui lòng đăng nhập lại');
+      }
     }
   }, [router.query]);
 

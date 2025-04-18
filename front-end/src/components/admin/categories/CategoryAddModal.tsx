@@ -3,6 +3,7 @@ import { FiX, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
 import { Category } from '@/contexts/CategoryContext';
+import { Modal, Button } from '@/components/admin/common';
 
 interface CategoryAddModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -32,7 +33,7 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
 
   const handleSubmit = (formData: Partial<Category>) => {
     setIsSubmitting(true);
-    
+
     try {
       // Gọi hàm xử lý từ props
       setTimeout(() => {
@@ -48,7 +49,7 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
       console.error('Error adding category:', error);
     }
   };
-  
+
   if (!isOpen && !modalVisible) return null;
 
   return (
@@ -62,8 +63,8 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
           &#8203;
         </span>
 
-        <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-sm transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
@@ -77,8 +78,8 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
-          <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
+
+          <div className="bg-pink-50 px-4 py-3 border-b border-gray-200 flex items-center">
             <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
               <FiPlus className="text-pink-600" />
             </div>
@@ -88,7 +89,7 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
           </div>
 
           <div className="p-6 max-h-[80vh] overflow-y-auto">
-            <CategoryForm 
+            <CategoryForm
               categories={categories}
               onSubmit={handleSubmit}
               onCancel={onClose}
@@ -101,4 +102,4 @@ const CategoryAddModal: React.FC<CategoryAddModalProps> = ({
   );
 };
 
-export default CategoryAddModal; 
+export default CategoryAddModal;

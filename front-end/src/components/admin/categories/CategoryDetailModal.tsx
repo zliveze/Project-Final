@@ -3,6 +3,7 @@ import { FiX, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import CategoryDetail from './CategoryDetail';
 import { Category } from '@/contexts/CategoryContext';
 import toast from 'react-hot-toast';
+import { Modal, Button } from '@/components/admin/common';
 
 const CategoryDetailModal = ({
   category,
@@ -87,26 +88,25 @@ const CategoryDetailModal = ({
       <div className={`fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ${modalVisible ? 'opacity-100' : 'opacity-0'}`} />
       <div className={`fixed inset-0 z-10 overflow-y-auto transition-all ${modalVisible ? 'opacity-100' : 'opacity-0'}`}>
         <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-          <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all w-full sm:max-w-4xl">
+          <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-sm transition-all w-full sm:max-w-4xl">
             {/* Header */}
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      Chi tiết danh mục: {category?.name || 'Không có tên'}
-                    </h3>
-                    <button
-                      type="button"
-                      className="rounded-md bg-white text-gray-400 hover:text-gray-500"
-                      onClick={closeModal}
-                    >
-                      <span className="sr-only">Đóng</span>
-                      <FiX className="h-6 w-6" aria-hidden="true" />
-                    </button>
-                  </div>
+            <div className="bg-blue-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                  <FiEye className="text-blue-600" />
                 </div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">
+                  Chi tiết danh mục: {category?.name || 'Không có tên'}
+                </h3>
               </div>
+              <button
+                type="button"
+                className="rounded-md bg-white text-gray-400 hover:text-gray-500 p-1"
+                onClick={closeModal}
+              >
+                <span className="sr-only">Đóng</span>
+                <FiX className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
 
             {/* Content */}
@@ -130,4 +130,4 @@ const CategoryDetailModal = ({
   );
 };
 
-export default CategoryDetailModal; 
+export default CategoryDetailModal;

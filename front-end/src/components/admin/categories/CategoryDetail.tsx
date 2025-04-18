@@ -3,6 +3,7 @@ import { FiEdit2, FiTrash2, FiStar, FiCheck, FiX } from 'react-icons/fi';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Category } from '@/contexts/CategoryContext';
+import { Button, Badge } from '@/components/admin/common';
 
 interface CategoryDetailProps {
   category: Category | null;
@@ -28,7 +29,7 @@ export default function CategoryDetail({
     return (
       <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-md">
         <p className="text-yellow-700">Không thể tải thông tin danh mục.</p>
-        <button 
+        <button
           onClick={onBack}
           className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-pink-600 hover:bg-pink-700"
         >
@@ -41,13 +42,13 @@ export default function CategoryDetail({
   // Format date
   const formatDate = (dateString: string | Date | undefined) => {
     if (!dateString) return '';
-    
+
     try {
       // Check if dateString is already in DD/MM/YYYY format
       if (typeof dateString === 'string' && dateString.includes('/')) {
         return dateString;
       }
-      
+
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('vi-VN', {
         day: '2-digit',
@@ -66,21 +67,21 @@ export default function CategoryDetail({
     switch (status) {
       case 'active':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-            <FiCheck className="mr-1" /> Hoạt động
-          </span>
+          <Badge variant="success" icon={<FiCheck className="mr-1 h-3 w-3" />}>
+            Hoạt động
+          </Badge>
         );
       case 'inactive':
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-            <FiX className="mr-1" /> Không hoạt động
-          </span>
+          <Badge variant="danger" icon={<FiX className="mr-1 h-3 w-3" />}>
+            Không hoạt động
+          </Badge>
         );
       default:
         return (
-          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+          <Badge variant="secondary">
             {status}
-          </span>
+          </Badge>
         );
     }
   };
@@ -131,30 +132,32 @@ export default function CategoryDetail({
     <div className="space-y-6">
       {/* Buttons */}
       <div className="flex justify-end space-x-3">
-        <button
+        <Button
+          variant="secondary"
+          size="md"
+          icon={<FiEdit2 className="h-5 w-5" />}
           onClick={handleEdit}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
         >
-          <FiEdit2 className="mr-2 -ml-1 h-5 w-5" />
           Chỉnh sửa
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="danger"
+          size="md"
+          icon={<FiTrash2 className="h-5 w-5" />}
           onClick={handleDelete}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
-          <FiTrash2 className="mr-2 -ml-1 h-5 w-5" />
           Xóa
-        </button>
+        </Button>
       </div>
 
       {/* Category info */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
         <div className="px-6 py-5 border-b border-gray-200">
           <div className="flex items-center">
             {category.image && category.image.url && (
               <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden mr-4">
-                <Image 
-                  src={category.image.url} 
+                <Image
+                  src={category.image.url}
                   alt={category.image.alt || category.name}
                   width={64}
                   height={64}
@@ -162,7 +165,7 @@ export default function CategoryDetail({
                 />
               </div>
             )}
-            
+
             <div>
               <div className="flex items-center">
                 <h2 className="text-xl font-semibold text-gray-900">{category.name}</h2>
@@ -176,7 +179,7 @@ export default function CategoryDetail({
             </div>
           </div>
         </div>
-        
+
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Thông tin cơ bản */}
@@ -216,7 +219,7 @@ export default function CategoryDetail({
                   </dl>
                 </div>
               </div>
-              
+
               {/* Thông tin thời gian */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900">Thông tin thời gian</h3>
@@ -234,7 +237,7 @@ export default function CategoryDetail({
                 </div>
               </div>
             </div>
-            
+
             {/* Thông tin khác */}
             <div className="space-y-6">
               {/* Mô tả */}
@@ -244,7 +247,7 @@ export default function CategoryDetail({
                   <p className="text-sm text-gray-700">{category.description || 'Không có mô tả'}</p>
                 </div>
               </div>
-              
+
               {/* Danh mục cha (nếu có) */}
               {category.level > 1 && (
                 <div>
@@ -254,8 +257,8 @@ export default function CategoryDetail({
                       <div className="flex items-center">
                         {parentCategory.image && parentCategory.image.url && (
                           <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden mr-3">
-                            <Image 
-                              src={parentCategory.image.url} 
+                            <Image
+                              src={parentCategory.image.url}
                               alt={parentCategory.image.alt || parentCategory.name}
                               width={40}
                               height={40}
@@ -274,7 +277,7 @@ export default function CategoryDetail({
                   </div>
                 </div>
               )}
-              
+
               {/* Thống kê sản phẩm */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900">Thống kê</h3>
@@ -298,11 +301,11 @@ export default function CategoryDetail({
 
       {/* Child categories if exists */}
       {childCategories.length > 0 && (
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
           <div className="px-6 py-5 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Danh mục con ({childCategories.length})</h3>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -331,8 +334,8 @@ export default function CategoryDetail({
                       <div className="flex items-center">
                         {childCategory.image && childCategory.image.url && (
                           <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden">
-                            <Image 
-                              src={childCategory.image.url} 
+                            <Image
+                              src={childCategory.image.url}
                               alt={childCategory.image.alt || childCategory.name}
                               width={40}
                               height={40}
@@ -347,8 +350,8 @@ export default function CategoryDetail({
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {childCategory.description && childCategory.description.length > 50 
-                        ? `${childCategory.description.substring(0, 50)}...` 
+                      {childCategory.description && childCategory.description.length > 50
+                        ? `${childCategory.description.substring(0, 50)}...`
                         : childCategory.description}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -359,20 +362,22 @@ export default function CategoryDetail({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <button 
+                        <Button
+                          variant="light"
+                          size="xs"
+                          icon={<FiEdit2 className="h-4 w-4" />}
                           onClick={() => onEdit(childCategory._id || '')}
-                          className="text-blue-600 hover:text-blue-900"
                           title="Chỉnh sửa"
-                        >
-                          <FiEdit2 className="h-5 w-5" />
-                        </button>
-                        <button 
+                          className="text-blue-600 hover:text-blue-900"
+                        />
+                        <Button
+                          variant="light"
+                          size="xs"
+                          icon={<FiTrash2 className="h-4 w-4" />}
                           onClick={() => onDelete(childCategory._id || '')}
-                          className="text-red-600 hover:text-red-900"
                           title="Xóa"
-                        >
-                          <FiTrash2 className="h-5 w-5" />
-                        </button>
+                          className="text-red-600 hover:text-red-900"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -384,4 +389,4 @@ export default function CategoryDetail({
       )}
     </div>
   );
-} 
+}
