@@ -29,7 +29,7 @@ interface UserTableProps {
   onDelete?: (id: string) => void;
   onResetPassword?: (id: string) => void;
   searchTerm?: string;
-  onSearchTermChange?: (term: string) => void; 
+  onSearchTermChange?: (term: string) => void;
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
   roleFilter?: string;
@@ -116,12 +116,12 @@ const sampleUsers = [
 ];
 
 // Tách UserRow thành một component riêng để tối ưu render
-const UserRow = React.memo(({ 
-  user, 
-  onView, 
-  onEdit, 
-  onDelete, 
-  onResetPassword 
+const UserRow = React.memo(({
+  user,
+  onView,
+  onEdit,
+  onDelete,
+  onResetPassword
 }: UserRowProps) => {
   // Hàm hỗ trợ định dạng ngày tạo
   const formatCreatedAt = (dateString: string) => {
@@ -190,14 +190,14 @@ const UserRow = React.memo(({
         return role;
     }
   };
-  
+
   return (
     <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         <div className="flex items-center">
           <div className="h-10 w-10 flex-shrink-0 mr-3">
-            <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
-              <span className="text-pink-600 font-medium">{user.name.slice(0, 2).toUpperCase()}</span>
+            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+              <span className="text-blue-600 font-medium">{user.name.slice(0, 2).toUpperCase()}</span>
             </div>
           </div>
           <div>
@@ -293,7 +293,7 @@ const LoadingRow = React.memo(({ colSpan = 6 }: LoadingRowProps) => {
     <tr>
       <td colSpan={colSpan} className="h-52 text-center">
         <div className="flex flex-col items-center justify-center h-full">
-          <FiLoader className="h-8 w-8 text-pink-500 animate-spin mb-3" />
+          <FiLoader className="h-8 w-8 text-blue-500 animate-spin mb-3" />
           <p className="text-gray-500 font-medium">Đang tải dữ liệu người dùng...</p>
         </div>
       </td>
@@ -307,7 +307,7 @@ LoadingRow.displayName = 'LoadingRow';
 const SkeletonRow = React.memo(({ index = 0 }: { index?: number }) => {
   // Tạo độ trễ khác nhau cho mỗi dòng để tạo hiệu ứng sóng
   const delay = `${index * 0.05}s`;
-  
+
   return (
     <tr className="border-b animate-pulse">
       <td className="px-6 py-4 whitespace-nowrap">
@@ -345,12 +345,12 @@ const SkeletonRow = React.memo(({ index = 0 }: { index?: number }) => {
 SkeletonRow.displayName = 'SkeletonRow';
 
 // Thêm virtualized pagination cho hiệu suất tốt hơn
-const UserTable: React.FC<UserTableProps> = ({ 
-  users: externalUsers, 
-  loading = false, 
-  onView, 
-  onEdit, 
-  onDelete, 
+const UserTable: React.FC<UserTableProps> = ({
+  users: externalUsers,
+  loading = false,
+  onView,
+  onEdit,
+  onDelete,
   onResetPassword,
   searchTerm = '',
   onSearchTermChange,
@@ -368,10 +368,10 @@ const UserTable: React.FC<UserTableProps> = ({
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [usersPerPage] = useState<number>(10);
-  
+
   // Thêm state để kiểm soát việc hiển thị skeleton loading
   const [showSkeleton, setShowSkeleton] = useState<boolean>(loading);
-  
+
   // Sử dụng useEffect với debounce để kiểm soát việc hiển thị skeleton loading
   useEffect(() => {
     if (loading) {
@@ -404,13 +404,13 @@ const UserTable: React.FC<UserTableProps> = ({
     const indexOfFirstUser = indexOfLastUser - usersPerPage;
     const currentUsers = !onPageChange ? filteredUsers.slice(indexOfFirstUser, indexOfLastUser) : filteredUsers;
     const totalPages = !onPageChange ? Math.ceil(filteredUsers.length / usersPerPage) : externalTotalPages;
-    
+
     return {
       currentUsers,
       totalPages
     };
   }, [currentPage, filteredUsers, onPageChange, usersPerPage, externalTotalPages]);
-  
+
   // Xử lý thay đổi trang
   const handlePageChange = useCallback((page: number) => {
     if (onPageChange) {
@@ -440,7 +440,7 @@ const UserTable: React.FC<UserTableProps> = ({
     return (
       <>
         {tableData.currentUsers.map((user: User) => (
-          <UserRow 
+          <UserRow
             key={user.id}
             user={user}
             onView={onView}
@@ -457,11 +457,11 @@ const UserTable: React.FC<UserTableProps> = ({
   const PaginationComponent = useMemo(() => {
     const activePage = onPageChange ? externalPage : currentPage;
     const totalPages = tableData.totalPages;
-    
+
     if (totalPages <= 1) return null;
-    
+
     return (
-      <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+      <div className="px-4 py-3 flex items-center justify-between border-t border-gray-100 sm:px-6">
         <Pagination
           currentPage={activePage}
           totalPages={totalPages}
@@ -477,30 +477,30 @@ const UserTable: React.FC<UserTableProps> = ({
 
   // Thêm memo để giảm thiểu re-render không cần thiết cho toàn bộ component
   const TableContent = useMemo(() => (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
+    <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-100">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Thông tin người dùng
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Số điện thoại
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Vai trò
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Trạng thái
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Ngày tạo
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Cấp độ
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Đơn hàng
               </th>
               <th scope="col" className="relative px-6 py-3">
@@ -513,13 +513,13 @@ const UserTable: React.FC<UserTableProps> = ({
           </tbody>
         </table>
       </div>
-      
+
       {/* Phân trang */}
       {PaginationComponent}
     </div>
   ), [PaginationComponent, renderTableRows]);
-  
+
   return TableContent;
 };
 
-export default React.memo(UserTable); 
+export default React.memo(UserTable);

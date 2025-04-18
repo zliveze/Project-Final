@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiBarChart2, FiChevronsUp, FiCalendar, FiRefreshCw } from 'react-icons/fi';
+import { FiBarChart2, FiCalendar, FiRefreshCw } from 'react-icons/fi';
 
 interface DataPoint {
   month: string;
@@ -14,63 +14,62 @@ interface UserGrowthChartProps {
   onRefresh?: () => void;
 }
 
-export default function UserGrowthChart({ 
-  data, 
-  title = "Tăng trưởng người dùng", 
-  className = "", 
-  onRefresh 
+export default function UserGrowthChart({
+  data,
+  title = "Tăng trưởng người dùng",
+  className = "",
+  onRefresh
 }: UserGrowthChartProps) {
   const [chartData, setChartData] = useState<DataPoint[]>([]);
-  const [growthRates, setGrowthRates] = useState<number[]>([]);
   const [view, setView] = useState<'monthly' | 'quarterly'>('monthly');
   const [maxCount, setMaxCount] = useState(0);
   const [period, setPeriod] = useState<'6months' | '12months'>('12months');
   const [isLoading, setIsLoading] = useState(false);
-  const [animate, setAnimate] = useState(false);
+  // Không cần animate nữa vì chúng ta đã loại bỏ animation
 
   useEffect(() => {
     // Không có dữ liệu
     if (!data || data.length === 0) return;
-    
+
     setIsLoading(true);
-    
+
     // Lọc dữ liệu theo khoảng thời gian
     let filteredData = [...data];
-    
+
     if (period === '6months') {
       filteredData = data.slice(-6);
     }
-    
+
     if (view === 'quarterly') {
       // Tạo dữ liệu theo quý bằng cách gộp các tháng
       const quarterlyData: DataPoint[] = [];
       const quarters: Record<string, {count: number, prevCount: number}> = {};
-      
+
       filteredData.forEach((item, index) => {
         const monthNum = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"].indexOf(item.month);
         const quarter = Math.floor(monthNum / 3) + 1;
         const year = new Date().getFullYear();
         const quarterKey = `Q${quarter}/${year}`;
-        
+
         if (quarters[quarterKey]) {
           quarters[quarterKey].count += item.count;
         } else {
           // Lưu số lượng tháng đầu tiên của quý để tính tỷ lệ tăng trưởng
           const prevQuarterKey = index > 0 ? `Q${Math.floor((monthNum - 3) / 3) + 1}/${year}` : '';
           const prevCount = prevQuarterKey && quarters[prevQuarterKey] ? quarters[prevQuarterKey].count : 0;
-          
+
           quarters[quarterKey] = {
             count: item.count,
             prevCount: prevCount
           };
         }
       });
-      
+
       Object.keys(quarters).forEach(quarter => {
         // Tính tỷ lệ tăng trưởng cho quý
         let growthRate: number | undefined = undefined;
         const { count, prevCount } = quarters[quarter];
-        
+
         if (prevCount > 0) {
           growthRate = ((count - prevCount) / prevCount) * 100;
         } else if (count > 0) {
@@ -78,90 +77,51 @@ export default function UserGrowthChart({
         } else {
           growthRate = 0;
         }
-        
+
         quarterlyData.push({
           month: quarter,
           count: count,
           growthRate
         });
       });
-      
+
       filteredData = quarterlyData;
     }
-    
+
     // Tìm giá trị lớn nhất trong dữ liệu
     const max = Math.max(...filteredData.map(item => item.count));
     setMaxCount(max);
-    
-    // Sử dụng growthRate từ API nếu có, nếu không thì tính toán
-    const rates = filteredData.map((item, index) => {
-      // Nếu đã có growthRate từ API và xem theo tháng, sử dụng trực tiếp
-      if (item.growthRate !== undefined && view === 'monthly') {
-        return item.growthRate;
-      }
-      
-      // Nếu không có growthRate hoặc đang xem theo quý (đã tính ở trên), tự tính dựa trên dữ liệu hiện tại
-      if (index === 0) return 0;
-      const prevCount = filteredData[index - 1].count;
-      if (prevCount === 0) return 100; // Tránh chia cho 0
-      return ((item.count - prevCount) / prevCount) * 100;
-    });
-    
-    setGrowthRates(rates);
-    
+
+    // Không cần tính toán tỷ lệ tăng trưởng nữa vì chúng ta chỉ hiển thị biểu đồ cột đơn giản
+
     // Trì hoãn hiệu ứng để tạo animation
     setTimeout(() => {
       setChartData(filteredData);
       setIsLoading(false);
-      setAnimate(true);
-      
-      // Reset animation sau khi hoàn thành
-      setTimeout(() => {
-        setAnimate(false);
-      }, 800);
     }, 200);
   }, [data, period, view]);
 
-  // Tính % tăng trưởng tổng thể
-  const calculateGrowth = () => {
-    if (chartData.length < 2) return 0;
-    const firstValue = chartData[0].count;
-    const lastValue = chartData[chartData.length - 1].count;
-    return ((lastValue - firstValue) / firstValue) * 100;
-  };
-
-  const growth = calculateGrowth();
-  const isPositiveGrowth = growth >= 0;
+  // Không cần tính % tăng trưởng tổng thể nữa vì chúng ta chỉ hiển thị biểu đồ cột đơn giản
 
   // Xử lý thay đổi khoảng thời gian
   const handlePeriodChange = (newPeriod: '6months' | '12months') => {
     setPeriod(newPeriod);
-    setAnimate(false);
   };
 
   // Xử lý thay đổi chế độ xem
   const handleViewChange = () => {
     setView(prev => prev === 'monthly' ? 'quarterly' : 'monthly');
-    setAnimate(false);
   };
 
   // Xử lý refresh dữ liệu
   const handleRefresh = () => {
     if (onRefresh) {
       setIsLoading(true);
-      setAnimate(false);
       onRefresh();
     }
   };
-  
-  // Lấy màu sắc cho biểu đồ dựa trên tỷ lệ tăng trưởng
-  const getGrowthColor = (growth: number) => {
-    if (growth > 10) return 'bg-gradient-to-t from-pink-500 to-pink-400';
-    if (growth > 0) return 'bg-gradient-to-t from-green-500 to-green-400';
-    if (growth < -10) return 'bg-gradient-to-t from-red-500 to-red-400';
-    if (growth < 0) return 'bg-gradient-to-t from-orange-500 to-orange-400';
-    return 'bg-gradient-to-t from-blue-500 to-blue-400';
-  };
+
+  // Không cần hàm getGrowthColor nữa vì chúng ta sử dụng màu xanh dương cho tất cả cột
 
   // Hiển thị thông báo khi không có dữ liệu
   if (!data || data.length === 0) {
@@ -174,103 +134,114 @@ export default function UserGrowthChart({
 
   return (
     <div className={`h-full flex flex-col ${className}`}>
-      <div className="flex justify-between items-center p-5 border-b border-gray-100">
+      <div className="flex justify-between items-center p-4 border-b border-gray-100">
         <div className="flex items-center space-x-2">
-          <FiBarChart2 className="text-pink-500 w-5 h-5" />
-          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-          {isLoading && <div className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin ml-2"></div>}
+          <FiBarChart2 className="text-blue-600 w-5 h-5" />
+          <h3 className="text-base font-medium text-gray-800">{title}</h3>
+          {isLoading && <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin ml-2"></div>}
         </div>
-        
-        <div className="flex items-center">
+
+        <div className="flex items-center space-x-1">
           <button
             onClick={handleRefresh}
-            className="p-1.5 text-gray-500 hover:text-pink-500 rounded transition-colors mr-1"
+            className="p-1.5 text-gray-500 hover:text-blue-600 rounded transition-colors"
             title="Làm mới dữ liệu"
             disabled={isLoading}
           >
-            <FiRefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-pink-500' : ''}`} />
+            <FiRefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
           </button>
           <button
             onClick={handleViewChange}
-            className="p-1.5 text-gray-500 hover:text-pink-500 rounded transition-colors"
+            className="p-1.5 text-gray-500 hover:text-blue-600 rounded transition-colors"
             title={view === 'monthly' ? "Xem theo quý" : "Xem theo tháng"}
           >
             <FiCalendar className="w-4 h-4" />
           </button>
         </div>
       </div>
-      
-      <div className="flex items-center justify-between px-5 pt-3">
+
+      <div className="flex items-center justify-between px-4 pt-3">
         <div className="flex items-center space-x-1.5">
           <button
-            className={`px-2 py-1 text-xs rounded-full transition-colors ${period === '6months' 
-              ? 'bg-pink-100 text-pink-700 font-medium' 
-              : 'text-gray-600 hover:bg-gray-100'}`}
+            className={`px-2 py-1 text-xs rounded transition-colors ${period === '6months'
+              ? 'bg-blue-50 text-blue-600 font-medium border border-blue-200'
+              : 'text-gray-600 hover:bg-gray-50 border border-transparent'}`}
             onClick={() => handlePeriodChange('6months')}
           >
             6 tháng gần đây
           </button>
           <button
-            className={`px-2 py-1 text-xs rounded-full transition-colors ${period === '12months' 
-              ? 'bg-pink-100 text-pink-700 font-medium' 
-              : 'text-gray-600 hover:bg-gray-100'}`}
+            className={`px-2 py-1 text-xs rounded transition-colors ${period === '12months'
+              ? 'bg-blue-50 text-blue-600 font-medium border border-blue-200'
+              : 'text-gray-600 hover:bg-gray-50 border border-transparent'}`}
             onClick={() => handlePeriodChange('12months')}
           >
             12 tháng gần đây
           </button>
         </div>
-        
+
         <div className="flex items-center">
-          <div className={`text-sm font-medium ${isPositiveGrowth ? 'text-green-600' : 'text-red-600'} flex items-center`}>
-            {isPositiveGrowth ? <FiChevronsUp className="mr-0.5" /> : <FiChevronsUp className="mr-0.5 transform rotate-180" />}
-            {Math.abs(growth).toFixed(1)}% tăng trưởng tổng thể
+          <div className="text-sm font-medium text-gray-600 flex items-center bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+            Tổng số người dùng
           </div>
         </div>
       </div>
-      
-      <div className="flex-grow flex items-end space-x-1 px-5 py-4">
-        {chartData.map((item, index) => {
-          const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-          const growthRate = growthRates[index];
-          const isPositive = growthRate >= 0;
-          const barColor = getGrowthColor(growthRate);
-          
-          return (
-            <div key={index} className="flex flex-col items-center flex-1 min-w-0 group relative">
-              <div className="w-full bg-gray-50 rounded-t-md relative" style={{ height: `calc(100% - 34px)` }}>
-                <div 
-                  className={`absolute bottom-0 left-0 right-0 ${barColor} rounded-t-md transition-all duration-500 shadow-md ${animate ? 'animate-grow-height' : ''} hover:brightness-110`}
-                  style={{ 
-                    height: animate ? '0%' : `${height}%`,
-                    animation: animate ? `growHeight 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards` : 'none',
-                    transitionDelay: `${index * 70}ms`
-                  }}
-                >
-                  {/* Tooltip hiển thị khi di chuột qua */}
-                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-lg">
-                    <div className="font-medium">{item.count.toLocaleString()} người dùng</div>
-                    {index > 0 && (
-                      <div className={isPositive ? 'text-green-300' : 'text-red-300'}>
-                        {isPositive ? '+' : ''}{growthRate.toFixed(1)}% so với {view === 'monthly' ? 'tháng' : 'quý'} trước
-                      </div>
-                    )}
+
+      <div className="flex-grow px-4 py-4 relative">
+        {/* Biểu đồ cột */}
+        <div className="h-full flex flex-col">
+          {/* Đường lưới ngang */}
+          <div className="flex-grow relative" style={{height: '200px'}}>
+            <div className="absolute inset-0">
+              <div className="h-1/4 border-t border-gray-100"></div>
+              <div className="h-1/4 border-t border-gray-100"></div>
+              <div className="h-1/4 border-t border-gray-100"></div>
+              <div className="h-1/4 border-t border-gray-100"></div>
+            </div>
+
+            {/* Biểu đồ cột */}
+            <div className="absolute inset-0 flex items-end px-1">
+              {chartData.map((item, index) => {
+                const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+
+                return (
+                  <div key={index} className="flex flex-col items-center mx-1 group relative h-full" style={{width: `${100/chartData.length - 2}%`}}>
+                    {/* Hiển thị số liệu ở đầu cột */}
+                    <div
+                      className="absolute -top-6 w-full text-center"
+                    >
+                      <span className="text-xs font-medium text-gray-700">
+                        {item.count.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* Cột biểu đồ */}
+                    <div className="w-full h-full relative">
+                      <div
+                        className="w-full bg-blue-500 rounded-t transition-all duration-300 group-hover:bg-blue-600 absolute bottom-0"
+                        style={{
+                          height: `${height}%`,
+                          minHeight: '4px'
+                        }}
+                      ></div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="text-xs text-gray-500 mt-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-full text-center">
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Nhãn trục x */}
+          <div className="flex mt-2 px-1">
+            {chartData.map((item, index) => (
+              <div key={index} className="text-xs text-gray-500 font-medium text-center mx-1" style={{width: `${100/chartData.length - 2}%`}}>
                 {item.month}
               </div>
-              {/* Hiển thị % tăng trưởng dưới tháng */}
-              {index > 0 && (
-                <div className={`text-[10px] ${isPositive ? 'text-green-600' : 'text-red-500'} font-medium`}>
-                  {isPositive ? '+' : ''}{growthRate.toFixed(1)}%
-                </div>
-              )}
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
       </div>
-      
+
       <style jsx global>{`
         @keyframes growHeight {
           0% {
@@ -280,7 +251,16 @@ export default function UserGrowthChart({
             height: var(--final-height);
           }
         }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
       `}</style>
     </div>
   );
-} 
+}
