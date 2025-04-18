@@ -448,17 +448,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       // If the requested quantity exceeds available stock
       if (value > maxQuantity) {
         if (cartQuantity > 0) {
-          toast.warn(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Chỉ còn có thể thêm ${maxQuantity} sản phẩm nữa.`, {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true
-          });
+          showWarningToast(`Bạn đã thêm ${cartQuantity} sản phẩm này vào giỏ hàng. Chỉ còn có thể thêm ${maxQuantity} sản phẩm nữa.`);
         } else {
-          toast.warn(`Số lượng tối đa cho phiên bản này là ${maxQuantity}`, {
-            position: "bottom-right",
-            autoClose: 2000,
-            hideProgressBar: true
-          });
+          showWarningToast(`Số lượng tối đa cho phiên bản này là ${maxQuantity}`);
         }
         return;
       }
@@ -856,192 +848,209 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
       {/* Số lượng và nút mua hàng */}
       <div className="mt-6 border-t border-gray-100 pt-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Số lượng */}
-          <div className="w-full md:w-1/4">
-            <div className="mb-2 text-sm font-medium text-gray-700">Số lượng:</div>
-            <div className="flex">
-              <div className={`flex items-center h-12 border rounded-md overflow-hidden w-full ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
-                <button
-                  onClick={() => handleQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1 || !isAvailable}
-                  className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiMinus />
-                </button>
-                <div className={`flex-1 h-full flex items-center justify-center ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
-                <button
-                  onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={!isAvailable || (maxQuantity > 0 && quantity >= maxQuantity)}
-                  className="w-12 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiPlus />
-                </button>
-              </div>
-            </div>
+        {/* Use flexbox for layout, stack vertically on small screens, row on medium+ */}
+        <div className="flex flex-col md:flex-row md:items-start gap-4">
 
-            {/* Thông tin tồn kho */}
-            <div className="mt-2">
-              <div className={`text-xs ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
-                {displayTotalStock > 0 ? (
-                  hasCombinations && selectedCombination ?
-                    `Tổ hợp này còn ${displayTotalStock} sản phẩm` :
-                    `Tổng còn ${displayTotalStock} sản phẩm`
-                ) : 'Hết hàng'}
-              </div>
-              {cartQuantity > 0 && (
-                <div className="text-xs text-blue-500 mt-1">
-                  Đã thêm {cartQuantity} sản phẩm vào giỏ hàng
+          {/* Column 1: Số lượng & Chi nhánh */}
+          <div className="w-full md:w-1/3 space-y-4">
+            {/* Số lượng */}
+            <div>
+             
+              <div className="flex">
+                <div className={`flex h-11 border rounded-md overflow-hidden w-full max-w-[150px] ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
+                  <button
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    disabled={quantity <= 1 || !isAvailable}
+                    className="w-10 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FiMinus size={16} />
+                  </button>
+                  <div className={`flex-1 h-full flex items-center justify-center text-sm ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
+                  <button
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                    disabled={!isAvailable || (maxQuantity > 0 && quantity >= maxQuantity)}
+                    className="w-10 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FiPlus size={16} />
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Chi nhánh */}
-          <div className="w-full md:w-1/4">
-            <div className="mb-2 text-sm font-medium text-gray-700">Chi nhánh:</div>
-            {/* Branch selection for products with variants */}
-            {hasVariants && selectedVariant && (
-              <div>
-                {/* If there's a selected combination, show combination inventory */}
-                {hasCombinations && selectedCombination && selectedVariant.combinationInventory &&
-                 selectedVariant.combinationInventory.filter(inv => inv.combinationId === selectedCombination.combinationId).length > 0 ? (
-                  <div>
-                    {selectedBranchId ? (
-                      <div className="flex flex-col">
-                        <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
-                          <FiMapPin className="text-pink-500 mr-2" size={14} />
-                          <span className="font-medium text-pink-700">
-                            {selectedVariant.combinationInventory
-                              .filter(inv => inv.combinationId === selectedCombination.combinationId)
-                              .find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setShowBranchModal(true)}
-                          className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
-                        >
-                          Thay đổi chi nhánh
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowBranchModal(true)}
-                        className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
-                      >
-                        <FiMapPin className="mr-2 text-gray-500" />
-                        <span>Chọn chi nhánh</span>
-                      </button>
-                    )}
+              {/* Thông tin tồn kho */}
+              <div className="mt-1.5">
+                <div className={`text-xs ${displayTotalStock > 0 ? 'text-gray-500' : 'text-red-500 font-medium'}`}>
+                  {displayTotalStock > 0 ? (
+                    hasCombinations && selectedCombination ?
+                      `Tổ hợp này còn ${displayTotalStock} sản phẩm` :
+                      `Tổng còn ${displayTotalStock} sản phẩm`
+                  ) : 'Hết hàng'}
+                </div>
+                {cartQuantity > 0 && (
+                  <div className="text-xs text-blue-500 mt-0.5">
+                    Đã thêm {cartQuantity} vào giỏ
                   </div>
-                ) : (
-                  /* If there's no selected combination or no combination inventory, show variant inventory */
-                  selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
-                    <div>
-                      {selectedBranchId ? (
-                        <div className="flex flex-col">
-                          <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
-                            <FiMapPin className="text-pink-500 mr-2" size={14} />
-                            <span className="font-medium text-pink-700">
-                              {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => setShowBranchModal(true)}
-                            className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
-                          >
-                            Thay đổi chi nhánh
-                          </button>
+                )}
+              </div>
+            </div>
+
+            {/* Chi nhánh */}
+            {/* Conditionally render branch section only if needed */}
+            {( (hasVariants && selectedVariant && ( (hasCombinations && selectedCombination && selectedVariant.combinationInventory && selectedVariant.combinationInventory.filter(inv => inv.combinationId === selectedCombination.combinationId).length > 0) || (selectedVariant.inventory && selectedVariant.inventory.length > 0) ) ) || (!hasVariants && productInventory.length > 0) ) && (
+              <div>
+                <div className="mb-1 text-sm font-medium text-gray-700">Chi nhánh:</div>
+                  {/* Branch selection logic remains the same, just styled within this column */}
+                  {/* Branch selection for products with variants */}
+                  {hasVariants && selectedVariant && (
+                    <>
+                      {/* If there's a selected combination with inventory */}
+                      {hasCombinations && selectedCombination && selectedVariant.combinationInventory &&
+                       selectedVariant.combinationInventory.filter(inv => inv.combinationId === selectedCombination.combinationId).length > 0 ? (
+                        <div className="relative">
+                          {selectedBranchId ? (
+                             <div className="flex flex-col items-start">
+                                <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
+                                  <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
+                                  <span className="font-medium text-pink-700 truncate">
+                                    {selectedVariant.combinationInventory
+                                      .find(inv => inv.branchId === selectedBranchId && inv.combinationId === selectedCombination.combinationId)?.branchName || getBranchName(selectedBranchId)}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => setShowBranchModal(true)}
+                                  className="text-blue-600 hover:text-blue-800 text-xs mt-1 pl-1"
+                                >
+                                  Đổi chi nhánh
+                                </button>
+                              </div>
+                          ) : (
+                            <button
+                              onClick={() => setShowBranchModal(true)}
+                              className="flex items-center justify-center px-3 py-1.5 h-11 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50/50 transition-colors w-full max-w-[200px] text-sm"
+                            >
+                              <FiMapPin className="mr-1.5 text-gray-500" size={16} />
+                              <span className="text-gray-700">Chọn chi nhánh</span>
+                            </button>
+                          )}
                         </div>
+                      ) : (
+                        /* If there's no selected combination or no combination inventory, show variant inventory */
+                        selectedVariant.inventory && selectedVariant.inventory.length > 0 && (
+                           <div className="relative">
+                            {selectedBranchId ? (
+                               <div className="flex flex-col items-start">
+                                  <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
+                                    <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
+                                    <span className="font-medium text-pink-700 truncate">
+                                      {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => setShowBranchModal(true)}
+                                    className="text-blue-600 hover:text-blue-800 text-xs mt-1 pl-1"
+                                  >
+                                    Đổi chi nhánh
+                                  </button>
+                                </div>
+                            ) : (
+                              <button
+                                onClick={() => setShowBranchModal(true)}
+                                className="flex items-center justify-center px-3 py-1.5 h-11 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50/50 transition-colors w-full max-w-[200px] text-sm"
+                              >
+                                <FiMapPin className="mr-1.5 text-gray-500" size={16} />
+                                <span className="text-gray-700">Chọn chi nhánh</span>
+                              </button>
+                            )}
+                          </div>
+                        )
+                      )}
+                    </>
+                  )}
+
+                  {/* Branch selection for products without variants */}
+                  {!hasVariants && productInventory.length > 0 && (
+                    <div className="relative">
+                      {selectedBranchId ? (
+                         <div className="flex flex-col items-start">
+                            <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
+                              <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
+                              <span className="font-medium text-pink-700 truncate">
+                                {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setShowBranchModal(true)}
+                              className="text-blue-600 hover:text-blue-800 text-xs mt-1 pl-1"
+                            >
+                              Đổi chi nhánh
+                            </button>
+                          </div>
                       ) : (
                         <button
                           onClick={() => setShowBranchModal(true)}
-                          className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
+                          className="flex items-center justify-center px-3 py-1.5 h-11 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50/50 transition-colors w-full max-w-[200px] text-sm"
                         >
-                          <FiMapPin className="mr-2 text-gray-500" />
-                          <span>Chọn chi nhánh</span>
+                          <FiMapPin className="mr-1.5 text-gray-500" size={16} />
+                          <span className="text-gray-700">Chọn chi nhánh</span>
                         </button>
                       )}
                     </div>
-                  )
-                )}
-              </div>
-            )}
-
-            {/* Branch selection for products without variants */}
-            {!hasVariants && productInventory.length > 0 && (
-              <div>
-                {selectedBranchId ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center bg-pink-50 px-3 py-2 rounded-md border border-pink-100">
-                      <FiMapPin className="text-pink-500 mr-2" size={14} />
-                      <span className="font-medium text-pink-700">
-                        {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setShowBranchModal(true)}
-                      className="text-blue-500 hover:text-blue-700 hover:underline text-xs mt-2"
-                    >
-                      Thay đổi chi nhánh
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowBranchModal(true)}
-                    className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50 transition-colors w-full"
-                  >
-                    <FiMapPin className="mr-2 text-gray-500" />
-                    <span>Chọn chi nhánh</span>
-                  </button>
-                )}
+                  )}
               </div>
             )}
           </div>
 
-          {/* Các nút hành động */}
-          <div className="w-full md:w-1/2 flex flex-col md:flex-row gap-3">
-            {/* Button thêm vào giỏ hàng */}
-            <button
-              onClick={handleAddToCart}
-              disabled={!isAvailable}
-              className={`h-12 rounded-md font-medium text-white flex-1 ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center gap-2`}
-            >
-              <FiShoppingCart className="w-4 h-4" />
-              <span>
-                {!inStock ? 'Hết hàng' :
-                 (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
-                 'Thêm vào giỏ hàng'}
-              </span>
-            </button>
+          {/* Column 2: Các nút hành động */}
+          {/* Take remaining width on medium screens */}
+          <div className="w-full md:w-2/3">
+            {/* Add label for clarity on small screens if needed, or just group buttons */}
+            {/* <div className="mb-1 text-sm font-medium text-gray-700 md:hidden">Hành động:</div> */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              {/* Button thêm vào giỏ hàng - Make it the primary action */}
+              <button
+                onClick={handleAddToCart}
+                disabled={!isAvailable}
+                className={`h-11 rounded-md font-medium text-white flex-1 ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center gap-2 px-4 text-sm`}
+              >
+                <FiShoppingCart className="w-4 h-4" />
+                <span>
+                  {!inStock ? 'Hết hàng' :
+                   (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
+                   'Thêm vào giỏ hàng'}
+                </span>
+              </button>
 
-            {/* Button yêu thích */}
-            <button
-              onClick={handleToggleWishlist}
-              disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)}
-              className={`h-12 w-12 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center
-                ${isCurrentVariantInWishlist
-                  ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
-                  : 'border-gray-300 text-gray-700 hover:text-pink-600 hover:border-pink-600'}
-                ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
-                ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
-              `}
-              title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
-            >
-              <FiHeart className={`w-5 h-5 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
-            </button>
+              {/* Secondary action buttons - Wishlist and Share */}
+              <div className="flex items-center gap-2">
+                {/* Button yêu thích */}
+                <button
+                  onClick={handleToggleWishlist}
+                  disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)}
+                  className={`h-11 w-11 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center flex-shrink-0
+                    ${isCurrentVariantInWishlist
+                      ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
+                      : 'border-gray-300 text-gray-600 hover:text-pink-600 hover:border-pink-300'}
+                    ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
+                    ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
+                  `}
+                  title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+                >
+                  <FiHeart className={`w-5 h-5 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
+                </button>
 
-            {/* Nút chia sẻ */}
-            <button
-              onClick={handleShare}
-              className="h-12 w-12 border border-gray-300 rounded-md text-gray-700 hover:text-[#d53f8c] hover:border-pink-300 transition-colors duration-300 flex items-center justify-center"
-              title="Chia sẻ sản phẩm"
-            >
-              <FiShare2 className="w-5 h-5" />
-            </button>
+                {/* Nút chia sẻ */}
+                <button
+                  onClick={handleShare}
+                  className="h-11 w-11 border border-gray-300 rounded-md text-gray-600 hover:text-[#d53f8c] hover:border-pink-300 transition-colors duration-300 flex items-center justify-center flex-shrink-0"
+                  title="Chia sẻ sản phẩm"
+                >
+                  <FiShare2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Branch Selection Modal logic remains unchanged */}
         {/* Branch Selection Modal for products with variants */}
         {hasVariants && selectedVariant && (
           <BranchSelectionModal

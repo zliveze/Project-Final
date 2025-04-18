@@ -5,11 +5,12 @@ import DefaultLayout from '@/layout/DefaultLayout';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
+// import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 
 // Import ResetPasswordForm với dynamic để tránh lỗi hydration
 const ResetPasswordForm = dynamic(() => import('@/components/auth/ResetPasswordForm'), {
   ssr: false,
-  loading: () => <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8 flex justify-center items-center h-96">
+  loading: () => <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 flex justify-center items-center h-96">
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
   </div>
 });
@@ -37,8 +38,11 @@ const ResetPasswordPage: NextPage<ResetPasswordPageProps> = ({ token }) => {
   // Nếu đã đăng nhập, không hiển thị gì cả (sẽ được chuyển hướng)
   if (isAuthenticated) {
     return (
-      <div className="w-full h-screen flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+      <div className="w-full h-screen flex justify-center items-center bg-gray-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-600 mb-3"></div>
+          <p className="text-gray-600 font-medium">Đang chuyển hướng...</p>
+        </div>
       </div>
     );
   }
@@ -46,23 +50,23 @@ const ResetPasswordPage: NextPage<ResetPasswordPageProps> = ({ token }) => {
   return (
     <DefaultLayout>
       <Head>
-        <title>Đặt lại mật khẩu | Shop Online</title>
-        <meta name="description" content="Đặt lại mật khẩu tài khoản của bạn" />
+        <title>Đặt lại mật khẩu | Yumin Beauty</title>
+        <meta name="description" content="Đặt lại mật khẩu tài khoản Yumin Beauty của bạn" />
       </Head>
 
-      <div className="py-8 sm:py-10 bg-gradient-to-b from-[#fdf2f8] to-[#f5f3ff] flex flex-col justify-center sm:px-6 lg:px-8">
+      <div className="py-12 sm:py-16 bg-gray-50 flex flex-col justify-center sm:px-6 lg:px-8 min-h-[80vh]">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h1 className="text-center text-3xl font-extrabold text-pink-600 mb-1">YUMIN</h1>
-          <div className="h-1 w-20 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto mb-4 rounded-full"></div>
-          <h2 className="text-center text-sm text-gray-600">
+          <h1 className="text-center text-3xl font-bold text-pink-600 mb-2">YUMIN</h1>
+          <div className="h-1 w-16 bg-pink-600 mx-auto mb-4 rounded-full"></div>
+          <h2 className="text-center text-base text-gray-600">
             Tạo mật khẩu mới
           </h2>
         </div>
 
         <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
           {isClient ? <ResetPasswordForm token={token} /> :
-            <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8 flex justify-center items-center h-96">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+            <div className="w-full max-w-md mx-auto bg-white rounded-md shadow-sm p-8 flex justify-center items-center h-96">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-600"></div>
             </div>
           }
         </div>

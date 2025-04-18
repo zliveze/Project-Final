@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
+// import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
+import Head from 'next/head';
 
 const GoogleCallback = () => {
   const router = useRouter();
@@ -79,27 +81,39 @@ const GoogleCallback = () => {
   }, [router.isReady, router.query, setUser, setIsAuthenticated, router]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-pink-50 to-white">
-      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-lg shadow-lg">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+      <Head>
+        <title>{error ? 'Đăng nhập thất bại' : 'Đang xử lý đăng nhập'} | Yumin Beauty</title>
+        <meta name="description" content="Xử lý đăng nhập Google cho Yumin Beauty" />
+      </Head>
+
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-md shadow-sm border border-gray-200">
+
         {error ? (
-          <>
-            <h1 className="text-2xl font-bold text-center text-red-600">
+          <div>
+            <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+              <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-center text-red-600 mb-3">
               Đăng nhập thất bại
             </h1>
-            <p className="text-center text-red-500">{error}</p>
+            <p className="text-center text-red-500 mb-4 px-4">{error}</p>
             <p className="text-center text-gray-500 text-sm">
               Đang chuyển hướng về trang đăng nhập...
             </p>
-          </>
+          </div>
         ) : (
-          <>
-            <h1 className="text-2xl font-bold text-center text-pink-600">
+          <div className="flex flex-col items-center">
+            <h1 className="text-xl font-bold text-center text-pink-600 mb-6">
               Đang xử lý đăng nhập từ Google...
             </h1>
-            <div className="flex justify-center">
-              <div className="w-8 h-8 border-t-2 border-b-2 border-pink-500 rounded-full animate-spin"></div>
-            </div>
-          </>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-600"></div>
+            <p className="mt-4 text-gray-600 text-center">
+              Vui lòng đợi trong giây lát...
+            </p>
+          </div>
         )}
       </div>
     </div>

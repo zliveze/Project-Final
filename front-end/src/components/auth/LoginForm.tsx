@@ -1,9 +1,11 @@
+'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { FaGoogle } from 'react-icons/fa';
+import { FaGoogle, FaEnvelope, FaLock, FaExclamationTriangle } from 'react-icons/fa';
 import { showSuccessToast, showErrorToast, showInfoToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
+// import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 
 // Lấy API_URL từ biến môi trường cho mục đích debug
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -83,23 +85,23 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+    <div className="bg-white py-8 px-6 shadow-sm sm:rounded-md sm:px-8 border border-gray-200">
+
       {needVerification ? (
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
-            <svg className="h-6 w-6 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+
+          <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-yellow-100">
+            <FaExclamationTriangle className="h-6 w-6 text-yellow-600" />
           </div>
           <h3 className="mt-3 text-center text-lg font-medium text-gray-900">Xác minh email</h3>
-          <div className="mt-2 px-2">
-            <p className="text-sm text-gray-500">
+          <div className="mt-3 px-2">
+            <p className="text-sm text-gray-600">
               Tài khoản của bạn chưa được xác minh. Vui lòng kiểm tra email để hoàn tất quá trình xác minh.
             </p>
           </div>
-          <div className="mt-4">
+          <div className="mt-5">
             {resendSuccess ? (
-              <div className="text-sm text-green-600">
+              <div className="text-sm text-green-600 p-3 bg-green-50 rounded-md">
                 Email xác minh đã được gửi! Vui lòng kiểm tra hộp thư của bạn.
               </div>
             ) : (
@@ -124,21 +126,28 @@ const LoginForm = () => {
           </div>
         </div>
       ) : (
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form
+          className="space-y-5"
+          onSubmit={handleSubmit}
+        >
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
             </label>
-            <div className="mt-1">
+            <div className="mt-1.5 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaEnvelope className="h-5 w-5 text-gray-400" />
+              </div>
               <input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                className="appearance-none block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com"
               />
             </div>
           </div>
@@ -147,16 +156,20 @@ const LoginForm = () => {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Mật khẩu
             </label>
-            <div className="mt-1">
+            <div className="mt-1.5 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaLock className="h-5 w-5 text-gray-400" />
+              </div>
               <input
                 id="password"
                 name="password"
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                className="appearance-none block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
               />
             </div>
           </div>
@@ -169,13 +182,13 @@ const LoginForm = () => {
                 type="checkbox"
                 className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                 Ghi nhớ đăng nhập
               </label>
             </div>
 
             <div className="text-sm">
-              <Link href="/auth/forgot-password" className="font-medium text-pink-600 hover:text-pink-500">
+              <Link href="/auth/forgot-password" className="font-medium text-pink-600 hover:text-pink-500 transition-colors">
                 Quên mật khẩu?
               </Link>
             </div>
@@ -193,35 +206,31 @@ const LoginForm = () => {
         </form>
       )}
 
-      <div className="mt-6">
+      <div className="mt-8">
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Hoặc tiếp tục với</span>
+            <span className="px-2 bg-white text-gray-500 font-medium">Hoặc tiếp tục với</span>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3">
-          <div>
-            <button
-              onClick={handleGoogleLogin}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              <svg className="w-5 h-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
-              </svg>
-              <span className="ml-2">Google</span>
-            </button>
-          </div>
+        <div className="mt-6">
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FaGoogle className="w-5 h-5 text-red-500" />
+            <span className="ml-2">Google</span>
+          </button>
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <p className="text-center text-sm text-gray-600">
           Chưa có tài khoản?{' '}
-          <Link href="/auth/register" className="font-medium text-pink-600 hover:text-pink-500">
+          <Link href="/auth/register" className="font-medium text-pink-600 hover:text-pink-500 transition-colors">
             Đăng ký ngay
           </Link>
         </p>

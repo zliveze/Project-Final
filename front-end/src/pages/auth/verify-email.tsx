@@ -6,6 +6,8 @@ import DefaultLayout from '@/layout/DefaultLayout';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+// import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
+import { FaCheckCircle, FaTimes } from 'react-icons/fa';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -58,35 +60,35 @@ const VerifyEmailPage: NextPage = () => {
   return (
     <DefaultLayout>
       <Head>
-        <title>Xác minh Email | Shop Online</title>
-        <meta name="description" content="Xác minh email tài khoản của bạn" />
+        <title>Xác minh Email | Yumin Beauty</title>
+        <meta name="description" content="Xác minh email tài khoản Yumin Beauty của bạn" />
       </Head>
 
-      <div className="py-8 sm:py-10 bg-gradient-to-b from-[#fdf2f8] to-[#f5f3ff] flex flex-col justify-center sm:px-6 lg:px-8">
+      <div className="py-12 sm:py-16 bg-gray-50 flex flex-col justify-center sm:px-6 lg:px-8 min-h-[80vh]">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h1 className="text-center text-3xl font-extrabold text-pink-600 mb-1">YUMIN</h1>
-          <div className="h-1 w-20 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto mb-4 rounded-full"></div>
-          <h2 className="text-center text-sm text-gray-600">
+          <h1 className="text-center text-3xl font-bold text-pink-600 mb-2">YUMIN</h1>
+          <div className="h-1 w-16 bg-pink-600 mx-auto mb-4 rounded-full"></div>
+          <h2 className="text-center text-base text-gray-600">
             Xác minh email tài khoản của bạn
           </h2>
         </div>
 
         <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <div className="bg-white py-8 px-6 shadow-sm sm:rounded-md sm:px-8 border border-gray-200">
             {loading ? (
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+              <div className="flex justify-center items-center h-60">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-600"></div>
               </div>
             ) : verified ? (
               <div className="text-center">
-                <svg className="mx-auto h-12 w-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
+                <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-4">
+                  <FaCheckCircle className="h-6 w-6 text-green-600" />
+                </div>
                 <h3 className="mt-2 text-lg font-medium text-gray-900">Email đã được xác minh!</h3>
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-3 text-sm text-gray-600">
                   Cảm ơn bạn đã xác minh email. Bạn có thể tiếp tục sử dụng tài khoản của mình.
                 </p>
-                <div className="mt-6">
+                <div className="mt-8">
                   {isAuthenticated ? (
                     <Link
                       href="/account"
@@ -106,14 +108,14 @@ const VerifyEmailPage: NextPage = () => {
               </div>
             ) : (
               <div className="text-center">
-                <svg className="mx-auto h-12 w-12 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+                  <FaTimes className="h-6 w-6 text-red-600" />
+                </div>
                 <h3 className="mt-2 text-lg font-medium text-gray-900">Xác minh thất bại</h3>
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-3 text-sm text-gray-600">
                   {error || 'Đã xảy ra lỗi khi xác minh email của bạn. Token có thể đã hết hạn hoặc không hợp lệ.'}
                 </p>
-                <div className="mt-6">
+                <div className="mt-8">
                   <Link
                     href="/auth/login"
                     className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { FaGoogle } from 'react-icons/fa';
+import { FaGoogle, FaUser, FaEnvelope, FaPhone, FaLock, FaCheckCircle } from 'react-icons/fa';
 import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
+// import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 
 interface RegisterFormProps {
   onSuccess?: () => void;
@@ -89,24 +90,24 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+    <div className="w-full max-w-md mx-auto bg-white rounded-md shadow-sm p-8 border border-gray-200">
+
       <h2 className="text-2xl font-bold text-center text-pink-600 mb-6">Đăng ký tài khoản</h2>
 
       {registered ? (
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-            <svg className="h-6 w-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
+
+          <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-4">
+            <FaCheckCircle className="h-6 w-6 text-green-600" />
           </div>
           <h3 className="text-lg leading-6 font-medium text-gray-900">Đăng ký thành công!</h3>
-          <div className="mt-2 px-2">
-            <p className="text-sm text-gray-500">
-              Chúng tôi đã gửi một email đến <span className="font-medium">{registeredEmail}</span>.
+          <div className="mt-3 px-2">
+            <p className="text-sm text-gray-600">
+              Chúng tôi đã gửi một email đến <span className="font-medium text-pink-600">{registeredEmail}</span>.
               Vui lòng kiểm tra hộp thư của bạn và nhấp vào liên kết xác minh để hoàn tất quá trình đăng ký.
             </p>
           </div>
-          <div className="mt-5">
+          <div className="mt-6">
             <button
               type="button"
               onClick={() => router.push('/auth/login')}
@@ -126,88 +127,113 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
           </div>
         </div>
       ) : (
-        <>
+        <div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                 Họ và tên
               </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                placeholder="Nhập họ và tên của bạn"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaUser className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                  placeholder="Nhập họ và tên của bạn"
+                />
+              </div>
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                placeholder="Nhập email của bạn"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaEnvelope className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                  placeholder="Nhập email của bạn"
+                />
+              </div>
             </div>
 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Số điện thoại
               </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                placeholder="Nhập số điện thoại của bạn"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaPhone className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                  placeholder="Nhập số điện thoại của bạn"
+                />
+              </div>
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Mật khẩu
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                placeholder="Nhập mật khẩu của bạn"
-                minLength={6}
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+              </div>
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Xác nhận mật khẩu
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                placeholder="Nhập lại mật khẩu của bạn"
-                minLength={6}
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+              </div>
             </div>
 
             <div className="flex items-center">
@@ -219,7 +245,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
                 className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
               />
               <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
-                Tôi đồng ý với <a href="#" className="text-pink-600 hover:text-pink-500">Điều khoản dịch vụ</a> và <a href="#" className="text-pink-600 hover:text-pink-500">Chính sách bảo mật</a>
+                Tôi đồng ý với <a href="#" className="text-pink-600 hover:text-pink-500 transition-colors">Điều khoản dịch vụ</a> và <a href="#" className="text-pink-600 hover:text-pink-500 transition-colors">Chính sách bảo mật</a>
               </label>
             </div>
 
@@ -227,20 +253,20 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50 mt-2"
               >
                 {loading ? 'Đang xử lý...' : 'Đăng ký'}
               </button>
             </div>
           </form>
 
-          <div className="mt-6">
+          <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Hoặc đăng ký với</span>
+                <span className="px-2 bg-white text-gray-500 font-medium">Hoặc đăng ký với</span>
               </div>
             </div>
 
@@ -258,11 +284,11 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
 
           <p className="mt-8 text-center text-sm text-gray-600">
             Đã có tài khoản?{' '}
-            <Link href="/auth/login" className="font-medium text-pink-600 hover:text-pink-500">
+            <Link href="/auth/login" className="font-medium text-pink-600 hover:text-pink-500 transition-colors">
               Đăng nhập
             </Link>
           </p>
-        </>
+        </div>
       )}
     </div>
   );
