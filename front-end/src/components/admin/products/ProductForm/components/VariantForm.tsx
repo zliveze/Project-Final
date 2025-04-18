@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiCheck, FiDollarSign, FiPlus, FiTrash2 } from 'react-icons/fi'; // Import icons
+import { Check, DollarSign, Plus, Trash2, Palette, Layers, ImagePlus } from 'lucide-react';
 import { ProductVariant, ProductImage } from '../types';
 
 // Mở rộng interface ProductVariant để thêm trường name
@@ -299,12 +299,15 @@ const VariantForm: React.FC<VariantFormProps> = ({
 
 
   return (
-    <div className="bg-gray-50 p-4 rounded-md mb-4 border border-gray-200">
-      <h4 className="text-sm font-medium mb-4">{editingVariantIndex !== null ? 'Sửa biến thể' : 'Thêm biến thể mới'}</h4>
+    <div className="bg-white p-5 rounded-lg shadow-sm mb-4 border border-gray-100">
+      <div className="border-b border-gray-200 pb-3 mb-4">
+        <h4 className="text-lg font-medium text-gray-800">{editingVariantIndex !== null ? 'Sửa biến thể' : 'Thêm biến thể mới'}</h4>
+        <p className="text-sm text-gray-500 mt-1">Nhập thông tin chi tiết cho biến thể sản phẩm</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
         {/* Tên biến thể */}
-        <div>
+        <div className="space-y-1.5">
           <label htmlFor="variant-name" className="block text-sm font-medium text-gray-700">
             Tên biến thể <span className="text-red-500">*</span>
           </label>
@@ -314,13 +317,14 @@ const VariantForm: React.FC<VariantFormProps> = ({
             name="name"
             value={currentVariant.name || ''}
             onChange={handleVariantChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
+            placeholder="Nhập tên biến thể"
             required
           />
         </div>
 
         {/* SKU */}
-        <div>
+        <div className="space-y-1.5">
           <label htmlFor="variant-sku" className="block text-sm font-medium text-gray-700">
             Mã SKU
           </label>
@@ -330,106 +334,145 @@ const VariantForm: React.FC<VariantFormProps> = ({
             name="sku"
             value={currentVariant.sku || ''}
             onChange={handleVariantChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            placeholder="Nhập mã SKU cho biến thể"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
           />
         </div>
 
         {/* Giá */}
-        <div>
+        <div className="space-y-1.5">
           <label htmlFor="variant-price" className="block text-sm font-medium text-gray-700">
-            Giá
+            Giá (VNĐ)
           </label>
-          <input
-            type="number"
-            id="variant-price"
-            name="price"
-            value={currentVariant.price}
-            onChange={handleVariantChange}
-            min="0"
-            step="1000"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-          />
+          <div className="relative rounded-md shadow-sm">
+            <input
+              type="number"
+              id="variant-price"
+              name="price"
+              value={currentVariant.price}
+              onChange={handleVariantChange}
+              min="0"
+              step="1000"
+              placeholder="0"
+              className="block w-full rounded-md border border-gray-300 pl-7 pr-12 py-2 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
+            />
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">₫</span>
+            </div>
+          </div>
         </div>
 
         {/* Màu sắc - sử dụng color picker + tên màu */}
-        <div>
-          <label htmlFor="variant-color-name" className="block text-sm font-medium text-gray-700">
+        <div className="space-y-1.5">
+          <label htmlFor="variant-color-name" className="flex items-center text-sm font-medium text-gray-700">
+            <Palette className="h-4 w-4 mr-1.5 text-pink-500" strokeWidth={1.5} />
             Tên màu
           </label>
           <div className="flex space-x-2">
-            <input
-              type="text"
-              id="variant-color-name"
-              ref={colorInputRef}
-              value={colorName}
-              onChange={handleColorNameChange}
-              onBlur={updateColorCombination}
-              placeholder="Ví dụ: Đỏ, Xanh navy, Hồng cánh sen,..."
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-            />
-            <div className="mt-1 flex items-center">
+            <div className="relative flex-grow">
               <input
-                type="color"
-                id="variant-color-code"
-                value={colorCode}
-                onChange={handleColorCodeChange}
+                type="text"
+                id="variant-color-name"
+                ref={colorInputRef}
+                value={colorName}
+                onChange={handleColorNameChange}
                 onBlur={updateColorCombination}
-                className="h-9 w-12 border-gray-300 p-0 cursor-pointer"
+                placeholder="Ví dụ: Đỏ, Xanh navy, Hồng cánh sen,..."
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
               />
             </div>
+            <div className="flex items-center">
+              <div className="relative">
+                <input
+                  type="color"
+                  id="variant-color-code"
+                  value={colorCode}
+                  onChange={handleColorCodeChange}
+                  onBlur={updateColorCombination}
+                  className="h-10 w-14 rounded-md border border-gray-300 p-0 cursor-pointer shadow-sm"
+                />
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {colorName && (
-              <>
-                <p>Tên màu đang nhập: "{colorName}"</p>
-                <p>Định dạng lưu: {colorName && colorCode ? `${colorName} "${colorCode}"` : ''}</p>
-              </>
-            )}
-          </div>
+          {colorName && (
+            <div className="flex items-center mt-2 bg-gray-50 rounded-md p-2 border border-gray-100">
+              <div
+                className="h-4 w-4 rounded-full mr-2 border border-gray-200 shadow-sm"
+                style={{ backgroundColor: colorCode }}
+              ></div>
+              <div className="text-xs text-gray-600">
+                <span className="font-medium">{colorName}</span>
+                <span className="text-gray-400 ml-1.5">{colorCode}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tông màu (Multiple) - Sử dụng textarea thay vì input */}
-        <div>
-          <label htmlFor="variant-shades" className="block text-sm font-medium text-gray-700">
-            Tông màu (cách nhau bởi dấu phẩy)
+        <div className="space-y-1.5">
+          <label htmlFor="variant-shades" className="flex items-center text-sm font-medium text-gray-700">
+            <Layers className="h-4 w-4 mr-1.5 text-purple-500" strokeWidth={1.5} />
+            Tông màu
           </label>
           <textarea
             id="variant-shades"
-            name="shades" // Keep name for potential future use, but rely on onBlur
-            value={shadesInput} // Use local state for value
-            onChange={(e) => setShadesInput(e.target.value)} // Only update local state on change
-            onBlur={() => handleMultiOptionBlur('options.shades', shadesInput)} // Process and update main state on blur
+            name="shades"
+            value={shadesInput}
+            onChange={(e) => setShadesInput(e.target.value)}
+            onBlur={() => handleMultiOptionBlur('options.shades', shadesInput)}
             placeholder="Ví dụ: Nude, Cam đất, Hồng đào"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
             rows={2}
           />
+          <p className="text-xs text-gray-500">Các tông màu cách nhau bởi dấu phẩy</p>
+          {Array.isArray(currentVariant.options?.shades) && currentVariant.options.shades.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {currentVariant.options.shades.map((shade, index) => (
+                <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
+                  {shade}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Kích thước (Multiple) - Sử dụng textarea thay vì input */}
-        <div>
-          <label htmlFor="variant-sizes" className="block text-sm font-medium text-gray-700">
-            Kích thước (cách nhau bởi dấu phẩy)
+        <div className="space-y-1.5">
+          <label htmlFor="variant-sizes" className="flex items-center text-sm font-medium text-gray-700">
+            <Layers className="h-4 w-4 mr-1.5 text-blue-500" strokeWidth={1.5} />
+            Kích thước
           </label>
           <textarea
             id="variant-sizes"
-            name="sizes" // Keep name for potential future use, but rely on onBlur
-            value={sizesInput} // Use local state for value
-            onChange={(e) => setSizesInput(e.target.value)} // Only update local state on change
-            onBlur={() => handleMultiOptionBlur('options.sizes', sizesInput)} // Process and update main state on blur
+            name="sizes"
+            value={sizesInput}
+            onChange={(e) => setSizesInput(e.target.value)}
+            onBlur={() => handleMultiOptionBlur('options.sizes', sizesInput)}
             placeholder="Ví dụ: 5ml, 15ml, Full size"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
             rows={2}
           />
+          <p className="text-xs text-gray-500">Các kích thước cách nhau bởi dấu phẩy</p>
+          {Array.isArray(currentVariant.options?.sizes) && currentVariant.options.sizes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {currentVariant.options.sizes.map((size, index) => (
+                <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                  {size}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Chọn hình ảnh cho biến thể */}
       {images && images.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+          <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
+            <ImagePlus className="h-4 w-4 mr-1.5 text-pink-500" strokeWidth={1.5} />
             Hình ảnh của biến thể
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {images.map((image, idx) => {
               // Use publicId as a more reliable key if available, fallback to id or index
               const imageKey = image.publicId || image.id || `image-${idx}`;
@@ -565,12 +608,12 @@ const VariantForm: React.FC<VariantFormProps> = ({
                     {/* Selection indicator - checkmark or used by other variant indicator */}
                     {finalIsSelected && (
                       <div className="absolute top-1 right-1 bg-pink-500 rounded-full p-0.5 shadow-sm z-10">
-                        <FiCheck className="text-white w-4 h-4" />
+                        <Check className="text-white w-4 h-4" strokeWidth={2} />
                       </div>
                     )}
                     {isUsedByOtherVariant && !finalIsSelected && (
                       <div className="absolute inset-0 bg-gray-200 bg-opacity-50 flex items-center justify-center">
-                        <span className="text-xs text-gray-700 font-medium px-1 py-0.5 bg-white bg-opacity-75 rounded">
+                        <span className="text-xs text-gray-700 font-medium px-1.5 py-0.5 bg-white bg-opacity-75 rounded-md shadow-sm">
                           Đã sử dụng
                         </span>
                       </div>
@@ -586,88 +629,107 @@ const VariantForm: React.FC<VariantFormProps> = ({
       {/* Tổ hợp biến thể */}
       {(Array.isArray(currentVariant.options?.shades) && currentVariant.options.shades.length > 0) ||
        (Array.isArray(currentVariant.options?.sizes) && currentVariant.options.sizes.length > 0) ? (
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-medium">Tổ hợp biến thể</h4>
+        <div className="mb-6 bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+          <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
+            <h4 className="text-sm font-medium text-gray-700 flex items-center">
+              <Layers className="h-4 w-4 mr-1.5 text-pink-500" strokeWidth={1.5} />
+              Tổ hợp biến thể
+            </h4>
             <button
               type="button"
               onClick={() => setShowCombinations(!showCombinations)}
-              className="text-sm text-pink-600 hover:text-pink-700"
+              className="text-sm text-pink-600 hover:text-pink-700 font-medium flex items-center transition-colors duration-200"
             >
               {showCombinations ? 'Ẩn tổ hợp' : 'Hiển thị tổ hợp'}
             </button>
           </div>
 
           {showCombinations && combinations.length > 0 && (
-            <div className="border rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Thuộc tính</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Giá</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Giá chênh lệch</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {combinations.map((combo) => (
-                    <tr key={combo.id} className="hover:bg-gray-50">
-                      <td className="py-4 pl-4 pr-3 text-sm text-gray-900">
-                        {Object.entries(combo.attributes).map(([key, value]) => (
-                          <span key={key} className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded mr-1 mb-1">
-                            {key}: {value}
-                          </span>
-                        ))}
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <FiDollarSign className="text-gray-400 mr-1" />
-                          <input
-                            type="number"
-                            value={combo.price}
-                            onChange={(e) => handleCombinationPriceChange(combo.id, Number(e.target.value))}
-                            min="0"
-                            step="1000"
-                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <FiPlus className="text-gray-400 mr-1" />
-                          <input
-                            type="number"
-                            value={combo.additionalPrice}
-                            onChange={(e) => handleCombinationAdditionalPriceChange(combo.id, Number(e.target.value))}
-                            min="0"
-                            step="1000"
-                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
-                          />
-                        </div>
-                      </td>
+            <div className="p-4">
+              <div className="border rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="py-3 pl-4 pr-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thuộc tính</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá chênh lệch</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {combinations.map((combo) => (
+                      <tr key={combo.id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="py-3 pl-4 pr-3 text-sm text-gray-900">
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(combo.attributes).map(([key, value]) => {
+                              // Chọn màu sắc cho từng loại thuộc tính
+                              const bgColor = key === 'shade' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700';
+                              return (
+                                <span key={key} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor}`}>
+                                  {key === 'shade' ? 'Tông:' : 'Kích thước:'} {value}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <div className="relative rounded-md shadow-sm">
+                              <input
+                                type="number"
+                                value={combo.price}
+                                onChange={(e) => handleCombinationPriceChange(combo.id, Number(e.target.value))}
+                                min="0"
+                                step="1000"
+                                className="block w-28 rounded-md border border-gray-300 pl-7 py-1.5 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
+                              />
+                              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">₫</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <div className="relative rounded-md shadow-sm">
+                              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                                <Plus className="h-3.5 w-3.5 text-gray-400" strokeWidth={1.5} />
+                              </div>
+                              <input
+                                type="number"
+                                value={combo.additionalPrice}
+                                onChange={(e) => handleCombinationAdditionalPriceChange(combo.id, Number(e.target.value))}
+                                min="0"
+                                step="1000"
+                                className="block w-28 rounded-md border border-gray-300 pl-7 py-1.5 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 focus:outline-none sm:text-sm transition-all duration-200"
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       ) : null}
 
       {/* Nút điều khiển */}
-      <div className="flex justify-end space-x-2">
+      <div className="flex justify-end space-x-3 pt-2 border-t border-gray-100">
         <button
           type="button"
           onClick={handleCancelVariant}
-          className="py-1 px-3 border border-gray-300 rounded-md text-sm leading-4 font-medium text-gray-700 hover:bg-gray-100"
+          className="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 shadow-sm"
         >
           Hủy
         </button>
         <button
           type="button"
           onClick={handleSaveVariant}
-          className="py-1 px-3 border border-transparent rounded-md text-sm leading-4 font-medium text-white bg-pink-600 hover:bg-pink-700"
+          className="py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all duration-200 shadow-sm"
         >
-          {editingVariantIndex !== null ? 'Cập nhật' : 'Thêm'}
+          {editingVariantIndex !== null ? 'Cập nhật biến thể' : 'Thêm biến thể'}
         </button>
       </div>
     </div>
