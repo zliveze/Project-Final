@@ -132,11 +132,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const originalRequest = error.config;
         
         // Nếu lỗi là 401 và chưa thử làm mới token
-        if (error.response?.status === 401 && !originalRequest._retry && 
-            !originalRequest.url?.includes(`${API_URL}/admin/auth/refresh`) && 
-            !originalRequest.url?.includes(`${API_URL}/admin/auth/login`)) {
+        // Nếu lỗi là 401, chưa thử lại, và không phải từ các endpoint refresh, login, hoặc logout
+        if (error.response?.status === 401 && !originalRequest._retry &&
+            !originalRequest.url?.includes(`${API_URL}/admin/auth/refresh`) &&
+            !originalRequest.url?.includes(`${API_URL}/admin/auth/login`) &&
+            !originalRequest.url?.includes(`${API_URL}/admin/auth/logout`)) { // Thêm điều kiện này
           originalRequest._retry = true;
-          
+
           try {
             // Kiểm tra xem đã đăng xuất hay chưa
             if (sessionStorage.getItem('adminLoggedOut') === 'true') {
