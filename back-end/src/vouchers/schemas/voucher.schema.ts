@@ -56,14 +56,16 @@ export class Voucher {
     type: {
       all: { type: Boolean, default: true },
       new: { type: Boolean, default: false },
-      specific: { type: [{ type: Types.ObjectId, ref: 'User' }], default: [] }
+      specific: { type: [{ type: Types.ObjectId, ref: 'User' }], default: [] },
+      levels: { type: [String], default: [] }
     },
-    default: { all: true, new: false, specific: [] }
+    default: { all: true, new: false, specific: [], levels: [] }
   })
   applicableUserGroups: {
     all: boolean;
     new: boolean;
     specific: Types.ObjectId[];
+    levels: string[];
   };
 
   @Prop({ default: true })

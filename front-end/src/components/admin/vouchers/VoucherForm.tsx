@@ -6,9 +6,12 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useVoucherSelections } from '@/hooks/useVoucherSelections';
 import { Voucher } from '@/contexts/VoucherContext';
-import ItemSelectionModal from './ItemSelectionModal';
 import { TabInterface } from './TabInterface';
 import { SelectedItemsList } from './SelectedItemsList';
+import { VoucherBrandsPopup } from './VoucherBrandsPopup';
+import { VoucherCategoriesPopup } from './VoucherCategoriesPopup';
+import { VoucherProductsPopup } from './VoucherProductsPopup';
+import { VoucherProductSearchProvider } from '@/contexts/VoucherProductSearchContext';
 
 // Define the structure for form data, including potential temporary states
 interface VoucherFormData extends Partial<Voucher> {
@@ -65,11 +68,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   // Tab state for UI
   const [activeTab, setActiveTab] = useState<string>('basic');
 
-  // State for the ItemSelectionModal
-  const [isItemSelectionModalOpen, setIsItemSelectionModalOpen] = useState(false);
-  const [itemSelectionType, setItemSelectionType] = useState<'product' | 'brand' | 'category' | null>(null);
-  // Store a reference to the field update function
-  const [itemSelectionCallback, setItemSelectionCallback] = useState<((ids: string[]) => void) | null>(null);
+  // State for future item selection implementation sẽ được thêm vào sau
 
   // Define tabs for the interface
   const tabs = [
@@ -80,7 +79,8 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
 
   const {
     brands, categories, products,
-    brandsLoading, categoriesLoading, productsLoading,
+    // Loading states sẽ được sử dụng trong tương lai
+    // brandsLoading, categoriesLoading, productsLoading,
     fetchBrands, fetchCategories, fetchProducts
   } = useVoucherSelections();
 
@@ -111,7 +111,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
     if (initialData) {
       const hasSpecificProducts = !!(initialData.applicableProducts?.length || initialData.applicableCategories?.length || initialData.applicableBrands?.length);
       const isCopyMode = !isEditMode && initialData._id;
-      
+
       defaultData = {
         ...defaultData,
         ...initialData,
@@ -120,16 +120,16 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
         showSpecificProducts: hasSpecificProducts,
         applicableUserGroups: initialData.applicableUserGroups || { all: true, new: false, specific: [], levels: [] },
         usedCount: isCopyMode ? 0 : initialData.usedCount,
-        applicableProducts: initialData.applicableProducts || [], 
+        applicableProducts: initialData.applicableProducts || [],
         applicableCategories: initialData.applicableCategories || [],
-        applicableBrands: initialData.applicableBrands || [], 
+        applicableBrands: initialData.applicableBrands || [],
         applicableEvents: initialData.applicableEvents || [],
         applicableCampaigns: initialData.applicableCampaigns || [],
       };
     }
-    
+
     setFormData(defaultData);
-    
+
     // Tải dữ liệu thương hiệu, danh mục và sản phẩm khi form được mở
     fetchBrands();
     fetchCategories();
@@ -168,43 +168,27 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  // Open the Item Selection Modal
-  const openItemSelectionModal = (
-    type: 'product' | 'brand' | 'category',
-    currentIds: string[] | undefined,
-    onConfirm: (ids: string[]) => void
-  ) => {
-    setItemSelectionType(type);
-    // Store the callback function to update the correct field
-    setItemSelectionCallback(() => onConfirm); // Wrap in function to avoid immediate call
-    setIsItemSelectionModalOpen(true);
-  };
-
-  // Callback from ItemSelectionModal
-  const handleConfirmItemSelection = (selectedIds: string[]) => {
-    if (itemSelectionCallback) {
-      itemSelectionCallback(selectedIds); // Execute the stored callback
-    }
-    setIsItemSelectionModalOpen(false);
-    setItemSelectionType(null);
-    setItemSelectionCallback(null);
-  };
-
-  // Specific handlers to open modal for each type
+  // Placeholder functions for future implementation
+  // Specific handlers for brand, category, and product selection
   const handleSelectBrands = () => {
-    openItemSelectionModal('brand', formData.applicableBrands, (ids) => {
-      setFormData(prev => ({ ...prev, applicableBrands: ids }));
-    });
+    // Placeholder for future implementation
+    console.log('Chọn thương hiệu - tính năng đang được phát triển');
+    // Thông báo cho người dùng biết tính năng đang được phát triển
+    alert('Tính năng chọn thương hiệu đang được phát triển theo kế hoạch mới.');
   };
+
   const handleSelectCategories = () => {
-    openItemSelectionModal('category', formData.applicableCategories, (ids) => {
-      setFormData(prev => ({ ...prev, applicableCategories: ids }));
-    });
+    // Placeholder for future implementation
+    console.log('Chọn danh mục - tính năng đang được phát triển');
+    // Thông báo cho người dùng biết tính năng đang được phát triển
+    alert('Tính năng chọn danh mục đang được phát triển theo kế hoạch mới.');
   };
+
   const handleSelectProducts = () => {
-    openItemSelectionModal('product', formData.applicableProducts, (ids) => {
-      setFormData(prev => ({ ...prev, applicableProducts: ids }));
-    });
+    // Placeholder for future implementation
+    console.log('Chọn sản phẩm - tính năng đang được phát triển');
+    // Thông báo cho người dùng biết tính năng đang được phát triển
+    alert('Tính năng chọn sản phẩm đang được phát triển theo kế hoạch mới.');
   };
 
 
@@ -277,9 +261,9 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       }
       // Fallback vào options nếu không tìm thấy trong brands
       const option = brandOptions.find(o => o.value === id);
-      return { 
-        id, 
-        name: option?.label || `Thương hiệu #${id.slice(0, 6)}` 
+      return {
+        id,
+        name: option?.label || `Thương hiệu #${id.slice(0, 6)}`
       };
     });
   }, [formData.applicableBrands, brandOptions, brands]);
@@ -295,9 +279,9 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       }
       // Fallback vào options nếu không tìm thấy trong categories
       const option = categoryOptions.find(o => o.value === id);
-      return { 
-        id, 
-        name: option?.label || `Danh mục #${id.slice(0, 6)}` 
+      return {
+        id,
+        name: option?.label || `Danh mục #${id.slice(0, 6)}`
       };
     });
   }, [formData.applicableCategories, categoryOptions, categories]);
@@ -313,12 +297,45 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       }
       // Fallback vào options nếu không tìm thấy trong products
       const option = productOptions.find(o => o.value === id);
-      return { 
-        id, 
-        name: option?.label || `Sản phẩm #${id.slice(0, 6)}` 
+      return {
+        id,
+        name: option?.label || `Sản phẩm #${id.slice(0, 6)}`
       };
     });
   }, [formData.applicableProducts, productOptions, products]);
+
+  // Add new state for brands modal
+  const [showBrandsModal, setShowBrandsModal] = useState(false);
+
+  // Handle brand selection
+  const handleBrandsChange = (selectedBrandIds: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      applicableBrands: selectedBrandIds
+    }));
+  };
+
+  // Add new state for categories modal
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+
+  // Handle category selection
+  const handleCategoriesChange = (selectedCategoryIds: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      applicableCategories: selectedCategoryIds
+    }));
+  };
+
+  // Add new state for products modal
+  const [showProductsModal, setShowProductsModal] = useState(false);
+
+  // Handle product selection
+  const handleProductsChange = (selectedProductIds: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      applicableProducts: selectedProductIds
+    }));
+  };
 
   // Render các tab nội dung
   const renderBasicInfoTab = () => (
@@ -408,20 +425,72 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       <div className="p-4 border rounded-md shadow-sm">
         <h5 className="font-medium text-gray-700 mb-3 flex items-center text-sm"><FiUsers className="mr-2 text-pink-500" /> Đối tượng người dùng</h5>
         <div className="space-y-2">
-          <label className="flex items-center cursor-pointer"><input type="radio" name="userTargeting" checked={formData.applicableUserGroups?.all || false} onChange={() => handleUserGroupChange('all')} className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"/><span className="ml-2 text-sm text-gray-800">Tất cả người dùng</span></label>
-          <label className="flex items-center cursor-pointer"><input type="radio" name="userTargeting" checked={formData.applicableUserGroups?.new || false} onChange={() => handleUserGroupChange('new')} className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"/><span className="ml-2 text-sm text-gray-800">Chỉ người dùng mới</span></label>
-          <label className="flex items-center cursor-pointer"><input type="radio" name="userTargeting" checked={formData.applicableUserGroups?.levels?.length ? true : false} onChange={() => handleUserGroupChange('levels')} className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"/><span className="ml-2 text-sm text-gray-800">Theo cấp độ</span></label>
+          <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
+            <input 
+              type="radio" 
+              name="userTargeting" 
+              checked={formData.applicableUserGroups?.all || false} 
+              onChange={() => handleUserGroupChange('all')} 
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+            />
+            <span className="ml-2 text-sm text-gray-800">Tất cả người dùng</span>
+          </label>
+          <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
+            <input 
+              type="radio" 
+              name="userTargeting" 
+              checked={formData.applicableUserGroups?.new || false} 
+              onChange={() => handleUserGroupChange('new')} 
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+            />
+            <span className="ml-2 text-sm text-gray-800">Chỉ người dùng mới</span>
+          </label>
+          <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
+            <input 
+              type="radio" 
+              name="userTargeting" 
+              checked={!!(formData.applicableUserGroups?.levels && formData.applicableUserGroups.levels.length > 0)} 
+              onChange={() => handleUserGroupChange('levels')} 
+              className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
+            />
+            <span className="ml-2 text-sm text-gray-800">
+              Theo cấp độ
+              {formData.applicableUserGroups?.levels && formData.applicableUserGroups.levels.length > 0 && (
+                <span className="ml-2 text-xs text-pink-600">
+                  ({formData.applicableUserGroups.levels.length} cấp độ đã chọn)
+                </span>
+              )}
+            </span>
+          </label>
         </div>
         {formData.applicableUserGroups?.levels !== undefined && !formData.applicableUserGroups.all && !formData.applicableUserGroups.new && (
           <div className="mt-3 pt-3 border-t border-pink-100">
             <label className="text-xs font-medium text-gray-600 mb-2 block">Chọn cấp độ:</label>
             <div className="flex flex-wrap gap-2">
-              {userLevelsOptions.map(level => (
-                <label key={level.id} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer border ${formData.applicableUserGroups?.levels?.includes(level.value) ? `${level.color} border-pink-400 ring-1 ring-pink-400` : 'bg-white border-gray-300 hover:bg-gray-100'}`}>
-                  <input type="checkbox" id={level.id} checked={formData.applicableUserGroups?.levels?.includes(level.value) || false} onChange={(e) => handleUserLevelToggle(level.value, e.target.checked)} className="h-3 w-3 text-pink-600 focus:ring-pink-500 border-gray-300 rounded mr-1 opacity-0 absolute"/>
-                  {level.value}
-                </label>
-              ))}
+              {userLevelsOptions.map(level => {
+                const isSelected = formData.applicableUserGroups?.levels?.includes(level.value);
+                return (
+                  <label 
+                    key={level.id} 
+                    className={`
+                      inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium 
+                      cursor-pointer transition-all duration-200 ease-in-out
+                      ${isSelected 
+                        ? 'bg-pink-50 text-pink-700 border-pink-200 ring-1 ring-pink-200 shadow-sm' 
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }
+                    `}
+                  >
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => handleUserLevelToggle(level.value, e.target.checked)}
+                      className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded mr-2"
+                    />
+                    {level.value}
+                  </label>
+                );
+              })}
             </div>
           </div>
         )}
@@ -442,78 +511,107 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
               <label className="block text-xs font-medium text-gray-600 mb-1">Thương hiệu</label>
               <button
                 type="button"
-                onClick={handleSelectBrands}
+                onClick={() => setShowBrandsModal(true)}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
-                {formData.applicableBrands?.length 
+                {formData.applicableBrands?.length
                   ? `Đã chọn (${formData.applicableBrands.length})`
                   : 'Chọn thương hiệu...'}
               </button>
-              <SelectedItemsList 
+              <SelectedItemsList
                 items={getSelectedBrands()}
                 onRemove={(id) => {
                   setFormData(prev => ({
                     ...prev,
                     applicableBrands: prev.applicableBrands?.filter(brandId => brandId !== id) || []
                   }));
-                }} 
+                }}
                 emptyText="Chưa chọn thương hiệu nào"
                 maxDisplayItems={5}
               />
             </div>
+
+            {/* Brands Modal */}
+            {showBrandsModal && (
+              <VoucherBrandsPopup
+                selectedBrands={formData.applicableBrands || []}
+                onBrandsChange={handleBrandsChange}
+                onClose={() => setShowBrandsModal(false)}
+              />
+            )}
 
             {/* Categories Selection */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Danh mục</label>
               <button
                 type="button"
-                onClick={handleSelectCategories}
+                onClick={() => setShowCategoriesModal(true)}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
-                {formData.applicableCategories?.length 
+                {formData.applicableCategories?.length
                   ? `Đã chọn (${formData.applicableCategories.length})`
                   : 'Chọn danh mục...'}
               </button>
-              <SelectedItemsList 
+              <SelectedItemsList
                 items={getSelectedCategories()}
                 onRemove={(id) => {
                   setFormData(prev => ({
                     ...prev,
                     applicableCategories: prev.applicableCategories?.filter(catId => catId !== id) || []
                   }));
-                }} 
+                }}
                 emptyText="Chưa chọn danh mục nào"
                 maxDisplayItems={5}
               />
             </div>
+
+            {/* Categories Modal */}
+            {showCategoriesModal && (
+              <VoucherCategoriesPopup
+                selectedCategories={formData.applicableCategories || []}
+                onCategoriesChange={handleCategoriesChange}
+                onClose={() => setShowCategoriesModal(false)}
+              />
+            )}
 
             {/* Products Selection */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sản phẩm</label>
               <button
                 type="button"
-                onClick={handleSelectProducts}
+                onClick={() => setShowProductsModal(true)}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
-                {formData.applicableProducts?.length 
+                {formData.applicableProducts?.length
                   ? `Đã chọn (${formData.applicableProducts.length})`
                   : 'Chọn sản phẩm...'}
               </button>
-              <SelectedItemsList 
+              <SelectedItemsList
                 items={getSelectedProducts()}
                 onRemove={(id) => {
                   setFormData(prev => ({
                     ...prev,
                     applicableProducts: prev.applicableProducts?.filter(prodId => prodId !== id) || []
                   }));
-                }} 
+                }}
                 emptyText="Chưa chọn sản phẩm nào"
                 maxDisplayItems={5}
               />
             </div>
+
+            {/* Products Modal */}
+            {showProductsModal && (
+              <VoucherProductSearchProvider>
+                <VoucherProductsPopup
+                  selectedProducts={formData.applicableProducts || []}
+                  onProductsChange={handleProductsChange}
+                  onClose={() => setShowProductsModal(false)}
+                />
+              </VoucherProductSearchProvider>
+            )}
           </div>
         )}
       </div>
@@ -525,7 +623,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       <h4 className="text-base font-semibold text-gray-800 border-b pb-2 mb-4">Sự kiện & Chiến dịch</h4>
       {/* Event Select */}
       <div className="p-3 border rounded-md bg-gray-50">
-        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Sự kiện áp dụng</label>
+        <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Sự kiện áp dụng</label>
         {/* Replace Select with button and display area */}
         <button type="button" className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500" disabled>
           <FiEdit className="h-3 w-3 mr-1.5" /> Chọn sự kiện...
@@ -534,7 +632,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       </div>
       {/* Campaign Select */}
       <div className="p-3 border rounded-md bg-gray-50">
-        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Chiến dịch áp dụng</label>
+        <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Chiến dịch áp dụng</label>
           {/* Replace Select with button and display area */}
         <button type="button" className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500" disabled>
           <FiEdit className="h-3 w-3 mr-1.5" /> Chọn chiến dịch...
@@ -547,7 +645,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Tab Interface */}
-      <TabInterface 
+      <TabInterface
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -574,21 +672,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
         </button>
       </div>
 
-      {/* Item Selection Modal */}
-      {itemSelectionType && (
-        <ItemSelectionModal
-          isOpen={isItemSelectionModalOpen}
-          onClose={() => setIsItemSelectionModalOpen(false)}
-          itemType={itemSelectionType}
-          currentlySelectedIds={
-            itemSelectionType === 'brand' ? formData.applicableBrands || [] :
-            itemSelectionType === 'category' ? formData.applicableCategories || [] :
-            formData.applicableProducts || []
-          }
-          onConfirmSelection={handleConfirmItemSelection}
-          // Pass necessary context/fetch functions here if ItemSelectionModal needs them
-        />
-      )}
+      {/* Item Selection Modal sẽ được thay thế bằng giải pháp mới */}
     </form>
   );
 };

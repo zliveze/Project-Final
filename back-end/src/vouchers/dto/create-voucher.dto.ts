@@ -37,6 +37,12 @@ export class ApplicableUserGroupsDto {
   @IsMongoId({ each: true })
   @IsOptional()
   specific?: Types.ObjectId[];
+
+  @ApiPropertyOptional({ description: 'Danh sách cấp độ người dùng được áp dụng', example: ['Khách hàng mới', 'Khách hàng bạc'] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  levels?: string[];
 }
 
 export class CreateVoucherDto {

@@ -191,7 +191,7 @@ export const useVoucherSelections = (): UseVoucherSelectionsResult => {
 
         // Transform the categories from context format to the format expected by the voucher component
         const transformedCategories = categoryContext.categories.map(category => ({
-          _id: category._id || category.id || '',
+          _id: category._id || '',
           name: category.name || '',
           status: category.status || 'active',
           slug: category.slug || ''
@@ -209,7 +209,7 @@ export const useVoucherSelections = (): UseVoucherSelectionsResult => {
           // After fetching, check if we have categories now
           if (categoryContext.categories && categoryContext.categories.length > 0) {
             const transformedCategories = categoryContext.categories.map(category => ({
-              _id: category._id || category.id || '',
+              _id: category._id || '',
               name: category.name || '',
               status: category.status || 'active',
               slug: category.slug || ''
@@ -278,26 +278,25 @@ export const useVoucherSelections = (): UseVoucherSelectionsResult => {
           name: product.name || '',
           sku: product.sku || '',
           status: product.status || 'active',
-          price: product.price,
-          currentPrice: product.currentPrice
+          price: product.price || 0,
+          currentPrice: product.currentPrice || 0
         }));
 
         setProducts(transformedProducts);
-        console.log('Products loaded from context:', transformedProducts.length);
-
-        // Update pagination info
         setProductsPagination({
           page: productContext.currentPage || 1,
-          limit: productContext.itemsPerPage || limit,
-          total: productContext.totalProducts || transformedProducts.length,
+          limit: productContext.itemsPerPage || 100,
+          total: productContext.totalProducts || 0,
           totalPages: productContext.totalPages || 1
         });
+
+        console.log('Products loaded from context:', transformedProducts.length);
       } else {
         console.log('No products in context, fetching from API...');
 
         // If no products in context, try to fetch them
-        if (productContext && typeof productContext.fetchLightProducts === 'function') {
-          await productContext.fetchLightProducts(page, limit, search);
+        if (productContext && typeof productContext.fetchProducts === 'function') {
+          await productContext.fetchProducts(page, limit, search);
 
           // After fetching, check if we have products now
           if (productContext.products && productContext.products.length > 0) {
@@ -306,80 +305,88 @@ export const useVoucherSelections = (): UseVoucherSelectionsResult => {
               name: product.name || '',
               sku: product.sku || '',
               status: product.status || 'active',
-              price: product.price,
-              currentPrice: product.currentPrice
+              price: product.price || 0,
+              currentPrice: product.currentPrice || 0
             }));
 
             setProducts(transformedProducts);
-            console.log('Products loaded after context fetch:', transformedProducts.length);
-
-            // Update pagination info
             setProductsPagination({
               page: productContext.currentPage || 1,
-              limit: productContext.itemsPerPage || limit,
-              total: productContext.totalProducts || transformedProducts.length,
+              limit: productContext.itemsPerPage || 100,
+              total: productContext.totalProducts || 0,
               totalPages: productContext.totalPages || 1
             });
-          } else {
-            // If still no products, use mock data
-            console.warn('No products found in context after fetch, using mock data');
-            const mockProducts = [
-              { _id: 'prod1', name: 'Smartphone X', sku: 'SP-001', status: 'active' },
-              { _id: 'prod2', name: 'Laptop Pro', sku: 'LP-002', status: 'active' },
-              { _id: 'prod3', name: 'Wireless Headphones', sku: 'WH-003', status: 'active' },
-              { _id: 'prod4', name: 'Smart Watch', sku: 'SW-004', status: 'active' },
-              { _id: 'prod5', name: 'Bluetooth Speaker', sku: 'BS-005', status: 'active' }
-            ];
-            setProducts(mockProducts);
-            setProductsPagination({
-              page: 1,
-              limit: limit,
-              total: mockProducts.length,
-              totalPages: 1
-            });
+
+            console.log('Products loaded after context fetch:', transformedProducts.length);
           }
-        } else {
-          // If no fetchProducts function in context, use mock data
-          console.warn('No fetchLightProducts function in context, using mock data');
-          const mockProducts = [
-            { _id: 'prod1', name: 'Smartphone X', sku: 'SP-001', status: 'active' },
-            { _id: 'prod2', name: 'Laptop Pro', sku: 'LP-002', status: 'active' },
-            { _id: 'prod3', name: 'Wireless Headphones', sku: 'WH-003', status: 'active' },
-            { _id: 'prod4', name: 'Smart Watch', sku: 'SW-004', status: 'active' },
-            { _id: 'prod5', name: 'Bluetooth Speaker', sku: 'BS-005', status: 'active' }
-          ];
-          setProducts(mockProducts);
-          setProductsPagination({
-            page: 1,
-            limit: limit,
-            total: mockProducts.length,
-            totalPages: 1
-          });
         }
       }
     } catch (error: any) {
       console.error('Error fetching products:', error);
       setProductsError(error.message || 'Failed to fetch products');
-
-      // Use mock data as fallback in case of error
-      const mockProducts = [
-        { _id: 'prod1', name: 'Smartphone X', sku: 'SP-001', status: 'active' },
-        { _id: 'prod2', name: 'Laptop Pro', sku: 'LP-002', status: 'active' },
-        { _id: 'prod3', name: 'Wireless Headphones', sku: 'WH-003', status: 'active' },
-        { _id: 'prod4', name: 'Smart Watch', sku: 'SW-004', status: 'active' },
-        { _id: 'prod5', name: 'Bluetooth Speaker', sku: 'BS-005', status: 'active' }
-      ];
-      setProducts(mockProducts);
-      setProductsPagination({
-        page: 1,
-        limit: limit,
-        total: mockProducts.length,
-        totalPages: 1
-      });
     } finally {
       setProductsLoading(false);
     }
   }, [productContext]);
+
+  // Sử dụng useEffect với điều kiện để tránh vòng lặp vô hạn
+  useEffect(() => {
+    let mounted = true;
+
+    // Chỉ fetch dữ liệu khi component mount lần đầu
+    const initializeData = async () => {
+      try {
+        // Fetch brands nếu chưa có trong state và context có sẵn dữ liệu
+        if (mounted && brands.length === 0 && brandContext?.brands?.length > 0) {
+          await fetchBrands();
+        }
+
+        // Fetch categories nếu chưa có trong state và context có sẵn dữ liệu
+        if (mounted && categories.length === 0 && categoryContext?.categories?.length > 0) {
+          await fetchCategories();
+        }
+
+        // Fetch products nếu chưa có trong state và context có sẵn dữ liệu
+        if (mounted && products.length === 0 && productContext?.products?.length > 0) {
+          await fetchProducts();
+        }
+      } catch (error) {
+        console.error('Lỗi khi khởi tạo dữ liệu:', error);
+      }
+    };
+
+    initializeData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []); // Chỉ chạy một lần khi component mount
+
+  // Theo dõi thay đổi từ context và cập nhật state khi cần
+  useEffect(() => {
+    // Chỉ cập nhật nếu dữ liệu thực sự thay đổi và khác với state hiện tại
+    if (brandContext?.brands?.length > 0 && 
+        !brandsLoading && 
+        JSON.stringify(brandContext.brands) !== JSON.stringify(brands)) {
+      fetchBrands();
+    }
+  }, [brandContext?.brands, brandsLoading]);
+
+  useEffect(() => {
+    if (categoryContext?.categories?.length > 0 && 
+        !categoriesLoading && 
+        JSON.stringify(categoryContext.categories) !== JSON.stringify(categories)) {
+      fetchCategories();
+    }
+  }, [categoryContext?.categories, categoriesLoading]);
+
+  useEffect(() => {
+    if (productContext?.products?.length > 0 && 
+        !productsLoading && 
+        JSON.stringify(productContext.products) !== JSON.stringify(products)) {
+      fetchProducts();
+    }
+  }, [productContext?.products, productsLoading]);
 
   return {
     brands,
