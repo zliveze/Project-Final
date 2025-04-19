@@ -73,7 +73,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     // Xử lý nested object (socialMedia)
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
@@ -114,7 +114,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       console.log('Selected file:', file.name, 'size:', file.size, 'type:', file.type);
-      
+
       // Kiểm tra kích thước file, giới hạn 5MB
       if (file.size > 5 * 1024 * 1024) {
         setErrors(prev => ({
@@ -123,7 +123,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
         }));
         return;
       }
-      
+
       // Kiểm tra định dạng file
       if (!file.type.match(/image\/(jpeg|jpg|png|gif)$/)) {
         setErrors(prev => ({
@@ -132,11 +132,11 @@ const BrandForm: React.FC<BrandFormProps> = ({
         }));
         return;
       }
-      
+
       // Tạo URL để xem trước ảnh
       const previewUrl = URL.createObjectURL(file);
       setLogoPreview(previewUrl);
-      
+
       // Lưu file để khi submit form sẽ gửi file trực tiếp lên server
       setFormData(prev => ({
         ...prev,
@@ -146,7 +146,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
           alt: prev.logo?.alt || file.name
         }
       }));
-      
+
       // Xóa lỗi nếu có
       if (errors.logo) {
         setErrors(prev => ({
@@ -160,15 +160,15 @@ const BrandForm: React.FC<BrandFormProps> = ({
   // Xử lý validation
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.name || formData.name.trim() === '') {
       newErrors.name = 'Tên thương hiệu không được để trống';
     }
-    
+
     if (!formData.description || formData.description.trim() === '') {
       newErrors.description = 'Mô tả thương hiệu không được để trống';
     }
-    
+
     if (formData.website && !isValidURL(formData.website)) {
       newErrors.website = 'URL website không hợp lệ';
     }
@@ -184,7 +184,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
     if (formData.socialMedia?.youtube && !isValidURL(formData.socialMedia.youtube)) {
       newErrors['socialMedia.youtube'] = 'URL Youtube không hợp lệ';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -202,28 +202,28 @@ const BrandForm: React.FC<BrandFormProps> = ({
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       onSubmit(formData);
     }
   };
 
   return (
-    <motion.form 
+    <motion.form
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      onSubmit={handleSubmit} 
-      className="space-y-6 bg-white rounded-xl shadow-sm border border-gray-100"
+      onSubmit={handleSubmit}
+      className="space-y-6 bg-white rounded-lg shadow-sm border border-gray-100"
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cột trái: Logo thương hiệu và Mạng xã hội */}
-        <div className="col-span-1 lg:col-span-1 p-4 border-r border-gray-100">
+        <div className="col-span-1 lg:col-span-1 p-5 border-r border-gray-100">
           {/* Logo thương hiệu */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Logo thương hiệu</h3>
+            <h3 className="text-base font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">Logo thương hiệu</h3>
             <div className="flex flex-col items-center">
-              <div className="relative w-40 h-40 mb-4 overflow-hidden rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 transition-all hover:border-pink-300 group">
+              <div className="relative w-40 h-40 mb-4 overflow-hidden rounded-lg border border-gray-200 flex items-center justify-center bg-gray-50 transition-all hover:border-pink-300 group">
                 {logoPreview ? (
                   <Image
                     src={logoPreview}
@@ -238,7 +238,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
                     <p>Chưa có hình ảnh</p>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <label className="cursor-pointer bg-white text-pink-600 hover:bg-pink-50 px-3 py-1.5 rounded-md transition duration-150 font-medium text-sm flex items-center">
                     <FiUpload className="mr-1.5" />
                     Tải lên
@@ -251,7 +251,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
                   </label>
                 </div>
               </div>
-              
+
               <label className="cursor-pointer bg-pink-600 text-white hover:bg-pink-700 px-3 py-1.5 rounded-md transition duration-150 font-medium text-sm flex items-center w-fit">
                 <FiUpload className="mr-1.5" />
                 Tải lên logo
@@ -269,11 +269,11 @@ const BrandForm: React.FC<BrandFormProps> = ({
               {errors.logo && <p className="mt-1 text-sm text-red-600">{errors.logo}</p>}
             </div>
           </div>
-          
+
           {/* Mạng xã hội */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Mạng xã hội</h3>
-            
+            <h3 className="text-base font-medium text-gray-800 mb-4 border-b border-gray-100 pb-2">Mạng xã hội</h3>
+
             <div className="space-y-4">
               {/* Facebook */}
               <div className="space-y-2">
@@ -292,8 +292,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                     onChange={handleChange}
                     placeholder="https://facebook.com/yourbrand"
                     className={`w-full pl-10 pr-4 py-2.5 border ${
-                      errors['socialMedia.facebook'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                      errors['socialMedia.facebook'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                    } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
                   />
                 </div>
                 {errors['socialMedia.facebook'] && <p className="text-sm text-red-600">{errors['socialMedia.facebook']}</p>}
@@ -316,8 +316,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                     onChange={handleChange}
                     placeholder="https://instagram.com/yourbrand"
                     className={`w-full pl-10 pr-4 py-2.5 border ${
-                      errors['socialMedia.instagram'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                      errors['socialMedia.instagram'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                    } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
                   />
                 </div>
                 {errors['socialMedia.instagram'] && <p className="text-sm text-red-600">{errors['socialMedia.instagram']}</p>}
@@ -340,8 +340,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                     onChange={handleChange}
                     placeholder="https://youtube.com/c/yourbrand"
                     className={`w-full pl-10 pr-4 py-2.5 border ${
-                      errors['socialMedia.youtube'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                    } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                      errors['socialMedia.youtube'] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                    } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
                   />
                 </div>
                 {errors['socialMedia.youtube'] && <p className="text-sm text-red-600">{errors['socialMedia.youtube']}</p>}
@@ -349,13 +349,13 @@ const BrandForm: React.FC<BrandFormProps> = ({
             </div>
           </div>
         </div>
-        
+
         {/* Cột phải: Thông tin thương hiệu và Trạng thái */}
-        <div className="col-span-1 lg:col-span-1 p-4">
+        <div className="col-span-1 lg:col-span-1 p-5">
           {/* Thông tin thương hiệu */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Thông tin thương hiệu</h3>
-          
+            <h3 className="text-base font-medium text-gray-800 mb-4 border-b border-gray-100 pb-2">Thông tin thương hiệu</h3>
+
             {/* Tên thương hiệu */}
             <div className="space-y-2 mb-4">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -369,8 +369,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                 onChange={handleChange}
                 placeholder="Nhập tên thương hiệu"
                 className={`w-full px-4 py-2 border ${
-                  errors.name ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                  errors.name ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
               />
               {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
             </div>
@@ -387,7 +387,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
                 value={formData.origin || ''}
                 onChange={handleChange}
                 placeholder="Ví dụ: Hàn Quốc, Nhật Bản, Pháp..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                className="w-full px-4 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
               />
             </div>
 
@@ -404,8 +404,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                 rows={3}
                 placeholder="Nhập mô tả chi tiết về thương hiệu"
                 className={`w-full px-4 py-2 border ${
-                  errors.description ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                  errors.description ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
               />
               {errors.description && <p className="text-sm text-red-600">{errors.description}</p>}
             </div>
@@ -427,8 +427,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
                   onChange={handleChange}
                   placeholder="https://example.com"
                   className={`w-full pl-10 pr-4 py-2 border ${
-                    errors.website ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-300'
-                  } rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
+                    errors.website ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200'
+                  } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all`}
                 />
               </div>
               {errors.website && <p className="text-sm text-red-600">{errors.website}</p>}
@@ -437,8 +437,8 @@ const BrandForm: React.FC<BrandFormProps> = ({
 
           {/* Trạng thái */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Trạng thái</h3>
-            
+            <h3 className="text-base font-medium text-gray-800 mb-4 border-b border-gray-100 pb-2">Trạng thái</h3>
+
             {/* Trạng thái hoạt động */}
             <div className="space-y-2 mb-4">
               <label htmlFor="status" className="block text-sm font-medium text-gray-700">
@@ -449,16 +449,16 @@ const BrandForm: React.FC<BrandFormProps> = ({
                 name="status"
                 value={formData.status || 'active'}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none bg-white transition-all"
+                className="w-full px-4 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 appearance-none bg-white transition-all"
               >
                 <option value="active">Hoạt động</option>
                 <option value="inactive">Không hoạt động</option>
               </select>
             </div>
-            
+
             {/* Featured checkbox */}
             <div className="mb-4">
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
                 <input
                   id="featured"
                   name="featured"
@@ -480,12 +480,12 @@ const BrandForm: React.FC<BrandFormProps> = ({
       </div>
 
       {/* Form actions */}
-      <div className="flex justify-end space-x-4 pt-4 border-t border-gray-100 px-4">
+      <div className="flex justify-end space-x-4 pt-4 border-t border-gray-100 px-5 py-4">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all"
+          className="inline-flex items-center px-4 py-2 border border-gray-200 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all"
         >
           <FiX className="mr-2 -ml-1 h-5 w-5" />
           Hủy
@@ -493,7 +493,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
         <button
           type="submit"
           disabled={isSubmitting}
-          className={`inline-flex items-center px-6 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isSubmitting ? 'bg-pink-400' : 'bg-pink-600 hover:bg-pink-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all`}
+          className={`inline-flex items-center px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isSubmitting ? 'bg-pink-400' : 'bg-pink-600 hover:bg-pink-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all`}
         >
           <FiSave className="mr-2 -ml-1 h-5 w-5" />
           {isSubmitting ? 'Đang lưu...' : 'Lưu thương hiệu'}

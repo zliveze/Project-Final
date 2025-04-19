@@ -48,8 +48,8 @@ const BrandEditModal: React.FC<BrandEditModalProps> = ({ brand, isOpen, onClose,
           &#8203;
         </span>
 
-        <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-sm transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
@@ -63,12 +63,12 @@ const BrandEditModal: React.FC<BrandEditModalProps> = ({ brand, isOpen, onClose,
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
-          <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-              <FiEdit2 className="text-blue-600" />
+
+          <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
+            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
+              <FiEdit2 className="text-pink-600" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-lg font-medium text-gray-900">
               Chỉnh sửa thương hiệu: {brand.name}
             </h2>
           </div>
@@ -87,4 +87,4 @@ const BrandEditModal: React.FC<BrandEditModalProps> = ({ brand, isOpen, onClose,
   );
 };
 
-export default BrandEditModal; 
+export default BrandEditModal;

@@ -30,6 +30,10 @@ interface BrandTableProps {
   totalPages: number;
   totalItems: number;
   onPageChange: (page: number) => void;
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
 }
 
 const BrandTable: FC<BrandTableProps> = ({
@@ -42,12 +46,14 @@ const BrandTable: FC<BrandTableProps> = ({
   currentPage,
   totalPages,
   totalItems,
-  onPageChange
+  onPageChange,
+  searchTerm,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange
 }) => {
   const { toggleBrandStatus, toggleBrandFeatured } = useBrands();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
 
   const handleToggleStatus = async (id: string) => {
     setUpdatingId(id);
@@ -73,49 +79,36 @@ const BrandTable: FC<BrandTableProps> = ({
     }
   };
 
-  // Lọc brands theo tìm kiếm và trạng thái
-  const filteredBrands = useMemo(() => {
-    return brands.filter(brand => {
-      const matchesSearch = brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (brand.origin && brand.origin.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      if (statusFilter === 'all') return matchesSearch;
-      if (statusFilter === 'active') return matchesSearch && brand.status === 'active';
-      if (statusFilter === 'inactive') return matchesSearch && brand.status === 'inactive';
-      if (statusFilter === 'featured') return matchesSearch && brand.featured;
-      
-      return matchesSearch;
-    });
-  }, [brands, searchTerm, statusFilter]);
+  // Không cần lọc brands nữa vì đã được lọc từ API
 
   return (
-    <div className="bg-white overflow-hidden shadow-lg rounded-lg border border-gray-200">
+    <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-100">
       <div className="p-6">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0 mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Danh sách thương hiệu</h2>
-          
+          <h2 className="text-xl font-medium text-gray-800">Danh sách thương hiệu</h2>
+
           <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="h-5 w-5 text-gray-400" />
+                <FiSearch className="h-4 w-4 text-gray-400" />
               </div>
               <input
                 type="text"
                 placeholder="Tìm kiếm thương hiệu..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors"
               />
             </div>
-            
+
             <div className="relative inline-block">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiFilter className="h-5 w-5 text-gray-400" />
+                <FiFilter className="h-4 w-4 text-gray-400" />
               </div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                onChange={(e) => onStatusFilterChange(e.target.value)}
+                className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-md leading-5 bg-white focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm appearance-none transition-colors"
               >
                 <option value="all">Tất cả</option>
                 <option value="active">Đang hoạt động</option>
@@ -125,16 +118,16 @@ const BrandTable: FC<BrandTableProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="flex justify-end mb-4">
           <div className="flex items-center">
-            <label htmlFor="itemsPerPage" className="mr-2 text-sm font-medium text-gray-700">
+            <label htmlFor="itemsPerPage" className="mr-2 text-sm font-medium text-gray-600">
               Hiển thị:
             </label>
             <select
               id="itemsPerPage"
               name="itemsPerPage"
-              className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-pink-500 focus:outline-none focus:ring-pink-500 sm:text-sm"
+              className="rounded-md border border-gray-200 py-1.5 pl-3 pr-8 text-sm focus:border-pink-500 focus:outline-none focus:ring-pink-500 appearance-none transition-colors"
               value={itemsPerPage}
               onChange={onItemsPerPageChange}
             >
@@ -145,111 +138,115 @@ const BrandTable: FC<BrandTableProps> = ({
             </select>
           </div>
         </div>
-      
+
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-300">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+          <table className="min-w-full divide-y divide-gray-200">
+        <thead>
+          <tr className="bg-gray-50">
+            <th scope="col" className="py-3 pl-4 pr-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:pl-6">
               Tên thương hiệu
             </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Logo
             </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Xuất xứ
             </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Nổi bật
             </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Trạng thái
             </th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Ngày tạo
             </th>
-            <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+            <th scope="col" className="relative py-3 pl-3 pr-4 sm:pr-6">
               <span className="sr-only">Hành động</span>
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          {filteredBrands.length === 0 ? (
+        <tbody className="bg-white divide-y divide-gray-200">
+          {brands.length === 0 ? (
             <tr>
               <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                 Không có dữ liệu
               </td>
             </tr>
           ) : (
-            filteredBrands.map((brand) => (
-              <tr key={brand.id} className={updatingId === brand.id ? 'bg-gray-50' : ''}>
-                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 border-b border-gray-200">
+            brands.map((brand) => (
+              <tr key={brand.id} className={updatingId === brand.id ? 'bg-gray-50' : 'hover:bg-gray-50 transition-colors'} >
+                <td className="whitespace-nowrap py-3.5 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                   {brand.name}
                 </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 border-b border-gray-200">
+                <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">
                   {brand.logo?.url ? (
-                    <Image
-                      src={brand.logo.url}
-                      alt={brand.logo.alt || brand.name}
-                      width={40}
-                      height={40}
-                      className="object-contain rounded"
-                    />
+                    <div className="h-10 w-10 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center overflow-hidden">
+                      <Image
+                        src={brand.logo.url}
+                        alt={brand.logo.alt || brand.name}
+                        width={36}
+                        height={36}
+                        className="object-contain"
+                      />
+                    </div>
                   ) : (
-                    <span className="text-xs text-gray-400">No logo</span>
+                    <div className="h-10 w-10 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center">
+                      <span className="text-xs text-gray-400">No logo</span>
+                    </div>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 border-b border-gray-200">{brand.origin || '-'}</td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 border-b border-gray-200">
+                <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">{brand.origin || '-'}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">
                   <button
                     type="button"
                     onClick={() => handleToggleFeatured(brand.id)}
                     disabled={updatingId !== null}
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                       brand.featured
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-gray-50 text-gray-600 border border-gray-200'
+                    } transition-colors`}
                   >
                     <FiStar
-                      className={`mr-1 h-4 w-4 ${brand.featured ? 'fill-yellow-500' : ''}`}
+                      className={`mr-1 h-3 w-3 ${brand.featured ? 'text-amber-500' : ''}`}
                     />
                     {brand.featured ? 'Nổi bật' : 'Bình thường'}
                   </button>
                 </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 border-b border-gray-200">
+                <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(brand.id)}
                     disabled={updatingId !== null}
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                       brand.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    } transition-colors`}
                   >
                     {brand.status === 'active' ? (
                       <>
-                        <FiCheck className="mr-1 h-4 w-4" />
+                        <FiCheck className="mr-1 h-3 w-3" />
                         Hoạt động
                       </>
                     ) : (
                       <>
-                        <FiX className="mr-1 h-4 w-4" />
+                        <FiX className="mr-1 h-3 w-3" />
                         Tạm ngưng
                       </>
                     )}
                   </button>
                 </td>
-                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 border-b border-gray-200">
+                <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">
                   {formatDate(brand.createdAt)}
                 </td>
-                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 border-b border-gray-200">
-                  <div className="flex justify-end space-x-2">
+                <td className="relative whitespace-nowrap py-3.5 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                  <div className="flex justify-end space-x-1">
                     <button
                       type="button"
                       onClick={() => onView(brand.id)}
-                      className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors"
                       title="Xem chi tiết"
                     >
                       <FiEye className="h-4 w-4" />
@@ -258,7 +255,7 @@ const BrandTable: FC<BrandTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onEdit(brand.id)}
-                      className="text-blue-600 hover:text-blue-900 bg-blue-50 p-1.5 rounded-full hover:bg-blue-100 transition-colors ml-2"
+                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors"
                       title="Chỉnh sửa"
                     >
                       <FiEdit2 className="h-4 w-4" />
@@ -267,7 +264,7 @@ const BrandTable: FC<BrandTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onDelete(brand.id)}
-                      className="text-red-600 hover:text-red-900 bg-red-50 p-1.5 rounded-full hover:bg-red-100 transition-colors ml-2"
+                      className="text-gray-600 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition-colors"
                       title="Xóa"
                     >
                       <FiTrash2 className="h-4 w-4" />
@@ -281,9 +278,9 @@ const BrandTable: FC<BrandTableProps> = ({
           </tbody>
         </table>
         </div>
-      
+
         {/* Phân trang */}
-        <div className="mt-6 px-4 py-4 border-t border-gray-200">
+        <div className="mt-6 px-4 py-4 border-t border-gray-100">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -300,4 +297,4 @@ const BrandTable: FC<BrandTableProps> = ({
   );
 };
 
-export default BrandTable; 
+export default BrandTable;

@@ -12,7 +12,7 @@ interface BrandDeleteModalProps {
 const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onClose, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
     if (isOpen) {
@@ -26,7 +26,7 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
 
   const handleDelete = async () => {
     if (!brand) return;
-    
+
     setIsDeleting(true);
     try {
       await onDelete(brand.id);
@@ -50,8 +50,8 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
           &#8203;
         </span>
 
-        <div 
-          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full ${
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-sm transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full ${
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
@@ -65,12 +65,12 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
+
           <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center">
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
               <FiTrash2 className="text-red-600" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-lg font-medium text-gray-900">
               Xóa thương hiệu
             </h2>
           </div>
@@ -82,23 +82,23 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
               </div>
               <div className="ml-3">
                 <p className="text-sm text-gray-600">
-                  Bạn có chắc chắn muốn xóa thương hiệu <span className="font-medium text-gray-900">{brand.name}</span>? 
+                  Bạn có chắc chắn muốn xóa thương hiệu <span className="font-medium text-gray-900">{brand.name}</span>?
                   Hành động này không thể hoàn tác và có thể ảnh hưởng đến các sản phẩm thuộc thương hiệu này.
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-5 flex justify-end space-x-3">
               <button
                 type="button"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-200 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors"
                 onClick={onClose}
               >
                 Hủy
               </button>
               <button
                 type="button"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                 onClick={handleDelete}
                 disabled={isDeleting}
               >
