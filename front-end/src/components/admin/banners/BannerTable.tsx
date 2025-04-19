@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import { 
+import {
   FiEye,
   FiEdit2,
   FiTrash2,
@@ -10,12 +10,14 @@ import {
   FiToggleRight,
   FiCalendar,
   FiLink,
-  FiClock
+  FiClock,
+  FiTag
 } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Banner as BannerType } from '@/contexts/BannerContext';
 import { Banner } from '@/components/admin/banners/BannerForm';
+import { useCampaign } from '@/contexts/CampaignContext';
 
 interface BannerTableProps {
   banners: BannerType[];
@@ -34,6 +36,14 @@ const BannerTable: React.FC<BannerTableProps> = ({
   onToggleStatus,
   onChangeOrder
 }) => {
+  // Sử dụng CampaignContext để lấy thông tin chiến dịch
+  const { activeCampaigns } = useCampaign();
+
+  // Hàm lấy tên chiến dịch từ campaignId
+  const getCampaignTitle = (campaignId: string) => {
+    const campaign = activeCampaigns.find(c => c._id === campaignId);
+    return campaign ? campaign.title : campaignId;
+  };
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return '-';
     try {
@@ -48,23 +58,23 @@ const BannerTable: React.FC<BannerTableProps> = ({
     const now = new Date();
     const startDate = banner.startDate ? new Date(banner.startDate) : null;
     const endDate = banner.endDate ? new Date(banner.endDate) : null;
-    
+
     if (!banner.active) {
       return { status: 'inactive', message: 'Đã ẩn', color: 'gray' };
     }
-    
+
     if (startDate && now < startDate) {
       return { status: 'pending', message: 'Chờ hiển thị', color: 'yellow' };
     }
-    
+
     if (endDate && now > endDate) {
       return { status: 'expired', message: 'Hết hạn', color: 'red' };
     }
-    
+
     if ((!startDate || now >= startDate) && (!endDate || now <= endDate)) {
       return { status: 'active', message: 'Đang hiển thị', color: 'green' };
     }
-    
+
     return { status: 'unknown', message: 'Không xác định', color: 'gray' };
   };
 
@@ -122,9 +132,9 @@ const BannerTable: React.FC<BannerTableProps> = ({
                     <div className="text-sm">
                       <div className="flex items-center text-gray-500 mb-1">
                         <FiLink className="mr-1 h-4 w-4" />
-                        <a 
-                          href={banner.href} 
-                          target="_blank" 
+                        <a
+                          href={banner.href}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-pink-600 truncate max-w-xs"
                         >
@@ -132,8 +142,9 @@ const BannerTable: React.FC<BannerTableProps> = ({
                         </a>
                       </div>
                       <div className="flex items-center text-gray-500">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100">
-                          {banner.campaignId}
+                        <FiTag className="mr-1 h-4 w-4" />
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                          {banner.campaignId ? getCampaignTitle(banner.campaignId) : 'Không có chiến dịch'}
                         </span>
                       </div>
                     </div>
@@ -180,7 +191,7 @@ const BannerTable: React.FC<BannerTableProps> = ({
                           </>
                         )}
                       </button>
-                      
+
                       <span className={`inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium
                         ${timeStatus.color === 'green' ? 'bg-green-100 text-green-800' :
                           timeStatus.color === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
@@ -248,4 +259,4 @@ const BannerTable: React.FC<BannerTableProps> = ({
   );
 };
 
-export default BannerTable; 
+export default BannerTable;

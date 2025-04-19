@@ -1,15 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { FiExternalLink, FiCalendar, FiTag, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiLink, FiLayers, FiImage } from 'react-icons/fi';
+import { FiExternalLink, FiCalendar, FiTag, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiLink, FiLayers, FiImage, FiInfo } from 'react-icons/fi';
 import { Banner } from './BannerForm';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useCampaign } from '@/contexts/CampaignContext';
+import { Campaign } from '@/contexts/CampaignContext';
 
 interface BannerDetailProps {
   banner: Banner;
 }
 
 const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
+  const { activeCampaigns, fetchActiveCampaigns } = useCampaign();
+  const [campaignInfo, setCampaignInfo] = useState<Campaign | null>(null);
+
+  // Lấy thông tin chiến dịch khi component mount
+  useEffect(() => {
+    const loadCampaignInfo = async () => {
+      if (banner.campaignId) {
+        // Nếu đã có danh sách campaigns, tìm trong đó
+        if (activeCampaigns.length > 0) {
+          const campaign = activeCampaigns.find(c => c._id === banner.campaignId);
+          setCampaignInfo(campaign || null);
+        } else {
+          // Nếu chưa có, fetch danh sách campaigns trước
+          await fetchActiveCampaigns();
+        }
+      }
+    };
+
+    loadCampaignInfo();
+  }, [banner.campaignId, activeCampaigns, fetchActiveCampaigns]);
+
+  // Cập nhật campaignInfo khi activeCampaigns thay đổi
+  useEffect(() => {
+    if (banner.campaignId && activeCampaigns.length > 0) {
+      const campaign = activeCampaigns.find(c => c._id === banner.campaignId);
+      setCampaignInfo(campaign || null);
+    }
+  }, [activeCampaigns, banner.campaignId]);
+
   // Format date
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return 'N/A';
@@ -21,26 +52,26 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
     const now = new Date();
     const startDate = banner.startDate ? new Date(banner.startDate) : null;
     const endDate = banner.endDate ? new Date(banner.endDate) : null;
-    
+
     if (!banner.active) {
       return { status: 'inactive', message: 'Banner đang bị tắt (không hoạt động)', color: 'gray' };
     }
-    
+
     if (startDate && now < startDate) {
       return { status: 'pending', message: 'Banner sẽ hiển thị khi đến thời gian bắt đầu', color: 'yellow' };
     }
-    
+
     if (endDate && now > endDate) {
       return { status: 'expired', message: 'Banner đã hết thời gian hiển thị', color: 'red' };
     }
-    
+
     if ((!startDate || now >= startDate) && (!endDate || now <= endDate)) {
       return { status: 'active', message: 'Banner đang trong thời gian hiển thị', color: 'green' };
     }
-    
+
     return { status: 'unknown', message: 'Không xác định được trạng thái', color: 'gray' };
   };
-  
+
   const timeStatus = getTimeBasedStatus();
 
   return (
@@ -60,8 +91,26 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
               <label className="block text-sm font-medium text-gray-500">Chiến dịch</label>
               <div className="mt-1 flex items-center">
                 <FiTag className="h-4 w-4 text-gray-400 mr-1" />
-                <span className="text-sm text-gray-900">{banner.campaignId}</span>
+                <span className="text-sm text-gray-900 font-medium">
+                  {campaignInfo ? campaignInfo.title : banner.campaignId || 'Không có chiến dịch'}
+                </span>
               </div>
+              {campaignInfo && (
+                <div className="mt-2 text-xs text-gray-500">
+                  <div className="flex items-center mt-1">
+                    <FiInfo className="h-3 w-3 text-gray-400 mr-1" />
+                    <span>Loại: {campaignInfo.type}</span>
+                  </div>
+                  <div className="flex items-center mt-1">
+                    <FiCalendar className="h-3 w-3 text-gray-400 mr-1" />
+                    <span>Từ: {formatDate(campaignInfo.startDate)}</span>
+                  </div>
+                  <div className="flex items-center mt-1">
+                    <FiCalendar className="h-3 w-3 text-gray-400 mr-1" />
+                    <span>Đến: {formatDate(campaignInfo.endDate)}</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-500">Thứ tự hiển thị</label>
@@ -74,9 +123,9 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
               <label className="block text-sm font-medium text-gray-500">Đường dẫn</label>
               <div className="mt-1 flex items-center">
                 <FiLink className="h-4 w-4 text-gray-400 mr-1" />
-                <a 
-                  href={banner.href} 
-                  target="_blank" 
+                <a
+                  href={banner.href}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800 truncate"
                 >
@@ -109,7 +158,7 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
               />
             </div>
           </div>
-          
+
           <div>
             <div className="flex items-center mb-2">
               <FiImage className="h-4 w-4 text-gray-400 mr-1" />
@@ -191,4 +240,4 @@ const BannerDetail: React.FC<BannerDetailProps> = ({ banner }) => {
   );
 };
 
-export default BannerDetail; 
+export default BannerDetail;

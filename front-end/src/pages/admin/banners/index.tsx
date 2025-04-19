@@ -7,7 +7,9 @@ import BannerModal from '@/components/admin/banners/BannerModal';
 import BannerForm from '@/components/admin/banners/BannerForm';
 import BannerDetail from '@/components/admin/banners/BannerDetail';
 import BannerDeleteConfirm from '@/components/admin/banners/BannerDeleteConfirm';
+import BannerSlugUpdater from '@/components/admin/banners/BannerSlugUpdater';
 import { useBanner } from '@/contexts/BannerContext';
+import { useCampaign } from '@/contexts/CampaignContext';
 import { toast } from 'react-hot-toast';
 import { Banner as BannerFormType } from '@/components/admin/banners/BannerForm';
 
@@ -21,25 +23,28 @@ enum ModalType {
 
 export default function AdminBanners() {
   const router = useRouter();
-  const { 
-    banners, 
-    loading, 
-    error, 
+  const {
+    banners,
+    loading,
+    error,
     statistics,
     totalBanners,
     currentPage,
     totalPages,
     itemsPerPage,
-    fetchBanners, 
-    fetchBannerById, 
-    createBanner, 
-    updateBanner, 
-    deleteBanner, 
-    toggleBannerStatus, 
+    fetchBanners,
+    fetchBannerById,
+    createBanner,
+    updateBanner,
+    deleteBanner,
+    toggleBannerStatus,
     changeBannerOrder,
     fetchStatistics
   } = useBanner();
-  
+
+  // Sử dụng CampaignContext để lấy danh sách campaigns
+  const { activeCampaigns, fetchActiveCampaigns } = useCampaign();
+
   const [currentBanner, setCurrentBanner] = useState<BannerFormType | null>(null);
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +60,7 @@ export default function AdminBanners() {
         console.log('Tải dữ liệu banner từ trang admin/banners');
         await fetchBanners();
         await fetchStatistics();
+        await fetchActiveCampaigns(); // Tải danh sách campaigns đang hoạt động
       } catch (error) {
         console.error('Lỗi khi tải dữ liệu banner:', error);
       }
@@ -167,7 +173,7 @@ export default function AdminBanners() {
   // Xử lý thêm mới banner
   const handleSubmitAdd = async (data: Partial<BannerFormType>) => {
     setIsSubmitting(true);
-    
+
     try {
       await createBanner(data);
       toast.success('Đã thêm banner mới');
@@ -183,9 +189,9 @@ export default function AdminBanners() {
   // Xử lý cập nhật banner
   const handleSubmitEdit = async (data: Partial<BannerFormType>) => {
     if (!currentBanner || !currentBanner._id) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       await updateBanner(currentBanner._id, data);
       toast.success('Đã cập nhật banner');
@@ -201,9 +207,9 @@ export default function AdminBanners() {
   // Xử lý xóa banner
   const handleConfirmDelete = async () => {
     if (!currentBanner || !currentBanner._id) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       await deleteBanner(currentBanner._id);
       toast.success('Đã xóa banner');
@@ -220,11 +226,11 @@ export default function AdminBanners() {
   const filteredBanners = banners.filter(banner => {
     const matchesSearch = banner.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (banner.campaignId?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' ? true : 
+    const matchesStatus = filterStatus === 'all' ? true :
                          filterStatus === 'active' ? banner.active : !banner.active;
-    const matchesCampaign = filterCampaign === 'all' ? true : 
+    const matchesCampaign = filterCampaign === 'all' ? true :
                            banner.campaignId === filterCampaign;
-    
+
     return matchesSearch && matchesStatus && matchesCampaign;
   });
 
@@ -241,7 +247,7 @@ export default function AdminBanners() {
             <BannerDetail banner={currentBanner as any} />
           </BannerModal>
         ) : null;
-        
+
       case ModalType.ADD:
         return (
           <BannerModal
@@ -258,7 +264,7 @@ export default function AdminBanners() {
             />
           </BannerModal>
         );
-        
+
       case ModalType.EDIT:
         return currentBanner ? (
           <BannerModal
@@ -276,7 +282,7 @@ export default function AdminBanners() {
             />
           </BannerModal>
         ) : null;
-        
+
       case ModalType.DELETE:
         return currentBanner ? (
           <BannerModal
@@ -289,7 +295,7 @@ export default function AdminBanners() {
             <BannerDeleteConfirm banner={currentBanner as any} />
           </BannerModal>
         ) : null;
-        
+
       default:
         return null;
     }
@@ -310,7 +316,7 @@ export default function AdminBanners() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -324,7 +330,7 @@ export default function AdminBanners() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -338,7 +344,7 @@ export default function AdminBanners() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -354,6 +360,9 @@ export default function AdminBanners() {
         </div>
       </div>
 
+      {/* Banner Slug Updater */}
+      <BannerSlugUpdater />
+
       {/* Search and Filter Section */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -367,7 +376,7 @@ export default function AdminBanners() {
             />
             <FiSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
-          
+
           <div>
             <select
               value={filterStatus}
@@ -379,7 +388,7 @@ export default function AdminBanners() {
               <option value="inactive">Đã ẩn</option>
             </select>
           </div>
-          
+
           <div>
             <select
               value={filterCampaign}
@@ -387,12 +396,12 @@ export default function AdminBanners() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-pink-500 focus:border-pink-500"
             >
               <option value="all">Tất cả chiến dịch</option>
-              {Array.from(new Set(banners.map(b => b.campaignId))).map(campaign => (
-                <option key={campaign} value={campaign}>{campaign}</option>
+              {activeCampaigns.map(campaign => (
+                <option key={campaign._id} value={campaign._id}>{campaign.title}</option>
               ))}
             </select>
           </div>
-          
+
           <div className="flex justify-end">
             <button
               onClick={handleAddBanner}
@@ -447,4 +456,4 @@ export default function AdminBanners() {
       {renderModal()}
     </AdminLayout>
   );
-} 
+}

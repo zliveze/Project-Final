@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { FiUpload, FiTrash2, FiLink, FiImage, FiLoader } from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiLink, FiImage, FiLoader, FiCalendar, FiInfo } from 'react-icons/fi';
 import { useBanner } from '@/contexts/BannerContext';
+import { useCampaign } from '@/contexts/CampaignContext';
 import { toast } from 'react-hot-toast';
 
 // Định nghĩa kiểu dữ liệu cho Banner
@@ -39,12 +40,7 @@ interface BannerFormProps {
   onCancel?: () => void;
 }
 
-const sampleCampaigns: Campaign[] = [
-  { _id: 'valentine-2024', title: 'Valentine - Chạm tim deal ngọt ngào', type: 'Hero Banner' },
-  { _id: 'tet-2024', title: 'Tết rộn ràng - Sale cực khủng', type: 'Hero Banner' },
-  { _id: 'new-year-2024', title: 'Năm mới - Deal hời', type: 'Hero Banner' },
-  { _id: 'beauty-special', title: 'Đẹp chuẩn - Giá tốt', type: 'Hero Banner' }
-];
+// Đã loại bỏ sampleCampaigns và sử dụng dữ liệu thực từ CampaignContext
 
 const BannerForm: React.FC<BannerFormProps> = ({
   initialData,
@@ -53,6 +49,8 @@ const BannerForm: React.FC<BannerFormProps> = ({
   onCancel
 }) => {
   const { uploadBannerImage } = useBanner();
+  const { activeCampaigns, fetchActiveCampaigns, isLoading: isLoadingCampaigns } = useCampaign();
+
   const [formData, setFormData] = useState<Partial<Banner>>({
     title: '',
     campaignId: '',
@@ -66,12 +64,12 @@ const BannerForm: React.FC<BannerFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [campaigns, setCampaigns] = useState<Campaign[]>(sampleCampaigns);
-  
+  const [selectedCampaignInfo, setSelectedCampaignInfo] = useState<Campaign | null>(null);
+
   // Preview images
   const [desktopPreview, setDesktopPreview] = useState<string | null>(formData.desktopImage || null);
   const [mobilePreview, setMobilePreview] = useState<string | null>(formData.mobileImage || null);
-  
+
   // Upload state
   const [isUploading, setIsUploading] = useState({
     desktop: false,
@@ -102,43 +100,55 @@ const BannerForm: React.FC<BannerFormProps> = ({
     const now = new Date();
     const startDate = formData.startDate ? new Date(formData.startDate) : null;
     const endDate = formData.endDate ? new Date(formData.endDate) : null;
-    
+
     if (!formData.active) {
       return { status: 'inactive', message: 'Banner đang bị tắt (không hoạt động)' };
     }
-    
+
     if (startDate && now < startDate) {
       return { status: 'pending', message: 'Banner sẽ hiển thị khi đến thời gian bắt đầu' };
     }
-    
+
     if (endDate && now > endDate) {
       return { status: 'expired', message: 'Banner đã hết thời gian hiển thị' };
     }
-    
+
     if ((!startDate || now >= startDate) && (!endDate || now <= endDate)) {
       return { status: 'active', message: 'Banner đang trong thời gian hiển thị' };
     }
-    
+
     return { status: 'unknown', message: 'Không xác định được trạng thái' };
   };
-  
+
   const timeStatus = getTimeBasedStatus();
 
-  // Update campaign link when campaignId changes
+  // Fetch campaigns when component mounts
+  useEffect(() => {
+    fetchActiveCampaigns();
+  }, [fetchActiveCampaigns]);
+
+  // Update campaign link and info when campaignId changes
   useEffect(() => {
     if (formData.campaignId) {
-      const href = `/shop?campaign=${formData.campaignId}`;
+      // Sử dụng campaignId thay vì campaign để phù hợp với URL lọc ở trang shop
+      const href = `/shop?campaignId=${formData.campaignId}`;
       setFormData(prev => ({
         ...prev,
         href
       }));
+
+      // Find selected campaign info
+      const campaign = activeCampaigns.find(c => c._id === formData.campaignId) || null;
+      setSelectedCampaignInfo(campaign);
+    } else {
+      setSelectedCampaignInfo(null);
     }
-  }, [formData.campaignId]);
+  }, [formData.campaignId, activeCampaigns]);
 
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: name === 'order' ? Number(value) : value
@@ -164,23 +174,23 @@ const BannerForm: React.FC<BannerFormProps> = ({
 
   // Upload ảnh trực tiếp lên Cloudinary thông qua API
   const handleCloudinaryUpload = async (
-    file: File, 
+    file: File,
     imageType: 'desktop' | 'mobile',
     preview: string
   ) => {
     try {
       // Bắt đầu uploading
       setIsUploading(prev => ({ ...prev, [imageType]: true }));
-      
+
       // Đọc file thành base64
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      
+
       reader.onload = async (event) => {
         if (!event.target?.result) return;
-        
+
         const base64Data = event.target.result.toString();
-        
+
         try {
           // Upload ảnh lên Cloudinary
           const uploadResult = await uploadBannerImage(
@@ -188,7 +198,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
             imageType,
             formData.campaignId
           );
-          
+
           // Cập nhật formData với URL và publicId từ Cloudinary
           setFormData(prev => ({
             ...prev,
@@ -196,10 +206,10 @@ const BannerForm: React.FC<BannerFormProps> = ({
             [`${imageType}ImagePublicId`]: uploadResult.publicId,
             [`${imageType}ImageData`]: ''  // Xóa dữ liệu base64 vì đã có URL
           }));
-          
+
           // Hiển thị thông báo thành công
           toast.success(`Đã tải lên ảnh ${imageType} thành công`);
-          
+
           // Clear error nếu có
           if (errors[`${imageType}Image`]) {
             setErrors(prev => ({ ...prev, [`${imageType}Image`]: '' }));
@@ -210,18 +220,18 @@ const BannerForm: React.FC<BannerFormProps> = ({
             ...prev,
             [`${imageType}Image`]: error.message || `Lỗi khi tải lên ảnh ${imageType}`
           }));
-          
+
           // Hiển thị thông báo lỗi
           toast.error(`Lỗi khi tải lên ảnh ${imageType}: ${error.message}`);
         }
       };
-      
+
       reader.onerror = () => {
         setErrors(prev => ({
           ...prev,
           [`${imageType}Image`]: `Lỗi khi đọc file ${file.name}`
         }));
-        
+
         toast.error(`Lỗi khi đọc file ${file.name}`);
       };
     } catch (error: any) {
@@ -260,7 +270,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
 
     // Tạo URL cho preview
     const previewUrl = URL.createObjectURL(file);
-    
+
     if (imageType === 'desktop') {
       setDesktopPreview(previewUrl);
     } else {
@@ -289,31 +299,31 @@ const BannerForm: React.FC<BannerFormProps> = ({
   // Validation form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.title || formData.title.trim() === '') {
       newErrors.title = 'Tiêu đề banner không được để trống';
     }
-    
+
     if (!formData.campaignId) {
       newErrors.campaignId = 'Vui lòng chọn chiến dịch';
     }
-    
+
     if (!formData.desktopImage) {
       newErrors.desktopImage = 'Vui lòng tải lên ảnh desktop';
     }
-    
+
     if (!formData.mobileImage) {
       newErrors.mobileImage = 'Vui lòng tải lên ảnh mobile';
     }
-    
+
     if (!formData.alt || formData.alt.trim() === '') {
       newErrors.alt = 'Mô tả alt không được để trống';
     }
-    
+
     if (!formData.href || formData.href.trim() === '') {
       newErrors.href = 'Đường dẫn không được để trống';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -321,20 +331,20 @@ const BannerForm: React.FC<BannerFormProps> = ({
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       // Chuẩn bị dữ liệu form để gửi đi, loại bỏ các trường tạm thời
       const submitData = { ...formData };
-      
+
       // Nếu đã upload riêng lẻ thì không gửi base64 data
       if (formData.desktopImage) {
         delete submitData.desktopImageData;
       }
-      
+
       if (formData.mobileImage) {
         delete submitData.mobileImageData;
       }
-      
+
       onSubmit(submitData);
     }
   };
@@ -365,23 +375,54 @@ const BannerForm: React.FC<BannerFormProps> = ({
           <label htmlFor="campaignId" className="block text-sm font-medium text-gray-700 mb-1">
             Chiến dịch liên kết <span className="text-red-500">*</span>
           </label>
-          <select
-            id="campaignId"
-            name="campaignId"
-            value={formData.campaignId || ''}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border ${
-              errors.campaignId ? 'border-red-300' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
-          >
-            <option value="">Chọn chiến dịch</option>
-            {campaigns.map(campaign => (
-              <option key={campaign._id} value={campaign._id}>
-                {campaign.title}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            {isLoadingCampaigns && (
+              <div className="absolute right-2 top-2.5">
+                <FiLoader className="animate-spin h-5 w-5 text-pink-500" />
+              </div>
+            )}
+            <select
+              id="campaignId"
+              name="campaignId"
+              value={formData.campaignId || ''}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border ${
+                errors.campaignId ? 'border-red-300' : 'border-gray-300'
+              } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
+              disabled={isLoadingCampaigns}
+            >
+              <option value="">Chọn chiến dịch</option>
+              {activeCampaigns.map(campaign => (
+                <option key={campaign._id} value={campaign._id}>
+                  {campaign.title} - {campaign.type}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.campaignId && <p className="mt-1 text-sm text-red-600">{errors.campaignId}</p>}
+
+          {/* Hiển thị thông tin về chiến dịch đã chọn */}
+          {selectedCampaignInfo && (
+            <div className="mt-2 p-2 bg-gray-50 rounded-md text-sm">
+              <div className="flex items-center text-gray-700 mb-1">
+                <FiInfo className="mr-1" />
+                <span className="font-medium">Thông tin chiến dịch:</span>
+              </div>
+              <div className="pl-5 space-y-1">
+                <div className="flex items-center">
+                  <FiCalendar className="mr-1 text-gray-500" />
+                  <span>Từ: {new Date(selectedCampaignInfo.startDate).toLocaleDateString('vi-VN')}</span>
+                </div>
+                <div className="flex items-center">
+                  <FiCalendar className="mr-1 text-gray-500" />
+                  <span>Đến: {new Date(selectedCampaignInfo.endDate).toLocaleDateString('vi-VN')}</span>
+                </div>
+                {selectedCampaignInfo.description && (
+                  <div className="text-gray-600 italic">"{selectedCampaignInfo.description}"</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Ảnh Desktop */}
@@ -402,11 +443,11 @@ const BannerForm: React.FC<BannerFormProps> = ({
               )}
               {!isUploading.desktop && desktopPreview ? (
                 <div className="relative">
-                  <Image 
-                    src={desktopPreview} 
-                    alt="Desktop preview" 
-                    width={600} 
-                    height={200} 
+                  <Image
+                    src={desktopPreview}
+                    alt="Desktop preview"
+                    width={600}
+                    height={200}
                     className="w-full h-auto object-cover rounded-md"
                   />
                   <button
@@ -463,11 +504,11 @@ const BannerForm: React.FC<BannerFormProps> = ({
               )}
               {!isUploading.mobile && mobilePreview ? (
                 <div className="relative">
-                  <Image 
-                    src={mobilePreview} 
-                    alt="Mobile preview" 
-                    width={300} 
-                    height={150} 
+                  <Image
+                    src={mobilePreview}
+                    alt="Mobile preview"
+                    width={300}
+                    height={150}
                     className="w-full h-auto object-cover rounded-md"
                   />
                   <button
@@ -617,7 +658,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
           />
         </div>
-        
+
         {/* Thông tin trạng thái hiển thị dựa trên thời gian */}
         <div className="col-span-3">
           <div className={`p-3 rounded-md mt-3 ${
@@ -690,4 +731,4 @@ const BannerForm: React.FC<BannerFormProps> = ({
   );
 };
 
-export default BannerForm; 
+export default BannerForm;
