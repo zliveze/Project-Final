@@ -141,7 +141,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
     if (!categories.length) fetchCategories(1, 100);
     if (!products.length) fetchProducts(1, 100);
     if (!campaigns.length) fetchCampaigns(1, 100);
-  }, [initialData, isEditMode, fetchBrands, fetchCategories, fetchProducts, fetchCampaigns, 
+  }, [initialData, isEditMode, fetchBrands, fetchCategories, fetchProducts, fetchCampaigns,
       brands.length, categories.length, products.length, campaigns.length]);
 
   // --- Form Validation ---
@@ -176,27 +176,25 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  // Placeholder functions for future implementation
-  // Specific handlers for brand, category, and product selection
+  // Handlers for brand, category, and product selection
   const handleSelectBrands = () => {
-    // Placeholder for future implementation
-    console.log('Chọn thương hiệu - tính năng đang được phát triển');
-    // Thông báo cho người dùng biết tính năng đang được phát triển
-    alert('Tính năng chọn thương hiệu đang được phát triển theo kế hoạch mới.');
+    setShowBrandsModal(true);
   };
 
   const handleSelectCategories = () => {
-    // Placeholder for future implementation
-    console.log('Chọn danh mục - tính năng đang được phát triển');
-    // Thông báo cho người dùng biết tính năng đang được phát triển
-    alert('Tính năng chọn danh mục đang được phát triển theo kế hoạch mới.');
+    setShowCategoriesModal(true);
   };
 
   const handleSelectProducts = () => {
-    // Placeholder for future implementation
-    console.log('Chọn sản phẩm - tính năng đang được phát triển');
-    // Thông báo cho người dùng biết tính năng đang được phát triển
-    alert('Tính năng chọn sản phẩm đang được phát triển theo kế hoạch mới.');
+    setShowProductsModal(true);
+  };
+
+  const handleSelectEvents = () => {
+    setShowEventsModal(true);
+  };
+
+  const handleSelectCampaigns = () => {
+    setShowCampaignsModal(true);
   };
 
 
@@ -387,7 +385,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   // Get selected events details for display in the list
   const getSelectedEvents = useCallback(() => {
     if (!events || !formData.applicableEvents) return [];
-    
+
     return events
       .filter(event => formData.applicableEvents?.includes(event._id))
       .map(event => ({
@@ -486,31 +484,31 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
         <h5 className="font-medium text-gray-700 mb-3 flex items-center text-sm"><FiUsers className="mr-2 text-pink-500" /> Đối tượng người dùng</h5>
         <div className="space-y-2">
           <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
-            <input 
-              type="radio" 
-              name="userTargeting" 
-              checked={formData.applicableUserGroups?.all || false} 
-              onChange={() => handleUserGroupChange('all')} 
+            <input
+              type="radio"
+              name="userTargeting"
+              checked={formData.applicableUserGroups?.all || false}
+              onChange={() => handleUserGroupChange('all')}
               className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
             />
             <span className="ml-2 text-sm text-gray-800">Tất cả người dùng</span>
           </label>
           <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
-            <input 
-              type="radio" 
-              name="userTargeting" 
-              checked={formData.applicableUserGroups?.new || false} 
-              onChange={() => handleUserGroupChange('new')} 
+            <input
+              type="radio"
+              name="userTargeting"
+              checked={formData.applicableUserGroups?.new || false}
+              onChange={() => handleUserGroupChange('new')}
               className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
             />
             <span className="ml-2 text-sm text-gray-800">Chỉ người dùng mới</span>
           </label>
           <label className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-50">
-            <input 
-              type="radio" 
-              name="userTargeting" 
-              checked={!!(formData.applicableUserGroups?.levels && formData.applicableUserGroups.levels.length > 0)} 
-              onChange={() => handleUserGroupChange('levels')} 
+            <input
+              type="radio"
+              name="userTargeting"
+              checked={!!(formData.applicableUserGroups?.levels && formData.applicableUserGroups.levels.length > 0)}
+              onChange={() => handleUserGroupChange('levels')}
               className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300"
             />
             <span className="ml-2 text-sm text-gray-800">
@@ -530,18 +528,18 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
               {userLevelsOptions.map(level => {
                 const isSelected = formData.applicableUserGroups?.levels?.includes(level.value);
                 return (
-                  <label 
-                    key={level.id} 
+                  <label
+                    key={level.id}
                     className={`
-                      inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium 
+                      inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium
                       cursor-pointer transition-all duration-200 ease-in-out
-                      ${isSelected 
-                        ? 'bg-pink-50 text-pink-700 border-pink-200 ring-1 ring-pink-200 shadow-sm' 
+                      ${isSelected
+                        ? 'bg-pink-50 text-pink-700 border-pink-200 ring-1 ring-pink-200 shadow-sm'
                         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                       }
                     `}
                   >
-                    <input 
+                    <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={(e) => handleUserLevelToggle(level.value, e.target.checked)}
@@ -571,7 +569,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
               <label className="block text-xs font-medium text-gray-600 mb-1">Thương hiệu</label>
               <button
                 type="button"
-                onClick={() => setShowBrandsModal(true)}
+                onClick={handleSelectBrands}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
@@ -606,7 +604,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
               <label className="block text-xs font-medium text-gray-600 mb-1">Danh mục</label>
               <button
                 type="button"
-                onClick={() => setShowCategoriesModal(true)}
+                onClick={handleSelectCategories}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
@@ -641,7 +639,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
               <label className="block text-xs font-medium text-gray-600 mb-1">Sản phẩm</label>
               <button
                 type="button"
-                onClick={() => setShowProductsModal(true)}
+                onClick={handleSelectProducts}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
               >
                 <FiEdit className="h-3 w-3 mr-1.5" />
@@ -686,7 +684,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
         <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Sự kiện áp dụng</label>
         <button
           type="button"
-          onClick={() => setShowEventsModal(true)}
+          onClick={handleSelectEvents}
           className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
         >
           <FiEdit className="h-3 w-3 mr-1.5" />
@@ -721,7 +719,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
         <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Chiến dịch áp dụng</label>
         <button
           type="button"
-          onClick={() => setShowCampaignsModal(true)}
+          onClick={handleSelectCampaigns}
           className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
         >
           <FiEdit className="h-3 w-3 mr-1.5" />
