@@ -12,6 +12,9 @@ import { VoucherBrandsPopup } from './VoucherBrandsPopup';
 import { VoucherCategoriesPopup } from './VoucherCategoriesPopup';
 import { VoucherProductsPopup } from './VoucherProductsPopup';
 import { VoucherProductSearchProvider } from '@/contexts/VoucherProductSearchContext';
+import { VoucherCampaignsPopup } from './VoucherCampaignsPopup';
+import { VoucherEventsPopup } from './VoucherEventsPopup';
+import { useEvents } from '@/contexts/EventsContext';
 
 // Define the structure for form data, including potential temporary states
 interface VoucherFormData extends Partial<Voucher> {
@@ -78,11 +81,14 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   ];
 
   const {
-    brands, categories, products,
-    // Loading states sẽ được sử dụng trong tương lai
-    // brandsLoading, categoriesLoading, productsLoading,
-    fetchBrands, fetchCategories, fetchProducts
+    brands, categories, products, campaigns,
+    brandsLoading, categoriesLoading, productsLoading, campaignsLoading,
+    brandsError, categoriesError, productsError, campaignsError,
+    fetchBrands, fetchCategories, fetchProducts, fetchCampaigns
   } = useVoucherSelections();
+
+  // Use EventsContext
+  const { events } = useEvents();
 
   // Data mapping functions
   const mapToOptions = (items: Array<{ _id?: string; id?: string; name: string; sku?: string }> | undefined): SelectOption[] => {
@@ -130,11 +136,13 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
 
     setFormData(defaultData);
 
-    // Tải dữ liệu thương hiệu, danh mục và sản phẩm khi form được mở
-    fetchBrands();
-    fetchCategories();
-    fetchProducts();
-  }, [initialData, isEditMode, fetchBrands, fetchCategories, fetchProducts]);
+    // Tải dữ liệu thương hiệu, danh mục và sản phẩm khi form được mở và chưa có dữ liệu
+    if (!brands.length) fetchBrands(1, 100);
+    if (!categories.length) fetchCategories(1, 100);
+    if (!products.length) fetchProducts(1, 100);
+    if (!campaigns.length) fetchCampaigns(1, 100);
+  }, [initialData, isEditMode, fetchBrands, fetchCategories, fetchProducts, fetchCampaigns, 
+      brands.length, categories.length, products.length, campaigns.length]);
 
   // --- Form Validation ---
   const validateForm = useCallback((): boolean => {
@@ -336,6 +344,58 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       applicableProducts: selectedProductIds
     }));
   };
+
+  // Add new state for campaigns modal
+  const [showCampaignsModal, setShowCampaignsModal] = useState(false);
+
+  // Handle campaign selection
+  const handleCampaignsChange = (selectedCampaignIds: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      applicableCampaigns: selectedCampaignIds
+    }));
+  };
+
+  // Get selected campaigns data
+  const getSelectedCampaigns = useCallback(() => {
+    if (!formData.applicableCampaigns?.length) return [];
+    return formData.applicableCampaigns.map(id => {
+      // Tìm chiến dịch trong danh sách campaigns từ API
+      const campaign = campaigns?.find(c => c._id === id);
+      // Nếu tìm thấy, sử dụng tên thực tế
+      if (campaign) {
+        return { id, name: campaign.title };
+      }
+      return {
+        id,
+        name: `Chiến dịch #${id.slice(0, 6)}`
+      };
+    });
+  }, [formData.applicableCampaigns, campaigns]);
+
+  // Add new state for events modal
+  const [showEventsModal, setShowEventsModal] = useState(false);
+
+  // Handle event selection
+  const handleEventsChange = useCallback((eventIds: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      applicableEvents: eventIds
+    }));
+  }, []);
+
+  // Get selected events details for display in the list
+  const getSelectedEvents = useCallback(() => {
+    if (!events || !formData.applicableEvents) return [];
+    
+    return events
+      .filter(event => formData.applicableEvents?.includes(event._id))
+      .map(event => ({
+        id: event._id,
+        name: event.title,
+        description: `${new Date(event.startDate).toLocaleDateString()} - ${new Date(event.endDate).toLocaleDateString()}`
+      }));
+  }, [events, formData.applicableEvents]);
 
   // Render các tab nội dung
   const renderBasicInfoTab = () => (
@@ -624,21 +684,72 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
       {/* Event Select */}
       <div className="p-3 border rounded-md bg-gray-50">
         <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Sự kiện áp dụng</label>
-        {/* Replace Select with button and display area */}
-        <button type="button" className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500" disabled>
-          <FiEdit className="h-3 w-3 mr-1.5" /> Chọn sự kiện...
+        <button
+          type="button"
+          onClick={() => setShowEventsModal(true)}
+          className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
+        >
+          <FiEdit className="h-3 w-3 mr-1.5" />
+          {formData.applicableEvents?.length
+            ? `Đã chọn (${formData.applicableEvents.length})`
+            : 'Chọn sự kiện...'}
         </button>
-        <p className="mt-1 text-xs text-gray-500">Tính năng đang phát triển.</p>
+        <SelectedItemsList
+          items={getSelectedEvents()}
+          onRemove={(id) => {
+            setFormData(prev => ({
+              ...prev,
+              applicableEvents: prev.applicableEvents?.filter(eventId => eventId !== id) || []
+            }));
+          }}
+          emptyText="Chưa chọn sự kiện nào"
+          maxDisplayItems={5}
+        />
       </div>
+
+      {/* Events Modal */}
+      {showEventsModal && (
+        <VoucherEventsPopup
+          selectedEvents={formData.applicableEvents || []}
+          onEventsChange={handleEventsChange}
+          onClose={() => setShowEventsModal(false)}
+        />
+      )}
+
       {/* Campaign Select */}
       <div className="p-3 border rounded-md bg-gray-50">
         <label className="text-sm font-medium text-gray-700 mb-1 flex items-center"><FiTag className="mr-2 text-pink-500" /> Chiến dịch áp dụng</label>
-          {/* Replace Select with button and display area */}
-        <button type="button" className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500" disabled>
-          <FiEdit className="h-3 w-3 mr-1.5" /> Chọn chiến dịch...
+        <button
+          type="button"
+          onClick={() => setShowCampaignsModal(true)}
+          className="mt-1 inline-flex items-center px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded-md shadow-sm text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
+        >
+          <FiEdit className="h-3 w-3 mr-1.5" />
+          {formData.applicableCampaigns?.length
+            ? `Đã chọn (${formData.applicableCampaigns.length})`
+            : 'Chọn chiến dịch...'}
         </button>
-        <p className="mt-1 text-xs text-gray-500">Tính năng đang phát triển.</p>
+        <SelectedItemsList
+          items={getSelectedCampaigns()}
+          onRemove={(id) => {
+            setFormData(prev => ({
+              ...prev,
+              applicableCampaigns: prev.applicableCampaigns?.filter(campaignId => campaignId !== id) || []
+            }));
+          }}
+          emptyText="Chưa chọn chiến dịch nào"
+          maxDisplayItems={5}
+        />
       </div>
+
+      {/* Campaigns Modal */}
+      {showCampaignsModal && (
+        <VoucherCampaignsPopup
+          selectedCampaigns={formData.applicableCampaigns || []}
+          onCampaignsChange={handleCampaignsChange}
+          onClose={() => setShowCampaignsModal(false)}
+        />
+      )}
     </div>
   );
 

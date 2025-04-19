@@ -108,7 +108,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [error, setError] = useState<string | null>(null);
 
   // API base URL
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   // Cấu hình Axios với token xác thực
   const getAuthHeaders = () => {

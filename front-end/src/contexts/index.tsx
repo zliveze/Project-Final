@@ -148,7 +148,13 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   }
   
   if (currentPageType === 'voucher') {
-    providers = <VoucherProvider>{providers}</VoucherProvider>;
+    providers = (
+      <EventsProvider>
+        <VoucherProvider>
+          {providers}
+        </VoucherProvider>
+      </EventsProvider>
+    );
   }
 
   return providers;
