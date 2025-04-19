@@ -1,5 +1,5 @@
-import React from 'react';
-import { FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiArrowRight } from 'react-icons/fi';
 
 interface PaginationProps {
   currentPage: number;
@@ -22,6 +22,10 @@ export default function Pagination({
   className = '',
   maxVisiblePages = 5
 }: PaginationProps) {
+  // State cho input nhảy trang
+  const [jumpToPage, setJumpToPage] = useState<string>('');
+  const [isJumpInputVisible, setIsJumpInputVisible] = useState(false);
+
   // Tính toán các trang hiển thị
   const getVisiblePages = () => {
     if (totalPages <= maxVisiblePages) {
@@ -46,6 +50,26 @@ export default function Pagination({
     const start = (currentPage - 1) * itemsPerPage + 1;
     const end = Math.min(start + itemsPerPage - 1, totalItems);
     return `${start}-${end} / ${totalItems}`;
+  };
+
+  // Xử lý nhảy đến trang cụ thể
+  const handleJumpToPage = () => {
+    const pageNumber = parseInt(jumpToPage, 10);
+    if (!isNaN(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages) {
+      onPageChange(pageNumber);
+      setJumpToPage('');
+      setIsJumpInputVisible(false);
+    }
+  };
+
+  // Xử lý khi nhấn Enter trong input
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleJumpToPage();
+    } else if (e.key === 'Escape') {
+      setIsJumpInputVisible(false);
+      setJumpToPage('');
+    }
   };
 
   const visiblePages = getVisiblePages();
@@ -100,6 +124,42 @@ export default function Pagination({
           </button>
         ))}
 
+        {/* Nút nhảy đến trang cụ thể */}
+        {totalPages > maxVisiblePages && (
+          <div className="relative inline-flex items-center">
+            {isJumpInputVisible ? (
+              <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+                <input
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-16 py-2 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
+                  placeholder={`1-${totalPages}`}
+                  autoFocus
+                />
+                <button
+                  onClick={handleJumpToPage}
+                  className="px-2 py-2 bg-pink-600 text-white hover:bg-pink-700 focus:outline-none"
+                  aria-label="Đi đến trang"
+                >
+                  <FiArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsJumpInputVisible(true)}
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-100"
+                aria-label="Nhảy đến trang"
+              >
+                ...
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Nút đến trang sau */}
         <button
           className={`p-2 rounded-md border border-gray-300 text-sm ${
@@ -126,4 +186,4 @@ export default function Pagination({
       </div>
     </div>
   );
-} 
+}
