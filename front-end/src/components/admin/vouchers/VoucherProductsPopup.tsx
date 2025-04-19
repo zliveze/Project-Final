@@ -98,7 +98,7 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
             fetchBrands(1, 100)
           ]);
         }
-        
+
         if (isMounted && !loading) {
           await searchProducts({
             page: 1,
@@ -256,9 +256,9 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
   };
 
   const popupContent = (
-    <div 
+    <div
       id="voucher-products-popup"
-      className="fixed bg-white rounded-lg shadow-xl w-[800px] max-h-[700px] flex flex-col"
+      className="fixed bg-white rounded-lg shadow-xl w-[800px] max-h-[700px] flex flex-col transform transition-all duration-300"
       style={{
         top: position?.y || '50%',
         left: position?.x || '50%',
@@ -267,11 +267,16 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
       }}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center justify-between bg-gray-50 rounded-t-lg">
-        <h3 className="text-base font-medium text-gray-900">Chọn sản phẩm</h3>
+      <div className="px-4 py-3 border-b flex items-center justify-between bg-pink-50 rounded-t-lg">
+        <div className="flex items-center">
+          <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-2">
+            <FiSearch className="text-pink-600 h-4 w-4" />
+          </div>
+          <h3 className="text-base font-medium text-gray-900">Chọn sản phẩm</h3>
+        </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-500 p-1"
+          className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-1.5 transition-colors"
         >
           <FiX className="h-5 w-5" />
         </button>
@@ -410,7 +415,7 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
                     />
                   </div>
                 )}
-                
+
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
@@ -457,14 +462,14 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors"
           >
             Hủy
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+            className="px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors"
           >
             Lưu thay đổi
           </button>
@@ -478,9 +483,9 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
   // Render using portal
   return createPortal(
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-25" onClick={onClose} />
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity duration-300" onClick={onClose} />
       {popupContent}
     </>,
     document.body
   );
-}; 
+};

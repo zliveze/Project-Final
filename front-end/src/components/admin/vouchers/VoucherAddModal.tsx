@@ -33,7 +33,7 @@ const VoucherAddModal: React.FC<VoucherAddModalProps> = ({
       // Khi modal đóng, cho phép scroll lại
       document.body.style.overflow = 'unset';
     }
-    
+
     // Cleanup khi component unmount
     return () => {
       document.body.style.overflow = 'unset';
@@ -45,23 +45,22 @@ const VoucherAddModal: React.FC<VoucherAddModalProps> = ({
   const modalTitle = initialData ? 'Sao chép voucher' : 'Thêm voucher mới';
 
   return (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto bg-gray-500 bg-opacity-75 transition-opacity">
-      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
-        <div 
-          className={`relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl ${
-            isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95'
+    <div className={`fixed inset-0 z-[1000] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+          &#8203;
+        </span>
+
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${
+            isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
-                <FiPlus className="text-pink-600" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-900">
-                {modalTitle}
-              </h2>
-            </div>
+          <div className="absolute top-0 right-0 pt-4 pr-4 z-10">
             <button
               type="button"
               className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors"
@@ -73,8 +72,18 @@ const VoucherAddModal: React.FC<VoucherAddModalProps> = ({
             </button>
           </div>
 
+          {/* Header */}
+          <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
+            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
+              <FiPlus className="text-pink-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">
+              {modalTitle}
+            </h2>
+          </div>
+
           {/* Body - scrollable */}
-          <div className="max-h-[calc(85vh-8rem)] overflow-y-auto p-6">
+          <div className="p-6 max-h-[80vh] overflow-y-auto">
             <VoucherForm
               initialData={initialData} // Pass initial data for copy mode
               onSubmit={onSubmit}
