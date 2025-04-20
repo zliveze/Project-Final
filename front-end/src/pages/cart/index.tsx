@@ -6,6 +6,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
 
 // Components
@@ -48,6 +49,7 @@ interface RecommendedProduct {
 
 const CartPage: NextPage = () => {
   const router = useRouter();
+  const { user } = useAuth(); // Get user from AuthContext
   const {
     cartItems,
     isLoading,
@@ -359,6 +361,7 @@ const CartPage: NextPage = () => {
             onSelectVoucher={handleApplyVoucher}
             appliedVoucherCode={voucherCode}
             subtotal={subtotal}
+            currentUserLevel={user?.customerLevel || ''} // Pass customerLevel
           />
 
           {/* Recommended Products Section */}

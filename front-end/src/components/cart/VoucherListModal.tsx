@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiX, FiCheck, FiCopy, FiTag, FiInfo } from 'react-icons/fi';
+import { FiX, FiTag, FiInfo, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { Voucher } from '@/hooks/useUserVoucher';
 import { formatDate } from '@/utils/dateUtils';
 
@@ -11,6 +11,7 @@ interface VoucherListModalProps {
   onSelectVoucher: (code: string) => void;
   appliedVoucherCode?: string;
   subtotal: number;
+  currentUserLevel: string;
 }
 
 const VoucherListModal: React.FC<VoucherListModalProps> = ({
@@ -20,7 +21,8 @@ const VoucherListModal: React.FC<VoucherListModalProps> = ({
   unavailableVouchers,
   onSelectVoucher,
   appliedVoucherCode,
-  subtotal
+  subtotal,
+  currentUserLevel
 }) => {
   const [activeTab, setActiveTab] = useState<'available' | 'unavailable'>('available');
   const [mounted, setMounted] = useState(false);
@@ -51,77 +53,214 @@ const VoucherListModal: React.FC<VoucherListModalProps> = ({
     return subtotal >= voucher.minimumOrderValue;
   };
 
+  // Kiểm tra xem voucher có áp dụng được cho cấp độ khách hàng hiện tại không
+  const isApplicableToUserLevel = (voucher: Voucher) => {
+    const groups = voucher.applicableUserGroups;
+    if (!groups) return true;
+    if (groups.all) return true;
+    return groups.levels && groups.levels.includes(currentUserLevel);
+  };
+
   // Hiển thị lý do không khả dụng
   const getUnavailableReason = (voucher: Voucher) => {
     const now = new Date();
     const startDate = new Date(voucher.startDate);
     const endDate = new Date(voucher.endDate);
 
-    // Kiểm tra thời gian
-    if (startDate > now) {
-      return `Chưa đến thời gian sử dụng (${formatDate(startDate)})`;
+    if (!isApplicableToUserLevel(voucher)) {
+      const groups = voucher.applicableUserGroups;
+      return `Chỉ áp dụng cho ${groups?.levels?.join(', ') || 'nhóm khách hàng nhất định'}`;
     }
-
-    if (endDate < now) {
-      return 'Đã hết hạn';
-    }
-
-    // Kiểm tra số lượng sử dụng
-    if (voucher.usedCount >= voucher.usageLimit) {
-      return 'Đã hết lượt sử dụng';
-    }
-
-    // Kiểm tra giá trị đơn hàng tối thiểu
-    if (subtotal < voucher.minimumOrderValue) {
-      return `Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(voucher.minimumOrderValue)}đ`;
-    }
-
-    return 'Không áp dụng được cho đơn hàng này';
+    if (startDate > now) return `Hiệu lực từ: ${formatDate(startDate)}`;
+    if (endDate < now) return 'Đã hết hạn';
+    if (voucher.usedCount >= voucher.usageLimit) return 'Đã hết lượt sử dụng';
+    if (subtotal < voucher.minimumOrderValue) return `Đơn tối thiểu ${new Intl.NumberFormat('vi-VN').format(voucher.minimumOrderValue)}đ`;
+    return 'Không đủ điều kiện áp dụng';
   };
 
+  // Helper function to calculate actual discount amount
+  const calculateDiscountAmount = (voucher: Voucher, currentSubtotal: number): number => {
+    if (!voucher || currentSubtotal <= 0) return 0;
+
+    let discount = 0;
+    if (voucher.discountType === 'percentage') {
+      discount = (currentSubtotal * voucher.discountValue) / 100;
+      // Apply max discount cap if it exists and is positive
+      if (voucher.maxDiscountAmount && voucher.maxDiscountAmount > 0 && discount > voucher.maxDiscountAmount) {
+        discount = voucher.maxDiscountAmount;
+      }
+    } else { // Fixed amount
+      discount = voucher.discountValue;
+    }
+
+    // Ensure discount doesn't exceed subtotal
+    return Math.min(discount, currentSubtotal);
+  };
+
+  // Find the best available voucher
+  let bestVoucherId: string | null = null;
+  let maxDiscount = 0;
+
+  availableVouchers.forEach(voucher => {
+    // Ensure the voucher meets minimum order value before considering it
+    if (meetsMinimumOrder(voucher)) {
+        const currentDiscount = calculateDiscountAmount(voucher, subtotal);
+        if (currentDiscount > maxDiscount) {
+        maxDiscount = currentDiscount;
+        bestVoucherId = voucher._id;
+        }
+     }
+   });
+
+  // Sort available vouchers by discount amount (descending)
+  const sortedAvailableVouchers = [...availableVouchers].sort((a, b) => {
+    // Only consider vouchers that meet the minimum order value for sorting
+    const discountA = meetsMinimumOrder(a) ? calculateDiscountAmount(a, subtotal) : -1;
+    const discountB = meetsMinimumOrder(b) ? calculateDiscountAmount(b, subtotal) : -1;
+    // If both don't meet minimum, keep original order (or sort by other criteria if needed)
+    if (discountA === -1 && discountB === -1) return 0;
+    return discountB - discountA; // Sort descending, vouchers not meeting minimum go last
+  });
+
+   const renderVoucher = (voucher: Voucher, isAvailable: boolean, isBestChoice: boolean) => {
+     const isApplied = appliedVoucherCode === voucher.code;
+     const reason = !isAvailable ? getUnavailableReason(voucher) : '';
+
+    return (
+      <div
+        key={voucher._id}
+        className={`border rounded-lg p-4 mb-3 transition-all duration-200 ease-in-out relative ${ // Thêm relative để định vị badge
+          isApplied
+            ? 'border-pink-500 bg-pink-50/50 shadow-sm'
+            : isAvailable
+            ? isBestChoice
+              ? 'border-green-400 bg-green-50/50 hover:shadow-md shadow-sm ring-1 ring-green-300' // Kiểu cho lựa chọn tốt nhất
+              : 'border-gray-200 hover:border-pink-300 hover:shadow-sm'
+            : 'border-gray-200 bg-gray-50 opacity-70'
+        }`}
+      >
+        {/* Best Choice Badge */}
+        {isBestChoice && isAvailable && (
+          <span className="absolute -top-2 -left-2 px-2 py-0.5 rounded-full bg-green-500 text-white text-xs font-semibold shadow">
+            Tốt nhất
+          </span>
+        )}
+        <div className="flex justify-between items-start">
+          {/* Left side: Info */}
+          <div className="flex-1 mr-4">
+            <div className="flex items-center mb-1">
+              <FiTag className={`mr-2 ${isAvailable ? (isBestChoice ? 'text-green-600' : 'text-pink-600') : 'text-gray-500'}`} size={16} />
+              <span className={`font-semibold ${isAvailable ? (isBestChoice ? 'text-green-700' : 'text-pink-700') : 'text-gray-600'}`}>
+                {formatDiscount(voucher)}
+              </span>
+            </div>
+            {/* Hiển thị mô tả nếu có và khác với giá trị giảm giá */}
+            {voucher.description && voucher.description !== formatDiscount(voucher) && (
+              <div className="text-sm text-gray-700 mb-1 ml-6">
+                {voucher.description}
+              </div>
+            )}
+            {/* Khối div lặp đã được xóa */}
+            <div className="text-xs text-gray-500 mb-1 ml-6"> {/* Thêm ml-6 để căn lề */}
+              Mã: <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{voucher.code}</span>
+            </div>
+            <div className="text-xs text-gray-500 ml-6"> {/* Thêm ml-6 để căn lề */}
+              HSD: {formatDate(new Date(voucher.endDate))}
+              {voucher.minimumOrderValue > 0 && (
+                <span className="ml-2">
+                  | Đơn tối thiểu: {new Intl.NumberFormat('vi-VN').format(voucher.minimumOrderValue)}đ
+                </span>
+              )}
+            </div>
+            {!isAvailable && reason && (
+              <div className="mt-2 text-xs text-red-600 flex items-center ml-6"> {/* Thêm ml-6 để căn lề */}
+                <FiInfo size={14} className="mr-1" />
+                {reason}
+              </div>
+            )}
+          </div>
+
+          {/* Right side: Action/Status */}
+          <div className="flex-shrink-0">
+            {isAvailable ? (
+              isApplied ? (
+                <div className="flex items-center text-green-600 text-sm font-medium">
+                  <FiCheckCircle size={16} className="mr-1" />
+                  <span>Đang áp dụng</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => onSelectVoucher(voucher.code)}
+                  className="px-3 py-1.5 rounded-md text-sm font-medium bg-pink-100 text-pink-700 hover:bg-pink-200 transition-colors"
+                >
+                  Áp dụng
+                </button>
+              )
+            ) : (
+              <div className="flex items-center text-gray-500 text-sm font-medium">
+                 <FiXCircle size={16} className="mr-1" />
+                <span>Không khả dụng</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-gray-300/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Modal */}
       <div
-        className="relative bg-white/80 backdrop-blur-sm rounded-lg max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="relative bg-white rounded-lg max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="voucher-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-800">Mã giảm giá</h2>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h2 id="voucher-modal-title" className="text-lg font-semibold text-gray-800">Chọn mã giảm giá</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 -mr-1"
+            aria-label="Đóng"
           >
-            <FiX size={20} />
+            <FiX size={22} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b">
+        <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
           <button
-            className={`flex-1 py-3 font-medium text-sm ${
+            className={`flex-1 py-3 font-medium text-sm transition-colors ${
               activeTab === 'available'
                 ? 'text-pink-600 border-b-2 border-pink-600'
-                : 'text-gray-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => setActiveTab('available')}
+            role="tab"
+            aria-selected={activeTab === 'available'}
           >
             Khả dụng ({availableVouchers.length})
           </button>
           <button
-            className={`flex-1 py-3 font-medium text-sm ${
+            className={`flex-1 py-3 font-medium text-sm transition-colors ${
               activeTab === 'unavailable'
                 ? 'text-pink-600 border-b-2 border-pink-600'
-                : 'text-gray-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => setActiveTab('unavailable')}
+            role="tab"
+            aria-selected={activeTab === 'unavailable'}
           >
             Không khả dụng ({unavailableVouchers.length})
           </button>
@@ -129,138 +268,41 @@ const VoucherListModal: React.FC<VoucherListModalProps> = ({
 
         {/* Voucher list */}
         <div className="overflow-y-auto flex-grow p-4">
-          {activeTab === 'available' ? (
-            availableVouchers.length > 0 ? (
-              <div className="space-y-3">
-                {availableVouchers.map((voucher) => (
-                  <div
-                    key={voucher._id}
-                    className={`border rounded-lg overflow-hidden ${
-                      appliedVoucherCode === voucher.code
-                        ? 'border-pink-500'
-                        : 'border-gray-200 hover:border-pink-300'
-                    } transition-colors`}
-                  >
-                    <div className="flex items-center h-14">
-                      {/* Left side - discount */}
-                      <div className="bg-pink-500 text-white h-full flex items-center justify-center min-w-[100px]">
-                        <div className="text-center font-bold text-lg">
-                          {formatDiscount(voucher)}
-                        </div>
-                      </div>
-
-                      {/* Center - code and date */}
-                      <div className="flex-1 px-4">
-                        <div className="font-mono font-medium text-gray-700">
-                          {voucher.code}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          HSD: {formatDate(new Date(voucher.endDate))}
-                        </div>
-                      </div>
-
-                      {/* Right side - status */}
-                      <div className="pr-4">
-                        {appliedVoucherCode === voucher.code ? (
-                          <span className="text-green-600 text-sm font-medium">
-                            Đang áp dụng
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => onSelectVoucher(voucher.code)}
-                            className="text-pink-600 text-sm font-medium hover:text-pink-700"
-                          >
-                            Áp dụng
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <FiInfo size={40} className="text-gray-300 mb-3" />
-                <p className="text-gray-500">Không có mã giảm giá khả dụng</p>
-                <p className="text-sm text-gray-400 mt-1">Vui lòng quay lại sau</p>
+           {activeTab === 'available' ? (
+             sortedAvailableVouchers.length > 0 ? ( // Sử dụng mảng đã sắp xếp
+               <div>
+                 {/* Truyền isBestChoice vào renderVoucher */}
+                 {sortedAvailableVouchers.map(voucher => renderVoucher(voucher, true, voucher._id === bestVoucherId))}
+               </div>
+             ) : (
+               <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                <FiTag size={40} className="text-gray-300 mb-3" />
+                <p>Không có mã giảm giá khả dụng.</p>
+                <p className="text-sm text-gray-400 mt-1">Vui lòng kiểm tra lại sau.</p>
               </div>
             )
           ) : (
             unavailableVouchers.length > 0 ? (
-              <div className="space-y-3">
-                {unavailableVouchers.map((voucher) => (
-                  <div
-                    key={voucher._id}
-                    className="border border-gray-200 rounded-lg overflow-hidden opacity-75"
-                  >
-                    <div className="flex items-stretch">
-                      {/* Left side - discount info */}
-                      <div className="bg-gray-400 text-white p-3 flex flex-col justify-center items-center min-w-[100px]">
-                        <FiTag className="mb-1" size={18} />
-                        <div className="text-center">
-                          <div className="font-bold text-sm">
-                            {formatDiscount(voucher)}
-                          </div>
-                          <div className="text-xs opacity-80">
-                            {voucher.minimumOrderValue > 0
-                              ? `Đơn ≥ ${new Intl.NumberFormat('vi-VN').format(voucher.minimumOrderValue)}đ`
-                              : 'Không giới hạn'
-                            }
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right side - details */}
-                      <div className="flex-1 p-3 flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-medium text-gray-700">{voucher.description || formatDiscount(voucher)}</h3>
-                              <p className="text-xs text-gray-500 mt-1">
-                                HSD: {formatDate(new Date(voucher.endDate))}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 flex items-center">
-                            <div className="bg-gray-100 rounded px-2 py-1 text-xs font-mono font-medium text-gray-600">
-                              {voucher.code}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex justify-between items-center">
-                          <span className="text-xs text-red-500">
-                            {getUnavailableReason(voucher)}
-                          </span>
-                          <button
-                            disabled
-                            className="px-3 py-1.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500 cursor-not-allowed"
-                          >
-                            Không khả dụng
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                {/* Voucher không khả dụng không thể là lựa chọn tốt nhất */}
+                {unavailableVouchers.map(voucher => renderVoucher(voucher, false, false))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <FiInfo size={40} className="text-gray-300 mb-3" />
-                <p className="text-gray-500">Không có mã giảm giá không khả dụng</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                 <FiTag size={40} className="text-gray-300 mb-3" />
+                <p>Không có mã giảm giá nào không khả dụng.</p>
               </div>
             )
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t">
+        <div className="p-4 border-t border-gray-200 bg-gray-50 sticky bottom-0">
           <button
             onClick={onClose}
-            className="w-full py-2 bg-pink-600 text-white rounded-md font-medium hover:bg-pink-700 transition-colors"
+            className="w-full py-2.5 bg-pink-600 text-white rounded-md font-semibold hover:bg-pink-700 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2"
           >
-            Đóng
+            Xong
           </button>
         </div>
       </div>
@@ -269,4 +311,3 @@ const VoucherListModal: React.FC<VoucherListModalProps> = ({
 };
 
 export default VoucherListModal;
-

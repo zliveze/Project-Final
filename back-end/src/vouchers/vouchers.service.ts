@@ -3,11 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, Document } from 'mongoose';
 import { Voucher, VoucherDocument } from './schemas/voucher.schema';
 import { CreateVoucherDto, UpdateVoucherDto, VoucherApplyResponseDto, VoucherStatisticsDto, PaginatedVouchersResponseDto } from './dto';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class VouchersService {
   constructor(
     @InjectModel(Voucher.name) private voucherModel: Model<VoucherDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async create(createVoucherDto: CreateVoucherDto): Promise<Voucher> {
@@ -123,6 +125,7 @@ export class VouchersService {
     orderValue: number, 
     productIds: string[] = []
   ): Promise<VoucherApplyResponseDto> {
+    console.log(`[VoucherService] applyVoucherToOrder called with userId: ${userId}, code: ${voucherCode}, orderValue: ${orderValue}`); // Log input
     const voucher = await this.findByCode(voucherCode);
     const now = new Date();
     
@@ -146,6 +149,22 @@ export class VouchersService {
     // Kiểm tra xem người dùng đã sử dụng voucher này chưa
     if (voucher.usedByUsers.some(id => id.toString() === userId)) {
       throw new BadRequestException('Bạn đã sử dụng voucher này rồi');
+    }
+
+    // Kiểm tra cấp độ khách hàng
+    console.log(`[VoucherService] Attempting to find user with ID: ${userId}`); // Log before findById
+    const user = await this.userModel.findById(userId);
+    console.log(`[VoucherService] Result of findById(${userId}):`, user ? `User found (ID: ${user._id})` : 'User NOT found (null)'); // Log result
+    if (!user) {
+      throw new BadRequestException('Không tìm thấy thông tin người dùng');
+    }
+
+    if (!voucher.applicableUserGroups.all) {
+      if (voucher.applicableUserGroups.levels?.length > 0) {
+        if (!voucher.applicableUserGroups.levels.includes(user.customerLevel)) {
+          throw new BadRequestException(`Voucher chỉ áp dụng cho ${voucher.applicableUserGroups.levels.join(', ')}`);
+        }
+      }
     }
     
     // Kiểm tra sản phẩm áp dụng nếu voucher có giới hạn sản phẩm
@@ -279,6 +298,10 @@ export class VouchersService {
     productIds: string[] = []
   ): Promise<Voucher[]> {
     const now = new Date();
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new BadRequestException('Không tìm thấy thông tin người dùng');
+    }
     
     // Điều kiện cơ bản: voucher đang hoạt động, trong thời gian hiệu lực, chưa đạt giới hạn sử dụng
     const baseQuery = {
@@ -299,11 +322,23 @@ export class VouchersService {
     // hoặc các voucher không có giới hạn sản phẩm
     let vouchers = await this.voucherModel.find({
       ...baseQuery,
-      $or: [
-        // Voucher không giới hạn sản phẩm
-        { applicableProducts: { $size: 0 } },
-        // Voucher áp dụng cho ít nhất một sản phẩm trong giỏ hàng
-        { applicableProducts: { $in: productIds.map(id => new Types.ObjectId(id)) } },
+      $and: [
+        {
+          $or: [
+            // Voucher không giới hạn sản phẩm
+            { applicableProducts: { $size: 0 } },
+            // Voucher áp dụng cho ít nhất một sản phẩm trong giỏ hàng
+            { applicableProducts: { $in: productIds.map(id => new Types.ObjectId(id)) } },
+          ]
+        },
+        {
+          $or: [
+            // Voucher áp dụng cho tất cả người dùng
+            { 'applicableUserGroups.all': true },
+            // Voucher áp dụng cho cấp độ khách hàng hiện tại
+            { 'applicableUserGroups.levels': user.customerLevel }
+          ]
+        }
       ]
     }).sort({ discountValue: -1 }).exec();
     

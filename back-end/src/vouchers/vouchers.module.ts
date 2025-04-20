@@ -5,10 +5,14 @@ import { VouchersAdminController } from './vouchers-admin.controller';
 import { VouchersUserController } from './vouchers-user.controller'; // Import user controller
 import { Voucher, VoucherSchema } from './schemas/voucher.schema';
 import { AuthModule } from '../auth/auth.module'; // Import AuthModule for guards
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Voucher.name, schema: VoucherSchema }]),
+    MongooseModule.forFeature([
+      { name: Voucher.name, schema: VoucherSchema },
+      { name: User.name, schema: UserSchema }
+    ]),
     AuthModule, // Import AuthModule to provide dependencies for JwtAuthGuard and JwtAdminAuthGuard
   ],
   controllers: [VouchersAdminController, VouchersUserController], // Add VouchersUserController

@@ -9,11 +9,18 @@ export interface Voucher {
   description: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
+  maxDiscountAmount?: number; // Thêm thuộc tính này
   minimumOrderValue: number;
   startDate: Date;
   endDate: Date;
   usageLimit: number;
   usedCount: number;
+  applicableUserGroups?: {
+    all: boolean;
+    new: boolean;
+    specific: string[];
+    levels?: string[];
+  };
 }
 
 // Định nghĩa kiểu dữ liệu cho kết quả áp dụng voucher
@@ -45,7 +52,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
   const [unavailableVouchers, setUnavailableVouchers] = useState<Voucher[]>([]);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherApplyResult | null>(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -74,8 +81,16 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       const isActive = startDate <= now && endDate >= now && voucher.usedCount < voucher.usageLimit;
       const meetsMinimumOrder = orderValue >= voucher.minimumOrderValue;
 
-      // Nếu đáp ứng các điều kiện cơ bản, thêm vào danh sách khả dụng
-      if (isActive && meetsMinimumOrder) {
+      // Kiểm tra cấp độ khách hàng
+      const isApplicableToUserLevel = () => {
+        if (!voucher.applicableUserGroups) return true;
+        if (voucher.applicableUserGroups.all) return true;
+        if (!user?.customerLevel) return false;
+        return voucher.applicableUserGroups.levels?.includes(user.customerLevel);
+      };
+
+      // Nếu đáp ứng tất cả các điều kiện, thêm vào danh sách khả dụng
+      if (isActive && meetsMinimumOrder && isApplicableToUserLevel()) {
         available.push(voucher);
       } else {
         unavailable.push(voucher);
@@ -87,7 +102,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
     setUnavailableVouchers(unavailable);
 
     return { available, unavailable };
-  }, []);
+  }, [user?.customerLevel]);
 
   // Lấy tất cả voucher và phân loại
   const fetchAllVouchers = useCallback(async (
@@ -170,14 +185,21 @@ export const useUserVoucher = (): UseUserVoucherResult => {
     setError(null);
 
     try {
+      // Payload to send
+      const payload = {
+        code: code.trim(),
+        orderValue,
+        productIds,
+        userId: user?._id,
+        // Luôn gửi customerLevel, nếu không có thì gửi null
+        customerLevel: user?.customerLevel || null
+      };
+      console.log('[useUserVoucher] Applying voucher with payload:', JSON.stringify(payload, null, 2)); // Re-added log
+
       const response = await fetch(`${API_URL}/vouchers/apply`, {
         method: 'POST',
         ...getAuthHeaders(),
-        body: JSON.stringify({
-          code: code.trim(),
-          orderValue,
-          productIds
-        })
+        body: JSON.stringify(payload) // Send the logged payload - Corrected syntax
       });
 
       const data = await response.json();

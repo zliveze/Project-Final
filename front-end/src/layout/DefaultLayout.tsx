@@ -135,11 +135,11 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
         <BackgroundAnimation />
         <MainHeader />
         <div className="relative z-30">
-          {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
-        </div>
-        <main className="flex-grow relative z-0">
-          {children}
-        </main>
+           {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
+         </div>
+         <main className="flex-grow relative z-40"> {/* Tăng z-index */}
+           {children}
+         </main>
         <div className="relative z-10 mt-auto">
           <Footer />
         </div>

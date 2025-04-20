@@ -1,11 +1,18 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import Cookies from 'js-cookie';
+// Giả định UserApiService có thể được import từ đây
+// Nếu đường dẫn khác, cần điều chỉnh
+import { UserApiService } from './user/UserApiService';
 
 type User = {
   _id: string;
   name: string;
   email: string;
   role: string;
+  customerLevel?: string; // Giữ nguyên định nghĩa User
+  // Thêm các trường khác nếu API profile trả về
+  addresses?: any[]; // Ví dụ
+  phoneNumber?: string; // Ví dụ
 };
 
 type AuthContextType = {
@@ -46,29 +53,76 @@ const removeToken = (name: string) => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Giữ nguyên isLoading tổng thể
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Hàm fetch profile đầy đủ và cập nhật user state
+  const fetchAndUpdateUserProfile = useCallback(async () => {
+    console.log('[AuthContext] Attempting to fetch full user profile...');
+    try {
+      // Gọi API lấy profile đầy đủ
+      // Lưu ý: UserApiService cần xử lý việc gửi token trong header
+      const fullUserProfile = await UserApiService.getProfile();
+      if (fullUserProfile) {
+        console.log('[AuthContext] Full user profile fetched:', JSON.stringify(fullUserProfile, null, 2)); // Log profile đầy đủ
+        // Cập nhật state user với dữ liệu đầy đủ
+        setUser(currentUser => ({
+          ...(currentUser || {}), // Giữ lại thông tin cũ nếu có
+          ...fullUserProfile // Ghi đè/thêm thông tin mới
+        }));
+        // Cập nhật cả localStorage để lần sau load lên có đủ
+        localStorage.setItem('user', JSON.stringify(fullUserProfile));
+        console.log('[AuthContext] User state and localStorage updated with full profile.');
+      } else {
+         console.warn('[AuthContext] getProfile did not return a user profile.');
+      }
+    } catch (error) {
+      // Không nên chặn luồng chính nếu fetch profile lỗi, chỉ log lỗi
+      console.error('[AuthContext] Error fetching full user profile:', error);
+      // Có thể xử lý lỗi cụ thể, ví dụ: nếu là 401 thì logout
+      if (error instanceof Error && error.message.includes('401')) {
+         console.warn('[AuthContext] Unauthorized fetching profile, logging out.');
+         await logout(); // Gọi hàm logout nội bộ
+      }
+    }
+  }, []); // Dependency rỗng vì nó dùng UserApiService nội bộ
 
   useEffect(() => {
     // Kiểm tra xem người dùng đã đăng nhập chưa (từ localStorage)
-    const loadUserFromStorage = () => {
+    const loadUserFromStorage = async () => { // Chuyển thành async
       try {
         const token = localStorage.getItem('accessToken');
         const storedUser = localStorage.getItem('user');
 
         if (token && storedUser) {
-          setUser(JSON.parse(storedUser));
-          setIsAuthenticated(true);
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            setIsAuthenticated(true);
+            console.log('[AuthContext] User loaded from storage:', JSON.stringify(parsedUser, null, 2)); // Log user từ storage
+            // Sau khi load user từ storage, fetch profile đầy đủ để cập nhật
+            await fetchAndUpdateUserProfile();
+          } catch (parseError) {
+             console.error('[AuthContext] Error parsing user from localStorage:', parseError);
+             // Nếu lỗi parse, xóa dữ liệu cũ và coi như chưa đăng nhập
+             removeToken('accessToken');
+             removeToken('refreshToken');
+             localStorage.removeItem('user');
+             setIsAuthenticated(false);
+          }
+        } else {
+           console.log('[AuthContext] No valid token or user in storage.');
+           setIsAuthenticated(false); // Đảm bảo là false nếu không có token/user
         }
       } catch (error) {
-        console.error('Lỗi khi đọc từ localStorage:', error);
+        console.error('[AuthContext] Error in loadUserFromStorage:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Chỉ set isLoading false sau khi mọi thứ hoàn tất
       }
     };
 
     loadUserFromStorage();
-  }, []);
+  }, [fetchAndUpdateUserProfile]); // Thêm fetchAndUpdateUserProfile vào dependency
 
   const login = async (email: string, password: string) => {
     try {
@@ -101,13 +155,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Lưu token và thông tin người dùng vào localStorage và cookie
       saveToken('accessToken', data.accessToken, 2); // 2 ngày
       saveToken('refreshToken', data.refreshToken, 7); // 7 ngày
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify(data.user)); // Lưu user ban đầu
 
-      setUser(data.user);
+      setUser(data.user); // Set user ban đầu
       setIsAuthenticated(true);
+      console.log('[AuthContext] Login successful, initial user set:', JSON.stringify(data.user, null, 2)); // Log user ban đầu
+
+      // Sau khi đăng nhập thành công, fetch profile đầy đủ
+      await fetchAndUpdateUserProfile();
+
       return { success: true };
     } catch (error) {
-      console.error('Lỗi đăng nhập:', error);
+      console.error('[AuthContext] Login error:', error);
       return { success: false };
     } finally {
       setIsLoading(false);

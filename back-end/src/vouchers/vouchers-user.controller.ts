@@ -91,8 +91,13 @@ export class VouchersUserController {
       throw new BadRequestException('Mã voucher và giá trị đơn hàng là bắt buộc');
     }
     
-    // Lấy ID người dùng từ token
-    const userId = req.user.sub;
+    // Lấy ID người dùng từ token (đã được validate và trả về bởi JwtStrategy)
+    const userId = req.user.userId; // Sửa từ req.user.sub thành req.user.userId
+    
+    // Kiểm tra lại userId có tồn tại không (đề phòng trường hợp lạ)
+    if (!userId) {
+      throw new BadRequestException('Không thể xác định người dùng từ token.');
+    }
     
     return this.vouchersService.applyVoucherToOrder(
       applyVoucherDto.code,
