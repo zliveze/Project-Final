@@ -46,10 +46,10 @@ const EventForm: React.FC<EventFormProps> = ({
     endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
     products: []
   });
-  
+
   const [tagInput, setTagInput] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  
+
   // Khởi tạo form với dữ liệu có sẵn (nếu có)
   useEffect(() => {
     if (initialData) {
@@ -64,7 +64,7 @@ const EventForm: React.FC<EventFormProps> = ({
       }));
     }
   }, [initialData]);
-  
+
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -72,7 +72,7 @@ const EventForm: React.FC<EventFormProps> = ({
       ...prev,
       [name]: value
     }));
-    
+
     // Xóa thông báo lỗi khi người dùng điền vào trường đó
     if (formErrors[name]) {
       setFormErrors(prev => ({
@@ -81,7 +81,7 @@ const EventForm: React.FC<EventFormProps> = ({
       }));
     }
   };
-  
+
   // Xử lý thay đổi ngày
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -89,7 +89,7 @@ const EventForm: React.FC<EventFormProps> = ({
       ...prev,
       [name]: new Date(value)
     }));
-    
+
     // Xóa thông báo lỗi khi người dùng điền vào trường đó
     if (formErrors[name]) {
       setFormErrors(prev => ({
@@ -98,7 +98,7 @@ const EventForm: React.FC<EventFormProps> = ({
       }));
     }
   };
-  
+
   // Xử lý thêm tag
   const handleAddTag = () => {
     if (tagInput.trim() !== '') {
@@ -112,7 +112,7 @@ const EventForm: React.FC<EventFormProps> = ({
       setTagInput('');
     }
   };
-  
+
   // Xử lý nhấn phím khi thêm tag
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -120,7 +120,7 @@ const EventForm: React.FC<EventFormProps> = ({
       handleAddTag();
     }
   };
-  
+
   // Xử lý xóa tag
   const handleRemoveTag = (tagToRemove: string) => {
     setFormData(prev => ({
@@ -128,7 +128,7 @@ const EventForm: React.FC<EventFormProps> = ({
       tags: prev.tags.filter(tag => tag !== tagToRemove)
     }));
   };
-  
+
   // Xử lý điều chỉnh giá sản phẩm trong sự kiện
   const handleProductPriceChange = (productId: string, newPrice: number) => {
     // Nếu có callback, gọi callback để cập nhật qua API
@@ -138,69 +138,85 @@ const EventForm: React.FC<EventFormProps> = ({
       // Nếu không, chỉ cập nhật state local
       setFormData(prev => ({
         ...prev,
-        products: prev.products.map(product => 
-          product.productId === productId 
-            ? { ...product, adjustedPrice: newPrice } 
+        products: prev.products.map(product =>
+          product.productId === productId
+            ? { ...product, adjustedPrice: newPrice }
             : product
         )
       }));
     }
   };
-  
+
   // Kiểm tra form trước khi submit
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
+
     if (!formData.title.trim()) {
       errors.title = 'Vui lòng nhập tiêu đề sự kiện';
     }
-    
+
     if (!formData.description.trim()) {
       errors.description = 'Vui lòng nhập mô tả sự kiện';
     }
-    
+
     const startDate = new Date(formData.startDate);
     const endDate = new Date(formData.endDate);
-    
+
     if (isNaN(startDate.getTime())) {
       errors.startDate = 'Ngày bắt đầu không hợp lệ';
     }
-    
+
     if (isNaN(endDate.getTime())) {
       errors.endDate = 'Ngày kết thúc không hợp lệ';
     }
-    
+
     if (startDate >= endDate) {
       errors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu';
     }
-    
+
     if (formData.products.length === 0) {
       errors.products = 'Vui lòng thêm ít nhất một sản phẩm vào sự kiện';
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-  
+
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       onSubmit(formData);
     }
   };
-  
+
   // Format date cho input type="datetime-local"
   const formatDateForInput = (date: Date | string) => {
     const d = new Date(date);
     if (isNaN(d.getTime())) return '';
-    
+
     return format(d, "yyyy-MM-dd'T'HH:mm");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      onClick={(e) => {
+        // Ngăn chặn sự kiện submit form khi click vào các phần tử trong form
+        // Trừ khi click vào nút submit
+        if (e.target !== e.currentTarget) {
+          // Chỉ cho phép submit khi click vào nút có type="submit"
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit') {
+            // Cho phép sự kiện tiếp tục
+          } else {
+            e.stopPropagation();
+          }
+        }
+      }}
+    >
       <div className="space-y-4">
         {/* Tiêu đề */}
         <div>
@@ -222,7 +238,7 @@ const EventForm: React.FC<EventFormProps> = ({
             <p className="mt-1 text-sm text-red-500">{formErrors.title}</p>
           )}
         </div>
-        
+
         {/* Mô tả */}
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700">
@@ -243,7 +259,7 @@ const EventForm: React.FC<EventFormProps> = ({
             <p className="mt-1 text-sm text-red-500">{formErrors.description}</p>
           )}
         </div>
-        
+
         {/* Tags */}
         <div>
           <label htmlFor="tags" className="block text-sm font-medium text-gray-700">
@@ -280,7 +296,7 @@ const EventForm: React.FC<EventFormProps> = ({
             Nhập tag và nhấn Enter để thêm. Ví dụ: flash sale, chăm sóc da, v.v.
           </p>
         </div>
-        
+
         {/* Thời gian */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -320,7 +336,7 @@ const EventForm: React.FC<EventFormProps> = ({
             )}
           </div>
         </div>
-        
+
         {/* Sản phẩm */}
         <div>
           <div className="flex justify-between items-center mb-3">
@@ -335,19 +351,19 @@ const EventForm: React.FC<EventFormProps> = ({
               Thêm sản phẩm
             </button>
           </div>
-          
-          <EventProductsTable 
-            products={formData.products} 
+
+          <EventProductsTable
+            products={formData.products}
             onRemoveProduct={onRemoveProduct}
             onPriceChange={handleProductPriceChange}
           />
-          
+
           {formErrors.products && (
             <p className="mt-1 text-sm text-red-500">{formErrors.products}</p>
           )}
         </div>
       </div>
-      
+
       {/* Action buttons */}
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
         <button
@@ -362,6 +378,10 @@ const EventForm: React.FC<EventFormProps> = ({
           type="submit"
           disabled={loading}
           className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 flex items-center"
+          onClick={() => {
+            // Đảm bảo rằng sự kiện submit được xử lý đúng cách
+            console.log('Submit button clicked');
+          }}
         >
           {loading ? (
             <>
@@ -380,4 +400,4 @@ const EventForm: React.FC<EventFormProps> = ({
   );
 };
 
-export default EventForm; 
+export default EventForm;

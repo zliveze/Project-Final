@@ -21,13 +21,13 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
   const [filterStatus, setFilterStatus] = useState('all'); // all, upcoming, ongoing, ended
   const [eventType, setEventType] = useState('all'); // Lọc theo loại sự kiện (dựa trên tags)
   const [itemsPerPage, setItemsPerPage] = useState(10); // Số sự kiện hiển thị mỗi trang
-  
+
   // Tính toán trạng thái của sự kiện
   const getEventStatus = (event: Event) => {
     const now = new Date();
     const startDate = new Date(event.startDate);
     const endDate = new Date(event.endDate);
-    
+
     if (now < startDate) return 'upcoming';
     if (now > endDate) return 'ended';
     return 'ongoing';
@@ -52,7 +52,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
       default: return type;
     }
   };
-  
+
   // Lọc sự kiện theo trạng thái, loại và từ khóa tìm kiếm
   const filteredEvents = events.filter(event => {
     // Lọc theo trạng thái
@@ -66,7 +66,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
       const type = getEventType(event);
       if (type !== eventType) return false;
     }
-    
+
     // Lọc theo từ khóa tìm kiếm
     if (searchTerm.trim() !== '') {
       const searchLower = searchTerm.toLowerCase();
@@ -76,22 +76,26 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
         event.tags.some(tag => tag.toLowerCase().includes(searchLower))
       );
     }
-    
+
     return true;
   });
-  
+
   // Tính toán tổng số trang
   const totalPages = Math.ceil(filteredEvents.length / itemsPerPage);
-  
+
   // Lấy các sự kiện cho trang hiện tại
   const currentEvents = filteredEvents.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-  
+
   // Xử lý chuyển trang
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    // Tránh việc gọi API liên tục khi đang ở cùng trang
+    if (page !== currentPage) {
+      console.log('Chuyển đến trang:', page);
+      setCurrentPage(page);
+    }
   };
 
   // Xử lý thay đổi số lượng hiển thị
@@ -99,7 +103,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
     setItemsPerPage(Number(e.target.value));
     setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
   };
-  
+
   // Hàm hiển thị màu cho trạng thái
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -113,7 +117,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   // Hàm hiển thị text cho trạng thái
   const getStatusText = (status: string) => {
     switch (status) {
@@ -142,7 +146,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex items-center space-x-4 flex-wrap">
             <select
               className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
@@ -155,7 +159,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
               <option value="promotion">Ưu đãi</option>
               <option value="holiday">Sự kiện lễ hội</option>
             </select>
-            
+
             <select
               className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
               value={filterStatus}
@@ -184,7 +188,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
           </div>
         </div>
       </div>
-      
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -207,13 +211,13 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
               </th>
             </tr>
           </thead>
-          
+
           <tbody className="bg-white divide-y divide-gray-200">
             {currentEvents.length > 0 ? (
               currentEvents.map((event) => {
                 const status = getEventStatus(event);
                 const type = getEventType(event);
-                
+
                 return (
                   <tr key={event._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
@@ -239,13 +243,13 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
                         </div>
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-pink-100 text-pink-800">
                         {getEventTypeText(type)}
                       </span>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {format(new Date(event.startDate), 'dd/MM/yyyy')}
@@ -254,30 +258,30 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
                         đến {format(new Date(event.endDate), 'dd/MM/yyyy')}
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(status)}`}>
                         {getStatusText(status)}
                       </span>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <button 
+                        <button
                           onClick={() => onView(event._id)}
                           className="text-gray-600 hover:text-gray-900"
                           title="Xem chi tiết"
                         >
                           <FiEye className="h-5 w-5" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => onEdit(event._id)}
                           className="text-blue-600 hover:text-blue-900"
                           title="Chỉnh sửa"
                         >
                           <FiEdit2 className="h-5 w-5" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => onDelete(event._id)}
                           className="text-red-600 hover:text-red-900"
                           title="Xóa"
@@ -299,21 +303,27 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
           </tbody>
         </table>
       </div>
-      
+
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="px-6 py-3 border-t border-gray-200">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            totalItems={filteredEvents.length}
-            itemsPerPage={itemsPerPage}
-            showItemsInfo={true}
-            className="py-2"
-          />
+          <div onClick={(e) => {
+            // Ngăn chặn sự kiện lan truyền đến form cha
+            e.preventDefault();
+            e.stopPropagation();
+          }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={filteredEvents.length}
+              itemsPerPage={itemsPerPage}
+              showItemsInfo={true}
+              className="py-2"
+            />
+          </div>
         </div>
       )}
     </div>
   );
-} 
+}

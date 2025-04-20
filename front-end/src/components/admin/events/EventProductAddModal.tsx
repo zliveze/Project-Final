@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSearch, FiPlus, FiChevronLeft, FiChevronRight, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiX, FiSearch, FiPlus, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import Pagination from '@/components/admin/common/Pagination';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
@@ -106,7 +107,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   }[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30); // Mặc định giảm 30%
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  
+
   // State cho filter nâng cao
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [brandsList, setBrands] = useState<{id: string, name: string}[]>([]);
@@ -181,7 +182,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       console.log('Tham số gửi đến API để lọc sản phẩm:', params);
       const result = await fetchAdminProductList(params);
       console.log('Kết quả trả về từ API:', result);
-      
+
       if (result) {
         // Kiểm tra kiểu dữ liệu của sản phẩm đầu tiên nếu có
         if (result.products && result.products.length > 0) {
@@ -190,7 +191,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           console.log('Giá hiện tại (currentPrice):', result.products[0].currentPrice, 'kiểu:', typeof result.products[0].currentPrice);
           console.log('Giá gốc dạng số (originalPrice):', result.products[0].originalPrice, 'kiểu:', typeof result.products[0].originalPrice);
         }
-        
+
         // Chuyển đổi price từ string sang number nếu cần
         const formattedProducts = result.products.map(product => {
           // Chuyển đổi product sang product với _id
@@ -199,11 +200,11 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
             _id: product.id,
             // Đảm bảo đặt giá đúng
             price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
-            currentPrice: product.currentPrice !== undefined ? 
-              (typeof product.currentPrice === 'string' ? parseFloat(product.currentPrice) : product.currentPrice) : 
+            currentPrice: product.currentPrice !== undefined ?
+              (typeof product.currentPrice === 'string' ? parseFloat(product.currentPrice) : product.currentPrice) :
               (typeof product.price === 'string' ? parseFloat(product.price) : product.price),
-            originalPrice: product.originalPrice !== undefined ? 
-              (typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice) : 
+            originalPrice: product.originalPrice !== undefined ?
+              (typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice) :
               (typeof product.price === 'string' ? parseFloat(product.price) : product.price)
           };
           console.log(`Sản phẩm ${product.name} sau khi format:`, {
@@ -213,7 +214,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           });
           return formattedProduct;
         });
-        
+
         setProducts(formattedProducts);
         setTotalPages(result.totalPages);
       } else {
@@ -236,10 +237,10 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     // Fetch only when modal is open and visible
     if (isOpen && modalVisible) {
       const delay = isInitialLoad ? 150 : 0; // Apply delay only on initial load
-      
+
       // Set initial load to false *before* the timeout to prevent potential re-trigger issues
       if (isInitialLoad) {
-        setIsInitialLoad(false); 
+        setIsInitialLoad(false);
       }
 
       fetchTimer = setTimeout(() => {
@@ -259,7 +260,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     setSearchTerm(value);
     setPage(1); // Reset về trang 1 khi tìm kiếm
   };
-  
+
   // Xử lý thay đổi filter
   const handleFilterChange = (name: keyof ProductFilter, value: any) => {
     setTempFilters(prev => ({
@@ -267,7 +268,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       [name]: value
     }));
   };
-  
+
   // Áp dụng bộ lọc
   const applyFilters = () => {
     console.log('Applying filters:', tempFilters);
@@ -281,13 +282,13 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       isOnSale: tempFilters.isOnSale === true ? true : undefined,
       hasGifts: tempFilters.hasGifts === true ? true : undefined,
     };
-    
+
     console.log('Sanitized filters:', sanitizedFilters);
     setFilters(sanitizedFilters);
     setPage(1); // Reset về trang 1 khi áp dụng bộ lọc
     setShowAdvancedFilters(false); // Đóng bộ lọc nâng cao
   };
-  
+
   // Xóa bộ lọc
   const clearFilters = () => {
     const defaultFilters = { status: 'active' };
@@ -296,21 +297,21 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     setFilters(defaultFilters);
     setPage(1);
   };
-  
+
   // Lọc sản phẩm đã được thêm vào sự kiện
-  const filteredProducts = products.filter(product => 
+  const filteredProducts = products.filter(product =>
     !excludedProductIds.includes(product._id || product.id || '')
   );
-  
+
   // Kiểm tra xem sản phẩm đã được chọn chưa
   const isProductSelected = (productId: string) => {
     return selectedProducts.some(product => product.productId === productId);
   };
-  
+
   // Xử lý chọn/bỏ chọn sản phẩm
   const toggleProductSelection = (product: Product) => {
     const productId = product._id || product.id || '';
-    
+
     if (isProductSelected(productId)) {
       // Bỏ chọn sản phẩm
       setSelectedProducts(prev => prev.filter(item => item.productId !== productId));
@@ -318,24 +319,24 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       // Chọn sản phẩm và tính giá sau khi áp dụng % giảm giá
       // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
       let productPrice = 0;
-      
+
       if (product.originalPrice) {
-        productPrice = typeof product.originalPrice === 'string' ? 
+        productPrice = typeof product.originalPrice === 'string' ?
           parseFloat(product.originalPrice) : product.originalPrice;
       } else if (product.price) {
-        productPrice = typeof product.price === 'string' ? 
+        productPrice = typeof product.price === 'string' ?
           parseFloat(product.price) : (product.price || 0);
       }
-      
+
       const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
-      
+
       // Lấy ảnh đầu tiên hoặc ảnh được đánh dấu là primary từ mảng images nếu có
       let productImage = product.image;
       if (product.images && product.images.length > 0) {
         const primaryImage = product.images.find(img => img.isPrimary);
         productImage = primaryImage ? primaryImage.url : product.images[0].url;
       }
-      
+
       setSelectedProducts(prev => [...prev, {
         productId: productId,
         adjustedPrice,
@@ -345,31 +346,31 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       }]);
     }
   };
-  
+
   // Xử lý thay đổi % giảm giá
   const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     if (!isNaN(value) && value >= 0 && value <= 100) {
       setDiscountPercent(value);
-      
+
       // Cập nhật giá của tất cả sản phẩm đã chọn
       setSelectedProducts(prev => prev.map(product => {
         const originalProduct = products.find(p => (p._id || p.id) === product.productId);
         let originalPrice = product.originalPrice || 0;
-        
+
         if (originalProduct) {
           // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
           if (originalProduct.originalPrice) {
-            originalPrice = typeof originalProduct.originalPrice === 'string' ? 
+            originalPrice = typeof originalProduct.originalPrice === 'string' ?
               parseFloat(originalProduct.originalPrice) : originalProduct.originalPrice;
           } else if (originalProduct.price) {
-            originalPrice = typeof originalProduct.price === 'string' ? 
+            originalPrice = typeof originalProduct.price === 'string' ?
               parseFloat(originalProduct.price) : (originalProduct.price || 0);
           }
         }
-        
+
         const newAdjustedPrice = Math.round(originalPrice * (100 - value) / 100);
-        
+
         return {
           ...product,
           adjustedPrice: newAdjustedPrice,
@@ -378,27 +379,29 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       }));
     }
   };
-  
+
   // Xử lý chuyển trang
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    // Tránh việc gọi API liên tục khi đang ở cùng trang
+    if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+      console.log('Chuyển đến trang:', newPage);
       setPage(newPage);
     }
   };
-  
+
   // Xử lý thêm sản phẩm vào sự kiện
   const handleAddProducts = async () => {
     if (selectedProducts.length === 0) return;
-    
+
     try {
       setSubmitting(true);
-      
+
       // Thêm sản phẩm vào sự kiện (gọi callback)
       onAdd(selectedProducts);
-      
+
       // Reset state sau khi thêm
       setSelectedProducts([]);
-      
+
       // Đóng modal sau khi thêm thành công
       setTimeout(() => {
         onClose();
@@ -493,11 +496,11 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 {showAdvancedFilters ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />}
               </button>
             </div>
-            
+
             {/* Advanced Filters */}
             {showAdvancedFilters && (
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                
+
                 {/* Brand Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -519,7 +522,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                     ))}
                   </select>
                 </div>
-                
+
                 {/* Category Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -541,7 +544,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                     ))}
                   </select>
                 </div>
-                
+
                 {/* Status Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -558,7 +561,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                     <option value="">Tất cả trạng thái</option>
                   </select>
                 </div>
-                
+
                 {/* Price Range Filter */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -582,7 +585,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                     />
                   </div>
                 </div>
-                
+
                 {/* Flag Filters */}
                 <div className="col-span-full">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -639,7 +642,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Filter Actions */}
                 <div className="col-span-full flex justify-end space-x-2 mt-2">
                   <button
@@ -670,7 +673,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
             ) : error ? (
               <div className="p-8 text-center text-red-500">
                 <p>{error}</p>
-                <button 
+                <button
                   onClick={fetchProducts}
                   className="mt-2 text-sm text-pink-600 hover:text-pink-500"
                 >
@@ -686,34 +689,34 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 {filteredProducts.map((product) => {
                   const productId = product._id || product.id || '';
                   const isSelected = isProductSelected(productId);
-                  
+
                   // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) sau đó mới đến price
                   let productPrice = 0;
                   // Log để debug
                   console.log(`Sản phẩm ${product.name}:`, product);
-                  
+
                   if (product.originalPrice) {
-                    productPrice = typeof product.originalPrice === 'string' ? 
+                    productPrice = typeof product.originalPrice === 'string' ?
                       parseFloat(product.originalPrice) : product.originalPrice;
                   } else if (product.price) {
-                    productPrice = typeof product.price === 'string' ? 
+                    productPrice = typeof product.price === 'string' ?
                       parseFloat(product.price) : product.price;
                   }
-                  
+
                   console.log(`Giá cuối cùng của sản phẩm ${product.name}: ${productPrice}`);
-                  
+
                   const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
-                  
+
                   // Lấy ảnh sản phẩm
                   let productImage = product.image;
                   if (product.images && product.images.length > 0) {
                     const primaryImage = product.images.find(img => img.isPrimary);
                     productImage = primaryImage ? primaryImage.url : product.images[0].url;
                   }
-                  
+
                   // Tính phần trăm giảm giá thực tế
                   const actualDiscount = Math.round(((productPrice - adjustedPrice) / productPrice) * 100);
-                  
+
                   return (
                     <div
                       key={productId}
@@ -747,7 +750,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="mt-2 flex justify-between items-center">
                           <div className="text-sm text-gray-500">
                             <span className="line-through">{formatPrice(productPrice)}</span>
@@ -756,7 +759,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                             {formatPrice(adjustedPrice)}
                           </div>
                         </div>
-                        
+
                         <div className="mt-2 flex justify-between items-center">
                           <div className="text-xs text-gray-500">
                             {isSelected ? 'Đã chọn' : 'Chưa chọn'}
@@ -772,28 +775,24 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Pagination */}
           {!loading && !error && totalPages > 1 && (
-            <div className="px-4 py-3 sm:px-6 border-t border-gray-200 flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                  className={`p-2 rounded-md ${page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-                >
-                  <FiChevronLeft className="h-5 w-5" />
-                </button>
-                <span className="text-sm text-gray-700">
-                  Trang {page} / {totalPages}
-                </span>
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === totalPages}
-                  className={`p-2 rounded-md ${page === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-                >
-                  <FiChevronRight className="h-5 w-5" />
-                </button>
+            <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+              <div onClick={(e) => {
+                // Ngăn chặn sự kiện lan truyền đến form cha
+                e.preventDefault();
+                e.stopPropagation();
+              }}>
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  totalItems={filteredProducts.length}
+                  itemsPerPage={12}
+                  showItemsInfo={true}
+                  className="py-2"
+                />
               </div>
             </div>
           )}
@@ -802,8 +801,8 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           <div className="px-4 py-3 sm:px-6 border-t border-gray-200 flex justify-between">
             <div>
               <span className="text-sm text-gray-700">
-                Đã chọn {selectedProducts.length} sản phẩm 
-                {selectedProducts.length > 10 && 
+                Đã chọn {selectedProducts.length} sản phẩm
+                {selectedProducts.length > 10 &&
                   <span className="text-orange-500 ml-1">(Khuyến nghị: Nên chọn tối đa 10 sản phẩm mỗi lần)</span>
                 }
               </span>
@@ -823,9 +822,9 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 type="button"
                 onClick={handleAddProducts}
                 disabled={selectedProducts.length === 0 || submitting}
-                className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white
                   ${selectedProducts.length === 0 || submitting
-                    ? 'bg-gray-300 cursor-not-allowed' 
+                    ? 'bg-gray-300 cursor-not-allowed'
                     : 'bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500'}`}
               >
                 {submitting ? (
