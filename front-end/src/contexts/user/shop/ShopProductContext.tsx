@@ -335,13 +335,6 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
            // Chỉ log trong môi trường development
            if (process.env.NODE_ENV === 'development') {
-             console.log('Products fetched successfully:', {
-               products: response.data.products.length,
-               total: response.data.total,
-               page: response.data.page,
-               limit: response.data.limit,
-               totalPages: response.data.totalPages
-             });
            }
 
            // Kiểm tra sản phẩm có campaign không

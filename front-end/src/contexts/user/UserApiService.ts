@@ -88,7 +88,6 @@ export const UserApiService = {
 
       try {
         const data = await responseClone.json();
-        console.log('Dữ liệu profile:', data);
         return data;
       } catch (parseError) {
         console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);

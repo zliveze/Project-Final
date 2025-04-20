@@ -60,14 +60,15 @@ interface PaginatedVouchers {
 interface VoucherQueryParams {
   page?: number;
   limit?: number;
-  code?: string;
-  isActive?: boolean;
+  searchTerm?: string; // Changed from code
+  selectedStatus?: 'all' | 'active' | 'inactive' | 'expired' | 'scheduled'; // Changed from isActive
+  selectedType?: 'all' | 'percentage' | 'fixed'; // Added discountType
+  startDateFilter?: Date | null; // Changed from startDateFrom/To
+  endDateFilter?: Date | null; // Changed from endDateFrom/To
+  minOrderValueFilter?: number | ''; // Added minOrderValue
+  maxOrderValueFilter?: number | ''; // Added maxOrderValue
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  startDateFrom?: string;
-  startDateTo?: string;
-  endDateFrom?: string;
-  endDateTo?: string;
 }
 
 // Định nghĩa kiểu dữ liệu context
@@ -136,14 +137,45 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(true);
       setError(null);
 
-      // Xây dựng query string từ các tham số
+      // Xây dựng query string từ các tham số, ánh xạ tên từ frontend sang backend
       const params = new URLSearchParams();
       if (queryParams) {
-        Object.entries(queryParams).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            params.append(key, String(value));
-          }
-        });
+        // Phân trang
+        if (queryParams.page) params.append('page', String(queryParams.page));
+        if (queryParams.limit) params.append('limit', String(queryParams.limit));
+
+        // Tìm kiếm
+        if (queryParams.searchTerm) params.append('code', queryParams.searchTerm); // Map searchTerm to code
+
+        // Trạng thái
+        if (queryParams.selectedStatus && queryParams.selectedStatus !== 'all') {
+          params.append('status', queryParams.selectedStatus); // Map selectedStatus to status
+        }
+
+        // Loại voucher
+        if (queryParams.selectedType && queryParams.selectedType !== 'all') {
+          params.append('discountType', queryParams.selectedType); // Map selectedType to discountType
+        }
+
+        // Ngày bắt đầu/kết thúc
+        if (queryParams.startDateFilter) {
+          params.append('startDateFrom', queryParams.startDateFilter.toISOString()); // Map startDateFilter to startDateFrom
+        }
+        if (queryParams.endDateFilter) {
+          params.append('endDateTo', queryParams.endDateFilter.toISOString()); // Map endDateFilter to endDateTo
+        }
+
+        // Giá trị đơn hàng tối thiểu
+        if (queryParams.minOrderValueFilter !== undefined && queryParams.minOrderValueFilter !== '') {
+          params.append('minimumOrderValueFrom', String(queryParams.minOrderValueFilter)); // Map minOrderValueFilter
+        }
+        if (queryParams.maxOrderValueFilter !== undefined && queryParams.maxOrderValueFilter !== '') {
+          params.append('minimumOrderValueTo', String(queryParams.maxOrderValueFilter)); // Map maxOrderValueFilter
+        }
+
+        // Sắp xếp
+        if (queryParams.sortBy) params.append('sortBy', queryParams.sortBy);
+        if (queryParams.sortOrder) params.append('sortOrder', queryParams.sortOrder);
       }
 
       const response = await axios.get(

@@ -63,8 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Gọi API lấy profile đầy đủ
       // Lưu ý: UserApiService cần xử lý việc gửi token trong header
       const fullUserProfile = await UserApiService.getProfile();
-      if (fullUserProfile) {
-        console.log('[AuthContext] Full user profile fetched:', JSON.stringify(fullUserProfile, null, 2)); // Log profile đầy đủ
+      if (fullUserProfile) { 
         // Cập nhật state user với dữ liệu đầy đủ
         setUser(currentUser => ({
           ...(currentUser || {}), // Giữ lại thông tin cũ nếu có
@@ -99,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
             setIsAuthenticated(true);
-            console.log('[AuthContext] User loaded from storage:', JSON.stringify(parsedUser, null, 2)); // Log user từ storage
             // Sau khi load user từ storage, fetch profile đầy đủ để cập nhật
             await fetchAndUpdateUserProfile();
           } catch (parseError) {

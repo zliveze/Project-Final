@@ -52,9 +52,8 @@ export default function VoucherTable({
 
   // Gửi thay đổi bộ lọc lên component cha
   useEffect(() => {
-    const filters = {
-      page: currentPage,
-      limit: itemsPerPage,
+    // Chỉ gửi các giá trị filter thực sự, không gửi page/limit
+    const actualFilters = {
       searchTerm,
       selectedStatus,
       selectedType,
@@ -65,12 +64,15 @@ export default function VoucherTable({
       sortBy,
       sortOrder
     };
-    
-    onFilterChange(filters);
-  }, [searchTerm, selectedStatus, selectedType, 
-      startDateFilter, endDateFilter, 
+
+    // Gọi onFilterChange chỉ với các filter thực sự
+    onFilterChange(actualFilters);
+    // Không cần phụ thuộc vào currentPage, itemsPerPage ở đây nữa
+    // vì chúng được quản lý ở component cha và dùng trực tiếp khi fetch
+  }, [searchTerm, selectedStatus, selectedType,
+      startDateFilter, endDateFilter,
       minOrderValueFilter, maxOrderValueFilter,
-      sortBy, sortOrder, currentPage, itemsPerPage]);
+      sortBy, sortOrder, onFilterChange]); // Thêm onFilterChange vào dependencies
 
   // Reset tất cả bộ lọc về mặc định
   const resetFilters = () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Thêm useCallback
 import Head from 'next/head';
 import { FiPlus, FiTag, FiCheckCircle, FiXCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
@@ -196,18 +196,18 @@ function VouchersPageContent() {
     }
   };
 
-  // Xử lý thay đổi filter
-  const handleFilterChange = (newFilters: any) => {
+  // Xử lý thay đổi filter (sử dụng useCallback)
+  const handleFilterChange = useCallback((newFilters: any) => {
     setFilters(newFilters);
     setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
-  };
+  }, []); // Không có dependencies bên ngoài, chỉ cần tạo 1 lần
 
-  // Xử lý thay đổi số lượng hiển thị trên mỗi trang
-  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  // Xử lý thay đổi số lượng hiển thị trên mỗi trang (sử dụng useCallback)
+  const handleItemsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newItemsPerPage = parseInt(e.target.value, 10);
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
-  };
+  }, []); // Không có dependencies bên ngoài, chỉ cần tạo 1 lần
 
   // Tính toán số voucher đã sử dụng (nếu không có sẵn từ API)
   const usedVouchers = voucherStats?.unusedVouchers || 0;
