@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback, Rea
 import { toast } from 'react-toastify';
 // Import dependencies thực tế
 import { useAuth } from '@/contexts/AuthContext'; // Điều chỉnh đường dẫn nếu cần
+import { useUserVoucher, VoucherApplyResult } from '@/hooks/useUserVoucher';
 
 // Define API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -102,12 +103,20 @@ interface CartContextType {
   subtotal: number;
   isLoading: boolean;
   error: string | null;
+  appliedVoucher: VoucherApplyResult | null;
+  discount: number;
+  shipping: number;
+  total: number;
+  voucherCode: string;
   fetchCart: () => Promise<void>;
   addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined, null, or empty string variantId
   updateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>;
   debouncedUpdateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
   removeCartItem: (variantId: string) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
+  applyVoucher: (code: string) => Promise<boolean>;
+  clearVoucher: () => void;
+  updateShipping: (amount: number) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -116,7 +125,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [voucherCode, setVoucherCode] = useState<string>('');
+  const [shipping, setShipping] = useState<number>(0);
   const { isAuthenticated } = useAuth(); // Chỉ cần isAuthenticated từ context
+  const {
+    applyVoucher: applyVoucherApi,
+    appliedVoucher,
+    clearAppliedVoucher
+  } = useUserVoucher();
 
   // Hàm fetch và kết hợp chi tiết sản phẩm
   const fetchAndPopulateCart = useCallback(async () => {
@@ -757,6 +773,67 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Subtotal tính dựa trên giá LÚC THÊM VÀO GIỎ (price từ BackendCartItem đã được map vào CartProduct)
   const subtotal = cartItems.reduce((sum: number, item: CartProduct) => sum + item.price * item.quantity, 0);
 
+  // Tính toán giảm giá từ voucher đã áp dụng
+  const discount = appliedVoucher ? appliedVoucher.discountAmount : 0;
+
+  // Tính tổng tiền sau khi áp dụng giảm giá và phí vận chuyển
+  const total = subtotal - discount + shipping;
+
+  // Hàm áp dụng voucher
+  const applyVoucher = async (code: string): Promise<boolean> => {
+    if (!code.trim()) {
+      toast.error('Vui lòng nhập mã giảm giá');
+      return false;
+    }
+
+    try {
+      // Lấy danh sách ID sản phẩm trong giỏ hàng
+      const productIds = cartItems.map(item => item.productId);
+
+      // Gọi API áp dụng voucher
+      const result = await applyVoucherApi(code, subtotal, productIds);
+
+      if (result) {
+        setVoucherCode(code);
+
+        // Cập nhật phí vận chuyển dựa trên tổng tiền sau khi áp dụng voucher
+        const afterDiscountTotal = subtotal - result.discountAmount;
+        setShipping(afterDiscountTotal >= 500000 ? 0 : 30000);
+
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Lỗi khi áp dụng voucher:', err);
+      return false;
+    }
+  };
+
+  // Hàm xóa voucher đã áp dụng
+  const clearVoucher = () => {
+    clearAppliedVoucher();
+    setVoucherCode('');
+    // Cập nhật lại phí vận chuyển dựa trên tổng tiền gốc
+    setShipping(subtotal >= 500000 ? 0 : 30000);
+  };
+
+  // Hàm cập nhật phí vận chuyển
+  const updateShipping = (amount: number) => {
+    setShipping(amount);
+  };
+
+  // Cập nhật phí vận chuyển khi subtotal thay đổi
+  useEffect(() => {
+    // Nếu không có voucher, tính phí vận chuyển dựa trên subtotal
+    if (!appliedVoucher) {
+      setShipping(subtotal >= 500000 ? 0 : 30000);
+    } else {
+      // Nếu có voucher, tính phí vận chuyển dựa trên tổng tiền sau khi áp dụng voucher
+      const afterDiscountTotal = subtotal - appliedVoucher.discountAmount;
+      setShipping(afterDiscountTotal >= 500000 ? 0 : 30000);
+    }
+  }, [subtotal, appliedVoucher]);
+
   return (
     <CartContext.Provider value={{
         cartItems,
@@ -764,12 +841,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         subtotal,
         isLoading,
         error,
+        appliedVoucher,
+        discount,
+        shipping,
+        total,
+        voucherCode,
         fetchCart: fetchAndPopulateCart,
         addItemToCart,
         updateCartItem,
         debouncedUpdateCartItem,
         removeCartItem,
-        clearCart
+        clearCart,
+        applyVoucher,
+        clearVoucher,
+        updateShipping
     }}>
       {children}
     </CartContext.Provider>

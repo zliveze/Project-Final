@@ -12,11 +12,13 @@ import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
 import CartItem from '@/components/cart/CartItem';
 import CartSummary from '@/components/cart/CartSummary';
 import EmptyCart from '@/components/cart/EmptyCart';
+import VoucherListModal from '@/components/cart/VoucherListModal';
 import RecommendedProducts from '@/components/common/RecommendedProducts';
 import DefaultLayout from '@/layout/DefaultLayout';
 
 // Hooks
 import { useBranches } from '@/hooks/useBranches';
+import { useUserVoucher } from '@/hooks/useUserVoucher';
 
 // Import CartProduct interface from CartContext
 import { CartProduct } from '@/contexts/user/cart/CartContext';
@@ -52,21 +54,47 @@ const CartPage: NextPage = () => {
     error, // Get error state from context
     subtotal, // Get subtotal directly from context
     itemCount, // Get itemCount directly from context
+    discount, // Get discount from context
+    shipping, // Get shipping from context
+    total, // Get total from context
+    voucherCode, // Get voucher code from context
     debouncedUpdateCartItem,
     removeCartItem,
+    applyVoucher, // Get applyVoucher function from context
+    clearVoucher, // Get clearVoucher function from context
     // addItemToCart // Keep if needed for RecommendedProducts later
   } = useCart();
 
   // Use the branches hook to get branch information
   const { branches, loading: branchesLoading } = useBranches();
 
-  // Combined loading state
-  const isPageLoading = isLoading || branchesLoading;
+  // State for page loading and voucher modal
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
 
-  // State for voucher and shipping (keep local for now)
-  const [voucherCode, setVoucherCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  const [shipping, setShipping] = useState(0);
+  // Sử dụng hook useUserVoucher để lấy danh sách voucher
+  const {
+    fetchApplicableVouchers,
+    fetchUnavailableVouchers,
+    availableVouchers,
+    unavailableVouchers
+  } = useUserVoucher();
+
+  // Cập nhật trạng thái loading
+  useEffect(() => {
+    if (!isLoading && !branchesLoading) {
+      setIsPageLoading(false);
+    }
+  }, [isLoading, branchesLoading]);
+
+  // Lấy danh sách voucher khi giỏ hàng thay đổi
+  useEffect(() => {
+    if (cartItems.length > 0 && !isLoading) {
+      const productIds = cartItems.map(item => item.productId);
+      // Chỉ cần gọi một hàm này sẽ tự động cập nhật cả availableVouchers và unavailableVouchers
+      fetchApplicableVouchers(subtotal, productIds);
+    }
+  }, [cartItems, subtotal, isLoading, fetchApplicableVouchers]);
 
   // State for recommended products (temporary, fetch later)
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
@@ -87,15 +115,7 @@ const CartPage: NextPage = () => {
   }, []);
 
 
-  // Calculate shipping based on subtotal from context
-  useEffect(() => {
-    // Only calculate shipping if not using FREESHIP voucher and cart is loaded
-    if (!isLoading && voucherCode.toUpperCase() !== 'FREESHIP') {
-      setShipping(subtotal > 500000 ? 0 : 30000);
-    } else if (voucherCode.toUpperCase() === 'FREESHIP') {
-      setShipping(0); // Ensure shipping is 0 if FREESHIP is applied
-    }
-  }, [subtotal, voucherCode, isLoading]);
+  // Không cần tính toán shipping ở đây nữa vì đã được xử lý trong CartContext
 
 
   // Xử lý cập nhật số lượng sản phẩm - Use debounced context function
@@ -112,39 +132,12 @@ const CartPage: NextPage = () => {
     // Toast messages are handled within the context now
   };
 
-  // Xử lý áp dụng mã giảm giá (Keep local logic for now)
-  const handleApplyVoucher = (code: string) => {
-    // Trong thực tế, mã này sẽ được gửi đến server để kiểm tra tính hợp lệ
-    // Đây chỉ là mã mẫu để demo
-    if (code.toUpperCase() === 'YUMIN10') {
-      // Giảm 10% cho toàn bộ đơn hàng - Use subtotal from context
-      setDiscount(Math.round(subtotal * 0.1));
-      setVoucherCode(code);
-      // Recalculate shipping if discount changes subtotal boundary
-      setShipping((subtotal * 0.9) > 500000 ? 0 : 30000);
-      toast.success('Đã áp dụng mã giảm giá YUMIN10', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light",
-        style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-      });
-    } else if (code.toUpperCase() === 'FREESHIP') {
-      // Miễn phí vận chuyển
-      setShipping(0); // Set shipping directly
-      setVoucherCode(code);
-      setDiscount(0); // Reset other discounts if applying freeship
-      toast.success('Đã áp dụng mã miễn phí vận chuyển', {
-        position: "bottom-right",
-        autoClose: 3000,
-        theme: "light",
-        style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-      });
+  // Xử lý áp dụng mã giảm giá (Sử dụng hàm từ context)
+  const handleApplyVoucher = async (code: string) => {
+    const success = await applyVoucher(code);
+    if (success) {
+      setShowVoucherModal(false); // Đóng modal nếu áp dụng thành công
     } else {
-      // Reset discount and voucher if invalid
-      setDiscount(0);
-      setVoucherCode('');
-      // Recalculate shipping based on original subtotal
-      setShipping(subtotal > 500000 ? 0 : 30000);
       toast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn', {
         position: "bottom-right",
         autoClose: 3000,
@@ -152,6 +145,16 @@ const CartPage: NextPage = () => {
         style: { backgroundColor: '#f8d7da', color: '#721c24', borderLeft: '4px solid #721c24' }
       });
     }
+  };
+
+  // Xử lý hiển thị modal voucher
+  const handleShowVoucherModal = () => {
+    setShowVoucherModal(true);
+  };
+
+  // Xử lý đóng modal voucher
+  const handleCloseVoucherModal = () => {
+    setShowVoucherModal(false);
   };
 
   // Xử lý nút thanh toán (Keep as is)
@@ -172,8 +175,7 @@ const CartPage: NextPage = () => {
     // toast.success('Đang chuyển đến trang thanh toán...', { ... });
   };
 
-  // Tính toán tổng tiền (sử dụng subtotal từ context)
-  const total = subtotal - discount + shipping;
+  // Sử dụng total từ context
 
   // Define interface for grouped cart items
   interface CartItemGroup {
@@ -334,17 +336,30 @@ const CartPage: NextPage = () => {
               <div className="lg:col-span-1">
                 <CartSummary
                   subtotal={subtotal} // Use subtotal from context
-                  discount={discount} // Use local state discount
-                  shipping={shipping} // Use local state shipping
-                  total={total} // Use calculated total
+                  discount={discount} // Use discount from context
+                  shipping={shipping} // Use shipping from context
+                  total={total} // Use total from context
                   itemCount={itemCount} // Use itemCount from context
-                  voucherCode={voucherCode} // Use local state voucherCode
+                  voucherCode={voucherCode} // Use voucherCode from context
                   onApplyVoucher={handleApplyVoucher} // Pass local handler
                   onProceedToCheckout={handleProceedToCheckout} // Pass local handler
+                  onClearVoucher={clearVoucher} // Pass clearVoucher function from context
+                  onShowVoucherList={handleShowVoucherModal} // Pass handler to show voucher list
                 />
               </div>
             </div>
           )}
+
+          {/* Voucher List Modal */}
+          <VoucherListModal
+            isOpen={showVoucherModal}
+            onClose={handleCloseVoucherModal}
+            availableVouchers={availableVouchers}
+            unavailableVouchers={unavailableVouchers}
+            onSelectVoucher={handleApplyVoucher}
+            appliedVoucherCode={voucherCode}
+            subtotal={subtotal}
+          />
 
           {/* Recommended Products Section */}
           {/* Consider fetching recommended products based on cart items */}
