@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 
 // Định nghĩa kiểu dữ liệu cho brand phía người dùng
 export interface Brand {
@@ -45,6 +46,7 @@ const BRAND_API = {
 
 // Provider component
 export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const router = useRouter();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -121,10 +123,23 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Tự động tải dữ liệu khi component được mount
+  // Tự động tải dữ liệu khi component được mount hoặc route thay đổi
   useEffect(() => {
-    fetchBrands();
-  }, []);
+    const loadData = async () => {
+      // Chỉ load brands khi ở các trang liên quan
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+                               !router.pathname.startsWith('/auth');
+      
+      if (isUserRelatedPage) {
+        await Promise.all([
+          fetchBrands(),
+          fetchFeaturedBrands()
+        ]);
+      }
+    };
+
+    loadData();
+  }, [router.pathname]);
 
   // Chuẩn bị giá trị cho context
   const value: BrandContextType = {

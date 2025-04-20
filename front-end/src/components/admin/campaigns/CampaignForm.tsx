@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FiSave, FiX, FiCalendar, FiShoppingBag } from 'react-icons/fi';
 import Image from 'next/image';
-import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ProductSelectionTable from './ProductSelectionTable';
 // Import types from context
-import { Campaign, CampaignProduct as Product } from '@/contexts/CampaignContext'; 
+import { Campaign, CampaignProduct as Product } from '@/contexts/CampaignContext';
 
 interface CampaignFormProps {
   initialData?: Partial<Campaign>; // Use context Campaign type
@@ -37,8 +36,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
 
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+
     const { name, value } = e.target;
-    
+    console.log(`Field ${name} changed to: ${value}`);
+
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -56,6 +58,8 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   // Xử lý thay đổi ngày
   const handleDateChange = (date: Date | null, fieldName: string) => {
     if (date) {
+      console.log(`Date field ${fieldName} changed to: ${date}`);
+
       setFormData(prev => ({
         ...prev,
         [fieldName]: date
@@ -85,6 +89,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
       ...prev,
       products: [...products]
     }));
+    // Đóng modal chọn sản phẩm nhưng không submit form
     setShowProductSelection(false);
   };
 
@@ -92,7 +97,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   const handleRemoveProduct = (productId: string, variantId?: string) => { // Make variantId optional here
     setFormData(prev => ({
       ...prev,
-      products: prev.products?.filter(p => 
+      products: prev.products?.filter(p =>
         !(p.productId === productId && p.variantId === variantId)
       ) || []
     }));
@@ -114,31 +119,31 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   // Validation form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.title || formData.title.trim() === '') {
       newErrors.title = 'Tiêu đề chiến dịch không được để trống';
     }
-    
+
     if (!formData.description || formData.description.trim() === '') {
       newErrors.description = 'Mô tả chiến dịch không được để trống';
     }
-    
+
     if (!formData.startDate) {
       newErrors.startDate = 'Ngày bắt đầu không được để trống';
     }
-    
+
     if (!formData.endDate) {
       newErrors.endDate = 'Ngày kết thúc không được để trống';
     }
-    
+
     if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
       newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu';
     }
-    
+
     if (!formData.products || formData.products.length === 0) {
       newErrors.products = 'Vui lòng thêm ít nhất một sản phẩm vào chiến dịch';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -146,14 +151,36 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+
+    console.log('Form submit triggered');
+
     if (validateForm()) {
+      console.log('Form validation passed, submitting data');
       onSubmit(formData);
+    } else {
+      console.log('Form validation failed');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      onClick={(e) => {
+        // Ngăn chặn sự kiện submit form khi click vào các phần tử trong form
+        // Trừ khi click vào nút submit
+        if (e.target !== e.currentTarget) {
+          // Chỉ cho phép submit khi click vào nút có type="submit"
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit') {
+            // Cho phép sự kiện tiếp tục
+          } else {
+            e.stopPropagation();
+          }
+        }
+      }}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Tiêu đề chiến dịch */}
         <div>
@@ -201,6 +228,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
               onChange={(date) => handleDateChange(date, 'startDate')}
               dateFormat="dd/MM/yyyy"
               locale={vi}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault(); // Ngăn chặn sự kiện mặc định khi nhấn Enter
+                }
+              }}
               className={`w-full px-3 py-2 border ${
                 errors.startDate ? 'border-red-300' : 'border-gray-300'
               } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
@@ -222,6 +254,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
               dateFormat="dd/MM/yyyy"
               locale={vi}
               minDate={formData.startDate}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault(); // Ngăn chặn sự kiện mặc định khi nhấn Enter
+                }
+              }}
               className={`w-full px-3 py-2 border ${
                 errors.endDate ? 'border-red-300' : 'border-gray-300'
               } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
@@ -242,6 +279,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
             rows={4}
             value={formData.description || ''}
             onChange={handleChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault(); // Ngăn chặn sự kiện mặc định khi nhấn Ctrl+Enter
+              }
+            }}
             className={`w-full px-3 py-2 border ${
               errors.description ? 'border-red-300' : 'border-gray-300'
             } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500`}
@@ -256,7 +298,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
           <h3 className="text-lg font-medium text-gray-700">Sản phẩm trong chiến dịch</h3>
           <button
             type="button"
-            onClick={() => setShowProductSelection(true)}
+            onClick={(e) => {
+              e.preventDefault(); // Ngăn chặn sự kiện mặc định
+              e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+              setShowProductSelection(true);
+            }}
             className="inline-flex items-center px-4 py-2 border border-pink-600 rounded-md shadow-sm text-sm font-medium text-pink-600 bg-white hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           >
             <FiShoppingBag className="mr-2 -ml-1 h-5 w-5" />
@@ -325,11 +371,20 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
                         type="number"
                         min="0"
                         value={product.adjustedPrice}
-                        onChange={(e) => handleProductPriceChange(
-                          product.productId,
-                          product.variantId, // Pass potentially undefined variantId
-                          Number(e.target.value)
-                        )}
+                        onChange={(e) => {
+                          e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                          handleProductPriceChange(
+                            product.productId,
+                            product.variantId, // Pass potentially undefined variantId
+                            Number(e.target.value)
+                          );
+                        }}
+                        onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện lan truyền khi click
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault(); // Ngăn chặn sự kiện mặc định khi nhấn Enter
+                          }
+                        }}
                         className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
                       />
                     </td>
@@ -347,7 +402,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         type="button"
-                        onClick={() => handleRemoveProduct(product.productId, product.variantId)} // Pass potentially undefined variantId
+                        onClick={(e) => {
+                          e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                          e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                          handleRemoveProduct(product.productId, product.variantId); // Pass potentially undefined variantId
+                        }}
                         className="text-red-600 hover:text-red-900"
                       >
                         Xóa
@@ -381,7 +440,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
       <div className="flex justify-end space-x-3 pt-5 border-t">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={(e) => {
+            e.preventDefault(); // Ngăn chặn sự kiện mặc định
+            e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+            onCancel();
+          }}
           className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           disabled={isSubmitting}
         >
@@ -392,6 +455,10 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
           type="submit"
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
           disabled={isSubmitting}
+          onClick={() => {
+            // Đảm bảo rằng sự kiện submit được xử lý đúng cách
+            console.log('Submit button clicked');
+          }}
         >
           <FiSave className="mr-2 -ml-1 h-5 w-5" />
           {isSubmitting ? 'Đang lưu...' : 'Lưu chiến dịch'}

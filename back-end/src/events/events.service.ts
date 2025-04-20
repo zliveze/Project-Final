@@ -3,13 +3,15 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Event } from './entities/event.entity';
 import { CreateEventDto, UpdateEventDto, ProductInEventDto } from './dto';
+import { Product } from '../products/schemas/product.schema';
 
 @Injectable()
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
 
   constructor(
-    @InjectModel(Event.name) private readonly eventModel: Model<Event>
+    @InjectModel(Event.name) private readonly eventModel: Model<Event>,
+    @InjectModel(Product.name) private readonly productModel: Model<Product>
   ) {}
 
   async create(createEventDto: CreateEventDto): Promise<Event> {
@@ -18,17 +20,19 @@ export class EventsService {
   }
 
   async findAll(query: any = {}): Promise<Event[]> {
-    return this.eventModel.find(query).exec();
+    const events = await this.eventModel.find(query).exec();
+    return this.populateProductDetails(events);
   }
 
   async findActive(): Promise<Event[]> {
     const now = new Date();
-    return this.eventModel
+    const events = await this.eventModel
       .find({
         startDate: { $lte: now },
         endDate: { $gte: now },
       })
       .exec();
+    return this.populateProductDetails(events);
   }
 
   async findOne(id: string): Promise<Event> {
@@ -36,7 +40,8 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
-    return event;
+    const populatedEvents = await this.populateProductDetails([event]);
+    return populatedEvents[0];
   }
 
   async update(id: string, updateEventDto: UpdateEventDto): Promise<Event> {
@@ -62,15 +67,17 @@ export class EventsService {
   }
 
   async findEventsByProductId(productId: string): Promise<Event[]> {
-    return this.eventModel
+    const events = await this.eventModel
       .find({ 'products.productId': productId })
       .exec();
+    return this.populateProductDetails(events);
   }
 
   async findEventsByVariantId(variantId: string): Promise<Event[]> {
-    return this.eventModel
+    const events = await this.eventModel
       .find({ 'products.variantId': variantId })
       .exec();
+    return this.populateProductDetails(events);
   }
 
   async addProductsToEvent(id: string, productsData: ProductInEventDto[]): Promise<Event> {
@@ -106,7 +113,8 @@ export class EventsService {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
 
-    return updatedEvent;
+    const populatedEvents = await this.populateProductDetails([updatedEvent]);
+    return populatedEvents[0];
   }
 
   async removeProductFromEvent(id: string, productId: string): Promise<Event> {
@@ -132,7 +140,8 @@ export class EventsService {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
 
-    return updatedEvent;
+    const populatedEvents = await this.populateProductDetails([updatedEvent]);
+    return populatedEvents[0];
   }
 
   async updateProductPriceInEvent(id: string, productId: string, adjustedPrice: number): Promise<Event> {
@@ -155,11 +164,68 @@ export class EventsService {
     event.products[productIndex].adjustedPrice = adjustedPrice;
 
     // Lưu cập nhật
-    return event.save();
+    await event.save();
+
+    // Populate thông tin sản phẩm
+    const populatedEvents = await this.populateProductDetails([event]);
+    return populatedEvents[0];
   }
 
   // Phương thức này đã được chuyển sang WebsocketService
   emitImportProgress(userId: string, progress: number, status: string, message?: string) {
     this.logger.warn('Phương thức emitImportProgress đã được chuyển sang WebsocketService');
+  }
+
+  // Phương thức helper để populate thông tin sản phẩm
+  private async populateProductDetails(events: Event[]): Promise<Event[]> {
+    if (!events || events.length === 0) return events;
+
+    // Lấy tất cả productIds từ tất cả events
+    const productIds = new Set<string>();
+    events.forEach(event => {
+      event.products.forEach(product => {
+        productIds.add(product.productId.toString());
+      });
+    });
+
+    // Lấy thông tin sản phẩm từ database
+    const products = await this.productModel
+      .find({ _id: { $in: Array.from(productIds) } })
+      .select('_id name images price')
+      .lean()
+      .exec();
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm
+    const productMap = new Map<string, any>();
+    products.forEach(product => {
+      productMap.set(product._id.toString(), product);
+    });
+
+    // Thêm thông tin sản phẩm vào mỗi event
+    const populatedEvents = events.map(event => {
+      const eventObj = event.toObject ? event.toObject() : { ...event };
+      eventObj.products = eventObj.products.map(product => {
+        const productInfo = productMap.get(product.productId.toString());
+        if (productInfo) {
+          // Lấy ảnh chính hoặc ảnh đầu tiên
+          let imageUrl = '';
+          if (productInfo.images && productInfo.images.length > 0) {
+            const primaryImage = productInfo.images.find(img => img.isPrimary);
+            imageUrl = primaryImage ? primaryImage.url : productInfo.images[0].url;
+          }
+
+          return {
+            ...product,
+            name: productInfo.name,
+            image: imageUrl,
+            originalPrice: productInfo.price
+          };
+        }
+        return product;
+      });
+      return eventObj;
+    });
+
+    return populatedEvents;
   }
 }

@@ -37,7 +37,7 @@ export default function AdminCampaigns() {
   const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
   const [campaignToView, setCampaignToView] = useState<Campaign | null>(null);
   const [campaignToEdit, setCampaignToEdit] = useState<Partial<Campaign> | null>(null);
-  
+
   // State cho modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -99,7 +99,7 @@ export default function AdminCampaigns() {
     setShowDeleteModal(true);
   }, []);
 
-  // Toggle status is not directly supported by backend filter, 
+  // Toggle status is not directly supported by backend filter,
   // but we might implement pause/resume via update later if needed.
   const handleToggleStatus = useCallback((id: string, currentStatus: string) => {
     // Placeholder: Implement update logic if needed
@@ -142,12 +142,22 @@ export default function AdminCampaigns() {
 
   // Update campaign (called from EditModal)
   const handleUpdateCampaign = useCallback(async (campaignData: Partial<Campaign>) => {
-    if (!campaignToEdit?._id) return;
-    const updated = await updateCampaign(campaignToEdit._id, campaignData);
-    if (updated) {
-      setShowEditModal(false);
-      setCampaignToEdit(null);
-      // Optional: Refetch or rely on context update
+    if (!campaignToEdit?._id) return null;
+    try {
+      // Gọi hàm update từ context
+      const updated = await updateCampaign(campaignToEdit._id, campaignData);
+
+      // Nếu cập nhật thành công, trả về campaign đã cập nhật
+      if (updated) {
+        // Đóng modal và reset state chỉ khi được gọi từ CampaignEditModal
+        // setShowEditModal(false);
+        // setCampaignToEdit(null);
+        return updated;
+      }
+      return null;
+    } catch (error) {
+      console.error('Lỗi khi cập nhật chiến dịch:', error);
+      return null;
     }
     // Error handling is done within the context
   }, [campaignToEdit, updateCampaign]);
@@ -371,8 +381,20 @@ export default function AdminCampaigns() {
       {campaignToEdit && (
         <CampaignEditModal
           isOpen={showEditModal}
-          onClose={() => { setShowEditModal(false); setCampaignToEdit(null); }}
-          onSubmit={handleUpdateCampaign}
+          onClose={() => {
+            // Đóng modal và reset state khi người dùng bấm nút đóng
+            setShowEditModal(false);
+            setCampaignToEdit(null);
+          }}
+          onSubmit={async (data) => {
+            const result = await handleUpdateCampaign(data);
+            if (result) {
+              // Chỉ đóng modal khi cập nhật thành công
+              setShowEditModal(false);
+              setCampaignToEdit(null);
+            }
+            return result;
+          }}
           campaignData={campaignToEdit}
         />
       )}

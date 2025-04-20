@@ -22,10 +22,14 @@ const handleApiError = async (response: Response) => {
       errorMessage = data.message || errorMessage;
     } else {
       const text = await response.text();
-      console.error('Phản hồi không phải JSON:', text);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Phản hồi không phải JSON:', text);
+      }
     }
   } catch (error) {
-    console.error('Không thể phân tích phản hồi lỗi:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Không thể phân tích phản hồi lỗi:', error);
+    }
   }
 
   // Xử lý các mã lỗi cụ thể
@@ -50,10 +54,7 @@ export const UserApiService = {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
 
-
-    const profileUrl = `${API_URL}/profile`; // Corrected URL
-    console.log('Gọi API lấy profile với URL:', profileUrl);
-    console.log('Token được sử dụng:', token ? token.substring(0, 15) + '...' : 'Không có token');
+    const profileUrl = `${API_URL}/profile`;
 
     try {
       const response = await fetch(profileUrl, {
@@ -64,8 +65,6 @@ export const UserApiService = {
         },
         credentials: 'include',
       });
-
-      console.log('Kết quả API profile:', response.status, response.statusText);
 
       // Sao chép response để tránh đọc body nhiều lần
       const responseClone = response.clone();
@@ -90,11 +89,15 @@ export const UserApiService = {
         const data = await responseClone.json();
         return data;
       } catch (parseError) {
-        console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
+        }
         throw new Error('Định dạng dữ liệu không hợp lệ');
       }
     } catch (error) {
-      console.error('Lỗi khi lấy profile:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Lỗi khi lấy profile:', error);
+      }
       throw error;
     }
   },

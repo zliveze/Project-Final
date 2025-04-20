@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import axios from 'axios';
 import { useAdminAuth } from './AdminAuthContext';
 import { toast } from 'react-hot-toast';
@@ -66,6 +67,7 @@ export const useEvents = () => useContext(EventsContext);
 
 // Provider component
 export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -416,10 +418,20 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isAuthenticated, accessToken]);
 
-  // Load events khi component mount
+  // Tự động tải dữ liệu khi component được mount hoặc route thay đổi
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    const loadData = async () => {
+      // Chỉ load events khi ở các trang liên quan
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+                               !router.pathname.startsWith('/auth');
+      
+      if (isUserRelatedPage) {
+        await fetchEvents();
+      }
+    };
+
+    loadData();
+  }, [router.pathname, fetchEvents]);
 
   const contextValue: EventsContextType = {
     events,

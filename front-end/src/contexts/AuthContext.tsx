@@ -58,37 +58,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Hàm fetch profile đầy đủ và cập nhật user state
   const fetchAndUpdateUserProfile = useCallback(async () => {
-    console.log('[AuthContext] Attempting to fetch full user profile...');
     try {
+      // Chỉ fetch profile khi có token
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        // Chỉ log trong môi trường development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AuthContext] No token found, skipping profile fetch');
+        }
+        return;
+      }
+
       // Gọi API lấy profile đầy đủ
-      // Lưu ý: UserApiService cần xử lý việc gửi token trong header
       const fullUserProfile = await UserApiService.getProfile();
       if (fullUserProfile) { 
-        // Cập nhật state user với dữ liệu đầy đủ
         setUser(currentUser => ({
-          ...(currentUser || {}), // Giữ lại thông tin cũ nếu có
-          ...fullUserProfile // Ghi đè/thêm thông tin mới
+          ...(currentUser || {}),
+          ...fullUserProfile
         }));
-        // Cập nhật cả localStorage để lần sau load lên có đủ
         localStorage.setItem('user', JSON.stringify(fullUserProfile));
-        console.log('[AuthContext] User state and localStorage updated with full profile.');
-      } else {
-         console.warn('[AuthContext] getProfile did not return a user profile.');
+        // Chỉ log trong môi trường development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AuthContext] User state and localStorage updated with full profile.');
+        }
       }
     } catch (error) {
-      // Không nên chặn luồng chính nếu fetch profile lỗi, chỉ log lỗi
-      console.error('[AuthContext] Error fetching full user profile:', error);
-      // Có thể xử lý lỗi cụ thể, ví dụ: nếu là 401 thì logout
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AuthContext] Error fetching full user profile:', error);
+      }
       if (error instanceof Error && error.message.includes('401')) {
-         console.warn('[AuthContext] Unauthorized fetching profile, logging out.');
-         await logout(); // Gọi hàm logout nội bộ
+        await logout();
       }
     }
-  }, []); // Dependency rỗng vì nó dùng UserApiService nội bộ
+  }, []);
 
   useEffect(() => {
-    // Kiểm tra xem người dùng đã đăng nhập chưa (từ localStorage)
-    const loadUserFromStorage = async () => { // Chuyển thành async
+    const loadUserFromStorage = async () => {
       try {
         const token = localStorage.getItem('accessToken');
         const storedUser = localStorage.getItem('user');
@@ -98,35 +104,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
             setIsAuthenticated(true);
-            // Sau khi load user từ storage, fetch profile đầy đủ để cập nhật
-            await fetchAndUpdateUserProfile();
+            // Chỉ fetch profile khi cần thiết (ví dụ: khi không có đủ thông tin)
+            if (!parsedUser.addresses || !parsedUser.phoneNumber) {
+              await fetchAndUpdateUserProfile();
+            }
           } catch (parseError) {
-             console.error('[AuthContext] Error parsing user from localStorage:', parseError);
-             // Nếu lỗi parse, xóa dữ liệu cũ và coi như chưa đăng nhập
-             removeToken('accessToken');
-             removeToken('refreshToken');
-             localStorage.removeItem('user');
-             setIsAuthenticated(false);
+            // Chỉ log trong môi trường development
+            if (process.env.NODE_ENV === 'development') {
+              console.error('[AuthContext] Error parsing user from localStorage:', parseError);
+            }
+            removeToken('accessToken');
+            removeToken('refreshToken');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
           }
         } else {
-           console.log('[AuthContext] No valid token or user in storage.');
-           setIsAuthenticated(false); // Đảm bảo là false nếu không có token/user
+          // Chỉ log trong môi trường development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[AuthContext] No valid token or user in storage.');
+          }
+          setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('[AuthContext] Error in loadUserFromStorage:', error);
+        // Chỉ log trong môi trường development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[AuthContext] Error in loadUserFromStorage:', error);
+        }
       } finally {
-        setIsLoading(false); // Chỉ set isLoading false sau khi mọi thứ hoàn tất
+        setIsLoading(false);
       }
     };
 
     loadUserFromStorage();
-  }, [fetchAndUpdateUserProfile]); // Thêm fetchAndUpdateUserProfile vào dependency
+  }, [fetchAndUpdateUserProfile]);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
 
-      // Gọi API đăng nhập trực tiếp
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -138,33 +153,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await response.json();
 
       if (!response.ok) {
-        // Kiểm tra nếu lỗi là do chưa xác minh email
         if (data.message === 'Vui lòng xác minh email của bạn trước khi đăng nhập') {
           return { success: false, needVerification: true, email };
         }
         throw new Error(data.message || 'Đăng nhập thất bại');
       }
 
-      // Kiểm tra xem người dùng đã xác minh email chưa
       if (!data.user.isVerified) {
         return { success: false, needVerification: true, email };
       }
 
-      // Lưu token và thông tin người dùng vào localStorage và cookie
-      saveToken('accessToken', data.accessToken, 2); // 2 ngày
-      saveToken('refreshToken', data.refreshToken, 7); // 7 ngày
-      localStorage.setItem('user', JSON.stringify(data.user)); // Lưu user ban đầu
+      saveToken('accessToken', data.accessToken, 2);
+      saveToken('refreshToken', data.refreshToken, 7);
+      localStorage.setItem('user', JSON.stringify(data.user));
 
-      setUser(data.user); // Set user ban đầu
+      setUser(data.user);
       setIsAuthenticated(true);
-      console.log('[AuthContext] Login successful, initial user set:', JSON.stringify(data.user, null, 2)); // Log user ban đầu
 
-      // Sau khi đăng nhập thành công, fetch profile đầy đủ
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthContext] Login successful');
+      }
+
       await fetchAndUpdateUserProfile();
 
       return { success: true };
     } catch (error) {
-      console.error('[AuthContext] Login error:', error);
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AuthContext] Login error:', error);
+      }
       return { success: false };
     } finally {
       setIsLoading(false);

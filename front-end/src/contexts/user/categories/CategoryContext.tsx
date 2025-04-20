@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 
 // Định nghĩa kiểu dữ liệu cho danh mục phía người dùng
 export interface Category {
@@ -61,6 +62,7 @@ const CATEGORY_API = {
 
 // Provider component
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredCategories, setFeaturedCategories] = useState<Category[]>([]);
   const [hierarchicalCategories, setHierarchicalCategories] = useState<HierarchicalCategory[]>([]);
@@ -251,19 +253,21 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   // Tự động tải dữ liệu khi component được mount
   useEffect(() => {
     const loadData = async () => {
-      try {
-        await Promise.allSettled([
+      // Chỉ load categories khi ở các trang liên quan
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+                               !router.pathname.startsWith('/auth');
+      
+      if (isUserRelatedPage) {
+        await Promise.all([
           fetchCategories(),
           fetchFeaturedCategories(),
           fetchHierarchicalCategories()
         ]);
-      } catch (error) {
-        console.error('Lỗi khi tải dữ liệu danh mục:', error);
       }
     };
-    
+
     loadData();
-  }, []);
+  }, [router.pathname]);
 
   // Chuẩn bị giá trị cho context
   const value: CategoryContextType = {

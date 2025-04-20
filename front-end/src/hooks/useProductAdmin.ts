@@ -116,13 +116,14 @@ export const useProductAdmin = ({
     try {
       // Kiểm tra nếu đã đăng xuất
       if (sessionStorage.getItem('adminLoggedOut') === 'true') {
-        console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Người dùng đã đăng xuất, không thực hiện yêu cầu API');
+        }
         return null;
       }
 
       setLoading(true);
       setError(null);
-      // setHasTriedFetch(true); // Removed as part of SSR optimization
 
       // Cập nhật filters nếu có
       const currentFilters = newFilters
@@ -145,21 +146,21 @@ export const useProductAdmin = ({
       // Xây dựng query string - cải thiện xử lý các tham số lọc
       const params = new URLSearchParams();
       Object.entries(currentFilters).forEach(([key, value]) => {
-        // Chỉ thêm tham số vào URL nếu nó có giá trị hợp lệ
-        // Loại bỏ các giá trị undefined, null, chuỗi rỗng, và false (cho các flag)
         if (value !== undefined && value !== null && value !== '' && value !== false) {
-          // Đặc biệt xử lý brandId và categoryId khi là chuỗi rỗng
           if ((key === 'brandId' || key === 'categoryId') && value === '') {
-            // Không thêm tham số này vào URL nếu là chuỗi rỗng
-            console.log(`Bỏ qua tham số ${key} vì giá trị rỗng`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Bỏ qua tham số ${key} vì giá trị rỗng`);
+            }
           } else {
             params.append(key, String(value));
           }
         }
       });
 
-      // Log URL params để debug
-      console.log('Query params:', params.toString());
+      // Log URL params chỉ trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Query params:', params.toString());
+      }
 
       // Gọi API
       const response = await fetch(`${ADMIN_PRODUCTS_API}?${params.toString()}`, {
@@ -169,10 +170,8 @@ export const useProductAdmin = ({
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 401) {
-          // Xóa token và chuyển hướng đến trang đăng nhập admin
           localStorage.removeItem('adminToken');
           Cookies.remove('adminToken');
-          // Chỉ chuyển hướng nếu đang ở trang admin
           if (window.location.pathname.startsWith('/admin')) {
             window.location.href = '/admin/auth/login?error=session_expired';
           }
@@ -192,13 +191,15 @@ export const useProductAdmin = ({
 
       return data;
     } catch (error: any) {
-      console.error('Error fetching products:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching products:', error);
+      }
       setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu sản phẩm');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [filters, getAuthHeader]); // Removed hasTriedFetch dependency
+  }, [filters, getAuthHeader]);
 
   // Thay đổi trang
   const changePage = useCallback((page: number) => {
@@ -389,7 +390,6 @@ export const useProductAdmin = ({
         return true; // Trả về true để không hiển thị lỗi
       }
 
-      // setHasTriedFetch(true); // Removed as part of SSR optimization
       const response = await fetch(`${API_URL}/health`);
       return response.ok;
     } catch (error) {

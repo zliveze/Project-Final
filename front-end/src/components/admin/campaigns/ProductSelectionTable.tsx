@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiX, FiPlus, FiCheck, FiChevronLeft, FiChevronRight, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiSearch, FiX, FiPlus, FiCheck, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Image from 'next/image';
 import { CampaignProduct } from '@/contexts/CampaignContext'; // Đã import đúng
 import { useProduct } from '@/contexts/ProductContext'; // Thêm context Product
 import { useBrands } from '@/contexts/BrandContext'; // Thêm context Brand
 import { useCategory } from '@/contexts/CategoryContext'; // Thêm context Category
 import { toast } from 'react-hot-toast'; // Thêm toast
+import Pagination from '@/components/admin/common/Pagination'; // Import component Pagination
 
 // Định nghĩa interface cho sản phẩm từ API (tương tự EventProductAddModal)
 interface ProductFromApi {
@@ -79,7 +80,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   initialSelectedProducts = []
 }) => {
   // Sử dụng Contexts
-  const { fetchAdminProductList, loading: productLoading, error: productError } = useProduct();
+  const { fetchAdminProductList, error: productError } = useProduct();
   const { brands, fetchBrands } = useBrands(); // Lấy brands và hàm fetchBrands
   const { categories, fetchCategories } = useCategory(); // Lấy categories và hàm fetchCategories
 
@@ -88,6 +89,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0); // Thêm state để lưu tổng số sản phẩm
   const [tempSelectedProducts, setTempSelectedProducts] = useState<CampaignProduct[]>([]);
   const [loading, setLoading] = useState(false); // State loading riêng cho component này
   const [error, setError] = useState<string | null>(null);
@@ -198,9 +200,11 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
 
         setProducts(formattedProducts);
         setTotalPages(result.totalPages);
+        setTotalItems(result.total || 0); // Lưu tổng số sản phẩm
       } else {
         setProducts([]);
         setTotalPages(1);
+        setTotalItems(0); // Reset tổng số sản phẩm
         // Có thể setError nếu result không như mong đợi ngay cả khi không có lỗi API
         // setError("Không tìm thấy sản phẩm.");
       }
@@ -211,6 +215,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
       toast.error(`Lỗi tải sản phẩm: ${errorMessage}`);
       setProducts([]); // Xóa sản phẩm cũ khi có lỗi
       setTotalPages(1);
+      setTotalItems(0); // Reset tổng số sản phẩm
     } finally {
       setLoading(false);
     }
@@ -263,7 +268,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   };
 
   // Thêm/Xóa sản phẩm/variant khỏi danh sách tạm thời
-  const handleSelectProduct = (product: ProductFromApi, variant?: ProductFromApi['variants'][number]) => {
+  const handleSelectProduct = (product: ProductFromApi, variant?: any) => {
     const productId = product._id || ''; // Sử dụng _id đã chuẩn hóa
     const variantId = variant?._id || variant?.id;
     const selected = isProductSelected(productId, variantId);
@@ -272,25 +277,32 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
 
     if (variant) {
       // Trường hợp có variant
+      const variantPrice = typeof variant.price === 'number' ? variant.price : 0;
+      const variantOriginalPrice = typeof variant.originalPrice === 'number' ? variant.originalPrice : variantPrice;
+      const productOriginalPrice = typeof product.originalPrice === 'number' ? product.originalPrice : (typeof product.price === 'number' ? product.price : 0);
+
       productToAddOrRemove = {
         productId: productId,
         productName: product.name,
         variantId: variantId,
         variantName: variant.name,
-        // Lấy giá gốc của variant nếu có, fallback về giá gốc sản phẩm, cuối cùng là giá bán variant
-        originalPrice: variant.originalPrice ?? (typeof product.originalPrice === 'number' ? product.originalPrice : undefined) ?? variant.price,
-        // Giá điều chỉnh ban đầu có thể bằng giá gốc hoặc tính toán sau
-        adjustedPrice: variant.originalPrice ?? (typeof product.originalPrice === 'number' ? product.originalPrice : undefined) ?? variant.price,
+        // Lấy giá gốc của variant nếu có, fallback về giá gốc sản phẩm
+        originalPrice: variantOriginalPrice || productOriginalPrice,
+        // Giá điều chỉnh ban đầu có thể bằng giá gốc
+        adjustedPrice: variantOriginalPrice || productOriginalPrice,
         image: variant.image || product.image // Ưu tiên ảnh variant
       };
     } else {
       // Trường hợp không có variant (hoặc không chọn variant cụ thể)
+      const productPrice = typeof product.price === 'number' ? product.price : 0;
+      const productOriginalPrice = typeof product.originalPrice === 'number' ? product.originalPrice : productPrice;
+
       productToAddOrRemove = {
         productId: productId,
         productName: product.name,
         // variantId và variantName là undefined
-        originalPrice: typeof product.originalPrice === 'number' ? product.originalPrice : (typeof product.price === 'number' ? product.price : undefined),
-        adjustedPrice: typeof product.originalPrice === 'number' ? product.originalPrice : (typeof product.price === 'number' ? product.price : undefined),
+        originalPrice: productOriginalPrice,
+        adjustedPrice: productOriginalPrice,
         image: product.image
       };
     }
@@ -326,14 +338,24 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
 
   // Xác nhận thêm sản phẩm
   const handleConfirm = () => {
-    // Có thể thêm bước điều chỉnh giá ở đây nếu cần
+    // Gọi callback để thêm sản phẩm
     onAddProducts(tempSelectedProducts);
-    // onClose(); // Giữ modal mở sau khi add? Hoặc đóng tùy UX
+
+    // Không reset state ngay lập tức
+    // setTempSelectedProducts([]);
+
+    // Đóng modal chọn sản phẩm
+    onClose();
   };
 
   // Xử lý chuyển trang
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    // Ngăn chặn sự kiện submit form
+    // Không cần e.preventDefault() vì hàm này được gọi từ Pagination component
+    console.log('Chuyển đến trang:', newPage);
+
+    // Tránh việc gọi API liên tục khi đang ở cùng trang
+    if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
       setPage(newPage);
     }
   };
@@ -350,103 +372,6 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   // Danh sách danh mục (giờ đã lấy từ context)
   // const categories = ['Skin Care', 'Sun Care', 'Cleansers', 'Toners', 'Masks'];
 
-  // Render advanced filters popup
-  const renderAdvancedFilters = () => (
-    <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-md shadow-lg z-20 p-4">
-      <h4 className="text-sm font-medium mb-3">Bộ lọc nâng cao</h4>
-      {/* Brand Filter */}
-      <div className="mb-3">
-        <label htmlFor="brandFilter" className="block text-sm font-medium text-gray-700 mb-1">Thương hiệu</label>
-        <select
-          id="brandFilter"
-          name="brandId"
-          value={tempFilters.brandId || ''}
-          onChange={(e) => handleFilterChange('brandId', e.target.value || undefined)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
-        >
-          <option value="">Tất cả thương hiệu</option>
-          {brandsList.map((brand) => (
-            <option key={brand.id} value={brand.id}>{brand.name}</option>
-          ))}
-        </select>
-      </div>
-      {/* Category Filter */}
-      <div className="mb-3">
-        <label htmlFor="categoryFilter" className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
-        <select
-          id="categoryFilter"
-          name="categoryId"
-          value={tempFilters.categoryId || ''}
-          onChange={(e) => handleFilterChange('categoryId', e.target.value || undefined)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
-        >
-          <option value="">Tất cả danh mục</option>
-          {categoriesList.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
-          ))}
-        </select>
-      </div>
-      {/* Price Filter */}
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor="minPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá từ</label>
-          <input
-            type="number"
-            id="minPriceFilter"
-            name="minPrice"
-            placeholder="VNĐ"
-            value={tempFilters.minPrice?.toString() || ''}
-            onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="maxPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá đến</label>
-          <input
-            type="number"
-            id="maxPriceFilter"
-            name="maxPrice"
-            placeholder="VNĐ"
-            value={tempFilters.maxPrice?.toString() || ''}
-            onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
-          />
-        </div>
-      </div>
-      {/* Status Filter */}
-      <div className="mb-4">
-        <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-        <select
-          id="statusFilter"
-          name="status"
-          value={tempFilters.status || 'active'}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500"
-        >
-          <option value="active">Đang hoạt động</option>
-          <option value="inactive">Ngừng hoạt động</option>
-          <option value="draft">Bản nháp</option>
-          <option value="">Tất cả</option>
-        </select>
-      </div>
-      {/* Action Buttons */}
-      <div className="flex justify-end space-x-2">
-        <button
-          onClick={clearFilters}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          Xóa lọc
-        </button>
-        <button
-          onClick={applyFilters}
-          className="px-3 py-1.5 text-sm bg-pink-500 text-white rounded-md hover:bg-pink-600"
-        >
-          Áp dụng
-        </button>
-      </div>
-    </div>
-  );
-
 
   // ---- RENDER ----
   if (!isOpen) return null; // Không render nếu modal đóng
@@ -457,7 +382,13 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
       <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
 
       {/* Modal Content */}
-      <div className="relative bg-white rounded-lg shadow-xl w-[95vw] max-w-6xl mx-auto z-50 flex flex-col h-[90vh]">
+      <div
+        className="relative bg-white rounded-lg shadow-xl w-[95vw] max-w-6xl mx-auto z-50 flex flex-col h-[90vh]"
+        onClick={(e) => {
+          // Ngăn chặn sự kiện lan truyền đến form cha
+          e.stopPropagation();
+        }}
+      >
         {/* Header */}
         <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center justify-between flex-shrink-0">
           <h3 className="text-lg font-medium text-gray-900">
@@ -466,7 +397,11 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
           <button
             type="button"
             className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 p-1"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault(); // Ngăn chặn sự kiện mặc định
+              e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+              onClose();
+            }}
           >
             <span className="sr-only">Đóng</span>
             <FiX className="h-6 w-6" />
@@ -682,7 +617,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                               {/* Chỉ hiển thị thương hiệu ở dòng đầu tiên */}
                               {index === 0 ? (
                                  <td className={`px-4 py-3 text-sm text-gray-500 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
-                                   {product.brand}
+                                   {typeof product.brand === 'object' ? product.brand.name : product.brand}
                                   </td>
                               ) : (
                                   <td className="px-4 py-3 border-t border-gray-200"></td>
@@ -690,7 +625,12 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                               {/* Nút chọn Variant */}
                               <td className="px-4 py-3 text-center align-top">
                                 <button
-                                  onClick={() => handleSelectProduct(product, variant)}
+                                  onClick={(e) => {
+                                    e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                                    e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                                    handleSelectProduct(product, variant);
+                                  }}
+                                  type="button" // Đảm bảo nút không submit form
                                   className={`p-1.5 rounded-full transition-colors duration-150 ${
                                     isSelected
                                       ? 'bg-pink-500 text-white hover:bg-pink-600'
@@ -729,11 +669,16 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                              <td className="px-4 py-3 text-sm text-gray-500 italic">Sản phẩm gốc</td>
                              <td className="px-4 py-3 text-sm text-gray-500">{formatPrice(product.originalPrice ?? product.price)}</td>
                              <td className="px-4 py-3 text-sm text-gray-500">
-                                {product.brand}
+                                {typeof product.brand === 'object' ? product.brand.name : product.brand}
                              </td>
                              <td className="px-4 py-3 text-center">
                                <button
-                                 onClick={() => handleSelectProduct(product)}
+                                 onClick={(e) => {
+                                   e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                                   e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                                   handleSelectProduct(product, undefined);
+                                 }}
+                                 type="button" // Đảm bảo nút không submit form
                                  className={`p-1.5 rounded-full transition-colors duration-150 ${
                                     isProductSelected(product._id || '')
                                       ? 'bg-pink-500 text-white hover:bg-pink-600'
@@ -758,25 +703,27 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
            {/* Footer with Pagination and Actions */}
             <div className="mt-4 flex-shrink-0 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 pt-3">
              {/* Pagination */}
-             {!loading && !error && totalPages > 1 && (
-               <div className="flex items-center justify-center space-x-2 mb-3 sm:mb-0">
-                 <button
-                   onClick={() => handlePageChange(page - 1)}
-                   disabled={page === 1}
-                   className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-                 >
-                   <FiChevronLeft className="h-5 w-5" />
-                 </button>
-                 <span className="text-sm text-gray-700">
-                   Trang {page} / {totalPages}
-                 </span>
-                 <button
-                   onClick={() => handlePageChange(page + 1)}
-                   disabled={page === totalPages}
-                   className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-                 >
-                   <FiChevronRight className="h-5 w-5" />
-                 </button>
+             {!loading && !error && totalPages > 0 && (
+               <div className="mb-3 sm:mb-0" onClick={(e) => {
+                 // Ngăn chặn sự kiện lan truyền đến form
+                 e.preventDefault();
+                 e.stopPropagation();
+               }}>
+                 <div onClick={(e) => {
+                   // Ngăn chặn sự kiện lan truyền đến form
+                   e.preventDefault();
+                   e.stopPropagation();
+                 }}>
+                   <Pagination
+                     currentPage={page}
+                     totalPages={totalPages}
+                     onPageChange={handlePageChange}
+                     totalItems={totalItems}
+                     itemsPerPage={10}
+                     showItemsInfo={true}
+                     maxVisiblePages={5}
+                   />
+                 </div>
                </div>
              )}
              <div className="sm:ml-auto flex items-center space-x-3">
@@ -785,14 +732,22 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                </span>
                <button
                  type="button"
-                 onClick={onClose}
+                 onClick={(e) => {
+                   e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                   e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                   onClose();
+                 }}
                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
                >
                  Hủy
                </button>
                <button
                  type="button"
-                 onClick={handleConfirm}
+                 onClick={(e) => {
+                   e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                   e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                   handleConfirm();
+                 }}
                  disabled={tempSelectedProducts.length === 0 || loading}
                  className="px-4 py-2 text-sm bg-pink-600 text-white rounded-md hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
                >

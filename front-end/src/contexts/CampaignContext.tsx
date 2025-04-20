@@ -170,7 +170,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
   apiClient.interceptors.request.use(
     (config) => {
       // Log để kiểm tra token trước khi gửi request
-      console.log('[CampaignContext Interceptor] Attaching token:', accessToken ? `${accessToken.substring(0, 15)}...` : 'No token');
+      console.log('[CampaignContext Interceptor] Authentication Status:', accessToken ? 'Token present' : 'No token');
       if (accessToken) {
         config.headers['Authorization'] = `Bearer ${accessToken}`;
       }
