@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave } from 'react-icons/fi';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+
+// API URL cho dữ liệu provinces, districts, wards
+const PROVINCES_API_BASE_URL = 'https://provinces.open-api.vn/api';
+
+// Types cho province, district, ward
+interface Province { code: string; name: string; }
+interface District { code: string; name: string; province_code: string; }
+interface Ward { code: string; name: string; district_code: string; }
 
 interface ShippingInfo {
   fullName: string;
@@ -33,6 +43,86 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
   );
 
   const [errors, setErrors] = useState<Partial<ShippingInfo>>({});
+  
+  // State cho province, district, ward
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState<boolean>(false);
+  const [loadingDistricts, setLoadingDistricts] = useState<boolean>(false);
+  const [loadingWards, setLoadingWards] = useState<boolean>(false);
+
+  // Lấy danh sách tỉnh/thành phố khi component mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      setLoadingProvinces(true);
+      try {
+        const response = await axios.get<Province[]>(`${PROVINCES_API_BASE_URL}/p/`);
+        setProvinces(response.data || []);
+      } catch (error) {
+        console.error('Lỗi tỉnh/thành phố:', error);
+        toast.error('Lỗi tải Tỉnh/Thành phố.');
+        setProvinces([]);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+    fetchProvinces();
+  }, []);
+
+  // Lấy danh sách quận/huyện khi chọn tỉnh/thành phố
+  useEffect(() => {
+    if (!formValues.city) {
+      setDistricts([]);
+      setWards([]);
+      return;
+    }
+    
+    const fetchDistricts = async () => {
+      setLoadingDistricts(true);
+      setDistricts([]);
+      setWards([]);
+      
+      try {
+        const response = await axios.get<{ districts: District[] }>(`${PROVINCES_API_BASE_URL}/p/${formValues.city}?depth=2`);
+        setDistricts(response.data?.districts || []);
+      } catch (error) {
+        console.error('Lỗi quận/huyện:', error);
+        toast.error('Lỗi tải Quận/Huyện.');
+        setDistricts([]);
+      } finally {
+        setLoadingDistricts(false);
+      }
+    };
+    
+    fetchDistricts();
+  }, [formValues.city]);
+
+  // Lấy danh sách phường/xã khi chọn quận/huyện
+  useEffect(() => {
+    if (!formValues.district) {
+      setWards([]);
+      return;
+    }
+    
+    const fetchWards = async () => {
+      setLoadingWards(true);
+      setWards([]);
+      
+      try {
+        const response = await axios.get<{ wards: Ward[] }>(`${PROVINCES_API_BASE_URL}/d/${formValues.district}?depth=2`);
+        setWards(response.data?.wards || []);
+      } catch (error) {
+        console.error('Lỗi phường/xã:', error);
+        toast.error('Lỗi tải Phường/Xã.');
+        setWards([]);
+      } finally {
+        setLoadingWards(false);
+      }
+    };
+    
+    fetchWards();
+  }, [formValues.district]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -106,40 +196,25 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(formValues);
+      // Tạo dữ liệu gửi đi với tên tỉnh/quận/phường thay vì mã code
+      const provinceName = provinces.find(p => p.code === formValues.city)?.name || '';
+      const districtName = districts.find(d => d.code === formValues.district)?.name || '';
+      const wardName = wards.find(w => w.code === formValues.ward)?.name || '';
+      
+      const submittedData = {
+        ...formValues,
+        city: provinceName,
+        district: districtName,
+        ward: wardName
+      };
+      
+      onSubmit(submittedData);
     }
   };
 
-  // Danh sách tỉnh/thành phố mẫu
-  const cities = [
-    { value: 'hanoi', label: 'Hà Nội' },
-    { value: 'hochiminh', label: 'TP. Hồ Chí Minh' },
-    { value: 'danang', label: 'Đà Nẵng' },
-    { value: 'haiphong', label: 'Hải Phòng' },
-    { value: 'cantho', label: 'Cần Thơ' },
-  ];
-
-  // Danh sách quận/huyện mẫu (thực tế sẽ phụ thuộc vào tỉnh/thành phố đã chọn)
-  const districts = [
-    { value: 'quan1', label: 'Quận 1' },
-    { value: 'quan2', label: 'Quận 2' },
-    { value: 'quan3', label: 'Quận 3' },
-    { value: 'quan4', label: 'Quận 4' },
-    { value: 'quan5', label: 'Quận 5' },
-  ];
-
-  // Danh sách phường/xã mẫu (thực tế sẽ phụ thuộc vào quận/huyện đã chọn)
-  const wards = [
-    { value: 'phuong1', label: 'Phường 1' },
-    { value: 'phuong2', label: 'Phường 2' },
-    { value: 'phuong3', label: 'Phường 3' },
-    { value: 'phuong4', label: 'Phường 4' },
-    { value: 'phuong5', label: 'Phường 5' },
-  ];
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>
+      {!initialValues?.fullName && <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>}
       
       {/* Họ tên */}
       <div>
@@ -253,17 +328,25 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
               name="city"
               value={formValues.city}
               onChange={handleChange}
+              disabled={loadingProvinces}
               className={`pl-10 w-full px-4 py-2 border ${
                 errors.city ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white`}
+              } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${
+                loadingProvinces ? 'cursor-wait opacity-70' : ''
+              }`}
             >
               <option value="">Chọn tỉnh/thành phố</option>
-              {cities.map((city) => (
-                <option key={city.value} value={city.value}>
-                  {city.label}
+              {provinces.map((province) => (
+                <option key={province.code} value={province.code}>
+                  {province.name}
                 </option>
               ))}
             </select>
+            {loadingProvinces && (
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-pink-500 border-t-transparent rounded-full"></div>
+              </div>
+            )}
           </div>
           {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
         </div>
@@ -278,18 +361,25 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             name="district"
             value={formValues.district}
             onChange={handleChange}
+            disabled={!formValues.city || loadingDistricts}
             className={`w-full px-4 py-2 border ${
               errors.district ? 'border-red-300' : 'border-gray-300'
-            } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white`}
-            disabled={!formValues.city}
+            } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${
+              !formValues.city || loadingDistricts ? 'cursor-not-allowed opacity-70' : ''
+            }`}
           >
             <option value="">Chọn quận/huyện</option>
             {districts.map((district) => (
-              <option key={district.value} value={district.value}>
-                {district.label}
+              <option key={district.code} value={district.code}>
+                {district.name}
               </option>
             ))}
           </select>
+          {loadingDistricts && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin h-4 w-4 border-2 border-pink-500 border-t-transparent rounded-full"></div>
+            </div>
+          )}
           {errors.district && <p className="mt-1 text-sm text-red-600">{errors.district}</p>}
         </div>
         
@@ -303,18 +393,25 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             name="ward"
             value={formValues.ward}
             onChange={handleChange}
+            disabled={!formValues.district || loadingWards}
             className={`w-full px-4 py-2 border ${
               errors.ward ? 'border-red-300' : 'border-gray-300'
-            } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white`}
-            disabled={!formValues.district}
+            } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${
+              !formValues.district || loadingWards ? 'cursor-not-allowed opacity-70' : ''
+            }`}
           >
             <option value="">Chọn phường/xã</option>
             {wards.map((ward) => (
-              <option key={ward.value} value={ward.value}>
-                {ward.label}
+              <option key={ward.code} value={ward.code}>
+                {ward.name}
               </option>
             ))}
           </select>
+          {loadingWards && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin h-4 w-4 border-2 border-pink-500 border-t-transparent rounded-full"></div>
+            </div>
+          )}
           {errors.ward && <p className="mt-1 text-sm text-red-600">{errors.ward}</p>}
         </div>
       </div>
@@ -334,6 +431,16 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           placeholder="Nhập ghi chú (nếu có)"
         />
       </div>
+
+      {/* Hiển thị xem trước địa chỉ */}
+      {formValues.city && formValues.district && formValues.ward && formValues.address && (
+        <div className="p-3 bg-pink-50 border border-pink-100 rounded-md">
+          <p className="text-sm text-gray-700 font-medium">Xem trước địa chỉ:</p>
+          <p className="text-sm text-gray-600">
+            {`${formValues.address}, ${wards.find(w => w.code === formValues.ward)?.name || ''}, ${districts.find(d => d.code === formValues.district)?.name || ''}, ${provinces.find(p => p.code === formValues.city)?.name || ''}, Việt Nam`}
+          </p>
+        </div>
+      )}
       
       {/* Nút lưu thông tin */}
       {showSubmitButton && (

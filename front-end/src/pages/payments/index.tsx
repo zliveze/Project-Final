@@ -4,7 +4,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FiAlertCircle } from 'react-icons/fi';
+import { FiAlertCircle, FiMapPin, FiPlus, FiHome, FiCheck } from 'react-icons/fi';
 
 // Components
 import ShippingForm from '@/components/payments/ShippingForm';
@@ -16,6 +16,20 @@ import DefaultLayout from '@/layout/DefaultLayout';
 // Context
 import { useCart } from '@/contexts/user/cart/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+
+// API
+import { UserApiService } from '@/contexts/user/UserApiService';
+
+// Định nghĩa kiểu dữ liệu User rõ ràng hơn
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  addresses?: UserAddress[];
+  customerLevel?: string;
+  role: string;
+}
 
 // Định nghĩa kiểu dữ liệu
 interface ShippingInfo {
@@ -39,6 +53,17 @@ interface OrderItem {
     url: string;
     alt: string;
   };
+}
+
+// Loại địa chỉ từ profile user
+interface UserAddress {
+  _id: string;
+  addressLine: string;
+  city: string;
+  state?: string;
+  country: string;
+  postalCode?: string;
+  isDefault?: boolean;
 }
 
 const PaymentsPage: NextPage = () => {
@@ -66,6 +91,11 @@ const PaymentsPage: NextPage = () => {
   // State cho thông tin giao hàng và phương thức thanh toán
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  
+  // State cho địa chỉ người dùng
+  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
   
   // Chuyển đổi từ CartItems sang OrderItems
   useEffect(() => {
@@ -96,28 +126,123 @@ const PaymentsPage: NextPage = () => {
     }
   }, [cartItems, cartLoading, router, itemCount]);
   
-  // Kiểm tra xem có thông tin giao hàng đã lưu không
+  // Tải danh sách địa chỉ của người dùng
   useEffect(() => {
-    const savedShippingInfo = localStorage.getItem('shippingInfo');
-    if (savedShippingInfo) {
-      setShippingInfo(JSON.parse(savedShippingInfo));
-    }
+    const fetchUserAddresses = async () => {
+      if (user && user._id) {
+        try {
+          // Lấy thông tin user profile từ API hoặc từ user object nếu đã có
+          if (user.addresses && user.addresses.length > 0) {
+            setUserAddresses(user.addresses);
+            
+            // Tìm địa chỉ mặc định
+            const defaultAddress = user.addresses.find(addr => addr.isDefault);
+            if (defaultAddress) {
+              setSelectedAddressId(defaultAddress._id);
+              
+              // Chuyển đổi dữ liệu địa chỉ sang định dạng ShippingInfo
+              const addressParts: string[] = defaultAddress.addressLine.split(',').map((part: string) => part.trim());
+              const addressData: ShippingInfo = {
+                fullName: user.name || '',
+                phone: user.phoneNumber || '',
+                email: user.email || '',
+                address: addressParts[0] || '',
+                city: defaultAddress.city || '',
+                district: addressParts.length > 2 ? addressParts[2] : '',
+                ward: addressParts.length > 1 ? addressParts[1] : '',
+                notes: ''
+              };
+              
+              setShippingInfo(addressData);
+              localStorage.setItem('shippingInfo', JSON.stringify(addressData));
+            }
+          } else {
+            // Kiểm tra xem có thông tin giao hàng đã lưu trước đó không
+            const savedShippingInfo = localStorage.getItem('shippingInfo');
+            if (savedShippingInfo) {
+              setShippingInfo(JSON.parse(savedShippingInfo));
+            } else {
+              // Nếu không có địa chỉ và không có thông tin giao hàng đã lưu, hiển thị form nhập địa chỉ
+              setShowAddressForm(true);
+              
+              // Điền trước thông tin cơ bản từ user
+              const initialShippingInfo: Partial<ShippingInfo> = {
+                fullName: user.name || '',
+                email: user.email || '',
+                phone: user.phoneNumber || ''
+              };
+              
+              setShippingInfo(initialShippingInfo as ShippingInfo);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user addresses:', error);
+          toast.error('Không thể tải địa chỉ của bạn. Vui lòng thử lại sau.');
+        }
+      } else {
+        // Không đăng nhập, kiểm tra thông tin giao hàng đã lưu
+        const savedShippingInfo = localStorage.getItem('shippingInfo');
+        if (savedShippingInfo) {
+          setShippingInfo(JSON.parse(savedShippingInfo));
+        } else {
+          setShowAddressForm(true);
+        }
+      }
+    };
     
-    // Sử dụng thông tin người dùng nếu đã đăng nhập và chưa có thông tin giao hàng
-    if (user && !savedShippingInfo) {
-      const userShippingInfo: Partial<ShippingInfo> = {
-        fullName: user.fullName || '',
-        email: user.email || '',
-        phone: user.phone || ''
+    fetchUserAddresses();
+  }, [user]);
+
+  // Xử lý khi chọn địa chỉ
+  const handleSelectAddress = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    setShowAddressForm(false);
+    
+    // Tìm địa chỉ được chọn
+    const selectedAddress = userAddresses.find(addr => addr._id === addressId);
+    if (selectedAddress) {
+      // Chuyển đổi dữ liệu địa chỉ sang định dạng ShippingInfo
+      const addressParts: string[] = selectedAddress.addressLine.split(',').map((part: string) => part.trim());
+      const addressData: ShippingInfo = {
+        fullName: user?.name || '',
+        phone: user?.phoneNumber || '',
+        email: user?.email || '',
+        address: addressParts[0] || '',
+        city: selectedAddress.city || '',
+        district: addressParts.length > 2 ? addressParts[2] : '',
+        ward: addressParts.length > 1 ? addressParts[1] : '',
+        notes: ''
       };
       
-      // Chỉ lưu nếu có ít nhất fullName và phone
-      if (userShippingInfo.fullName && userShippingInfo.phone) {
-        setShippingInfo(userShippingInfo as ShippingInfo);
-        localStorage.setItem('shippingInfo', JSON.stringify(userShippingInfo));
-      }
+      setShippingInfo(addressData);
+      localStorage.setItem('shippingInfo', JSON.stringify(addressData));
+      
+      // Xóa thông báo lỗi khi người dùng chọn địa chỉ
+      setErrorMessage(null);
     }
-  }, [user]);
+  };
+
+  // Xử lý khi muốn thêm địa chỉ mới
+  const handleAddNewAddress = () => {
+    setSelectedAddressId(null);
+    setShowAddressForm(true);
+    
+    // Điền trước thông tin cơ bản từ user nếu đã đăng nhập
+    if (user) {
+      setShippingInfo({
+        fullName: user.name || '',
+        phone: user.phoneNumber || '',
+        email: user.email || '',
+        address: '',
+        city: '',
+        district: '',
+        ward: '',
+        notes: ''
+      });
+    } else {
+      setShippingInfo(null);
+    }
+  };
 
   // Xử lý cập nhật thông tin giao hàng
   const handleShippingInfoSubmit = (values: ShippingInfo) => {
@@ -133,6 +258,50 @@ const PaymentsPage: NextPage = () => {
       theme: "light",
       style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
     });
+    
+    // Nếu đã đăng nhập và đang ở chế độ thêm địa chỉ mới, lưu địa chỉ vào tài khoản
+    if (user && user._id && values.address && values.city && values.district && values.ward) {
+      saveAddressToAccount(values);
+    }
+  };
+  
+  // Lưu địa chỉ vào tài khoản người dùng
+  const saveAddressToAccount = async (addressData: ShippingInfo) => {
+    try {
+      const formattedAddress = {
+        addressLine: `${addressData.address}, ${addressData.ward}, ${addressData.district}`,
+        city: addressData.city,
+        state: addressData.district,
+        country: 'Việt Nam',
+        postalCode: '',
+        isDefault: userAddresses.length === 0 // Đặt làm mặc định nếu là địa chỉ đầu tiên
+      };
+      
+      // Gọi API để lưu địa chỉ
+      const updatedUser = await UserApiService.addAddress(formattedAddress);
+      
+      // Cập nhật danh sách địa chỉ
+      if (updatedUser && updatedUser.addresses) {
+        setUserAddresses(updatedUser.addresses);
+        
+        // Tìm địa chỉ vừa thêm
+        const newAddress = updatedUser.addresses[updatedUser.addresses.length - 1];
+        if (newAddress) {
+          setSelectedAddressId(newAddress._id);
+          setShowAddressForm(false);
+          
+          toast.success('Đã lưu địa chỉ mới vào tài khoản của bạn', {
+            position: "bottom-right",
+            autoClose: 2000,
+            theme: "light",
+            style: { backgroundColor: '#f0fff4', color: '#22543d', borderLeft: '4px solid #22543d' }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving address to account:', error);
+      toast.error('Không thể lưu địa chỉ vào tài khoản. Địa chỉ chỉ được lưu cho đơn hàng này.');
+    }
   };
 
   // Xử lý đặt hàng
@@ -322,60 +491,96 @@ const PaymentsPage: NextPage = () => {
               <div className="lg:col-span-2 space-y-6">
                 {/* Form thông tin giao hàng */}
                 <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 shipping-form">
-                  <ShippingForm
-                    initialValues={shippingInfo || undefined}
-                    onSubmit={handleShippingInfoSubmit}
-                    showSubmitButton={!shippingInfo} // Chỉ hiển thị nút khi chưa có thông tin
-                  />
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>
                   
-                  {/* Hiển thị thông tin đã lưu và nút chỉnh sửa */}
-                  {shippingInfo && (
-                    <div className="mt-4 border-t border-gray-100 pt-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-medium text-gray-700">Thông tin giao hàng đã lưu</h3>
-                        <button
-                          type="button"
-                          onClick={() => setShippingInfo(null)}
-                          className="text-sm text-[#306E51] hover:underline"
+                  {/* Hiển thị danh sách địa chỉ nếu user đã có địa chỉ */}
+                  {userAddresses.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-md font-medium text-gray-700">Địa chỉ của tôi</h3>
+                        <button 
+                          type="button" 
+                          onClick={handleAddNewAddress}
+                          className="text-sm text-pink-600 hover:text-pink-700 flex items-center"
                         >
-                          Chỉnh sửa
+                          <FiPlus className="mr-1" />
+                          Thêm địa chỉ mới
                         </button>
-                      </div>
-                      <div className="mt-2 text-sm text-gray-600">
-                        <p><span className="font-medium">Họ tên:</span> {shippingInfo.fullName}</p>
-                        <p><span className="font-medium">Số điện thoại:</span> {shippingInfo.phone}</p>
-                        <p><span className="font-medium">Địa chỉ:</span> {shippingInfo.address}, {shippingInfo.ward}, {shippingInfo.district}, {shippingInfo.city}</p>
-                        {shippingInfo.email && <p><span className="font-medium">Email:</span> {shippingInfo.email}</p>}
-                        {shippingInfo.notes && <p><span className="font-medium">Ghi chú:</span> {shippingInfo.notes}</p>}
                       </div>
                       
-                      {/* Nút đặt hàng cho thiết bị di động */}
-                      <div className="mt-4 lg:hidden">
-                        <button
-                          type="button"
-                          onClick={handlePlaceOrder}
-                          disabled={isProcessing}
-                          className={`w-full py-3 rounded-md font-medium flex items-center justify-center ${
-                            isProcessing
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-[#306E51] text-white hover:bg-[#266246] transition-colors'
-                          }`}
-                        >
-                          {isProcessing ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Đang xử lý...
-                            </>
-                          ) : (
-                            <>
-                              Đặt hàng
-                            </>
-                          )}
-                        </button>
+                      <div className="space-y-3">
+                        {userAddresses.map((address) => (
+                          <div 
+                            key={address._id} 
+                            className={`border rounded-md p-3 cursor-pointer transition-colors ${
+                              selectedAddressId === address._id 
+                                ? 'border-pink-500 bg-pink-50' 
+                                : 'border-gray-200 hover:border-pink-300'
+                            }`}
+                            onClick={() => handleSelectAddress(address._id)}
+                          >
+                            <div className="flex justify-between">
+                              <div>
+                                <p className="font-medium text-gray-800">{user?.name}</p>
+                                <p className="text-sm text-gray-600">{user?.phoneNumber}</p>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {address.addressLine}
+                                  {address.city && `, ${address.city}`}
+                                  {address.country && `, ${address.country}`}
+                                  {address.postalCode && ` - ${address.postalCode}`}
+                                </p>
+                              </div>
+                              {selectedAddressId === address._id && (
+                                <div className="flex-shrink-0 h-6 w-6 bg-pink-500 rounded-full flex items-center justify-center">
+                                  <FiCheck className="text-white" />
+                                </div>
+                              )}
+                              {address.isDefault && selectedAddressId !== address._id && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Mặc định</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Hiển thị form nhập địa chỉ mới nếu không có địa chỉ hoặc chọn thêm địa chỉ mới */}
+                  {(userAddresses.length === 0 || showAddressForm) && (
+                    <ShippingForm
+                      initialValues={shippingInfo || undefined}
+                      onSubmit={handleShippingInfoSubmit}
+                      showSubmitButton={true}
+                    />
+                  )}
+                  
+                  {/* Hiển thị thông tin đã lưu nếu đã chọn địa chỉ nhưng không muốn thêm mới */}
+                  {shippingInfo && selectedAddressId && !showAddressForm && (
+                    <div className="mt-4 lg:hidden">
+                      <button
+                        type="button"
+                        onClick={handlePlaceOrder}
+                        disabled={isProcessing}
+                        className={`w-full py-3 rounded-md font-medium flex items-center justify-center ${
+                          isProcessing
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-[#306E51] text-white hover:bg-[#266246] transition-colors'
+                        }`}
+                      >
+                        {isProcessing ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          <>
+                            Đặt hàng
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>
