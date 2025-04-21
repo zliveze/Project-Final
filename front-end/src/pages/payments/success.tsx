@@ -11,12 +11,12 @@ import { useUserOrder } from '@/contexts/user/UserOrderContext';
 
 // Định nghĩa kiểu dữ liệu
 interface OrderData {
-  shippingInfo: {
+  shippingAddress: {
     fullName: string;
     phone: string;
     email?: string;
-    address: string;
-    city: string;
+    addressLine1: string;
+    province: string;
     district: string;
     ward: string;
     notes?: string;
@@ -24,10 +24,14 @@ interface OrderData {
   paymentMethod: string;
   items: any[];
   subtotal: number;
-  discount: number;
-  shipping: number;
-  total: number;
-  voucherCode?: string;
+  tax?: number;
+  shippingFee: number;
+  totalPrice: number;
+  finalPrice: number;
+  voucher?: {
+    code: string;
+    discountAmount: number;
+  };
 }
 
 const PaymentSuccessPage: NextPage = () => {
@@ -110,7 +114,7 @@ const PaymentSuccessPage: NextPage = () => {
               Đặt hàng thành công!
             </h1>
             <p className="text-center text-gray-600 mb-8">
-              Cảm ơn {orderData?.shippingInfo?.fullName || 'bạn'} đã mua sắm tại YUMIN. Đơn hàng của bạn đã được xác nhận.
+              Cảm ơn {orderData?.shippingAddress?.fullName || 'bạn'} đã mua sắm tại YUMIN. Đơn hàng của bạn đã được xác nhận.
             </p>
 
             {/* Thông tin đơn hàng */}
@@ -132,16 +136,16 @@ const PaymentSuccessPage: NextPage = () => {
                   <p className="text-sm font-medium text-gray-700 mb-2">Thông tin đơn hàng</p>
 
                   <div className="text-sm text-gray-600 mb-4">
-                    <p><span className="font-medium">Họ tên:</span> {orderData.shippingInfo.fullName}</p>
-                    <p><span className="font-medium">Điện thoại:</span> {orderData.shippingInfo.phone}</p>
-                    <p><span className="font-medium">Địa chỉ:</span> {orderData.shippingInfo.address}, {orderData.shippingInfo.ward}, {orderData.shippingInfo.district}, {orderData.shippingInfo.city}</p>
+                    <p><span className="font-medium">Họ tên:</span> {orderData.shippingAddress.fullName}</p>
+                    <p><span className="font-medium">Điện thoại:</span> {orderData.shippingAddress.phone}</p>
+                    <p><span className="font-medium">Địa chỉ:</span> {orderData.shippingAddress.addressLine1}, {orderData.shippingAddress.ward}, {orderData.shippingAddress.district}, {orderData.shippingAddress.province}</p>
                     <p><span className="font-medium">Phương thức thanh toán:</span> {orderData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Thanh toán online'}</p>
-                    {orderData.voucherCode && <p><span className="font-medium">Mã giảm giá:</span> {orderData.voucherCode}</p>}
+                    {orderData.voucher?.code && <p><span className="font-medium">Mã giảm giá:</span> {orderData.voucher.code}</p>}
                     <div className="mt-2 flex flex-col sm:flex-row sm:justify-between">
                       <span><span className="font-medium">Tạm tính:</span> {new Intl.NumberFormat('vi-VN').format(orderData.subtotal)}đ</span>
-                      <span><span className="font-medium">Giảm giá:</span> {new Intl.NumberFormat('vi-VN').format(orderData.discount)}đ</span>
-                      <span><span className="font-medium">Phí vận chuyển:</span> {orderData.shipping > 0 ? `${new Intl.NumberFormat('vi-VN').format(orderData.shipping)}đ` : 'Miễn phí'}</span>
-                      <span className="font-medium text-pink-600">Tổng: {new Intl.NumberFormat('vi-VN').format(orderData.total)}đ</span>
+                      <span><span className="font-medium">Giảm giá:</span> {new Intl.NumberFormat('vi-VN').format(orderData.voucher?.discountAmount || 0)}đ</span>
+                      <span><span className="font-medium">Phí vận chuyển:</span> {orderData.shippingFee > 0 ? `${new Intl.NumberFormat('vi-VN').format(orderData.shippingFee)}đ` : 'Miễn phí'}</span>
+                      <span className="font-medium text-pink-600">Tổng: {new Intl.NumberFormat('vi-VN').format(orderData.finalPrice)}đ</span>
                     </div>
                   </div>
                 </div>

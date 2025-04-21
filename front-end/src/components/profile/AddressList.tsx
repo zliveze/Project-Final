@@ -3,11 +3,12 @@ import { FaPlus, FaEdit, FaTrash, FaCheck, FaMapMarkerAlt } from 'react-icons/fa
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Address, User } from './types/index';
+import ViettelPostService from '@/services/ViettelPostService';
 
 // --- Interfaces & Types ---
-interface Province { code: string; name: string; }
-interface District { code: string; name: string; province_code: string; }
-interface Ward { code: string; name: string; district_code: string; }
+interface Province { code: string; name: string; viettelCode?: string; }
+interface District { code: string; name: string; province_code: string; viettelCode?: string; }
+interface Ward { code: string; name: string; district_code: string; viettelCode?: string; }
 // Type for selected location object
 type SelectedLocation = { code: string; name: string } | null;
 // Local form data state type (lives inside AddressForm)
@@ -53,7 +54,9 @@ interface AddressFormProps {
 }
 
 // --- API Base URL ---
-const PROVINCES_API_BASE_URL = 'https://provinces.open-api.vn/api';
+// Thay đổi từ provinces.open-api.vn sang API Viettel Post
+// const PROVINCES_API_BASE_URL = 'https://provinces.open-api.vn/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // ================== AddressForm Component (Manages its own text inputs) ==================
 const AddressForm: React.FC<AddressFormProps> = ({
@@ -215,10 +218,16 @@ const AddressList = ({
     const fetchProvinces = async () => {
       setLoadingProvinces(true);
       try {
-        const response = await axios.get<Province[]>(`${PROVINCES_API_BASE_URL}/p/`);
-        setProvinces(response.data || []);
-      } catch (error) { console.error('Lỗi tỉnh/thành phố:', error); toast.error('Lỗi tải Tỉnh/Thành phố.'); setProvinces([]); }
-      finally { setLoadingProvinces(false); }
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getProvinces();
+        setProvinces(data);
+      } catch (error) {
+        console.error('Lỗi tỉnh/thành phố:', error);
+        toast.error('Lỗi tải Tỉnh/Thành phố.');
+        setProvinces([]);
+      } finally {
+        setLoadingProvinces(false);
+      }
     };
     fetchProvinces();
   }, []);
@@ -231,10 +240,16 @@ const AddressList = ({
       setLoadingDistricts(true);
       setDistricts([]); setWards([]); setSelectedDistrict(null); setSelectedWard(null);
       try {
-        const response = await axios.get<{ districts: District[] }>(`${PROVINCES_API_BASE_URL}/p/${selectedProvince.code}?depth=2`);
-        setDistricts(response.data?.districts || []);
-      } catch (error) { console.error('Lỗi quận/huyện:', error); toast.error('Lỗi tải Quận/Huyện.'); setDistricts([]); }
-      finally { setLoadingDistricts(false); }
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getDistricts(selectedProvince.code);
+        setDistricts(data);
+      } catch (error) {
+        console.error('Lỗi quận/huyện:', error);
+        toast.error('Lỗi tải Quận/Huyện.');
+        setDistricts([]);
+      } finally {
+        setLoadingDistricts(false);
+      }
     };
     fetchDistricts();
   }, [selectedProvince]);
@@ -247,10 +262,16 @@ const AddressList = ({
       setLoadingWards(true);
       setWards([]); setSelectedWard(null);
       try {
-        const response = await axios.get<{ wards: Ward[] }>(`${PROVINCES_API_BASE_URL}/d/${selectedDistrict.code}?depth=2`);
-        setWards(response.data?.wards || []);
-      } catch (error) { console.error('Lỗi phường/xã:', error); toast.error('Lỗi tải Phường/Xã.'); setWards([]); }
-      finally { setLoadingWards(false); }
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getWards(selectedDistrict.code);
+        setWards(data);
+      } catch (error) {
+        console.error('Lỗi phường/xã:', error);
+        toast.error('Lỗi tải Phường/Xã.');
+        setWards([]);
+      } finally {
+        setLoadingWards(false);
+      }
     };
     fetchWards();
   }, [selectedDistrict]);
@@ -397,8 +418,8 @@ const AddressList = ({
      if (province) {
        setLoadingDistricts(true);
        try {
-         const distResponse = await axios.get<{ districts: District[] }>(`${PROVINCES_API_BASE_URL}/p/${province.code}?depth=2`);
-         const fetchedDistricts = distResponse.data?.districts || [];
+         // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+         const fetchedDistricts = await ViettelPostService.getDistricts(province.code);
          setDistricts(fetchedDistricts);
          const district = fetchedDistricts.find(d => d.name === address.state);
          setSelectedDistrict(district || null);
@@ -406,17 +427,39 @@ const AddressList = ({
          if (district) {
            setLoadingWards(true);
            try {
-             const wardResponse = await axios.get<{ wards: Ward[] }>(`${PROVINCES_API_BASE_URL}/d/${district.code}?depth=2`);
-             const fetchedWards = wardResponse.data?.wards || [];
+             // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+             const fetchedWards = await ViettelPostService.getWards(district.code);
              setWards(fetchedWards);
              const ward = wardNameFromLine ? fetchedWards.find(w => w.name === wardNameFromLine) : null;
              setSelectedWard(ward || null);
-           } catch (wardError) { console.error("Error fetching wards during edit:", wardError); toast.error("Lỗi tải Phường/Xã."); setWards([]); setSelectedWard(null); }
-           finally { setLoadingWards(false); }
-         } else { setWards([]); setSelectedWard(null); }
-       } catch (distError) { console.error("Error fetching districts during edit:", distError); toast.error("Lỗi tải Quận/Huyện."); setDistricts([]); setWards([]); setSelectedDistrict(null); setSelectedWard(null); }
-       finally { setLoadingDistricts(false); }
-     } else { setDistricts([]); setWards([]); setSelectedDistrict(null); setSelectedWard(null); }
+           } catch (wardError) {
+             console.error("Error fetching wards during edit:", wardError);
+             toast.error("Lỗi tải Phường/Xã.");
+             setWards([]);
+             setSelectedWard(null);
+           } finally {
+             setLoadingWards(false);
+           }
+         } else {
+           setWards([]);
+           setSelectedWard(null);
+         }
+       } catch (distError) {
+         console.error("Error fetching districts during edit:", distError);
+         toast.error("Lỗi tải Quận/Huyện.");
+         setDistricts([]);
+         setWards([]);
+         setSelectedDistrict(null);
+         setSelectedWard(null);
+       } finally {
+         setLoadingDistricts(false);
+       }
+     } else {
+       setDistricts([]);
+       setWards([]);
+       setSelectedDistrict(null);
+       setSelectedWard(null);
+     }
   }, [provinces]);
 
   const handleDelete = async (_id: string) => {

@@ -8,6 +8,7 @@ import { Order, OrderSchema } from './schemas/order.schema';
 import { OrderTracking, OrderTrackingSchema } from './schemas/order-tracking.schema';
 import { SharedModule } from '../shared/shared.module';
 import { ConfigModule } from '@nestjs/config';
+import { ProductsModule } from '../products/products.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ConfigModule } from '@nestjs/config';
     ]),
     SharedModule, // Import SharedModule để sử dụng ViettelPostService
     ConfigModule, // Import ConfigModule để sử dụng ConfigService
+    ProductsModule, // Import ProductsModule để sử dụng ProductsService
   ],
   controllers: [OrdersAdminController, OrdersUserController, ShippingController],
   providers: [OrdersService],

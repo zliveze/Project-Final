@@ -28,6 +28,7 @@ interface User {
   name: string;
   email: string;
   phoneNumber?: string;
+  phone?: string; // Thêm trường phone vì có thể API trả về cả hai trường
   addresses?: UserAddress[];
   customerLevel?: string;
   role: string;
@@ -147,7 +148,7 @@ const PaymentsPage: NextPage = () => {
               const addressParts: string[] = defaultAddress.addressLine.split(',').map((part: string) => part.trim());
               const addressData: ShippingInfo = {
                 fullName: user.name || '',
-                phone: user.phoneNumber || '',
+                phone: user.phoneNumber || user.phone || '', // Đảm bảo số điện thoại được lấy từ profile
                 email: user.email || '',
                 address: addressParts[0] || '',
                 city: defaultAddress.city || '',
@@ -155,6 +156,10 @@ const PaymentsPage: NextPage = () => {
                 ward: addressParts.length > 1 ? addressParts[1] : '',
                 notes: ''
               };
+
+              // Log thông tin để debug
+              console.log('User phone from profile:', user.phoneNumber || user.phone);
+              console.log('Shipping info with phone:', addressData);
 
               setShippingInfo(addressData);
               localStorage.setItem('shippingInfo', JSON.stringify(addressData));
@@ -172,7 +177,7 @@ const PaymentsPage: NextPage = () => {
               const initialShippingInfo: Partial<ShippingInfo> = {
                 fullName: user.name || '',
                 email: user.email || '',
-                phone: user.phoneNumber || ''
+                phone: user.phoneNumber || user.phone || ''
               };
 
               setShippingInfo(initialShippingInfo as ShippingInfo);
@@ -208,7 +213,7 @@ const PaymentsPage: NextPage = () => {
       const addressParts: string[] = selectedAddress.addressLine.split(',').map((part: string) => part.trim());
       const addressData: ShippingInfo = {
         fullName: user?.name || '',
-        phone: user?.phoneNumber || '',
+        phone: user?.phoneNumber || user?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
         email: user?.email || '',
         address: addressParts[0] || '',
         city: selectedAddress.city || '',
@@ -216,6 +221,10 @@ const PaymentsPage: NextPage = () => {
         ward: addressParts.length > 1 ? addressParts[1] : '',
         notes: ''
       };
+
+      // Log thông tin để debug
+      console.log('User phone from selected address:', user?.phoneNumber || user?.phone);
+      console.log('Shipping info with phone from selected address:', addressData);
 
       setShippingInfo(addressData);
       localStorage.setItem('shippingInfo', JSON.stringify(addressData));
@@ -232,16 +241,22 @@ const PaymentsPage: NextPage = () => {
 
     // Điền trước thông tin cơ bản từ user nếu đã đăng nhập
     if (user) {
-      setShippingInfo({
+      const newShippingInfo = {
         fullName: user.name || '',
-        phone: user.phoneNumber || '',
+        phone: user.phoneNumber || user.phone || '', // Đảm bảo số điện thoại được lấy từ profile
         email: user.email || '',
         address: '',
         city: '',
         district: '',
         ward: '',
         notes: ''
-      });
+      };
+
+      // Log thông tin để debug
+      console.log('User phone for new address:', user.phoneNumber || user.phone);
+      console.log('New shipping info with phone:', newShippingInfo);
+
+      setShippingInfo(newShippingInfo);
     } else {
       setShippingInfo(null);
     }
@@ -423,7 +438,7 @@ const PaymentsPage: NextPage = () => {
         } else {
           throw new Error('Không thể tạo đơn hàng');
         }
-      } else if (paymentMethod === 'stripe' || paymentMethod === 'credit_card') {
+      } else if (paymentMethod === 'credit_card') {
         // Tạo đơn hàng với Stripe
         result = await createOrderWithStripe(orderData);
 
@@ -569,9 +584,11 @@ const PaymentsPage: NextPage = () => {
                             <div className="flex justify-between">
                               <div>
                                 <p className="font-medium text-gray-800">{user?.name}</p>
-                                <p className="text-sm text-gray-600">{user?.phoneNumber}</p>
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Điện thoại:</span> {user?.phoneNumber || user?.phone || 'Chưa có số điện thoại'}
+                                </p>
                                 <p className="text-sm text-gray-600 mt-1">
-                                  {address.addressLine}
+                                  <span className="font-medium">Địa chỉ:</span> {address.addressLine}
                                   {address.city && `, ${address.city}`}
                                   {address.country && `, ${address.country}`}
                                   {address.postalCode && ` - ${address.postalCode}`}

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave } from 'react-icons/fi';
-import axios from 'axios';
 import { toast } from 'react-toastify';
+import ViettelPostService from '@/services/ViettelPostService';
 
 // API URL cho dữ liệu provinces, districts, wards
-const PROVINCES_API_BASE_URL = 'https://provinces.open-api.vn/api';
+// Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
 
 // Types cho province, district, ward
-interface Province { code: string; name: string; }
-interface District { code: string; name: string; province_code: string; }
-interface Ward { code: string; name: string; district_code: string; }
+interface Province { code: string; name: string; viettelCode?: string; }
+interface District { code: string; name: string; province_code: string; viettelCode?: string; }
+interface Ward { code: string; name: string; district_code: string; viettelCode?: string; }
 
 interface ShippingInfo {
   fullName: string;
@@ -20,6 +20,10 @@ interface ShippingInfo {
   district: string;
   ward: string;
   notes?: string;
+  // Thêm mã Viettel Post
+  provinceCode?: string;
+  districtCode?: string;
+  wardCode?: string;
 }
 
 interface ShippingFormProps {
@@ -43,7 +47,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
   );
 
   const [errors, setErrors] = useState<Partial<ShippingInfo>>({});
-  
+
   // State cho province, district, ward
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
@@ -57,8 +61,9 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
     const fetchProvinces = async () => {
       setLoadingProvinces(true);
       try {
-        const response = await axios.get<Province[]>(`${PROVINCES_API_BASE_URL}/p/`);
-        setProvinces(response.data || []);
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getProvinces();
+        setProvinces(data);
       } catch (error) {
         console.error('Lỗi tỉnh/thành phố:', error);
         toast.error('Lỗi tải Tỉnh/Thành phố.');
@@ -77,15 +82,16 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
       setWards([]);
       return;
     }
-    
+
     const fetchDistricts = async () => {
       setLoadingDistricts(true);
       setDistricts([]);
       setWards([]);
-      
+
       try {
-        const response = await axios.get<{ districts: District[] }>(`${PROVINCES_API_BASE_URL}/p/${formValues.city}?depth=2`);
-        setDistricts(response.data?.districts || []);
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getDistricts(formValues.city);
+        setDistricts(data);
       } catch (error) {
         console.error('Lỗi quận/huyện:', error);
         toast.error('Lỗi tải Quận/Huyện.');
@@ -94,7 +100,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         setLoadingDistricts(false);
       }
     };
-    
+
     fetchDistricts();
   }, [formValues.city]);
 
@@ -104,14 +110,15 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
       setWards([]);
       return;
     }
-    
+
     const fetchWards = async () => {
       setLoadingWards(true);
       setWards([]);
-      
+
       try {
-        const response = await axios.get<{ wards: Ward[] }>(`${PROVINCES_API_BASE_URL}/d/${formValues.district}?depth=2`);
-        setWards(response.data?.wards || []);
+        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        const data = await ViettelPostService.getWards(formValues.district);
+        setWards(data);
       } catch (error) {
         console.error('Lỗi phường/xã:', error);
         toast.error('Lỗi tải Phường/Xã.');
@@ -120,7 +127,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         setLoadingWards(false);
       }
     };
-    
+
     fetchWards();
   }, [formValues.district]);
 
@@ -197,17 +204,30 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
     e.preventDefault();
     if (validateForm()) {
       // Tạo dữ liệu gửi đi với tên tỉnh/quận/phường thay vì mã code
-      const provinceName = provinces.find(p => p.code === formValues.city)?.name || '';
-      const districtName = districts.find(d => d.code === formValues.district)?.name || '';
-      const wardName = wards.find(w => w.code === formValues.ward)?.name || '';
-      
+      const province = provinces.find(p => p.code === formValues.city);
+      const district = districts.find(d => d.code === formValues.district);
+      const ward = wards.find(w => w.code === formValues.ward);
+
+      const provinceName = province?.name || '';
+      const districtName = district?.name || '';
+      const wardName = ward?.name || '';
+
+      // Lưu mã Viettel Post cho địa chỉ
+      const provinceCode = province?.viettelCode || '';
+      const districtCode = district?.viettelCode || '';
+      const wardCode = ward?.viettelCode || '';
+
       const submittedData = {
         ...formValues,
         city: provinceName,
         district: districtName,
-        ward: wardName
+        ward: wardName,
+        // Thêm mã Viettel Post cho địa chỉ
+        provinceCode: provinceCode,
+        districtCode: districtCode,
+        wardCode: wardCode
       };
-      
+
       onSubmit(submittedData);
     }
   };
@@ -215,7 +235,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {!initialValues?.fullName && <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>}
-      
+
       {/* Họ tên */}
       <div>
         <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -239,7 +259,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         </div>
         {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
       </div>
-      
+
       {/* Số điện thoại */}
       <div>
         <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
@@ -257,13 +277,14 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             onChange={handleChange}
             className={`pl-10 w-full px-4 py-2 border ${
               errors.phone ? 'border-red-300' : 'border-gray-300'
-            } rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51]`}
-            placeholder="Nhập số điện thoại"
+            } rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500`}
+            placeholder="Nhập số điện thoại (ví dụ: 0987654321)"
           />
         </div>
         {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+        {!errors.phone && <p className="mt-1 text-xs text-gray-500">Số điện thoại sẽ được dùng để liên hệ khi giao hàng</p>}
       </div>
-      
+
       {/* Email */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -287,7 +308,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         </div>
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
       </div>
-      
+
       {/* Địa chỉ */}
       <div>
         <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
@@ -311,7 +332,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         </div>
         {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
       </div>
-      
+
       {/* Tỉnh/Thành phố, Quận/Huyện, Phường/Xã */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Tỉnh/Thành phố */}
@@ -350,7 +371,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           </div>
           {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
         </div>
-        
+
         {/* Quận/Huyện */}
         <div>
           <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-1">
@@ -382,7 +403,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           )}
           {errors.district && <p className="mt-1 text-sm text-red-600">{errors.district}</p>}
         </div>
-        
+
         {/* Phường/Xã */}
         <div>
           <label htmlFor="ward" className="block text-sm font-medium text-gray-700 mb-1">
@@ -415,7 +436,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           {errors.ward && <p className="mt-1 text-sm text-red-600">{errors.ward}</p>}
         </div>
       </div>
-      
+
       {/* Ghi chú */}
       <div>
         <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -441,7 +462,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           </p>
         </div>
       )}
-      
+
       {/* Nút lưu thông tin */}
       {showSubmitButton && (
         <div className="mt-8">
@@ -458,4 +479,4 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
   );
 };
 
-export default ShippingForm; 
+export default ShippingForm;

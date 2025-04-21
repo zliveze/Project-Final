@@ -13,6 +13,7 @@ import {
 import { ViettelPostService } from '../shared/services/viettel-post.service';
 import { OrderTracking, OrderTrackingDocument } from './schemas/order-tracking.schema';
 import { ConfigService } from '@nestjs/config';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class OrdersService {
@@ -23,6 +24,7 @@ export class OrdersService {
     @InjectModel(OrderTracking.name) private orderTrackingModel: Model<OrderTrackingDocument>,
     private readonly viettelPostService: ViettelPostService,
     private readonly configService: ConfigService,
+    private readonly productsService: ProductsService,
   ) {}
 
   /**
@@ -62,6 +64,9 @@ export class OrdersService {
           },
         ],
       });
+
+      // Giảm số lượng sản phẩm trong kho
+      await this.decreaseProductInventory(createOrderDto.items);
 
       // Nếu phương thức thanh toán là COD, tạo vận đơn Viettel Post
       if (createOrderDto.paymentMethod === PaymentMethod.COD) {
@@ -491,6 +496,111 @@ export class OrdersService {
   }
 
   /**
+   * Giảm số lượng sản phẩm trong kho
+   */
+  private async decreaseProductInventory(items: any[]): Promise<void> {
+    try {
+      this.logger.log('Decreasing product inventory for order items');
+
+      // Lấy thông tin chi nhánh mặc định (có thể lấy từ config hoặc cố định)
+      const defaultBranchId = this.configService.get<string>('DEFAULT_BRANCH_ID') || '65a4e4c2a8a4e3c9ab9d1234'; // ID chi nhánh mặc định
+
+      // Xử lý từng sản phẩm trong đơn hàng
+      for (const item of items) {
+        try {
+          const { productId, variantId, quantity } = item;
+
+          // Lấy thông tin sản phẩm
+          const product = await this.productsService.findOne(productId);
+          if (!product) {
+            this.logger.warn(`Product not found: ${productId}`);
+            continue;
+          }
+
+          if (variantId) {
+            // Nếu có variantId, giảm số lượng của biến thể
+            try {
+              // Kiểm tra variantId có hợp lệ không (phải là chuỗi 24 ký tự hex)
+              if (!variantId.match(/^[0-9a-fA-F]{24}$/)) {
+                this.logger.warn(`Invalid variantId format: ${variantId}. Skipping inventory update.`);
+                continue;
+              }
+
+              // Tìm kiếm inventory của biến thể trong chi nhánh
+              let currentQuantity = 0;
+
+              // Tìm trong variantInventory của sản phẩm
+              if (product['variantInventory']) {
+                const variantInventory = product['variantInventory'].find(
+                  (inv: any) => inv.branchId.toString() === defaultBranchId && inv.variantId.toString() === variantId
+                );
+
+                if (variantInventory) {
+                  currentQuantity = variantInventory.quantity || 0;
+                  this.logger.log(`Found variant inventory: Product ${productId}, Variant ${variantId}, Current quantity: ${currentQuantity}`);
+                }
+              }
+
+              // Tính toán số lượng mới
+              const newQuantity = Math.max(0, currentQuantity - quantity);
+
+              // Cập nhật số lượng biến thể
+              await this.productsService.updateVariantInventory(
+                productId,
+                defaultBranchId,
+                variantId,
+                newQuantity
+              );
+
+              this.logger.log(`Decreased variant inventory: Product ${productId}, Variant ${variantId}, From ${currentQuantity} to ${newQuantity}`);
+            } catch (variantError) {
+              this.logger.error(`Error updating variant inventory: ${variantError.message}`, variantError.stack);
+            }
+          } else {
+            // Nếu không có variantId, giảm số lượng của sản phẩm
+            try {
+              // Tìm kiếm inventory của sản phẩm trong chi nhánh
+              let currentQuantity = 0;
+
+              // Tìm trong inventory của sản phẩm
+              if (product['inventory']) {
+                const productInventory = product['inventory'].find(
+                  (inv: any) => inv.branchId.toString() === defaultBranchId
+                );
+
+                if (productInventory) {
+                  currentQuantity = productInventory.quantity || 0;
+                  this.logger.log(`Found product inventory: Product ${productId}, Current quantity: ${currentQuantity}`);
+                }
+              }
+
+              // Tính toán số lượng mới
+              const newQuantity = Math.max(0, currentQuantity - quantity);
+
+              // Cập nhật số lượng sản phẩm
+              await this.productsService.updateInventory(
+                productId,
+                defaultBranchId,
+                newQuantity
+              );
+
+              this.logger.log(`Decreased product inventory: Product ${productId}, From ${currentQuantity} to ${newQuantity}`);
+            } catch (productError) {
+              this.logger.error(`Error updating product inventory: ${productError.message}`, productError.stack);
+            }
+          }
+        } catch (itemError) {
+          // Ghi log lỗi nhưng không dừng quá trình
+          this.logger.error(`Error decreasing inventory for item ${item.productId}: ${itemError.message}`, itemError.stack);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error in decreaseProductInventory: ${error.message}`, error.stack);
+      // Không throw lỗi để không ảnh hưởng đến quá trình tạo đơn hàng
+    }
+  }
+
+  /**
    * Tính phí vận chuyển
    */
   async calculateShippingFee(calculateShippingDto: CalculateShippingDto): Promise<ShippingFeeResponseDto> {
@@ -678,6 +788,8 @@ export class OrdersService {
     const storeName = this.configService.get<string>('STORE_NAME') || 'Yumin Beauty';
     const storeAddress = this.configService.get<string>('STORE_ADDRESS') || 'Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội';
     const storePhone = this.configService.get<string>('STORE_PHONE') || '0987654321';
+    // Sử dụng mã chuẩn của Viettel Post cho Hà Nội
+    // Mã chuẩn của Viettel Post cho Hà Nội
     const storeWardCode = this.configService.get<string>('STORE_WARD_CODE') || '00001';
     const storeDistrictCode = this.configService.get<string>('STORE_DISTRICT_CODE') || '001';
     const storeProvinceCode = this.configService.get<string>('STORE_PROVINCE_CODE') || '01';
@@ -697,31 +809,33 @@ export class OrdersService {
       SENDER_WARD: storeWardCode,
       SENDER_DISTRICT: storeDistrictCode,
       SENDER_PROVINCE: storeProvinceCode,
-      RECEIVER_FULLNAME: order.shippingAddress.fullName,
-      RECEIVER_ADDRESS: order.shippingAddress.addressLine1 + (order.shippingAddress.addressLine2 ? `, ${order.shippingAddress.addressLine2}` : ''),
-      RECEIVER_PHONE: order.shippingAddress.phone,
-      RECEIVER_WARD: order.shippingAddress.wardCode || '',
-      RECEIVER_DISTRICT: order.shippingAddress.districtCode || '',
-      RECEIVER_PROVINCE: order.shippingAddress.provinceCode || '',
+      RECEIVER_FULLNAME: order.shippingAddress.fullName || 'Khách hàng',
+      RECEIVER_ADDRESS: order.shippingAddress.addressLine1 || '1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội', // Đảm bảo luôn có địa chỉ, dùng địa chỉ mặc định nếu không có
+      RECEIVER_PHONE: order.shippingAddress.phone || '0987654321', // Đảm bảo luôn có số điện thoại, dùng số mặc định nếu không có
+      // Sử dụng mã chuẩn của Viettel Post cho Hà Nội
+      RECEIVER_WARD: '00001', // Mã phường/xã mặc định
+      RECEIVER_DISTRICT: '001', // Mã quận/huyện mặc định
+      RECEIVER_PROVINCE: '01', // Mã tỉnh/thành phố mặc định (Hà Nội)
       PRODUCT_NAME: productDescription,
       PRODUCT_DESCRIPTION: productDescription,
       PRODUCT_QUANTITY: totalQuantity,
       PRODUCT_PRICE: order.finalPrice,
+      PRODUCT_TYPE: 'HH', // Loại hàng hóa (HH: Hàng hóa thông thường)
       MONEY_COLLECTION: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0,
-      MONEY_TOTALFEE: 0, // Phí vận chuyển sẽ được Viettel Post tính
+      MONEY_TOTALFEE: order.shippingFee || 30000, // Sử dụng phí vận chuyển từ đơn hàng hoặc giá trị mặc định
       MONEY_FEECOD: 0,
       MONEY_FEEVAS: 0,
       MONEY_FEEINSURRANCE: 0,
-      MONEY_FEE: 0,
+      MONEY_FEE: order.shippingFee || 30000, // Sử dụng phí vận chuyển từ đơn hàng hoặc giá trị mặc định
       MONEY_FEEOTHER: 0,
       MONEY_TOTALVAT: 0,
-      MONEY_TOTAL: order.finalPrice,
+      MONEY_TOTAL: order.finalPrice + (order.shippingFee || 30000), // Tổng tiền bao gồm phí vận chuyển
       PRODUCT_WEIGHT: 500, // Ước tính trọng lượng (gram)
       PRODUCT_LENGTH: 20, // Ước tính kích thước (cm)
       PRODUCT_WIDTH: 15,
       PRODUCT_HEIGHT: 10,
       ORDER_PAYMENT: order.paymentMethod === PaymentMethod.COD ? 1 : 2, // 1: COD, 2: Đã thanh toán
-      ORDER_SERVICE: 'LCOD', // Dịch vụ vận chuyển
+      ORDER_SERVICE: 'LCOD', // Dịch vụ vận chuyển tiêu chuẩn
       ORDER_SERVICE_ADD: '',
       ORDER_NOTE: order.notes || '',
       MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0,
