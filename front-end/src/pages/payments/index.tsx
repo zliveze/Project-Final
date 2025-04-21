@@ -13,6 +13,10 @@ import OrderSummary from '@/components/payments/OrderSummary';
 import Breadcrum from '@/components/common/Breadcrum';
 import DefaultLayout from '@/layout/DefaultLayout';
 
+// Context
+import { useCart } from '@/contexts/user/cart/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+
 // Định nghĩa kiểu dữ liệu
 interface ShippingInfo {
   fullName: string;
@@ -37,42 +41,24 @@ interface OrderItem {
   };
 }
 
-// Dữ liệu mẫu cho đơn hàng
-const sampleOrderItems: OrderItem[] = [
-  {
-    _id: '1',
-    name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
-    slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
-    price: 405000,
-    quantity: 1,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Kem Chống Nắng La Roche-Posay'
-    }
-  },
-  {
-    _id: '2',
-    name: 'Serum Vitamin C Klairs Freshly Juiced Vitamin Drop',
-    slug: 'serum-vitamin-c-klairs-freshly-juiced-vitamin-drop',
-    price: 320000,
-    quantity: 2,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Serum Vitamin C Klairs'
-    }
-  }
-];
-
 const PaymentsPage: NextPage = () => {
   const router = useRouter();
+  const { user } = useAuth();
+  
+  // Lấy dữ liệu giỏ hàng từ CartContext
+  const {
+    cartItems,
+    subtotal,
+    discount,
+    shipping,
+    total,
+    voucherCode,
+    isLoading: cartLoading,
+    itemCount
+  } = useCart();
   
   // State
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [subtotal, setSubtotal] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [shipping, setShipping] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [voucherCode, setVoucherCode] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -81,48 +67,57 @@ const PaymentsPage: NextPage = () => {
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   
-  // Giả lập việc tải dữ liệu từ API
+  // Chuyển đổi từ CartItems sang OrderItems
   useEffect(() => {
-    // Trong thực tế, đây sẽ là một API call để lấy thông tin đơn hàng từ giỏ hàng
-    const fetchOrderData = async () => {
-      try {
-        // Giả lập thời gian tải
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        setOrderItems(sampleOrderItems);
-        
-        // Tính tổng giá trị đơn hàng
-        const calculatedSubtotal = sampleOrderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        setSubtotal(calculatedSubtotal);
-        
-        // Giả định có mã giảm giá
-        const calculatedDiscount = Math.round(calculatedSubtotal * 0.1); // Giảm 10%
-        setDiscount(calculatedDiscount);
-        setVoucherCode('WELCOME10');
-        
-        // Tính phí vận chuyển (miễn phí nếu tổng giá trị > 500.000đ)
-        const calculatedShipping = calculatedSubtotal > 500000 ? 0 : 30000;
-        setShipping(calculatedShipping);
-        
-        // Tính tổng cộng
-        setTotal(calculatedSubtotal - calculatedDiscount + calculatedShipping);
-      } catch (error) {
-        console.error('Lỗi khi tải thông tin đơn hàng:', error);
-        toast.error('Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.');
+    if (!cartLoading) {
+      if (itemCount === 0) {
+        // Nếu giỏ hàng trống, chuyển hướng về trang giỏ hàng
+        toast.info('Giỏ hàng của bạn đang trống.', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light"
+        });
         router.push('/cart');
-      } finally {
-        setIsLoading(false);
+        return;
       }
-    };
-
-    fetchOrderData();
-    
-    // Kiểm tra xem có thông tin giao hàng đã lưu không
+      
+      // Convert cartItems to orderItems format
+      const items: OrderItem[] = cartItems.map(item => ({
+        _id: item.variantId,
+        name: item.name,
+        slug: item.slug,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image
+      }));
+      
+      setOrderItems(items);
+      setIsLoading(false);
+    }
+  }, [cartItems, cartLoading, router, itemCount]);
+  
+  // Kiểm tra xem có thông tin giao hàng đã lưu không
+  useEffect(() => {
     const savedShippingInfo = localStorage.getItem('shippingInfo');
     if (savedShippingInfo) {
       setShippingInfo(JSON.parse(savedShippingInfo));
     }
-  }, [router]);
+    
+    // Sử dụng thông tin người dùng nếu đã đăng nhập và chưa có thông tin giao hàng
+    if (user && !savedShippingInfo) {
+      const userShippingInfo: Partial<ShippingInfo> = {
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      };
+      
+      // Chỉ lưu nếu có ít nhất fullName và phone
+      if (userShippingInfo.fullName && userShippingInfo.phone) {
+        setShippingInfo(userShippingInfo as ShippingInfo);
+        localStorage.setItem('shippingInfo', JSON.stringify(userShippingInfo));
+      }
+    }
+  }, [user]);
 
   // Xử lý cập nhật thông tin giao hàng
   const handleShippingInfoSubmit = (values: ShippingInfo) => {
@@ -172,13 +167,63 @@ const PaymentsPage: NextPage = () => {
       return;
     }
     
+    // Kiểm tra xem giỏ hàng có sản phẩm không
+    if (itemCount === 0) {
+      toast.error('Giỏ hàng của bạn đang trống. Không thể đặt hàng.', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      router.push('/cart');
+      return;
+    }
+    
     // Xóa thông báo lỗi nếu mọi thứ hợp lệ
     setErrorMessage(null);
     setIsProcessing(true);
     
     try {
+      // Tạo dữ liệu đơn hàng
+      const orderData = {
+        shippingInfo,
+        paymentMethod,
+        items: cartItems.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name,
+          selectedOptions: item.selectedOptions || {},
+          selectedBranchId: item.selectedBranchId
+        })),
+        subtotal,
+        discount,
+        shipping,
+        total,
+        voucherCode: voucherCode || undefined
+      };
+      
+      // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
+      localStorage.setItem('currentOrder', JSON.stringify(orderData));
+      
       // Trong thực tế, đây sẽ là một API call để tạo đơn hàng
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // TODO: Gọi API để tạo đơn hàng
+      // const response = await fetch(`${API_URL}/orders`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     ...getAuthHeaders()
+      //   },
+      //   body: JSON.stringify(orderData)
+      // });
+      
+      // if (!response.ok) {
+      //   throw new Error('Lỗi khi tạo đơn hàng');
+      // }
+      
+      // const orderResult = await response.json();
       
       // Tạo đơn hàng thành công, chuyển đến trang xác nhận
       router.push('/payments/success');
@@ -345,7 +390,7 @@ const PaymentsPage: NextPage = () => {
               </div>
               
               <div className="lg:col-span-1">
-                {/* Tóm tắt đơn hàng */}
+                {/* Tóm tắt đơn hàng sử dụng dữ liệu từ CartContext */}
                 <OrderSummary
                   items={orderItems}
                   subtotal={subtotal}

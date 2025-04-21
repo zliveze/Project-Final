@@ -3,13 +3,40 @@ import { NextPage } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 import { FiCheckCircle, FiHome, FiPackage, FiClock, FiFileText } from 'react-icons/fi';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
+import { useCart } from '@/contexts/user/cart/CartContext';
+
+// Định nghĩa kiểu dữ liệu
+interface OrderData {
+  shippingInfo: {
+    fullName: string;
+    phone: string;
+    email?: string;
+    address: string;
+    city: string;
+    district: string;
+    ward: string;
+    notes?: string;
+  };
+  paymentMethod: string;
+  items: any[];
+  subtotal: number;
+  discount: number;
+  shipping: number;
+  total: number;
+  voucherCode?: string;
+}
 
 const PaymentSuccessPage: NextPage = () => {
+  const router = useRouter();
+  const { clearCart } = useCart();
+  
   const [orderNumber, setOrderNumber] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
 
   useEffect(() => {
     // Tạo mã đơn hàng ngẫu nhiên
@@ -26,7 +53,23 @@ const PaymentSuccessPage: NextPage = () => {
     const month = deliveryDate.getMonth() + 1;
     const year = deliveryDate.getFullYear();
     setEstimatedDelivery(`${day < 10 ? '0' + day : day}/${month < 10 ? '0' + month : month}/${year}`);
-  }, []);
+
+    // Lấy thông tin đơn hàng từ localStorage
+    const savedOrderData = localStorage.getItem('currentOrder');
+    if (savedOrderData) {
+      try {
+        const parsedData = JSON.parse(savedOrderData);
+        setOrderData(parsedData);
+        // Xóa giỏ hàng sau khi đặt hàng thành công
+        clearCart();
+      } catch (error) {
+        console.error('Lỗi khi phân tích dữ liệu đơn hàng:', error);
+      }
+    } else {
+      // Nếu không có dữ liệu đơn hàng, chuyển hướng về trang giỏ hàng
+      router.push('/cart');
+    }
+  }, [clearCart, router]);
 
   // Breadcrumb items
   const breadcrumbItems: BreadcrumItem[] = [
@@ -57,7 +100,7 @@ const PaymentSuccessPage: NextPage = () => {
               Đặt hàng thành công!
             </h1>
             <p className="text-center text-gray-600 mb-8">
-              Cảm ơn bạn đã mua sắm tại YUMIN. Đơn hàng của bạn đã được xác nhận.
+              Cảm ơn {orderData?.shippingInfo?.fullName || 'bạn'} đã mua sắm tại YUMIN. Đơn hàng của bạn đã được xác nhận.
             </p>
 
             {/* Thông tin đơn hàng */}
@@ -72,6 +115,27 @@ const PaymentSuccessPage: NextPage = () => {
                   <p className="font-semibold">{estimatedDelivery}</p>
                 </div>
               </div>
+
+              {/* Hiển thị thông tin đơn hàng */}
+              {orderData && (
+                <div className="border-t border-gray-200 pt-4 pb-2">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Thông tin đơn hàng</p>
+                  
+                  <div className="text-sm text-gray-600 mb-4">
+                    <p><span className="font-medium">Họ tên:</span> {orderData.shippingInfo.fullName}</p>
+                    <p><span className="font-medium">Điện thoại:</span> {orderData.shippingInfo.phone}</p>
+                    <p><span className="font-medium">Địa chỉ:</span> {orderData.shippingInfo.address}, {orderData.shippingInfo.ward}, {orderData.shippingInfo.district}, {orderData.shippingInfo.city}</p>
+                    <p><span className="font-medium">Phương thức thanh toán:</span> {orderData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Thanh toán online'}</p>
+                    {orderData.voucherCode && <p><span className="font-medium">Mã giảm giá:</span> {orderData.voucherCode}</p>}
+                    <div className="mt-2 flex flex-col sm:flex-row sm:justify-between">
+                      <span><span className="font-medium">Tạm tính:</span> {new Intl.NumberFormat('vi-VN').format(orderData.subtotal)}đ</span>
+                      <span><span className="font-medium">Giảm giá:</span> {new Intl.NumberFormat('vi-VN').format(orderData.discount)}đ</span>
+                      <span><span className="font-medium">Phí vận chuyển:</span> {orderData.shipping > 0 ? `${new Intl.NumberFormat('vi-VN').format(orderData.shipping)}đ` : 'Miễn phí'}</span>
+                      <span className="font-medium text-pink-600">Tổng: {new Intl.NumberFormat('vi-VN').format(orderData.total)}đ</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="border-t border-gray-200 pt-4">
                 <p className="text-sm text-gray-500 mb-2">Trạng thái đơn hàng</p>

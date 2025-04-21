@@ -172,9 +172,27 @@ const CartPage: NextPage = () => {
         return;
     }
 
+    // Kiểm tra xem có sản phẩm nào chưa chọn chi nhánh không
+    const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
+    if (itemsWithoutBranch.length > 0) {
+        toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng chọn chi nhánh để tiếp tục.`);
+        return;
+    }
+
+    // Thêm thông báo thành công khi chuyển trang
+    toast.success('Đang chuyển đến trang thanh toán...', {
+        position: "bottom-right",
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        style: { backgroundColor: '#f0fff4', color: '#22543d', borderLeft: '4px solid #22543d' }
+    });
+
     router.push('/payments'); // Navigate to payments page
-    // Optional: Add success toast after navigation if needed, but usually handled on the next page
-    // toast.success('Đang chuyển đến trang thanh toán...', { ... });
   };
 
   // Sử dụng total từ context
