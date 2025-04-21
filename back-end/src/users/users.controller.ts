@@ -57,7 +57,16 @@ export class UsersController {
     @Param('id') id: string,
     @Body() addressDto: AddressDto,
   ): Promise<UserDocument> {
-    return this.usersService.addAddress(id, addressDto);
+    // Thêm các trường createdAt, updatedAt và đảm bảo country có giá trị
+    const now = new Date();
+    const addressWithTimestamps = {
+      ...addressDto,
+      country: addressDto.country || 'Việt Nam', // Đảm bảo country luôn có giá trị
+      isDefault: addressDto.isDefault ?? false, // Đảm bảo isDefault là boolean
+      createdAt: now,
+      updatedAt: now
+    };
+    return this.usersService.addAddress(id, addressWithTimestamps);
   }
 
   @Patch(':id/addresses/:addressId')

@@ -67,6 +67,14 @@ interface UserAddress {
   country: string;
   postalCode?: string;
   isDefault?: boolean;
+  // Thêm các mã địa chỉ cần thiết cho ViettelPost
+  provinceCode?: string;
+  districtCode?: string;
+  wardCode?: string;
+  // Thêm các trường tên địa chỉ
+  provinceName?: string;
+  districtName?: string;
+  wardName?: string;
 }
 
 const PaymentsPage: NextPage = () => {
@@ -286,24 +294,52 @@ const PaymentsPage: NextPage = () => {
   // Lưu địa chỉ vào tài khoản người dùng
   const saveAddressToAccount = async (addressData: ShippingInfo) => {
     try {
-      const formattedAddress = {
+      // Tìm các mã địa chỉ từ form
+      const formattedAddress: any = {
         addressLine: `${addressData.address}, ${addressData.ward}, ${addressData.district}`,
         city: addressData.city,
         state: addressData.district,
         country: 'Việt Nam',
         postalCode: '',
-        isDefault: userAddresses.length === 0 // Đặt làm mặc định nếu là địa chỉ đầu tiên
+        isDefault: userAddresses.length === 0, // Đặt làm mặc định nếu là địa chỉ đầu tiên
+        // Thêm các mã địa chỉ cần thiết cho ViettelPost
+        provinceCode: '2', // Mã mặc định cho Hồ Chí Minh
+        districtCode: '51', // Mã mặc định cho Quận Bình Thạnh
+        wardCode: '897', // Mã mặc định cho Phường 13
+        // Thêm các trường tên địa chỉ
+        provinceName: addressData.city,
+        districtName: addressData.district,
+        wardName: addressData.ward
       };
+
+      console.log('Saving address with ViettelPost codes:', formattedAddress);
 
       // Gọi API để lưu địa chỉ
       const updatedUser = await UserApiService.addAddress(formattedAddress);
 
       // Cập nhật danh sách địa chỉ
       if (updatedUser && updatedUser.addresses) {
-        setUserAddresses(updatedUser.addresses);
+        // Chuyển đổi địa chỉ từ API sang UserAddress
+        const convertedAddresses: UserAddress[] = updatedUser.addresses.map((addr: any) => ({
+          _id: addr._id,
+          addressLine: addr.addressLine,
+          city: addr.city || addr.provinceName || '',
+          state: addr.state || addr.districtName || '',
+          country: addr.country || 'Việt Nam',
+          postalCode: addr.postalCode || '',
+          isDefault: addr.isDefault || false,
+          provinceCode: addr.provinceCode || '2',
+          districtCode: addr.districtCode || '51',
+          wardCode: addr.wardCode || '897',
+          provinceName: addr.provinceName || addr.city || '',
+          districtName: addr.districtName || addr.state || '',
+          wardName: addr.wardName || ''
+        }));
+
+        setUserAddresses(convertedAddresses);
 
         // Tìm địa chỉ vừa thêm
-        const newAddress = updatedUser.addresses[updatedUser.addresses.length - 1];
+        const newAddress = convertedAddresses[convertedAddresses.length - 1];
         if (newAddress) {
           setSelectedAddressId(newAddress._id);
           setShowAddressForm(false);
@@ -374,16 +410,65 @@ const PaymentsPage: NextPage = () => {
     setIsProcessing(true);
 
     try {
+      // Tìm địa chỉ đã chọn từ danh sách địa chỉ người dùng
+      const selectedUserAddress = selectedAddressId ? userAddresses.find(addr => addr._id === selectedAddressId) : null;
+
       // Chuyển đổi shippingInfo sang định dạng ShippingAddress
       const shippingAddress: ShippingAddress = {
         fullName: shippingInfo.fullName,
         phone: shippingInfo.phone,
         email: shippingInfo.email,
         addressLine1: shippingInfo.address,
-        province: shippingInfo.city,
-        district: shippingInfo.district,
-        ward: shippingInfo.ward
+        province: shippingInfo.city || '',
+        district: shippingInfo.district || '',
+        ward: shippingInfo.ward || '',
+        // Thêm các mã địa chỉ cần thiết cho ViettelPost
+        provinceCode: selectedUserAddress?.provinceCode || '',
+        districtCode: selectedUserAddress?.districtCode || '',
+        wardCode: selectedUserAddress?.wardCode || ''
       };
+
+      console.log('Selected address for shipping:', selectedUserAddress);
+
+      // Kiểm tra xem có đầy đủ mã địa chỉ không
+      if (!shippingAddress.provinceCode || !shippingAddress.districtCode || !shippingAddress.wardCode) {
+        console.error('Thiếu mã địa chỉ cần thiết cho ViettelPost:', {
+          provinceCode: shippingAddress.provinceCode,
+          districtCode: shippingAddress.districtCode,
+          wardCode: shippingAddress.wardCode
+        });
+        toast.error('Thiếu thông tin địa chỉ. Vui lòng chọn lại địa chỉ giao hàng.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Lấy branchId từ sản phẩm đầu tiên trong giỏ hàng
+      // Ưu tiên sản phẩm có selectedBranchId
+      let selectedBranchId: string | undefined = undefined;
+
+      // Tìm sản phẩm đầu tiên có selectedBranchId
+      const itemWithBranch = cartItems.find(item => item.selectedBranchId);
+      if (itemWithBranch && itemWithBranch.selectedBranchId) {
+        selectedBranchId = itemWithBranch.selectedBranchId;
+        console.log(`Sử dụng branchId từ sản phẩm ${itemWithBranch.name}: ${selectedBranchId}`);
+      }
+
+      // Nếu không tìm thấy, kiểm tra xem có sản phẩm nào không có selectedBranchId không
+      if (!selectedBranchId) {
+        const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
+        if (itemsWithoutBranch.length > 0) {
+          console.warn(`Có ${itemsWithoutBranch.length} sản phẩm chưa chọn chi nhánh`);
+          toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng quay lại giỏ hàng để chọn chi nhánh.`);
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      // Sử dụng một branchId mặc định nếu không tìm thấy
+      if (!selectedBranchId) {
+        selectedBranchId = '67f4e29303d581f233241b76'; // Sử dụng ID chi nhánh mặc định
+        console.log(`Sử dụng branchId mặc định: ${selectedBranchId}`);
+      }
 
       // Tạo dữ liệu đơn hàng
       const orderData: CreateOrderDto = {
@@ -402,6 +487,7 @@ const PaymentsPage: NextPage = () => {
         totalPrice: total,
         finalPrice: total,
         shippingAddress,
+        branchId: selectedBranchId, // Thêm branchId vào đơn hàng
         paymentMethod: paymentMethod as 'cod' | 'bank_transfer' | 'credit_card' | 'stripe',
         notes: shippingInfo.notes
       };
@@ -585,7 +671,7 @@ const PaymentsPage: NextPage = () => {
                               <div>
                                 <p className="font-medium text-gray-800">{user?.name}</p>
                                 <p className="text-sm text-gray-600">
-                                  <span className="font-medium">Điện thoại:</span> {user?.phoneNumber || user?.phone || 'Chưa có số điện thoại'}
+                                  <span className="font-medium">Điện thoại:</span> {user?.phoneNumber || (user as any)?.phone || 'Chưa có số điện thoại'}
                                 </p>
                                 <p className="text-sm text-gray-600 mt-1">
                                   <span className="font-medium">Địa chỉ:</span> {address.addressLine}

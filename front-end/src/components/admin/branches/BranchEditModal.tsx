@@ -20,7 +20,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -34,20 +34,32 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
 
   const loadBranch = async () => {
     if (!branchId) return;
-    
+
     try {
       setIsLoading(true);
       const result = await fetchBranch(branchId);
       if (result) {
         // Chuyển đổi từ API response sang kiểu dữ liệu form
+        // Đảm bảo lưu đầy đủ thông tin địa chỉ (provinceCode, districtCode, wardCode)
         setBranch({
           id: result.id,
           name: result.name,
           address: result.address,
           contact: result.contact,
-          // isActive: true, // Removed status field
+          provinceCode: result.provinceCode,
+          districtCode: result.districtCode,
+          wardCode: result.wardCode,
           createdAt: result.createdAt,
           updatedAt: result.updatedAt
+        });
+
+        console.log('Loaded branch data:', {
+          id: result.id,
+          name: result.name,
+          address: result.address,
+          provinceCode: result.provinceCode,
+          districtCode: result.districtCode,
+          wardCode: result.wardCode
         });
       }
     } catch (error) {
@@ -61,17 +73,17 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
   // Xử lý khi submit form
   const handleSubmit = async (data: Partial<Branch>) => {
     if (!branchId) return;
-    
+
     try {
       setIsSubmitting(true);
-      
+
       // Gọi API cập nhật chi nhánh
       const success = await updateBranch(branchId, data);
-      
+
       if (success) {
         // Thông báo thành công
         toast.success('Cập nhật chi nhánh thành công!');
-        
+
         // Đóng modal
         onClose();
       }
@@ -96,7 +108,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
           &#8203;
         </span>
 
-        <div 
+        <div
           className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full ${ // Re-added rounded-lg
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
@@ -111,7 +123,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
+
           <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
             <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3"> {/* Re-added rounded-full */}
               <FiEdit className="text-pink-600" />
@@ -127,7 +139,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-pink-500"></div> {/* Re-added rounded-full */}
               </div>
             ) : branch ? (
-              <BranchForm 
+              <BranchForm
                 branch={branch}
                 onSubmit={handleSubmit}
                 onCancel={onClose}

@@ -9,6 +9,7 @@ import { OrderTracking, OrderTrackingSchema } from './schemas/order-tracking.sch
 import { SharedModule } from '../shared/shared.module';
 import { ConfigModule } from '@nestjs/config';
 import { ProductsModule } from '../products/products.module';
+import { BranchesModule } from '../branches/branches.module'; // Import BranchesModule
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ProductsModule } from '../products/products.module';
     SharedModule, // Import SharedModule để sử dụng ViettelPostService
     ConfigModule, // Import ConfigModule để sử dụng ConfigService
     ProductsModule, // Import ProductsModule để sử dụng ProductsService
+    BranchesModule, // Add BranchesModule here
   ],
   controllers: [OrdersAdminController, OrdersUserController, ShippingController],
   providers: [OrdersService],

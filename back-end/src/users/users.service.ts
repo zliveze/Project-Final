@@ -318,22 +318,25 @@ export class UsersService {
     }
 
     // Merge updates into the existing address object
-    // Important: Ensure addressDto doesn't contain _id or addressId
-    const { _id: dtoId, addressId: dtoAddressId, ...updateData } = addressDto as any; // Remove potential conflicting IDs
+    // Important: Ensure addressDto doesn't contain _id
+    const { _id: dtoId, ...updateData } = addressDto as any; // Remove potential conflicting IDs
 
     // Manually construct the updated address object from existing and new data
     const existingAddress = user.addresses[addressIndex];
     const updatedAddressData: Address = {
         _id: existingAddress._id, // Keep original _id
         addressLine: updateData.addressLine ?? existingAddress.addressLine,
-        city: updateData.city ?? existingAddress.city,
-        state: updateData.state ?? existingAddress.state,
+        wardName: updateData.wardName ?? existingAddress.wardName,
+        wardCode: updateData.wardCode ?? existingAddress.wardCode,
+        districtName: updateData.districtName ?? existingAddress.districtName,
+        districtCode: updateData.districtCode ?? existingAddress.districtCode,
+        provinceName: updateData.provinceName ?? existingAddress.provinceName,
+        provinceCode: updateData.provinceCode ?? existingAddress.provinceCode,
         country: updateData.country ?? existingAddress.country,
         postalCode: updateData.postalCode ?? existingAddress.postalCode,
         isDefault: updateData.isDefault ?? existingAddress.isDefault,
-        // Include timestamps if they exist and you want to preserve them, otherwise Mongoose might update them
-        // createdAt: existingAddress.createdAt,
-        // updatedAt: new Date() // Or let Mongoose handle it
+        createdAt: existingAddress.createdAt,
+        updatedAt: new Date() // Update the timestamp
     };
 
 

@@ -70,7 +70,8 @@ export class ShippingController {
         data: districts.map(district => ({
           districtId: district.DISTRICT_ID,
           districtName: district.DISTRICT_NAME,
-          districtCode: district.DISTRICT_CODE,
+          // Sử dụng DISTRICT_VALUE theo tài liệu API
+          districtCode: district.DISTRICT_VALUE, 
         })),
       };
     } catch (error) {
@@ -99,7 +100,7 @@ export class ShippingController {
         data: wards.map(ward => ({
           wardId: ward.WARDS_ID,
           wardName: ward.WARDS_NAME,
-          wardCode: ward.WARDS_CODE,
+          wardCode: ward.WARDS_ID.toString(), // Thêm wardCode (chính là WARDS_ID)
         })),
       };
     } catch (error) {

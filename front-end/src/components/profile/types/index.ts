@@ -7,17 +7,21 @@ export type TabType = 'account' | 'wishlist' | 'orders' | 'notifications' | 'rev
 // Type cho trạng thái đơn hàng
 export type OrderStatusType = 'all' | 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
 
-// Type cho địa chỉ (đồng bộ với Backend Schema)
+// Type cho địa chỉ (đồng bộ với Backend Schema - Cập nhật với ViettelPost IDs/Names)
 export interface Address {
-  _id: string; // Sử dụng _id thay vì addressId
+  _id?: string;
   addressLine: string;
-  city: string;
-  state?: string; // Thêm state (tùy chọn)
-  // district?: string; // Bỏ district nếu không dùng ở backend
-  // ward?: string; // Bỏ ward nếu không dùng ở backend
-  country: string;
-  postalCode?: string; // postalCode là tùy chọn
-  isDefault?: boolean; // isDefault là tùy chọn
+  wardName: string;
+  wardCode: string;
+  districtName: string;
+  districtCode: string;
+  provinceName: string;
+  provinceCode: string;
+  country?: string;
+  postalCode?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Type cho người dùng

@@ -15,6 +15,9 @@ import { ProductsModule } from '../products/products.module';
   ],
   controllers: [BranchesAdminController, BranchesUserController],
   providers: [BranchesService],
-  exports: [BranchesService]
+  exports: [
+    BranchesService,
+    MongooseModule // Export MongooseModule to make BranchModel available
+  ]
 })
-export class BranchesModule {} 
+export class BranchesModule {}

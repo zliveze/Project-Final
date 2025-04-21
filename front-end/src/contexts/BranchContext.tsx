@@ -18,6 +18,9 @@ export interface Branch {
   name: string;
   address: string;
   contact: string;
+  provinceCode: string;
+  districtCode: string;
+  wardCode: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,6 +94,9 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       name: branchData.name,
       address: branchData.address,
       contact: branchData.contact || '',
+      provinceCode: branchData.provinceCode || '',
+      districtCode: branchData.districtCode || '',
+      wardCode: branchData.wardCode || '',
       createdAt: branchData.createdAt,
       updatedAt: branchData.updatedAt
     };
@@ -288,7 +294,10 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       const apiData = {
         name: branchData.name,
         address: branchData.address,
-        contact: branchData.contact
+        contact: branchData.contact,
+        provinceCode: branchData.provinceCode,
+        districtCode: branchData.districtCode,
+        wardCode: branchData.wardCode
       };
 
       const response = await fetch(API_ENDPOINTS.BRANCHES, {
@@ -345,7 +354,10 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       const apiData = {
         name: branchData.name,
         address: branchData.address,
-        contact: branchData.contact
+        contact: branchData.contact,
+        provinceCode: branchData.provinceCode,
+        districtCode: branchData.districtCode,
+        wardCode: branchData.wardCode
       };
 
       // Kiểm tra ID chi nhánh trước khi gửi yêu cầu

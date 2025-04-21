@@ -37,8 +37,17 @@ export class ProfileService {
   // Thêm địa chỉ mới
   async addAddress(userId: string, addressDto: AddressDto): Promise<UserDocument> {
     // Không cần tạo addressId ở đây, Mongoose sẽ tự tạo _id cho subdocument
+    // Thêm các trường createdAt, updatedAt và đảm bảo country có giá trị
+    const now = new Date();
+    const addressWithTimestamps = {
+      ...addressDto,
+      country: addressDto.country || 'Việt Nam', // Đảm bảo country luôn có giá trị
+      isDefault: addressDto.isDefault ?? false, // Đảm bảo isDefault là boolean
+      createdAt: now,
+      updatedAt: now
+    };
     // UsersService sẽ xử lý việc thêm địa chỉ vào mảng addresses của user
-    return this.usersService.addAddress(userId, addressDto);
+    return this.usersService.addAddress(userId, addressWithTimestamps);
   }
 
   // Cập nhật địa chỉ hiện có
@@ -79,7 +88,7 @@ export class ProfileService {
         await this.usersService.updateAddress(userId, address._id.toString(), updateDto as AddressDto); // Cast vì updateAddress mong đợi AddressDto đầy đủ
       }
     }
-    
+
     // Sau khi cập nhật, lấy lại thông tin người dùng mới nhất
     return this.usersService.findOne(userId);
   }

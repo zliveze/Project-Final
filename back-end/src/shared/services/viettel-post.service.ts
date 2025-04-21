@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { ViettelPostToken, ViettelPostTokenDocument } from '../schemas/viettel-post-token.schema';
 
 export interface ViettelPostLoginResponse {
   status: number;
@@ -79,35 +82,90 @@ export class ViettelPostService {
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    @InjectModel(ViettelPostToken.name)
+    private viettelPostTokenModel: Model<ViettelPostTokenDocument>,
   ) {
     const apiUrl = this.configService.get<string>('VIETTEL_POST_URL');
     const username = this.configService.get<string>('VIETTEL_POST_USERNAME');
     const password = this.configService.get<string>('VIETTEL_POST_PASSWORD');
-    const token = this.configService.get<string>('VIETTEL_POST_TOKEN');
 
     if (apiUrl) this.apiUrl = apiUrl;
     if (username) this.username = username;
     if (password) this.password = password;
-    if (token) this.token = token;
 
     if (!this.apiUrl) {
       this.logger.error('ViettelPost API URL is missing in config!');
     }
 
-    if (!this.token && (!this.username || !this.password)) {
+    if (!this.username || !this.password) {
       this.logger.error('ViettelPost credentials are missing in config!');
+    }
+
+    // Khởi tạo token khi service start
+    this.initializeToken();
+  }
+
+  private async initializeToken() {
+    try {
+      // Tìm token active trong database
+      const tokenDoc = await this.viettelPostTokenModel.findOne({
+        isActive: true,
+        expiresAt: { $gt: new Date() }
+      });
+
+      if (tokenDoc) {
+        this.token = tokenDoc.token;
+        this.logger.log('Loaded existing ViettelPost token from database');
+      } else {
+        // Nếu không có token hoặc token hết hạn, login để lấy token mới
+        await this.login();
+      }
+    } catch (error) {
+      this.logger.error('Error initializing ViettelPost token:', error);
+    }
+  }
+
+  private async saveToken(token: string, expiresIn: number = 24 * 60 * 60 * 1000) { // Default 24h
+    try {
+      // Vô hiệu hóa token cũ
+      await this.viettelPostTokenModel.updateMany(
+        { isActive: true },
+        { isActive: false }
+      );
+
+      // Lưu token mới
+      const expiresAt = new Date(Date.now() + expiresIn);
+      await this.viettelPostTokenModel.create({
+        token,
+        expiresAt,
+        isActive: true
+      });
+
+      this.token = token;
+    } catch (error) {
+      this.logger.error('Error saving ViettelPost token:', error);
+      throw error;
     }
   }
 
   private getHeaders() {
     if (!this.token) {
+      this.logger.error('ViettelPost token is not available');
       throw new UnauthorizedException('ViettelPost token is not available. Please login first.');
     }
 
-    return {
+    const headers = {
       'Content-Type': 'application/json',
       'Token': this.token,
     };
+
+    this.logger.debug('ViettelPost API headers:', {
+      headers,
+      tokenLength: this.token ? this.token.length : 0,
+      tokenFirstChars: this.token ? this.token.substring(0, 10) + '...' : 'null'
+    });
+
+    return headers;
   }
 
   /**
@@ -126,14 +184,29 @@ export class ViettelPostService {
       };
 
       this.logger.log(`Logging in to ViettelPost with username: ${this.username}`);
+      this.logger.debug('ViettelPost login payload:', {
+        url,
+        username: this.username,
+        passwordLength: this.password ? this.password.length : 0
+      });
 
       const response = await firstValueFrom(
         this.httpService.post<ViettelPostLoginResponse>(url, payload),
       );
 
+      this.logger.debug('ViettelPost login response:', {
+        status: response.status,
+        statusText: response.statusText,
+        dataStatus: response.data?.status,
+        message: response.data?.message,
+        hasToken: response.data?.data?.token ? 'Yes' : 'No',
+        tokenLength: response.data?.data?.token ? response.data.data.token.length : 0
+      });
+
       if (response.data && response.data.status === 200 && response.data.data?.token) {
-        this.token = response.data.data.token;
-        this.logger.log('Successfully logged in to ViettelPost');
+        // Lưu token vào database
+        await this.saveToken(response.data.data.token);
+        this.logger.log('Successfully logged in to ViettelPost and saved token');
         return this.token;
       } else {
         this.logger.error(`ViettelPost login failed: ${response.data?.message || 'Unknown error'}`);
@@ -160,8 +233,31 @@ export class ViettelPostService {
         await this.login();
       }
 
+      // Kiểm tra và xử lý số điện thoại
+      if (payload.RECEIVER_PHONE) {
+        // Loại bỏ các ký tự không phải số
+        payload.RECEIVER_PHONE = payload.RECEIVER_PHONE.replace(/[^0-9]/g, '');
+        // Đảm bảo số điện thoại bắt đầu bằng 84
+        if (payload.RECEIVER_PHONE.startsWith('0')) {
+          payload.RECEIVER_PHONE = `84${payload.RECEIVER_PHONE.substring(1)}`;
+        } else if (!payload.RECEIVER_PHONE.startsWith('84')) {
+          payload.RECEIVER_PHONE = `84${payload.RECEIVER_PHONE}`;
+        }
+      }
+
+      if (payload.SENDER_PHONE) {
+        // Loại bỏ các ký tự không phải số
+        payload.SENDER_PHONE = payload.SENDER_PHONE.replace(/[^0-9]/g, '');
+        // Đảm bảo số điện thoại bắt đầu bằng 84
+        if (payload.SENDER_PHONE.startsWith('0')) {
+          payload.SENDER_PHONE = `84${payload.SENDER_PHONE.substring(1)}`;
+        } else if (!payload.SENDER_PHONE.startsWith('84')) {
+          payload.SENDER_PHONE = `84${payload.SENDER_PHONE}`;
+        }
+      }
+
       this.logger.log(`Sending request to create ViettelPost shipment`);
-      this.logger.debug(`Payload: ${JSON.stringify(payload)}`);
+      this.logger.debug(`Payload: ${JSON.stringify(payload, null, 2)}`);
 
       const response = await firstValueFrom(
         this.httpService.post<ViettelPostOrderResponse>(url, payload, { headers: this.getHeaders() }),
@@ -179,6 +275,22 @@ export class ViettelPostService {
     } catch (error) {
       const axiosError = error as AxiosError;
       this.logger.error(`Error calling ViettelPost API: ${axiosError.message}`, axiosError.stack);
+
+      // Hiển thị thông tin chi tiết về lỗi
+      this.logger.debug('ViettelPost API error details:', {
+        message: axiosError.message,
+        code: axiosError.code,
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        headers: axiosError.response?.headers,
+        config: {
+          url: axiosError.config?.url,
+          method: axiosError.config?.method,
+          headers: axiosError.config?.headers,
+          data: axiosError.config?.data
+        },
+        responseData: axiosError.response?.data
+      });
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401 ||
@@ -299,24 +411,28 @@ export class ViettelPostService {
     try {
       // Đảm bảo có token
       if (!this.token) {
-        await this.login();
+        await this.initializeToken();
       }
 
       const url = `${this.apiUrl}/categories/listProvinceById`;
+      this.logger.log('Fetching provinces from ViettelPost');
 
       const response = await firstValueFrom(
-        this.httpService.get(url, { headers: this.getHeaders() }),
+        this.httpService.get(url, {
+          headers: this.getHeaders(),
+          params: { provinceId: -1 } // -1 để lấy tất cả
+        })
       );
 
       if (response.data && response.data.status === 200) {
-        return response.data.data;
+        return Array.isArray(response.data.data) ? response.data.data : [response.data.data];
       } else {
         this.logger.error(`ViettelPost API error: ${JSON.stringify(response.data)}`);
         throw new Error(`ViettelPost API Error: ${response.data?.message || 'Unknown error'}`);
       }
     } catch (error) {
       const axiosError = error as AxiosError;
-      this.logger.error(`Error getting provinces: ${axiosError.message}`, axiosError.stack);
+      this.logger.error(`Error fetching provinces: ${axiosError.message}`, axiosError.stack);
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
@@ -327,7 +443,6 @@ export class ViettelPostService {
 
       if (axiosError.response) {
         this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
-        throw new Error(`ViettelPost API Request Failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
       }
       throw error;
     }
@@ -340,13 +455,16 @@ export class ViettelPostService {
     try {
       // Đảm bảo có token
       if (!this.token) {
-        await this.login();
+        await this.initializeToken();
       }
 
-      const url = `${this.apiUrl}/categories/listDistrict?provinceId=${provinceId}`;
+      const url = `${this.apiUrl}/categories/listDistrict`;
 
       const response = await firstValueFrom(
-        this.httpService.get(url, { headers: this.getHeaders() }),
+        this.httpService.get(url, {
+          headers: this.getHeaders(),
+          params: { provinceId: provinceId || -1 }
+        })
       );
 
       if (response.data && response.data.status === 200) {
@@ -368,7 +486,6 @@ export class ViettelPostService {
 
       if (axiosError.response) {
         this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
-        throw new Error(`ViettelPost API Request Failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
       }
       throw error;
     }
@@ -381,13 +498,16 @@ export class ViettelPostService {
     try {
       // Đảm bảo có token
       if (!this.token) {
-        await this.login();
+        await this.initializeToken();
       }
 
-      const url = `${this.apiUrl}/categories/listWards?districtId=${districtId}`;
+      const url = `${this.apiUrl}/categories/listWards`;
 
       const response = await firstValueFrom(
-        this.httpService.get(url, { headers: this.getHeaders() }),
+        this.httpService.get(url, {
+          headers: this.getHeaders(),
+          params: { districtId: districtId || -1 }
+        })
       );
 
       if (response.data && response.data.status === 200) {
@@ -409,7 +529,6 @@ export class ViettelPostService {
 
       if (axiosError.response) {
         this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
-        throw new Error(`ViettelPost API Request Failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
       }
       throw error;
     }
@@ -422,7 +541,7 @@ export class ViettelPostService {
     try {
       // Đảm bảo có token
       if (!this.token) {
-        await this.login();
+        await this.initializeToken();
       }
 
       const url = `${this.apiUrl}/order/getPrice`;
@@ -453,7 +572,6 @@ export class ViettelPostService {
 
       if (axiosError.response) {
         this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
-        throw new Error(`ViettelPost API Request Failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
       }
       throw error;
     }

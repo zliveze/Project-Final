@@ -46,8 +46,8 @@ export class ProfileController {
     @Body() addressDto: AddressDto,
   ): Promise<UserDocument> {
     const userId = req.user.userId;
-    // Loại bỏ addressId nếu client gửi lên (vì backend sẽ tự tạo _id)
-    const { addressId, ...newAddressData } = addressDto;
+    // Loại bỏ _id nếu client gửi lên (vì backend sẽ tự tạo _id)
+    const { _id, ...newAddressData } = addressDto;
     return this.profileService.addAddress(userId, newAddressData as AddressDto);
   }
 
@@ -59,8 +59,8 @@ export class ProfileController {
     @Body() addressDto: AddressDto,
   ): Promise<UserDocument> {
     const userId = req.user.userId;
-    // Loại bỏ addressId khỏi body nếu có, vì nó đã có trong param
-    const { addressId: bodyAddressId, ...updateData } = addressDto;
+    // Loại bỏ _id khỏi body nếu có, vì nó đã có trong param
+    const { _id: bodyId, ...updateData } = addressDto;
     return this.profileService.updateAddress(userId, addressId, updateData as AddressDto);
   }
 

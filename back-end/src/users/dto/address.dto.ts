@@ -1,9 +1,9 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsDate } from 'class-validator';
 
 export class AddressDto {
   @IsOptional()
   @IsString()
-  addressId?: string;
+  _id?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -11,21 +11,45 @@ export class AddressDto {
 
   @IsNotEmpty()
   @IsString()
-  city: string;
-
-  @IsOptional()
-  @IsString()
-  state?: string;
+  wardName: string;
 
   @IsNotEmpty()
   @IsString()
-  country: string;
+  wardCode: string;
+
+  @IsNotEmpty()
+  @IsString()
+  districtName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  districtCode: string;
+
+  @IsNotEmpty()
+  @IsString()
+  provinceName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  provinceCode: string;
 
   @IsOptional()
   @IsString()
   postalCode?: string;
 
   @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
-} 
+
+  @IsOptional()
+  @IsDate()
+  createdAt?: Date;
+
+  @IsOptional()
+  @IsDate()
+  updatedAt?: Date;
+}

@@ -17,6 +17,15 @@ export class Branch {
   @Prop()
   contact: string;
 
+  @Prop({ required: true }) // Mã tỉnh/thành phố theo ViettelPost
+  provinceCode: string;
+
+  @Prop({ required: true }) // Mã quận/huyện theo ViettelPost
+  districtCode: string;
+
+  @Prop({ required: true }) // Mã phường/xã theo ViettelPost
+  wardCode: string;
+
   @Prop({ default: Date.now })
   createdAt: Date;
 
@@ -24,4 +33,4 @@ export class Branch {
   updatedAt: Date;
 }
 
-export const BranchSchema = SchemaFactory.createForClass(Branch); 
+export const BranchSchema = SchemaFactory.createForClass(Branch);

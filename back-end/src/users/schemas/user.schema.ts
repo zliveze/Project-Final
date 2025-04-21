@@ -146,3 +146,4 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
     throw error;
   }
 };
+

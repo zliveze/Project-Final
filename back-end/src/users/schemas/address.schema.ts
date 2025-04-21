@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose'; // Import Types
+import { Document, Types } from 'mongoose';
 
 // Cập nhật AddressDocument để bao gồm _id
 export type AddressDocument = Address & Document & { _id: Types.ObjectId };
@@ -9,30 +9,41 @@ export class Address {
   // Khai báo _id để TypeScript nhận biết
   _id: Types.ObjectId;
 
-  // addressId không cần thiết vì Mongoose sẽ tự tạo _id
-  // @Prop({ type: MongooseSchema.Types.ObjectId, auto: true })
-  // addressId: MongooseSchema.Types.ObjectId;
-
   @Prop({ required: true })
   addressLine: string;
 
   @Prop({ required: true })
-  city: string;
-
-  @Prop()
-  state?: string;
+  wardName: string;
 
   @Prop({ required: true })
-  country: string;
+  wardCode: string;
+
+  @Prop({ required: true })
+  districtName: string;
+
+  @Prop({ required: true })
+  districtCode: string;
+
+  @Prop({ required: true })
+  provinceName: string;
+
+  @Prop({ required: true })
+  provinceCode: string;
 
   @Prop()
   postalCode?: string;
 
+  @Prop({ default: 'Việt Nam' })
+  country: string;
+
   @Prop({ default: false })
-  isDefault?: boolean;
+  isDefault: boolean;
+
+  @Prop({ type: Date, default: Date.now })
+  createdAt: Date;
+
+  @Prop({ type: Date, default: Date.now })
+  updatedAt: Date;
 }
 
 export const AddressSchema = SchemaFactory.createForClass(Address);
-
-// Nếu cần tạo index
-// AddressSchema.index({ /* fields */ });

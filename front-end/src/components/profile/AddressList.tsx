@@ -3,14 +3,21 @@ import { FaPlus, FaEdit, FaTrash, FaCheck, FaMapMarkerAlt } from 'react-icons/fa
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Address, User } from './types/index';
-import ViettelPostService from '@/services/ViettelPostService';
+// Import the service and its data types
+import ViettelPostService, { ProvinceData, DistrictData, WardData } from '@/services/ViettelPostService';
 
 // --- Interfaces & Types ---
-interface Province { code: string; name: string; viettelCode?: string; }
-interface District { code: string; name: string; province_code: string; viettelCode?: string; }
-interface Ward { code: string; name: string; district_code: string; viettelCode?: string; }
-// Type for selected location object
-type SelectedLocation = { code: string; name: string } | null;
+// Use interfaces from ViettelPostService or adapt them
+interface Province extends ProvinceData {} // Use ProvinceData directly
+interface District extends DistrictData {} // Use DistrictData directly
+interface Ward extends WardData {}       // Use WardData directly
+
+// Type for selected location object - now uses IDs
+type SelectedLocation = {
+  provinceId?: number; provinceName?: string;
+  districtId?: number; districtName?: string;
+  wardId?: number;     wardName?: string;
+} | null;
 // Local form data state type (lives inside AddressForm)
 type LocalFormData = {
   addressLine: string;
@@ -34,9 +41,9 @@ interface AddressFormProps {
   provinces: Province[];
   districts: District[];
   wards: Ward[];
-  selectedProvince: SelectedLocation; // Pass selected object
-  selectedDistrict: SelectedLocation; // Pass selected object
-  selectedWard: SelectedLocation;     // Pass selected object
+  selectedProvince: SelectedLocation; // Pass selected object (now with IDs)
+  selectedDistrict: SelectedLocation; // Pass selected object (now with IDs)
+  selectedWard: SelectedLocation;     // Pass selected object (now with IDs)
   loadingProvinces: boolean;
   loadingDistricts: boolean;
   loadingWards: boolean;
@@ -50,13 +57,9 @@ interface AddressFormProps {
   onWardChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onLocalInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   // Re-add missing prop definition
-  getSelectedLocationNames: () => { provinceName: string; districtName: string; wardName: string; };
+  // getSelectedLocationNames is no longer needed as names are part of SelectedLocation
 }
 
-// --- API Base URL ---
-// Thay đổi từ provinces.open-api.vn sang API Viettel Post
-// const PROVINCES_API_BASE_URL = 'https://provinces.open-api.vn/api';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // ================== AddressForm Component (Manages its own text inputs) ==================
 const AddressForm: React.FC<AddressFormProps> = ({
@@ -106,28 +109,34 @@ const AddressForm: React.FC<AddressFormProps> = ({
          {/* Province */}
          <div>
            <label htmlFor="province" className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố <span className="text-red-500">*</span></label>
-           <select id="province" name="province" value={selectedProvince?.code || ''} onChange={onProvinceChange} required disabled={loadingProvinces || isSubmitting}
+           {/* Use provinceId for value */}
+           <select id="province" name="province" value={selectedProvince?.provinceId || ''} onChange={onProvinceChange} required disabled={loadingProvinces || isSubmitting}
              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 appearance-none bg-white disabled:bg-gray-100">
              <option value="">-- Chọn Tỉnh/Thành phố --</option>
-             {provinces.map((p) => (<option key={p.code} value={p.code}>{p.name}</option>))}
+             {/* Use provinceId for key and value */}
+             {provinces.map((p) => (<option key={p.provinceId} value={p.provinceId}>{p.provinceName}</option>))}
            </select>
          </div>
          {/* District */}
          <div>
            <label htmlFor="district" className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện <span className="text-red-500">*</span></label>
-           <select id="district" name="district" value={selectedDistrict?.code || ''} onChange={onDistrictChange} required disabled={!selectedProvince || loadingDistricts || isSubmitting}
+           {/* Use districtId for value */}
+           <select id="district" name="district" value={selectedDistrict?.districtId || ''} onChange={onDistrictChange} required disabled={!selectedProvince || loadingDistricts || isSubmitting}
              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 appearance-none bg-white disabled:bg-gray-100">
              <option value="">-- Chọn Quận/Huyện --</option>
-             {districts.map((d) => (<option key={d.code} value={d.code}>{d.name}</option>))}
+             {/* Use districtId for key and value */}
+             {districts.map((d) => (<option key={d.districtId} value={d.districtId}>{d.districtName}</option>))}
            </select>
          </div>
          {/* Ward */}
          <div>
            <label htmlFor="ward" className="block text-sm font-medium text-gray-700 mb-1">Phường/Xã <span className="text-red-500">*</span></label>
-           <select id="ward" name="ward" value={selectedWard?.code || ''} onChange={onWardChange} required disabled={!selectedDistrict || loadingWards || isSubmitting}
+           {/* Use wardId for value */}
+           <select id="ward" name="ward" value={selectedWard?.wardId || ''} onChange={onWardChange} required disabled={!selectedDistrict || loadingWards || isSubmitting}
              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 appearance-none bg-white disabled:bg-gray-100">
              <option value="">-- Chọn Phường/Xã --</option>
-             {wards.map((w) => (<option key={w.code} value={w.code}>{w.name}</option>))}
+             {/* Use wardId for key and value */}
+             {wards.map((w) => (<option key={w.wardId} value={w.wardId}>{w.wardName}</option>))}
            </select>
          </div>
          {/* Address Line */}
@@ -150,11 +159,12 @@ const AddressForm: React.FC<AddressFormProps> = ({
          </div>
       </div>
       {/* Preview */}
-      {selectedProvince?.name && selectedDistrict?.name && selectedWard?.name && localFormData.addressLine && (
+      {/* Use names from selected objects */}
+      {selectedProvince?.provinceName && selectedDistrict?.districtName && selectedWard?.wardName && localFormData.addressLine && (
         <div className="mb-4 p-3 bg-pink-50 border border-pink-100 rounded">
           <p className="text-sm text-gray-700 font-medium">Xem trước địa chỉ:</p>
           <p className="text-sm text-gray-600">
-            {`${localFormData.addressLine.trim()}, ${selectedWard.name}, ${selectedDistrict.name}, ${selectedProvince.name}, ${localFormData.country}`}
+            {`${localFormData.addressLine.trim()}, ${selectedWard.districtName}, ${selectedDistrict.districtName}, ${selectedProvince.provinceName}, ${localFormData.country}`}
             {localFormData.postalCode && ` - ${localFormData.postalCode.trim()}`}
           </p>
         </div>
@@ -193,10 +203,11 @@ const AddressList = ({
   const [formData, setFormData] = useState<LocalFormData>({
     addressLine: '', country: 'Việt Nam', postalCode: '', isDefault: false,
   });
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [wards, setWards] = useState<Ward[]>([]);
-  // Store selected location objects
+  // Use updated interfaces for state
+  const [provinces, setProvinces] = useState<Province[]>([]); // Now uses Province interface (from ProvinceData)
+  const [districts, setDistricts] = useState<District[]>([]); // Now uses District interface (from DistrictData)
+  const [wards, setWards] = useState<Ward[]>([]);       // Now uses Ward interface (from WardData)
+  // Store selected location objects (now with IDs)
   const [selectedProvince, setSelectedProvince] = useState<SelectedLocation>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<SelectedLocation>(null);
   const [selectedWard, setSelectedWard] = useState<SelectedLocation>(null);
@@ -218,11 +229,13 @@ const AddressList = ({
     const fetchProvinces = async () => {
       setLoadingProvinces(true);
       try {
-        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
+        // Use the new service
         const data = await ViettelPostService.getProvinces();
+        // Ensure data matches the new Province interface (it should)
         setProvinces(data);
       } catch (error) {
-        console.error('Lỗi tỉnh/thành phố:', error);
+        // Error handling is already inside the service
+        // console.error('Lỗi tỉnh/thành phố:', error); // Optional: keep for component-level logging
         toast.error('Lỗi tải Tỉnh/Thành phố.');
         setProvinces([]);
       } finally {
@@ -233,18 +246,21 @@ const AddressList = ({
   }, []);
 
   useEffect(() => {
-    if (!selectedProvince) {
+    // Fetch districts when selectedProvince (with provinceId) changes
+    if (!selectedProvince?.provinceId) {
       setDistricts([]); setSelectedDistrict(null); setWards([]); setSelectedWard(null); return;
     }
     const fetchDistricts = async () => {
       setLoadingDistricts(true);
       setDistricts([]); setWards([]); setSelectedDistrict(null); setSelectedWard(null);
       try {
-        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
-        const data = await ViettelPostService.getDistricts(selectedProvince.code);
+        // Use the new service with provinceId
+        const data = await ViettelPostService.getDistricts(selectedProvince.provinceId as number);
+        // Ensure data matches the new District interface
         setDistricts(data);
       } catch (error) {
-        console.error('Lỗi quận/huyện:', error);
+        // Error handling is already inside the service
+        // console.error('Lỗi quận/huyện:', error);
         toast.error('Lỗi tải Quận/Huyện.');
         setDistricts([]);
       } finally {
@@ -255,18 +271,21 @@ const AddressList = ({
   }, [selectedProvince]);
 
   useEffect(() => {
-    if (!selectedDistrict) {
+    // Fetch wards when selectedDistrict (with districtId) changes
+    if (!selectedDistrict?.districtId) {
       setWards([]); setSelectedWard(null); return;
     }
     const fetchWards = async () => {
       setLoadingWards(true);
       setWards([]); setSelectedWard(null);
       try {
-        // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
-        const data = await ViettelPostService.getWards(selectedDistrict.code);
+        // Use the new service with districtId
+        const data = await ViettelPostService.getWards(selectedDistrict.districtId as number);
+        // Ensure data matches the new Ward interface
         setWards(data);
       } catch (error) {
-        console.error('Lỗi phường/xã:', error);
+        // Error handling is already inside the service
+        // console.error('Lỗi phường/xã:', error);
         toast.error('Lỗi tải Phường/Xã.');
         setWards([]);
       } finally {
@@ -288,41 +307,35 @@ const AddressList = ({
       }));
   };
 
-  // Find and set selected province object
+  // Find and set selected province object using provinceId
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value; // code is always a string from select value
-    // Ensure comparison is string vs string
-    const province = provinces.find(p => String(p.code) === code) || null;
-    setSelectedProvince(province);
+    const provinceId = parseInt(e.target.value, 10); // Get ID as number
+    const province = provinces.find(p => p.provinceId === provinceId) || null;
+    // Set the full object (or null) to state
+    setSelectedProvince(province ? { provinceId: province.provinceId, provinceName: province.provinceName } : null);
     setSelectedDistrict(null); // Reset district
     setSelectedWard(null);   // Reset ward
   };
 
-  // Find and set selected district object
+  // Find and set selected district object using districtId
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value; // code is always a string
-    // Ensure comparison is string vs string
-    const district = districts.find(d => String(d.code) === code) || null;
-    setSelectedDistrict(district);
+    const districtId = parseInt(e.target.value, 10); // Get ID as number
+    const district = districts.find(d => d.districtId === districtId) || null;
+    // Set the full object (or null) to state
+    setSelectedDistrict(district ? { districtId: district.districtId, districtName: district.districtName } : null);
     setSelectedWard(null); // Reset ward
   };
 
-  // Find and set selected ward object
+  // Find and set selected ward object using wardId
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const code = e.target.value; // code is always a string
-    // Ensure comparison is string vs string
-    const ward = wards.find(w => String(w.code) === code) || null;
-    setSelectedWard(ward);
+    const wardId = parseInt(e.target.value, 10); // Get ID as number
+    const ward = wards.find(w => w.wardId === wardId) || null;
+    // Set the full object (or null) to state
+    setSelectedWard(ward ? { wardId: ward.wardId, wardName: ward.wardName } : null);
   };
 
-  // Helper to get names (now simpler)
-  const getSelectedLocationNames = useCallback(() => {
-    return {
-      provinceName: selectedProvince?.name || '',
-      districtName: selectedDistrict?.name || '',
-      wardName: selectedWard?.name || '',
-    };
-  }, [selectedProvince, selectedDistrict, selectedWard]);
+  // getSelectedLocationNames is removed as names are part of the selected objects
+
 
   // Reset form data and selections
   const resetFormAndSelections = () => {
@@ -346,39 +359,43 @@ const AddressList = ({
     e.preventDefault();
     setIsSubmitting(true);
 
-    const provinceName = selectedProvince?.name;
-    const districtName = selectedDistrict?.name;
-    const wardName = selectedWard?.name;
+    // Get names and IDs from selected state objects
+    const provinceId = selectedProvince?.provinceId;
+    const provinceName = selectedProvince?.provinceName;
+    const districtId = selectedDistrict?.districtId;
+    const districtName = selectedDistrict?.districtName;
+    const wardId = selectedWard?.wardId;
+    const wardName = selectedWard?.wardName;
 
-    console.log('handleSubmit validation check:', { selectedProvince, provinceName, selectedDistrict, districtName, selectedWard, wardName, addressLine: localData.addressLine });
+    console.log('handleSubmit validation check:', { selectedProvince, selectedDistrict, selectedWard, addressLine: localData.addressLine });
 
     // --- Full Validation ---
-    if (!selectedProvince || !provinceName) { toast.error('Vui lòng chọn Tỉnh/Thành phố.'); setIsSubmitting(false); return; }
-    if (!selectedDistrict || !districtName) { toast.error('Vui lòng chọn Quận/Huyện.'); setIsSubmitting(false); return; }
-    if (!selectedWard || !wardName) { toast.error('Vui lòng chọn Phường/Xã.'); setIsSubmitting(false); return; }
+    if (!provinceId || !provinceName) { toast.error('Vui lòng chọn Tỉnh/Thành phố.'); setIsSubmitting(false); return; }
+    if (!districtId || !districtName) { toast.error('Vui lòng chọn Quận/Huyện.'); setIsSubmitting(false); return; }
+    if (!wardId || !wardName) { toast.error('Vui lòng chọn Phường/Xã.'); setIsSubmitting(false); return; }
     if (!localData.addressLine.trim()) { toast.error('Vui lòng nhập địa chỉ cụ thể.'); setIsSubmitting(false); return; }
-    // --- End Validation ---
 
-    console.log("Validation Passed!");
-
+    // Construct payload with proper address codes
     const addressPayload = {
-      addressLine: `${localData.addressLine.trim()}, ${wardName}, ${districtName}`,
-      city: provinceName,
-      state: districtName,
+      addressLine: localData.addressLine.trim(),
+      wardName: wardName,
+      wardCode: wardId.toString(),
+      districtName: districtName,
+      districtCode: districtId.toString(),
+      provinceName: provinceName,
+      provinceCode: provinceId.toString(),
       country: localData.country,
       postalCode: localData.postalCode.trim() || undefined,
-      isDefault: localData.isDefault,
+      isDefault: localData.isDefault
     };
 
     try {
       if (editingId) {
         if (!onUpdateAddress) throw new Error("Update handler not configured.");
-        console.log("Submitting update:", { _id: editingId, ...addressPayload });
         await onUpdateAddress({ _id: editingId, ...addressPayload });
         setEditingId(null);
       } else {
         if (!onAddAddress) throw new Error("Add handler not configured.");
-        console.log("Submitting add:", addressPayload);
         await onAddAddress(addressPayload);
         setIsAdding(false);
       }
@@ -402,36 +419,53 @@ const AddressList = ({
      setEditingId(address._id);
      setIsAdding(false);
      const addressParts = address.addressLine.split(',').map(p => p.trim());
-     const specificAddressLine = addressParts[0] || '';
-     const wardNameFromLine = addressParts.length > 1 ? addressParts[1] : null;
+     // --- Editing Logic Update ---
+     // **Assumption**: The `address` object fetched from the backend now includes
+     // `provinceId`, `districtId`, `wardId`. If not, this logic needs rethinking.
+     // We also assume addressLine only contains the specific street/number part.
+
+     const {
+       addressLine, // Assuming this is just the street/number part now
+       city,        // Corresponds to provinceName
+       state,       // Corresponds to districtName
+       // wardName is likely part of addressLine in the old format, need to adjust how it's saved/retrieved
+       country,
+       postalCode,
+       isDefault,
+       provinceId, // Assumed to exist on Address type
+       districtId, // Assumed to exist on Address type
+       wardId,     // Assumed to exist on Address type
+     } = address;
 
      // Set the initial data for the form state in AddressList
      setFormData({
-       addressLine: specificAddressLine, country: address.country,
-       postalCode: address.postalCode || '', isDefault: !!address.isDefault,
+       addressLine: addressLine || '', // Use the specific address line
+       country: country || 'Việt Nam',
+       postalCode: postalCode || '',
+       isDefault: !!isDefault,
      });
 
-     // Pre-select dropdowns
-     const province = provinces.find(p => p.name === address.city);
-     setSelectedProvince(province || null);
+     // Pre-select dropdowns using IDs
+     if (provinceId) {
+       const province = provinces.find(p => p.provinceId === provinceId);
+       setSelectedProvince(province ? { provinceId: province.provinceId, provinceName: province.provinceName } : null);
 
-     if (province) {
+       // Fetch districts for the selected province
        setLoadingDistricts(true);
        try {
-         // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
-         const fetchedDistricts = await ViettelPostService.getDistricts(province.code);
+         const fetchedDistricts = await ViettelPostService.getDistricts(provinceId);
          setDistricts(fetchedDistricts);
-         const district = fetchedDistricts.find(d => d.name === address.state);
-         setSelectedDistrict(district || null);
+         const district = fetchedDistricts.find(d => d.districtId === districtId);
+         setSelectedDistrict(district ? { districtId: district.districtId, districtName: district.districtName } : null);
 
-         if (district) {
+         // Fetch wards if district is found
+         if (districtId && district) {
            setLoadingWards(true);
            try {
-             // Sử dụng ViettelPostService thay vì gọi trực tiếp API provinces.open-api.vn
-             const fetchedWards = await ViettelPostService.getWards(district.code);
+             const fetchedWards = await ViettelPostService.getWards(districtId);
              setWards(fetchedWards);
-             const ward = wardNameFromLine ? fetchedWards.find(w => w.name === wardNameFromLine) : null;
-             setSelectedWard(ward || null);
+             const ward = fetchedWards.find(w => w.wardId === wardId);
+             setSelectedWard(ward ? { wardId: ward.wardId, wardName: ward.wardName } : null);
            } catch (wardError) {
              console.error("Error fetching wards during edit:", wardError);
              toast.error("Lỗi tải Phường/Xã.");
@@ -509,7 +543,7 @@ const AddressList = ({
           onDistrictChange={handleDistrictChange}
           onWardChange={handleWardChange}
           onLocalInputChange={handleLocalInputChange} // Pass the handler to update AddressList's formData
-          getSelectedLocationNames={getSelectedLocationNames}
+          // getSelectedLocationNames is removed
         />
       )}
 
@@ -538,10 +572,9 @@ const AddressList = ({
                      </div>
                      <p className="text-sm text-gray-600">{user?.phone || 'Chưa có SĐT'}</p>
                      <p className="text-sm text-gray-600 mt-1">
-                       {address.addressLine}
-                       {address.state && `, ${address.state}`}
-                       {address.city && `, ${address.city}`}
-                       {`, ${address.country}`}
+                       {/* Display address with proper format */}
+                       {`${address.addressLine}, ${address.wardName}, ${address.districtName}, ${address.provinceName}`}
+                       {address.country && `, ${address.country}`}
                        {address.postalCode && ` - ${address.postalCode}`}
                      </p>
                   </div>

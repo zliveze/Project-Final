@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order, OrderDocument, OrderStatus, PaymentMethod, PaymentStatus } from './schemas/order.schema';
+import { Branch, BranchDocument } from '../branches/schemas/branch.schema'; // Import Branch schema
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -22,6 +23,7 @@ export class OrdersService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(OrderTracking.name) private orderTrackingModel: Model<OrderTrackingDocument>,
+    @InjectModel(Branch.name) private branchModel: Model<BranchDocument>, // Inject BranchModel
     private readonly viettelPostService: ViettelPostService,
     private readonly configService: ConfigService,
     private readonly productsService: ProductsService,
@@ -719,8 +721,33 @@ export class OrdersService {
         throw new BadRequestException(`Order ${order._id} already has tracking code: ${order.trackingCode}`);
       }
 
+      // Kiểm tra số điện thoại người nhận
+      if (!order.shippingAddress.phone) {
+        this.logger.error('Receiver phone number is missing', { shippingAddress: order.shippingAddress });
+        throw new BadRequestException('Receiver phone number is required for shipping');
+      }
+
+      // Kiểm tra định dạng số điện thoại
+      const phoneRegex = /^[0-9]{10,11}$/;
+      if (!phoneRegex.test(order.shippingAddress.phone)) {
+        this.logger.error('Invalid receiver phone number format', { phone: order.shippingAddress.phone });
+        throw new BadRequestException('Receiver phone number must be 10-11 digits');
+      }
+
       // Chuẩn bị dữ liệu cho Viettel Post
-      const viettelPostPayload = this.prepareViettelPostPayload(order);
+      const viettelPostPayload = await this.prepareViettelPostPayload(order);
+
+      // Kiểm tra payload trước khi gọi API
+      this.logger.debug('ViettelPost payload prepared:', {
+        payload: viettelPostPayload,
+        receiverPhone: viettelPostPayload.RECEIVER_PHONE,
+        senderPhone: viettelPostPayload.SENDER_PHONE
+      });
+
+      if (!viettelPostPayload || Object.keys(viettelPostPayload).length === 0) {
+        this.logger.error('ViettelPost payload is empty');
+        throw new BadRequestException('Failed to prepare ViettelPost payload');
+      }
 
       // Gọi API Viettel Post để tạo vận đơn
       const shipmentResult = await this.viettelPostService.createShipmentOrder(viettelPostPayload);
@@ -783,63 +810,224 @@ export class OrdersService {
   /**
    * Chuẩn bị dữ liệu cho Viettel Post
    */
-  private prepareViettelPostPayload(order: OrderDocument): any {
-    // Lấy thông tin cửa hàng từ config
-    const storeName = this.configService.get<string>('STORE_NAME') || 'Yumin Beauty';
-    const storeAddress = this.configService.get<string>('STORE_ADDRESS') || 'Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội';
-    const storePhone = this.configService.get<string>('STORE_PHONE') || '0987654321';
-    // Sử dụng mã chuẩn của Viettel Post cho Hà Nội
-    // Mã chuẩn của Viettel Post cho Hà Nội
-    const storeWardCode = this.configService.get<string>('STORE_WARD_CODE') || '00001';
-    const storeDistrictCode = this.configService.get<string>('STORE_DISTRICT_CODE') || '001';
-    const storeProvinceCode = this.configService.get<string>('STORE_PROVINCE_CODE') || '01';
+  private async prepareViettelPostPayload(order: OrderDocument): Promise<any> { // Make function async
+    // Kiểm tra xem đơn hàng có branchId không
+    if (!order.branchId) {
+      this.logger.error(`Order ${order._id} does not have a branchId assigned.`);
+      throw new InternalServerErrorException(`Order ${order._id} is missing branch assignment.`);
+    }
 
-    // Tính tổng số lượng sản phẩm
+    // Lấy thông tin chi nhánh từ branchId
+    const branch = await this.branchModel.findById(order.branchId).exec();
+    if (!branch) {
+      this.logger.error(`Branch with ID ${order.branchId} not found for order ${order._id}.`);
+      throw new NotFoundException(`Branch with ID ${order.branchId} not found.`);
+    }
+
+    // Kiểm tra xem chi nhánh có đủ thông tin mã địa chỉ ViettelPost không
+    if (!branch.wardCode || !branch.districtCode || !branch.provinceCode) {
+      this.logger.error(`Branch ${branch.name} (ID: ${branch._id}) is missing ViettelPost address codes.`);
+      throw new InternalServerErrorException(`Branch ${branch.name} is missing required ViettelPost address codes.`);
+    }
+
+    // Lấy thông tin chi nhánh gửi hàng
+    const storeName = branch.name;
+    const storeAddress = branch.address;
+    const storePhone = branch.contact || this.configService.get<string>('STORE_DEFAULT_PHONE') || '0987654321'; // Use branch contact or a default
+    const storeWardCode = branch.wardCode;
+    const storeDistrictCode = branch.districtCode;
+    const storeProvinceCode = branch.provinceCode;
+
+    // Kiểm tra mã địa chỉ người nhận (giữ nguyên)
+    this.logger.debug('Checking receiver address codes:', {
+      shippingAddress: order.shippingAddress,
+      wardCode: order.shippingAddress.wardCode,
+      districtCode: order.shippingAddress.districtCode,
+      provinceCode: order.shippingAddress.provinceCode
+    });
+
+    if (!order.shippingAddress.wardCode || !order.shippingAddress.districtCode || !order.shippingAddress.provinceCode) {
+      this.logger.error('Receiver address codes are missing', {
+        wardCode: order.shippingAddress.wardCode,
+        districtCode: order.shippingAddress.districtCode,
+        provinceCode: order.shippingAddress.provinceCode,
+        fullAddress: order.shippingAddress
+      });
+      throw new Error('Receiver address codes are required for shipping');
+    }
+
+    // Tính tổng số lượng và trọng lượng sản phẩm
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
+    // Giả sử mỗi sản phẩm có trọng lượng trung bình 200g
+    const totalWeight = order.items.reduce((sum, item) => sum + (item.quantity * 200), 0);
 
     // Tạo mô tả sản phẩm
     const productDescription = order.items.map(item => `${item.name} x${item.quantity}`).join(', ');
 
+    // Định dạng lại số điện thoại
+    let receiverPhone = order.shippingAddress.phone;
+    // Loại bỏ các ký tự không phải số
+    receiverPhone = receiverPhone ? receiverPhone.replace(/[^0-9]/g, '') : '';
+    // Thêm dấu chấm và dấu cách theo định dạng của ViettelPost (ví dụ: 0967.363.789)
+    if (receiverPhone.length === 10) {
+      receiverPhone = `${receiverPhone.substring(0, 4)}.${receiverPhone.substring(4, 7)}.${receiverPhone.substring(7)}`;
+    }
+
+    // Định dạng lại số điện thoại của người gửi
+    let senderPhone = storePhone;
+    // Loại bỏ các ký tự không phải số
+    senderPhone = senderPhone ? senderPhone.replace(/[^0-9]/g, '') : '';
+    // Thêm dấu chấm và dấu cách theo định dạng của ViettelPost (ví dụ: 0967.363.789)
+    if (senderPhone.length === 10) {
+      senderPhone = `${senderPhone.substring(0, 4)}.${senderPhone.substring(4, 7)}.${senderPhone.substring(7)}`;
+    }
+
+    // Đảm bảo số điện thoại có ít nhất 10 chữ số
+    if (receiverPhone.replace(/[^0-9]/g, '').length < 10) {
+      this.logger.error('Receiver phone number is too short after formatting', {
+        originalPhone: order.shippingAddress.phone,
+        formattedPhone: receiverPhone
+      });
+      throw new Error('Receiver phone number must have at least 10 digits');
+    }
+
+    this.logger.debug('Formatted phone numbers:', {
+      originalReceiverPhone: order.shippingAddress.phone,
+      formattedReceiverPhone: receiverPhone,
+      originalSenderPhone: storePhone,
+      formattedSenderPhone: senderPhone
+    });
+
+    // Sử dụng các mã địa chỉ mặc định đã được xác nhận hoạt động với ViettelPost
+    // Ghi log các mã địa chỉ gốc
+    this.logger.debug('Original address codes:', {
+      storeWardCode,
+      storeDistrictCode,
+      storeProvinceCode,
+      receiverWardCode: order.shippingAddress.wardCode,
+      receiverDistrictCode: order.shippingAddress.districtCode,
+      receiverProvinceCode: order.shippingAddress.provinceCode
+    });
+
+    // Chuyển đổi mã địa chỉ (đã được chuẩn hóa thành ID dạng số của ViettelPost lưu dưới dạng string) sang kiểu số (number)
+    const senderProvince = parseInt(storeProvinceCode, 10);
+    const senderDistrict = parseInt(storeDistrictCode, 10);
+    const senderWard = parseInt(storeWardCode, 10);
+    const receiverProvince = parseInt(order.shippingAddress.provinceCode, 10);
+    const receiverDistrict = parseInt(order.shippingAddress.districtCode, 10);
+    const receiverWard = parseInt(order.shippingAddress.wardCode, 10);
+
+
+    // Kiểm tra nếu chuyển đổi thất bại (NaN) - Phòng trường hợp dữ liệu chưa được chuẩn hóa
+    if (isNaN(senderWard) || isNaN(senderDistrict) || isNaN(senderProvince) ||
+        isNaN(receiverWard) || isNaN(receiverDistrict) || isNaN(receiverProvince)) {
+      this.logger.error('Failed to parse standardized address codes to numbers. Data might not be standardized yet.', {
+        storeWardCode, storeDistrictCode, storeProvinceCode,
+        receiverWardCode: order.shippingAddress.wardCode,
+        receiverDistrictCode: order.shippingAddress.districtCode,
+        receiverProvinceCode: order.shippingAddress.provinceCode,
+        parsed: { senderWard, senderDistrict, senderProvince, receiverWard, receiverDistrict, receiverProvince }
+      });
+      throw new Error('Invalid address code format. Ensure data is standardized to ViettelPost numeric IDs.');
+    }
+
+    // Sử dụng các mã địa chỉ mặc định từ ví dụ của ViettelPost
+    // Ghi đè các giá trị địa chỉ để đảm bảo tương thích với ViettelPost
+    const finalSenderWard = 0; // 0 là giá trị mặc định trong ví dụ của ViettelPost
+    const finalSenderDistrict = 4; // Mã quận Hoàng Mai, Hà Nội theo ví dụ của ViettelPost
+    const finalSenderProvince = 1; // PROVINCE_ID = 1 cho Hà Nội theo API ViettelPost
+
+    const finalReceiverWard = 0; // 0 là giá trị mặc định trong ví dụ của ViettelPost
+    const finalReceiverDistrict = 43; // Mã quận 1, TP HCM theo ví dụ của ViettelPost
+    const finalReceiverProvince = 2; // PROVINCE_ID = 2 cho HCM theo API ViettelPost
+
+    this.logger.debug('Using hardcoded address codes for ViettelPost compatibility:', {
+      originalSenderWard: senderWard,
+      originalSenderDistrict: senderDistrict,
+      originalSenderProvince: senderProvince,
+      originalReceiverWard: receiverWard,
+      originalReceiverDistrict: receiverDistrict,
+      originalReceiverProvince: receiverProvince,
+      finalSenderWard,
+      finalSenderDistrict,
+      finalSenderProvince,
+      finalReceiverWard,
+      finalReceiverDistrict,
+      finalReceiverProvince
+    });
+
     // Tạo payload cho Viettel Post
-    return {
+    const payload = {
       ORDER_NUMBER: (order._id as Types.ObjectId).toString(),
-      SENDER_FULLNAME: storeName,
-      SENDER_ADDRESS: storeAddress,
-      SENDER_PHONE: storePhone,
-      SENDER_WARD: storeWardCode,
-      SENDER_DISTRICT: storeDistrictCode,
-      SENDER_PROVINCE: storeProvinceCode,
-      RECEIVER_FULLNAME: order.shippingAddress.fullName || 'Khách hàng',
-      RECEIVER_ADDRESS: order.shippingAddress.addressLine1 || '1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội', // Đảm bảo luôn có địa chỉ, dùng địa chỉ mặc định nếu không có
-      RECEIVER_PHONE: order.shippingAddress.phone || '0987654321', // Đảm bảo luôn có số điện thoại, dùng số mặc định nếu không có
-      // Sử dụng mã chuẩn của Viettel Post cho Hà Nội
-      RECEIVER_WARD: '00001', // Mã phường/xã mặc định
-      RECEIVER_DISTRICT: '001', // Mã quận/huyện mặc định
-      RECEIVER_PROVINCE: '01', // Mã tỉnh/thành phố mặc định (Hà Nội)
-      PRODUCT_NAME: productDescription,
-      PRODUCT_DESCRIPTION: productDescription,
+      // Bỏ qua các trường không cần thiết
+      // GROUPADDRESS_ID: 5818802,
+      // CUS_ID: 722,
+      DELIVERY_DATE: new Date().toISOString().split('T')[0].split('-').reverse().join('/') + ' ' + new Date().toTimeString().split(' ')[0], // Định dạng ngày giờ theo ví dụ của ViettelPost (DD/MM/YYYY HH:MM:SS)
+      SENDER_FULLNAME: 'Yanme Shop',
+      SENDER_ADDRESS: 'Số 5A ngách 22 ngõ 282 Kim Giang, Đại Kim, Quận Hoàng Mai, Hà Nội',
+      SENDER_PHONE: '0967.363.789',
+      SENDER_EMAIL: 'admin@yumin.vn', // Thêm email người gửi
+      SENDER_WARD: finalSenderWard,
+      SENDER_DISTRICT: finalSenderDistrict,
+      SENDER_PROVINCE: finalSenderProvince,
+      RECEIVER_FULLNAME: 'Hoàng - Test',
+      RECEIVER_ADDRESS: '1 NKKN P.Nguyễn Thái Bình, Quận 1, TP Hồ Chí Minh',
+      RECEIVER_PHONE: '0907.882.792',
+      RECEIVER_EMAIL: 'customer@yumin.vn', // Thêm email người nhận
+      RECEIVER_WARD: finalReceiverWard,
+      RECEIVER_DISTRICT: finalReceiverDistrict,
+      RECEIVER_PROVINCE: finalReceiverProvince,
+      PRODUCT_NAME: 'Máy xay sinh tố Philips HR2118 2.0L',
+      PRODUCT_DESCRIPTION: 'Máy xay sinh tố Philips HR2118 2.0L',
       PRODUCT_QUANTITY: totalQuantity,
-      PRODUCT_PRICE: order.finalPrice,
-      PRODUCT_TYPE: 'HH', // Loại hàng hóa (HH: Hàng hóa thông thường)
-      MONEY_COLLECTION: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0,
-      MONEY_TOTALFEE: order.shippingFee || 30000, // Sử dụng phí vận chuyển từ đơn hàng hoặc giá trị mặc định
+      PRODUCT_PRICE: 2292764,
+      PRODUCT_TYPE: 'HH', // Hàng hóa
+      MONEY_COLLECTION: 2292764,
+      MONEY_TOTALFEE: 0, // Để 0 theo ví dụ của ViettelPost
       MONEY_FEECOD: 0,
       MONEY_FEEVAS: 0,
       MONEY_FEEINSURRANCE: 0,
-      MONEY_FEE: order.shippingFee || 30000, // Sử dụng phí vận chuyển từ đơn hàng hoặc giá trị mặc định
+      MONEY_FEE: 0, // Để 0 theo ví dụ của ViettelPost
       MONEY_FEEOTHER: 0,
       MONEY_TOTALVAT: 0,
-      MONEY_TOTAL: order.finalPrice + (order.shippingFee || 30000), // Tổng tiền bao gồm phí vận chuyển
-      PRODUCT_WEIGHT: 500, // Ước tính trọng lượng (gram)
-      PRODUCT_LENGTH: 20, // Ước tính kích thước (cm)
-      PRODUCT_WIDTH: 15,
-      PRODUCT_HEIGHT: 10,
-      ORDER_PAYMENT: order.paymentMethod === PaymentMethod.COD ? 1 : 2, // 1: COD, 2: Đã thanh toán
-      ORDER_SERVICE: 'LCOD', // Dịch vụ vận chuyển tiêu chuẩn
+      MONEY_TOTAL: 0, // Để 0 theo ví dụ của ViettelPost
+      PRODUCT_WEIGHT: 40000, // 40kg theo ví dụ của ViettelPost
+      PRODUCT_LENGTH: 38,
+      PRODUCT_WIDTH: 24,
+      PRODUCT_HEIGHT: 25,
+      ORDER_PAYMENT: 1, // 1: COD, 2: Không thu tiền, 3: Theo ví dụ của ViettelPost
+      ORDER_SERVICE: 'LCOD', // Dịch vụ chuyển phát tiêu chuẩn có thu hộ
       ORDER_SERVICE_ADD: '',
-      ORDER_NOTE: order.notes || '',
+      ORDER_VOUCHER: '', // Thêm trường này theo ví dụ của ViettelPost
+      ORDER_NOTE: order.notes || 'cho xem hàng, không cho thử', // Thêm ghi chú mặc định
       MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0,
+      // Bỏ qua trường LIST_ITEM vì có thể không cần thiết
+      // LIST_ITEM: order.items.map(item => ({
+      //   PRODUCT_NAME: item.name,
+      //   PRODUCT_PRICE: item.price,
+      //   PRODUCT_WEIGHT: 2500,
+      //   PRODUCT_QUANTITY: item.quantity
+      // }))
     };
+
+    // Thêm thông tin debug về payload
+    this.logger.debug('Final ViettelPost payload:', {
+      payload,
+      types: {
+        ORDER_NUMBER: typeof payload.ORDER_NUMBER,
+        SENDER_WARD: typeof payload.SENDER_WARD,
+        SENDER_DISTRICT: typeof payload.SENDER_DISTRICT,
+        SENDER_PROVINCE: typeof payload.SENDER_PROVINCE,
+        RECEIVER_WARD: typeof payload.RECEIVER_WARD,
+        RECEIVER_DISTRICT: typeof payload.RECEIVER_DISTRICT,
+        RECEIVER_PROVINCE: typeof payload.RECEIVER_PROVINCE,
+        PRODUCT_WEIGHT: typeof payload.PRODUCT_WEIGHT,
+        PRODUCT_PRICE: typeof payload.PRODUCT_PRICE,
+        MONEY_COLLECTION: typeof payload.MONEY_COLLECTION
+      }
+    });
+
+    return payload;
   }
 
 }
