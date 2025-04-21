@@ -3,6 +3,8 @@ import { CategoryProvider } from './categories/CategoryContext';
 import { BrandProvider } from './brands/BrandContext';
 import { CartProvider } from './cart/CartContext';
 import { WishlistProvider } from './wishlist/WishlistContext';
+import { UserOrderProvider } from './UserOrderContext';
+import { UserPaymentProvider } from './UserPaymentContext';
 
 interface UserContextProviderProps {
   children: ReactNode;
@@ -19,7 +21,11 @@ export const UserContextProvider: React.FC<UserContextProviderProps> = ({ childr
       <BrandProvider>
         <CartProvider>
           <WishlistProvider>
-            {children}
+            <UserOrderProvider>
+              <UserPaymentProvider>
+                {children}
+              </UserPaymentProvider>
+            </UserOrderProvider>
           </WishlistProvider>
         </CartProvider>
       </BrandProvider>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiX, FiTrash2, FiEdit2, FiPrinter } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+import { useAdminOrder } from '@/contexts';
 
 interface Product {
   productId: string;
@@ -44,13 +45,14 @@ interface OrderDetailModalProps {
   onDelete: (id: string) => void;
 }
 
-export default function OrderDetailModal({ 
-  orderId, 
-  isOpen, 
-  onClose, 
+export default function OrderDetailModal({
+  orderId,
+  isOpen,
+  onClose,
   onEdit,
-  onDelete 
+  onDelete
 }: OrderDetailModalProps) {
+  const { fetchOrderDetail, loading: contextLoading, error: contextError } = useAdminOrder();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,74 +61,69 @@ export default function OrderDetailModal({
     if (isOpen && orderId) {
       fetchOrderDetails();
     }
-  }, [isOpen, orderId]);
+  }, [isOpen, orderId, fetchOrderDetail]);
 
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Giả lập việc tải dữ liệu
-      setTimeout(() => {
-        // Dữ liệu mẫu cho demo
-        const sampleOrderDetail = {
-          _id: orderId,
-          userId: 'user123',
-          userName: 'Nguyễn Văn A',
-          userEmail: 'nguyenvana@example.com',
-          userPhone: '0901234567',
-          products: [
-            {
-              productId: 'prod1',
-              productName: 'Kem dưỡng ẩm Yumin',
-              variantId: 'var1',
-              options: {
-                shade: 'Thường',
-                size: '50ml'
-              },
-              quantity: 2,
-              price: 450000,
-              image: '/images/products/cream1.jpg'
+
+      // Gọi API để lấy chi tiết đơn hàng
+      const orderDetail = await fetchOrderDetail(orderId);
+
+      if (orderDetail) {
+        // Chuyển đổi dữ liệu từ API sang định dạng cần thiết cho component
+        const formattedOrder: Order = {
+          _id: orderDetail._id,
+          userId: orderDetail.userId as string,
+          userName: orderDetail.userName || 'Khách hàng',
+          userEmail: orderDetail.userEmail || 'Email không có',
+          userPhone: orderDetail.shippingAddress?.phone || '',
+          products: orderDetail.items.map(item => ({
+            productId: item.productId,
+            productName: item.name,
+            variantId: item.variantId || '',
+            options: {
+              shade: item.options?.shade || '',
+              size: item.options?.size || ''
             },
-            {
-              productId: 'prod2',
-              productName: 'Sữa rửa mặt Yumin',
-              variantId: 'var2',
-              options: {
-                shade: 'Dành cho da dầu',
-                size: '100ml'
-              },
-              quantity: 1,
-              price: 350000,
-              image: '/images/products/cleanser.jpg'
-            }
-          ],
-          totalPrice: 1250000,
-          discountAmount: 100000,
-          finalPrice: 1150000,
-          status: 'pending',
+            quantity: item.quantity,
+            price: item.price,
+            image: item.image
+          })),
+          totalPrice: orderDetail.totalPrice,
+          discountAmount: orderDetail.voucher?.discountAmount || 0,
+          finalPrice: orderDetail.finalPrice,
+          status: orderDetail.status,
           shippingInfo: {
-            address: '123 Đường ABC, Quận 1, TP.HCM',
-            contact: '0901234567'
+            address: [
+              orderDetail.shippingAddress.addressLine1,
+              orderDetail.shippingAddress.ward,
+              orderDetail.shippingAddress.district,
+              orderDetail.shippingAddress.province
+            ].filter(Boolean).join(', '),
+            contact: orderDetail.shippingAddress.phone
           },
-          paymentMethod: 'COD',
-          paymentStatus: 'pending',
-          createdAt: '2023-04-15T08:30:00Z',
-          updatedAt: '2023-04-15T08:30:00Z'
+          paymentMethod: orderDetail.paymentMethod,
+          paymentStatus: orderDetail.paymentStatus,
+          createdAt: orderDetail.createdAt,
+          updatedAt: orderDetail.updatedAt
         };
-        
-        setOrder(sampleOrderDetail as Order);
-        setLoading(false);
+
+        setOrder(formattedOrder);
         toast.success('Đã tải thông tin đơn hàng', {
           id: `view-order-success-${orderId}`
         });
-      }, 800);
-    } catch (error) {
+      } else {
+        setError('Không tìm thấy thông tin đơn hàng');
+      }
+    } catch (error: any) {
       console.error('Error fetching order details:', error);
-      toast.error('Không thể tải chi tiết đơn hàng. Vui lòng thử lại sau.', {
+      toast.error(`Không thể tải chi tiết đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
         id: `view-order-error-${orderId}`
       });
-      setError('Không thể tải chi tiết đơn hàng. Vui lòng thử lại sau.');
+      setError(`Không thể tải chi tiết đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -180,16 +177,16 @@ export default function OrderDetailModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div 
-          className="fixed inset-0 transition-opacity" 
+        <div
+          className="fixed inset-0 transition-opacity"
           aria-hidden="true"
           onClick={onClose}
         >
           <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
         </div>
-        
+
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        
+
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
           <div className="absolute top-0 right-0 pt-4 pr-4">
             <button
@@ -200,16 +197,16 @@ export default function OrderDetailModal({
               <FiX className="h-6 w-6" />
             </button>
           </div>
-          
+
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            {loading ? (
+            {loading || contextLoading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
               </div>
-            ) : error ? (
+            ) : error || contextError ? (
               <div className="text-center text-red-500 p-4">
-                {error}
-                <button 
+                {error || contextError}
+                <button
                   className="mt-2 px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700"
                   onClick={fetchOrderDetails}
                 >
@@ -223,21 +220,21 @@ export default function OrderDetailModal({
                     Chi tiết đơn hàng #{order._id}
                   </h3>
                   <div className="flex space-x-2">
-                    <button 
+                    <button
                       className="p-2 text-blue-600 hover:text-blue-800"
                       onClick={handlePrint}
                       title="In đơn hàng"
                     >
                       <FiPrinter className="h-5 w-5" />
                     </button>
-                    <button 
+                    <button
                       className="p-2 text-indigo-600 hover:text-indigo-800"
                       onClick={() => onEdit(order._id)}
                       title="Chỉnh sửa đơn hàng"
                     >
                       <FiEdit2 className="h-5 w-5" />
                     </button>
-                    <button 
+                    <button
                       className="p-2 text-red-600 hover:text-red-800"
                       onClick={() => {
                         onDelete(order._id);
@@ -383,7 +380,7 @@ export default function OrderDetailModal({
               </div>
             )}
           </div>
-          
+
           <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
             <button
               type="button"
@@ -397,4 +394,4 @@ export default function OrderDetailModal({
       </div>
     </div>
   );
-} 
+}

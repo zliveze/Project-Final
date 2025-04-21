@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+import { useAdminOrder } from '@/contexts';
 
 interface OrderConfirmDeleteProps {
   orderId: string;
@@ -11,44 +12,41 @@ interface OrderConfirmDeleteProps {
 
 export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm }: OrderConfirmDeleteProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const { cancelOrder } = useAdminOrder();
 
   const handleConfirm = async () => {
     try {
       setIsDeleting(true);
-      
-      // Giả lập việc xóa đơn hàng
-      console.log(`Đã xóa đơn hàng ${orderId}`);
-      
-      // Giả lập thời gian xử lý
-      setTimeout(() => {
-        setIsDeleting(false);
-        toast.success('Đã xóa đơn hàng thành công!', {
-          id: `delete-order-success-${orderId}`
-        });
-        onConfirm();
-      }, 1000);
-      
-    } catch (error) {
+
+      // Sử dụng hàm cancelOrder từ context
+      await cancelOrder(orderId, 'Xóa bởi admin');
+
+      setIsDeleting(false);
+      toast.success('Đã xóa đơn hàng thành công!', {
+        id: `delete-order-success-${orderId}`
+      });
+      onConfirm();
+
+    } catch (error: any) {
       console.error('Error deleting order:', error);
-      toast.error('Có lỗi xảy ra khi xóa đơn hàng. Vui lòng thử lại sau.', {
+      toast.error(`Có lỗi xảy ra khi xóa đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
         id: `delete-order-error-${orderId}`
       });
       setIsDeleting(false);
-      // Hiển thị lỗi nếu cần
     }
   };
 
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
           <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
         </div>
-        
+
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        
+
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="sm:flex sm:items-start">
@@ -96,4 +94,4 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
       </div>
     </div>
   );
-} 
+}

@@ -18,34 +18,42 @@ export default function MainHeader() {
   } = useHeader();
 
   return (
-    <header className="w-full relative z-40">
+    <header className="w-full bg-white relative">
       {/* Thông báo hệ thống */}
-      <NotificationSection />
+      <div className="relative z-[52]">
+        <NotificationSection />
+      </div>
 
       {/* Logo, tìm kiếm, tài khoản, giỏ hàng */}
-      <MiddleHeader
-        onMenuToggle={() => setMobileMenuOpen(!isMobileMenuOpen)}
-        isLoggedIn={isLoggedIn}
-        userProfile={userProfile}
-        cartItemCount={cartItemCount}
-        wishlistItemCount={wishlistItemCount}
-      />
+      <div className="relative z-[51]">
+        <MiddleHeader
+          onMenuToggle={() => setMobileMenuOpen(!isMobileMenuOpen)}
+          isLoggedIn={isLoggedIn}
+          userProfile={userProfile}
+          cartItemCount={cartItemCount}
+          wishlistItemCount={wishlistItemCount}
+        />
+      </div>
 
       {/* Navigation chính */}
-      <BottomHeader
-        categories={categories}
-        featuredBrands={featuredBrands}
-      />
+      <div className="relative z-[50]">
+        <BottomHeader
+          categories={categories}
+          featuredBrands={featuredBrands}
+        />
+      </div>
 
       {/* Menu mobile */}
-      <MobileSideMenu
-        isOpen={isMobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        categories={categories}
-        featuredBrands={featuredBrands}
-        isLoggedIn={isLoggedIn}
-        userProfile={userProfile}
-      />
+      <div className="relative z-[53]">
+        <MobileSideMenu
+          isOpen={isMobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          categories={categories}
+          featuredBrands={featuredBrands}
+          isLoggedIn={isLoggedIn}
+          userProfile={userProfile}
+        />
+      </div>
     </header>
   );
 }

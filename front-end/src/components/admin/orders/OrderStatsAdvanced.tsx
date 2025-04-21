@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiArrowUp, FiArrowDown, FiActivity, FiCalendar, FiDollarSign, FiShoppingBag, FiUsers } from 'react-icons/fi';
 import { useRouter } from 'next/router';
+import { useAdminOrder } from '@/contexts';
 
 // Định nghĩa interface cho dữ liệu thống kê
 interface PeriodStats {
@@ -32,7 +33,8 @@ interface OrderStatsAdvancedProps {
 export default function OrderStatsAdvanced({ periodType, onPeriodChange }: OrderStatsAdvancedProps) {
   const router = useRouter();
   const isTrendsPage = router.pathname.includes('/trends');
-  
+  const { orderStats, loading: contextLoading, fetchOrderStats } = useAdminOrder();
+
   const [stats, setStats] = useState<PeriodStats>({
     totalOrders: 0,
     totalRevenue: 0,
@@ -45,7 +47,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       customerGrowth: 0
     }
   });
-  
+
   const [chartData, setChartData] = useState<ChartData>({
     categories: [],
     series: [
@@ -59,171 +61,121 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       }
     ]
   });
-  
+
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Hàm giả lập lấy dữ liệu thống kê theo khoảng thời gian
-  const fetchStatsByPeriod = (period: 'week' | 'month' | 'quarter' | 'year') => {
+
+  // Hàm lấy dữ liệu thống kê theo khoảng thời gian
+  const fetchStatsByPeriod = async (period: 'week' | 'month' | 'quarter' | 'year') => {
     setIsLoading(true);
-    
-    // Trong môi trường thực tế, đây sẽ là một API call
-    setTimeout(() => {
-      // Dữ liệu mẫu tùy theo loại thời gian
-      let sampleData: PeriodStats;
-      let sampleChartData: ChartData;
-      
-      switch(period) {
-        case 'week':
-          sampleData = {
-            totalOrders: 252,
-            totalRevenue: 148500000,
-            averageOrderValue: 589285,
-            completedOrders: 215,
-            newCustomers: 68,
-            comparisonStats: {
-              ordersGrowth: 15.6,
-              revenueGrowth: 19.9,
-              customerGrowth: 19.3
-            }
-          };
-          sampleChartData = {
-            categories: ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'],
-            series: [
-              {
-                name: 'Doanh thu (triệu)',
-                data: [15.5, 18.7, 21.3, 25.8, 28.4, 22.1, 16.5]
-              },
-              {
-                name: 'Đơn hàng',
-                data: [25, 32, 37, 45, 48, 37, 28]
-              }
-            ]
-          };
-          break;
-        
-        case 'month':
-          sampleData = {
-            totalOrders: 680,
-            totalRevenue: 365100000,
-            averageOrderValue: 536912,
-            completedOrders: 580,
-            newCustomers: 215,
-            comparisonStats: {
-              ordersGrowth: 8.8,
-              revenueGrowth: 11.1,
-              customerGrowth: 13.2
-            }
-          };
-          sampleChartData = {
-            categories: ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
-            series: [
-              {
-                name: 'Doanh thu (triệu)',
-                data: [78.5, 92.3, 105.7, 88.6]
-              },
-              {
-                name: 'Đơn hàng',
-                data: [148, 175, 192, 165]
-              }
-            ]
-          };
-          break;
-        
-        case 'quarter':
-          sampleData = {
-            totalOrders: 1950,
-            totalRevenue: 985600000,
-            averageOrderValue: 505435,
-            completedOrders: 1670,
-            newCustomers: 625,
-            comparisonStats: {
-              ordersGrowth: 7.5,
-              revenueGrowth: 10.2,
-              customerGrowth: 5.8
-            }
-          };
-          sampleChartData = {
-            categories: ['Tháng 1', 'Tháng 2', 'Tháng 3'],
-            series: [
-              {
-                name: 'Doanh thu (triệu)',
-                data: [265.2, 318.7, 295.4]
-              },
-              {
-                name: 'Đơn hàng',
-                data: [515, 620, 565]
-              }
-            ]
-          };
-          break;
-        
-        case 'year':
-          sampleData = {
-            totalOrders: 7120,
-            totalRevenue: 3671300000,
-            averageOrderValue: 515632,
-            completedOrders: 6185,
-            newCustomers: 2450,
-            comparisonStats: {
-              ordersGrowth: 18.5,
-              revenueGrowth: 21.8,
-              customerGrowth: 16.4
-            }
-          };
-          sampleChartData = {
-            categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-            series: [
-              {
-                name: 'Doanh thu (triệu)',
-                data: [879.3, 945.8, 820.5, 1025.7]
-              },
-              {
-                name: 'Đơn hàng',
-                data: [1700, 1850, 1590, 1980]
-              }
-            ]
-          };
-          break;
-        
-        default:
-          sampleData = {
-            totalOrders: 0,
-            totalRevenue: 0,
-            averageOrderValue: 0,
-            completedOrders: 0,
-            newCustomers: 0,
-            comparisonStats: {
-              ordersGrowth: 0,
-              revenueGrowth: 0,
-              customerGrowth: 0
-            }
-          };
-          sampleChartData = {
-            categories: [],
-            series: [
-              {
-                name: 'Doanh thu',
-                data: []
-              },
-              {
-                name: 'Đơn hàng',
-                data: []
-              }
-            ]
-          };
+
+    try {
+      // Gọi API để lấy dữ liệu thống kê
+      await fetchOrderStats(period);
+
+      if (!orderStats) {
+        setIsLoading(false);
+        return;
       }
-      
-      setStats(sampleData);
-      setChartData(sampleChartData);
+
+      // Tính toán giá trị trung bình đơn hàng
+      const averageOrderValue = orderStats.totalOrders > 0
+        ? orderStats.totalRevenue / orderStats.totalOrders
+        : 0;
+
+      // Tạo dữ liệu thống kê
+      const periodStats: PeriodStats = {
+        totalOrders: orderStats.totalOrders,
+        totalRevenue: orderStats.totalRevenue,
+        averageOrderValue,
+        completedOrders: orderStats.completedOrders,
+        newCustomers: Math.round(orderStats.totalOrders * 0.3), // Giả định 30% đơn hàng là từ khách hàng mới
+        comparisonStats: {
+          ordersGrowth: 8.5, // Giả định tăng trưởng
+          revenueGrowth: 10.2,
+          customerGrowth: 7.8
+        }
+      };
+
+      // Tạo dữ liệu biểu đồ
+      let categories: string[] = [];
+      let revenueData: number[] = [];
+      let orderData: number[] = [];
+
+      // Lấy dữ liệu từ orderStats.monthlyStats
+      if (orderStats.monthlyStats && orderStats.monthlyStats.length > 0) {
+        // Tùy chỉnh dữ liệu theo loại thời gian
+        let monthlyData = [...orderStats.monthlyStats];
+
+        // Nếu là tuần, chỉ lấy 7 ngày gần nhất
+        if (period === 'week') {
+          categories = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
+          // Tạo dữ liệu mẫu cho tuần
+          revenueData = [15.5, 18.7, 21.3, 25.8, 28.4, 22.1, 16.5];
+          orderData = [25, 32, 37, 45, 48, 37, 28];
+        }
+        // Nếu là tháng, chia thành 4 tuần
+        else if (period === 'month') {
+          categories = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+          // Tạo dữ liệu mẫu cho tháng
+          revenueData = [78.5, 92.3, 105.7, 88.6];
+          orderData = [148, 175, 192, 165];
+        }
+        // Nếu là quý, lấy 3 tháng gần nhất
+        else if (period === 'quarter') {
+          if (monthlyData.length >= 3) {
+            const last3Months = monthlyData.slice(-3);
+            categories = last3Months.map(item => item.month);
+            revenueData = last3Months.map(item => item.revenue / 1000000); // Chuyển sang đơn vị triệu
+            orderData = last3Months.map(item => item.orders);
+          } else {
+            categories = ['Tháng 1', 'Tháng 2', 'Tháng 3'];
+            revenueData = [265.2, 318.7, 295.4];
+            orderData = [515, 620, 565];
+          }
+        }
+        // Nếu là năm, chia thành 4 quý
+        else if (period === 'year') {
+          categories = ['Q1', 'Q2', 'Q3', 'Q4'];
+          // Tạo dữ liệu mẫu cho năm
+          revenueData = [879.3, 945.8, 820.5, 1025.7];
+          orderData = [1700, 1850, 1590, 1980];
+        }
+        // Mặc định, sử dụng dữ liệu từ orderStats.monthlyStats
+        else {
+          categories = monthlyData.map(item => item.month);
+          revenueData = monthlyData.map(item => item.revenue / 1000000); // Chuyển sang đơn vị triệu
+          orderData = monthlyData.map(item => item.orders);
+        }
+      }
+
+      const newChartData: ChartData = {
+        categories,
+        series: [
+          {
+            name: 'Doanh thu (triệu)',
+            data: revenueData
+          },
+          {
+            name: 'Đơn hàng',
+            data: orderData
+          }
+        ]
+      };
+
+      setStats(periodStats);
+      setChartData(newChartData);
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu thống kê:', error);
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
-  
+
   // Fetch dữ liệu khi component mount hoặc khi periodType thay đổi
   useEffect(() => {
     fetchStatsByPeriod(periodType);
-  }, [periodType]);
-  
+  }, [periodType, fetchOrderStats, orderStats]);
+
   // Vẽ biểu đồ khi dữ liệu thay đổi
   useEffect(() => {
     if (!isLoading && chartData.categories.length > 0) {
@@ -232,7 +184,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
         setTimeout(() => {
           const revenueChart = document.getElementById('revenueChart');
           const ordersChart = document.getElementById('ordersChart');
-          
+
           if (revenueChart && ordersChart) {
             // Vẽ biểu đồ doanh thu
             const revenueCtx = (revenueChart as HTMLCanvasElement).getContext('2d');
@@ -240,7 +192,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
             if ((window as any).chartInstances?.revenue) {
               (window as any).chartInstances.revenue.destroy();
             }
-            
+
             if (revenueCtx) {
               (window as any).chartInstances = (window as any).chartInstances || {};
               (window as any).chartInstances.revenue = new (window as any).Chart(revenueCtx, {
@@ -272,14 +224,14 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 }
               });
             }
-            
+
             // Vẽ biểu đồ đơn hàng
             const ordersCtx = (ordersChart as HTMLCanvasElement).getContext('2d');
             // Xóa biểu đồ cũ nếu tồn tại
             if ((window as any).chartInstances?.orders) {
               (window as any).chartInstances.orders.destroy();
             }
-            
+
             if (ordersCtx) {
               (window as any).chartInstances = (window as any).chartInstances || {};
               (window as any).chartInstances.orders = new (window as any).Chart(ordersCtx, {
@@ -316,7 +268,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       }
     }
   }, [chartData, isLoading, isTrendsPage]);
-  
+
   // Định dạng số tiền thành VND
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -325,17 +277,17 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       maximumFractionDigits: 0
     }).format(amount);
   };
-  
+
   // Tính chiều cao tối đa cho biểu đồ dạng cột
   const getMaxValue = (data: number[]) => {
     return Math.max(...data);
   };
-  
+
   // Chuyển đổi giá trị thành chiều cao phần trăm cho biểu đồ đơn giản
   const calculateBarHeight = (value: number, maxValue: number) => {
     return (value / maxValue) * 100;
   };
-  
+
   return (
     <div className="bg-white shadow-md rounded-lg p-6 mb-6">
       {/* Header với các tab thời gian */}
@@ -351,36 +303,36 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
             <span className="ml-2 text-xs text-gray-500 font-normal hidden md:inline-block">(Xem thêm số liệu chi tiết tại trang Phân tích xu hướng)</span>
           )}
         </h2>
-        
+
         <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
-          <button 
-            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'week' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`} 
+          <button
+            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'week' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
             onClick={() => onPeriodChange('week')}
           >
             Tuần
           </button>
-          <button 
-            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'month' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`} 
+          <button
+            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'month' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
             onClick={() => onPeriodChange('month')}
           >
             Tháng
           </button>
-          <button 
-            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'quarter' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`} 
+          <button
+            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'quarter' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
             onClick={() => onPeriodChange('quarter')}
           >
             Quý
           </button>
-          <button 
-            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'year' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`} 
+          <button
+            className={`px-3 py-2 text-sm font-medium rounded-md ${periodType === 'year' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
             onClick={() => onPeriodChange('year')}
           >
             Năm
           </button>
         </div>
       </div>
-      
-      {isLoading ? (
+
+      {isLoading || contextLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-pink-500"></div>
         </div>
@@ -408,7 +360,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <span className="text-xs text-gray-500 ml-1">so với kỳ trước</span>
               </div>
             </div>
-            
+
             <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -429,7 +381,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <span className="text-xs text-gray-500 ml-1">so với kỳ trước</span>
               </div>
             </div>
-            
+
             <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -444,7 +396,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <span>Trung bình trên mỗi đơn hàng</span>
               </div>
             </div>
-            
+
             <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -459,7 +411,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <span>{((stats.completedOrders / stats.totalOrders) * 100).toFixed(1)}% tổng đơn hàng</span>
               </div>
             </div>
-            
+
             <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -481,14 +433,14 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
               </div>
             </div>
           </div>
-          
+
           {/* Biểu đồ thống kê đơn giản */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h3 className="text-md font-medium text-gray-700 mb-4 flex items-center">
               <FiCalendar className="mr-2 text-pink-500" />
               Biểu đồ doanh thu và đơn hàng
             </h3>
-            
+
             {/* Biểu đồ doanh thu */}
             <div className="mt-6">
               <h4 className="text-sm font-medium text-gray-600 mb-2">Doanh thu (triệu VND)</h4>
@@ -496,7 +448,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <canvas id="revenueChart" className="w-full h-full"></canvas>
               </div>
             </div>
-            
+
             {/* Biểu đồ đơn hàng */}
             <div className="mt-10">
               <h4 className="text-sm font-medium text-gray-600 mb-2">Số đơn hàng</h4>
@@ -504,7 +456,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
                 <canvas id="ordersChart" className="w-full h-full"></canvas>
               </div>
             </div>
-            
+
             {/* Ghi chú */}
             <div className="flex justify-center mt-6">
               <div className="flex items-center mr-4">
@@ -521,4 +473,4 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       )}
     </div>
   );
-} 
+}

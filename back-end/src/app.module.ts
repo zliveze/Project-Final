@@ -19,8 +19,10 @@ import { VouchersModule } from './vouchers/vouchers.module'; // Import VouchersM
 import { EventsModule } from './events/events.module'; // Import EventsModule
 import { CampaignsModule } from './campaigns/campaigns.module'; // Import CampaignsModule
 import { CartsModule } from './carts/carts.module'; // Import CartsModule
+import { OrdersModule } from './orders/orders.module'; // Import OrdersModule
 import { CommonModule } from './common/common.module';
 import { WebsocketModule } from './websocket/websocket.module'; // Import WebsocketModule
+import { SharedModule } from './shared/shared.module'; // Import SharedModule
 
 @Module({
   imports: [
@@ -50,8 +52,10 @@ import { WebsocketModule } from './websocket/websocket.module'; // Import Websoc
     EventsModule, // Add EventsModule here
     CampaignsModule, // Add CampaignsModule here
     CartsModule, // Add CartsModule here
+    OrdersModule, // Add OrdersModule here
     CommonModule,
     WebsocketModule, // Add WebsocketModule here
+    SharedModule, // Add SharedModule here
   ],
   controllers: [AppController],
   providers: [AppService],

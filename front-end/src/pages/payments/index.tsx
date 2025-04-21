@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FiAlertCircle, FiMapPin, FiPlus, FiHome, FiCheck } from 'react-icons/fi';
+import { FiAlertCircle, FiPlus, FiCheck } from 'react-icons/fi';
 
 // Components
 import ShippingForm from '@/components/payments/ShippingForm';
@@ -16,6 +16,8 @@ import DefaultLayout from '@/layout/DefaultLayout';
 // Context
 import { useCart } from '@/contexts/user/cart/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserOrder, ShippingAddress, CreateOrderDto } from '@/contexts/user/UserOrderContext';
+import { useUserPayment } from '@/contexts/user/UserPaymentContext';
 
 // API
 import { UserApiService } from '@/contexts/user/UserApiService';
@@ -69,7 +71,7 @@ interface UserAddress {
 const PaymentsPage: NextPage = () => {
   const router = useRouter();
   const { user } = useAuth();
-  
+
   // Lấy dữ liệu giỏ hàng từ CartContext
   const {
     cartItems,
@@ -79,24 +81,25 @@ const PaymentsPage: NextPage = () => {
     total,
     voucherCode,
     isLoading: cartLoading,
-    itemCount
+    itemCount,
+    clearCart
   } = useCart();
-  
+
   // State
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   // State cho thông tin giao hàng và phương thức thanh toán
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
-  
+
   // State cho địa chỉ người dùng
   const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  
+
   // Chuyển đổi từ CartItems sang OrderItems
   useEffect(() => {
     if (!cartLoading) {
@@ -110,7 +113,7 @@ const PaymentsPage: NextPage = () => {
         router.push('/cart');
         return;
       }
-      
+
       // Convert cartItems to orderItems format
       const items: OrderItem[] = cartItems.map(item => ({
         _id: item.variantId,
@@ -120,12 +123,12 @@ const PaymentsPage: NextPage = () => {
         quantity: item.quantity,
         image: item.image
       }));
-      
+
       setOrderItems(items);
       setIsLoading(false);
     }
   }, [cartItems, cartLoading, router, itemCount]);
-  
+
   // Tải danh sách địa chỉ của người dùng
   useEffect(() => {
     const fetchUserAddresses = async () => {
@@ -134,12 +137,12 @@ const PaymentsPage: NextPage = () => {
           // Lấy thông tin user profile từ API hoặc từ user object nếu đã có
           if (user.addresses && user.addresses.length > 0) {
             setUserAddresses(user.addresses);
-            
+
             // Tìm địa chỉ mặc định
             const defaultAddress = user.addresses.find(addr => addr.isDefault);
             if (defaultAddress) {
               setSelectedAddressId(defaultAddress._id);
-              
+
               // Chuyển đổi dữ liệu địa chỉ sang định dạng ShippingInfo
               const addressParts: string[] = defaultAddress.addressLine.split(',').map((part: string) => part.trim());
               const addressData: ShippingInfo = {
@@ -152,7 +155,7 @@ const PaymentsPage: NextPage = () => {
                 ward: addressParts.length > 1 ? addressParts[1] : '',
                 notes: ''
               };
-              
+
               setShippingInfo(addressData);
               localStorage.setItem('shippingInfo', JSON.stringify(addressData));
             }
@@ -164,14 +167,14 @@ const PaymentsPage: NextPage = () => {
             } else {
               // Nếu không có địa chỉ và không có thông tin giao hàng đã lưu, hiển thị form nhập địa chỉ
               setShowAddressForm(true);
-              
+
               // Điền trước thông tin cơ bản từ user
               const initialShippingInfo: Partial<ShippingInfo> = {
                 fullName: user.name || '',
                 email: user.email || '',
                 phone: user.phoneNumber || ''
               };
-              
+
               setShippingInfo(initialShippingInfo as ShippingInfo);
             }
           }
@@ -189,7 +192,7 @@ const PaymentsPage: NextPage = () => {
         }
       }
     };
-    
+
     fetchUserAddresses();
   }, [user]);
 
@@ -197,7 +200,7 @@ const PaymentsPage: NextPage = () => {
   const handleSelectAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
     setShowAddressForm(false);
-    
+
     // Tìm địa chỉ được chọn
     const selectedAddress = userAddresses.find(addr => addr._id === addressId);
     if (selectedAddress) {
@@ -213,10 +216,10 @@ const PaymentsPage: NextPage = () => {
         ward: addressParts.length > 1 ? addressParts[1] : '',
         notes: ''
       };
-      
+
       setShippingInfo(addressData);
       localStorage.setItem('shippingInfo', JSON.stringify(addressData));
-      
+
       // Xóa thông báo lỗi khi người dùng chọn địa chỉ
       setErrorMessage(null);
     }
@@ -226,7 +229,7 @@ const PaymentsPage: NextPage = () => {
   const handleAddNewAddress = () => {
     setSelectedAddressId(null);
     setShowAddressForm(true);
-    
+
     // Điền trước thông tin cơ bản từ user nếu đã đăng nhập
     if (user) {
       setShippingInfo({
@@ -248,23 +251,23 @@ const PaymentsPage: NextPage = () => {
   const handleShippingInfoSubmit = (values: ShippingInfo) => {
     setShippingInfo(values);
     setErrorMessage(null); // Xóa thông báo lỗi khi lưu thông tin thành công
-    
+
     // Lưu thông tin giao hàng vào localStorage để sử dụng lần sau
     localStorage.setItem('shippingInfo', JSON.stringify(values));
-    
+
     toast.success('Đã cập nhật thông tin giao hàng', {
       position: "bottom-right",
       autoClose: 2000,
       theme: "light",
       style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
     });
-    
+
     // Nếu đã đăng nhập và đang ở chế độ thêm địa chỉ mới, lưu địa chỉ vào tài khoản
     if (user && user._id && values.address && values.city && values.district && values.ward) {
       saveAddressToAccount(values);
     }
   };
-  
+
   // Lưu địa chỉ vào tài khoản người dùng
   const saveAddressToAccount = async (addressData: ShippingInfo) => {
     try {
@@ -276,20 +279,20 @@ const PaymentsPage: NextPage = () => {
         postalCode: '',
         isDefault: userAddresses.length === 0 // Đặt làm mặc định nếu là địa chỉ đầu tiên
       };
-      
+
       // Gọi API để lưu địa chỉ
       const updatedUser = await UserApiService.addAddress(formattedAddress);
-      
+
       // Cập nhật danh sách địa chỉ
       if (updatedUser && updatedUser.addresses) {
         setUserAddresses(updatedUser.addresses);
-        
+
         // Tìm địa chỉ vừa thêm
         const newAddress = updatedUser.addresses[updatedUser.addresses.length - 1];
         if (newAddress) {
           setSelectedAddressId(newAddress._id);
           setShowAddressForm(false);
-          
+
           toast.success('Đã lưu địa chỉ mới vào tài khoản của bạn', {
             position: "bottom-right",
             autoClose: 2000,
@@ -304,6 +307,10 @@ const PaymentsPage: NextPage = () => {
     }
   };
 
+  // Sử dụng UserOrderContext và UserPaymentContext
+  const { createOrder, calculateShippingFee } = useUserOrder();
+  const { createOrderWithCOD, createOrderWithStripe } = useUserPayment();
+
   // Xử lý đặt hàng
   const handlePlaceOrder = async () => {
     // Kiểm tra xem đã có thông tin giao hàng chưa
@@ -315,16 +322,16 @@ const PaymentsPage: NextPage = () => {
         autoClose: 3000,
         theme: "light"
       });
-      
+
       // Cuộn đến form thông tin giao hàng
       const shippingFormElement = document.querySelector('.shipping-form');
       if (shippingFormElement) {
         shippingFormElement.scrollIntoView({ behavior: 'smooth' });
       }
-      
+
       return;
     }
-    
+
     // Kiểm tra xem đã chọn phương thức thanh toán chưa
     if (!paymentMethod) {
       setErrorMessage('Vui lòng chọn phương thức thanh toán');
@@ -335,7 +342,7 @@ const PaymentsPage: NextPage = () => {
       });
       return;
     }
-    
+
     // Kiểm tra xem giỏ hàng có sản phẩm không
     if (itemCount === 0) {
       toast.error('Giỏ hàng của bạn đang trống. Không thể đặt hàng.', {
@@ -346,61 +353,101 @@ const PaymentsPage: NextPage = () => {
       router.push('/cart');
       return;
     }
-    
+
     // Xóa thông báo lỗi nếu mọi thứ hợp lệ
     setErrorMessage(null);
     setIsProcessing(true);
-    
+
     try {
+      // Chuyển đổi shippingInfo sang định dạng ShippingAddress
+      const shippingAddress: ShippingAddress = {
+        fullName: shippingInfo.fullName,
+        phone: shippingInfo.phone,
+        email: shippingInfo.email,
+        addressLine1: shippingInfo.address,
+        province: shippingInfo.city,
+        district: shippingInfo.district,
+        ward: shippingInfo.ward
+      };
+
       // Tạo dữ liệu đơn hàng
-      const orderData = {
-        shippingInfo,
-        paymentMethod,
+      const orderData: CreateOrderDto = {
         items: cartItems.map(item => ({
           productId: item.productId,
-          variantId: item.variantId,
+          variantId: item.variantId || '',
+          name: item.name,
+          image: item.image?.url,
           quantity: item.quantity,
           price: item.price,
-          name: item.name,
-          selectedOptions: item.selectedOptions || {},
-          selectedBranchId: item.selectedBranchId
+          options: item.selectedOptions || {}
         })),
         subtotal,
-        discount,
-        shipping,
-        total,
-        voucherCode: voucherCode || undefined
+        tax: 0,
+        shippingFee: shipping,
+        totalPrice: total,
+        finalPrice: total,
+        shippingAddress,
+        paymentMethod: paymentMethod as 'cod' | 'bank_transfer' | 'credit_card' | 'stripe',
+        notes: shippingInfo.notes
       };
-      
+
+      // Nếu có voucher, thêm vào đơn hàng
+      if (voucherCode && discount > 0) {
+        orderData.voucher = {
+          voucherId: '', // Sẽ được xử lý ở backend
+          code: voucherCode,
+          discountAmount: discount
+        };
+      }
+
       // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
       localStorage.setItem('currentOrder', JSON.stringify(orderData));
-      
-      // Trong thực tế, đây sẽ là một API call để tạo đơn hàng
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // TODO: Gọi API để tạo đơn hàng
-      // const response = await fetch(`${API_URL}/orders`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     ...getAuthHeaders()
-      //   },
-      //   body: JSON.stringify(orderData)
-      // });
-      
-      // if (!response.ok) {
-      //   throw new Error('Lỗi khi tạo đơn hàng');
-      // }
-      
-      // const orderResult = await response.json();
-      
-      // Tạo đơn hàng thành công, chuyển đến trang xác nhận
-      router.push('/payments/success');
-    } catch (error) {
+
+      let result;
+
+      // Xử lý theo phương thức thanh toán
+      if (paymentMethod === 'cod') {
+        // Tạo đơn hàng với COD (sẽ tự động tạo vận đơn Viettel Post)
+        result = await createOrderWithCOD(orderData);
+
+        if (result) {
+          // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
+          localStorage.setItem('orderNumber', result.orderNumber);
+          localStorage.setItem('orderCreatedAt', result.createdAt);
+
+          // Xóa giỏ hàng
+          await clearCart();
+
+          // Chuyển đến trang thành công
+          router.push('/payments/success');
+        } else {
+          throw new Error('Không thể tạo đơn hàng');
+        }
+      } else if (paymentMethod === 'stripe' || paymentMethod === 'credit_card') {
+        // Tạo đơn hàng với Stripe
+        result = await createOrderWithStripe(orderData);
+
+        if (result) {
+          // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
+          localStorage.setItem('orderNumber', result.order.orderNumber);
+          localStorage.setItem('orderCreatedAt', result.order.createdAt);
+          localStorage.setItem('paymentIntentId', result.paymentIntent.id);
+          localStorage.setItem('paymentIntentClientSecret', result.paymentIntent.clientSecret);
+
+          // Chuyển đến trang thanh toán Stripe
+          router.push(`/payments/stripe?order_id=${result.order._id}`);
+        } else {
+          throw new Error('Không thể tạo đơn hàng với Stripe');
+        }
+      } else {
+        // Các phương thức thanh toán khác (chưa hỗ trợ)
+        throw new Error('Phương thức thanh toán chưa được hỗ trợ');
+      }
+    } catch (error: any) {
       console.error('Lỗi khi đặt hàng:', error);
       setIsProcessing(false);
-      setErrorMessage('Đã xảy ra lỗi khi xử lý đơn hàng. Vui lòng thử lại sau.');
-      
+      setErrorMessage(error.message || 'Đã xảy ra lỗi khi xử lý đơn hàng. Vui lòng thử lại sau.');
+
       // Xử lý lỗi, chuyển đến trang thất bại
       router.push('/payments/fail');
     }
@@ -422,7 +469,7 @@ const PaymentsPage: NextPage = () => {
       <main className="min-h-screen bg-gray-50 pb-12">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-2xl font-semibold text-gray-800 mt-6 mb-8">Thanh toán</h1>
-          
+
           {/* Hiển thị thông báo lỗi nếu có */}
           {errorMessage && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md">
@@ -436,7 +483,7 @@ const PaymentsPage: NextPage = () => {
               </div>
             </div>
           )}
-          
+
           {isLoading ? (
             // Hiển thị skeleton loading
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -449,7 +496,7 @@ const PaymentsPage: NextPage = () => {
                     <div className="h-10 bg-gray-200 rounded"></div>
                   </div>
                 </div>
-                
+
                 <div className="bg-white rounded-lg shadow-sm p-4 animate-pulse">
                   <div className="h-6 bg-gray-200 rounded w-1/4 mb-6"></div>
                   <div className="space-y-4">
@@ -459,7 +506,7 @@ const PaymentsPage: NextPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-lg shadow-sm p-4 animate-pulse">
                   <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -492,14 +539,14 @@ const PaymentsPage: NextPage = () => {
                 {/* Form thông tin giao hàng */}
                 <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 shipping-form">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>
-                  
+
                   {/* Hiển thị danh sách địa chỉ nếu user đã có địa chỉ */}
                   {userAddresses.length > 0 && (
                     <div className="mb-6">
                       <div className="flex justify-between items-center mb-3">
                         <h3 className="text-md font-medium text-gray-700">Địa chỉ của tôi</h3>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={handleAddNewAddress}
                           className="text-sm text-pink-600 hover:text-pink-700 flex items-center"
                         >
@@ -507,14 +554,14 @@ const PaymentsPage: NextPage = () => {
                           Thêm địa chỉ mới
                         </button>
                       </div>
-                      
+
                       <div className="space-y-3">
                         {userAddresses.map((address) => (
-                          <div 
-                            key={address._id} 
+                          <div
+                            key={address._id}
                             className={`border rounded-md p-3 cursor-pointer transition-colors ${
-                              selectedAddressId === address._id 
-                                ? 'border-pink-500 bg-pink-50' 
+                              selectedAddressId === address._id
+                                ? 'border-pink-500 bg-pink-50'
                                 : 'border-gray-200 hover:border-pink-300'
                             }`}
                             onClick={() => handleSelectAddress(address._id)}
@@ -544,7 +591,7 @@ const PaymentsPage: NextPage = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Hiển thị form nhập địa chỉ mới nếu không có địa chỉ hoặc chọn thêm địa chỉ mới */}
                   {(userAddresses.length === 0 || showAddressForm) && (
                     <ShippingForm
@@ -553,7 +600,7 @@ const PaymentsPage: NextPage = () => {
                       showSubmitButton={true}
                     />
                   )}
-                  
+
                   {/* Hiển thị thông tin đã lưu nếu đã chọn địa chỉ nhưng không muốn thêm mới */}
                   {shippingInfo && selectedAddressId && !showAddressForm && (
                     <div className="mt-4 lg:hidden">
@@ -584,7 +631,7 @@ const PaymentsPage: NextPage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Phương thức thanh toán */}
                 <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
                   <PaymentMethods
@@ -593,7 +640,7 @@ const PaymentsPage: NextPage = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="lg:col-span-1">
                 {/* Tóm tắt đơn hàng sử dụng dữ liệu từ CartContext */}
                 <OrderSummary
@@ -611,7 +658,7 @@ const PaymentsPage: NextPage = () => {
           )}
         </div>
       </main>
-      
+
       {/* Toast Container */}
       <ToastContainer
         position="bottom-right"
@@ -629,4 +676,4 @@ const PaymentsPage: NextPage = () => {
   );
 };
 
-export default PaymentsPage; 
+export default PaymentsPage;

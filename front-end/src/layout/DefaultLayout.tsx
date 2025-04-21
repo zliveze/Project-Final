@@ -132,15 +132,19 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
   return (
     <HeaderProvider>
       <div className="min-h-screen flex flex-col relative">
-        <BackgroundAnimation />
-        <MainHeader />
+        <div className="fixed inset-0 z-0">
+          <BackgroundAnimation />
+        </div>
+        <div className="sticky top-0 z-50">
+          <MainHeader />
+        </div>
         <div className="relative z-30">
            {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
-         </div>
-         <main className="flex-grow relative z-40"> {/* Tăng z-index */}
+        </div>
+        <main className="flex-grow relative z-20">
            {children}
-         </main>
-        <div className="relative z-10 mt-auto">
+        </main>
+        <div className="relative z-10">
           <Footer />
         </div>
         <ToastContainer

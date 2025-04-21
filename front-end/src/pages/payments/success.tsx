@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import { FiCheckCircle, FiHome, FiPackage, FiClock, FiFileText } from 'react-icons/fi';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
-import { useCart } from '@/contexts/user/cart/CartContext';
+import { useUserOrder } from '@/contexts/user/UserOrderContext';
 
 // Định nghĩa kiểu dữ liệu
 interface OrderData {
@@ -32,44 +32,54 @@ interface OrderData {
 
 const PaymentSuccessPage: NextPage = () => {
   const router = useRouter();
-  const { clearCart } = useCart();
-  
+
   const [orderNumber, setOrderNumber] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
 
+  const { fetchOrderDetail } = useUserOrder();
+
   useEffect(() => {
-    // Tạo mã đơn hàng ngẫu nhiên
-    const randomOrderNumber = `YM${Math.floor(100000 + Math.random() * 900000)}`;
-    setOrderNumber(randomOrderNumber);
+    const loadOrderData = async () => {
+      // Lấy thông tin đơn hàng từ localStorage
+      const savedOrderNumber = localStorage.getItem('orderNumber');
+      const savedOrderData = localStorage.getItem('currentOrder');
+      const savedOrderCreatedAt = localStorage.getItem('orderCreatedAt');
 
-    // Tính ngày giao hàng dự kiến (3-5 ngày từ hiện tại)
-    const today = new Date();
-    const deliveryDate = new Date(today);
-    deliveryDate.setDate(today.getDate() + 3 + Math.floor(Math.random() * 3)); // 3-5 ngày
-
-    // Format ngày giao hàng
-    const day = deliveryDate.getDate();
-    const month = deliveryDate.getMonth() + 1;
-    const year = deliveryDate.getFullYear();
-    setEstimatedDelivery(`${day < 10 ? '0' + day : day}/${month < 10 ? '0' + month : month}/${year}`);
-
-    // Lấy thông tin đơn hàng từ localStorage
-    const savedOrderData = localStorage.getItem('currentOrder');
-    if (savedOrderData) {
-      try {
-        const parsedData = JSON.parse(savedOrderData);
-        setOrderData(parsedData);
-        // Xóa giỏ hàng sau khi đặt hàng thành công
-        clearCart();
-      } catch (error) {
-        console.error('Lỗi khi phân tích dữ liệu đơn hàng:', error);
+      if (savedOrderNumber) {
+        setOrderNumber(savedOrderNumber);
+      } else {
+        // Tạo mã đơn hàng ngẫu nhiên nếu không có
+        const randomOrderNumber = `YM${Math.floor(100000 + Math.random() * 900000)}`;
+        setOrderNumber(randomOrderNumber);
       }
-    } else {
-      // Nếu không có dữ liệu đơn hàng, chuyển hướng về trang giỏ hàng
-      router.push('/cart');
-    }
-  }, [clearCart, router]);
+
+      // Tính ngày giao hàng dự kiến (3-5 ngày từ hiện tại)
+      const today = savedOrderCreatedAt ? new Date(savedOrderCreatedAt) : new Date();
+      const deliveryDate = new Date(today);
+      deliveryDate.setDate(today.getDate() + 3 + Math.floor(Math.random() * 3)); // 3-5 ngày
+
+      // Format ngày giao hàng
+      const day = deliveryDate.getDate();
+      const month = deliveryDate.getMonth() + 1;
+      const year = deliveryDate.getFullYear();
+      setEstimatedDelivery(`${day < 10 ? '0' + day : day}/${month < 10 ? '0' + month : month}/${year}`);
+
+      if (savedOrderData) {
+        try {
+          const parsedData = JSON.parse(savedOrderData);
+          setOrderData(parsedData);
+        } catch (error) {
+          console.error('Lỗi khi phân tích dữ liệu đơn hàng:', error);
+        }
+      } else {
+        // Nếu không có dữ liệu đơn hàng, chuyển hướng về trang giỏ hàng
+        router.push('/cart');
+      }
+    };
+
+    loadOrderData();
+  }, [router, fetchOrderDetail]);
 
   // Breadcrumb items
   const breadcrumbItems: BreadcrumItem[] = [
@@ -120,7 +130,7 @@ const PaymentSuccessPage: NextPage = () => {
               {orderData && (
                 <div className="border-t border-gray-200 pt-4 pb-2">
                   <p className="text-sm font-medium text-gray-700 mb-2">Thông tin đơn hàng</p>
-                  
+
                   <div className="text-sm text-gray-600 mb-4">
                     <p><span className="font-medium">Họ tên:</span> {orderData.shippingInfo.fullName}</p>
                     <p><span className="font-medium">Điện thoại:</span> {orderData.shippingInfo.phone}</p>

@@ -1,23 +1,18 @@
 import React from 'react';
 import { FiShoppingBag, FiDollarSign, FiClock } from 'react-icons/fi';
+import { useAdminOrder } from '@/contexts';
 
-interface OrderStatsProps {
-  newOrders: number;
-  processingOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  totalRevenue?: number;
-  todayRevenue?: number;
-}
+export default function OrderStats() {
+  const { orderStats } = useAdminOrder();
 
-export default function OrderStats({ 
-  newOrders, 
-  processingOrders, 
-  completedOrders, 
-  cancelledOrders,
-  totalRevenue = 0,
-  todayRevenue = 0
-}: OrderStatsProps) {
+  const {
+    pendingOrders: newOrders = 0,
+    processingOrders = 0,
+    completedOrders = 0,
+    cancelledOrders = 0,
+    totalRevenue = 0,
+    todayRevenue = 0
+  } = orderStats || {};
   // Định dạng số tiền thành VND
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -88,4 +83,4 @@ export default function OrderStats({
       </div>
     </div>
   );
-} 
+}
