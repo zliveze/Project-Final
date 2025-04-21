@@ -168,7 +168,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
          const province = provinces.find(p => p.provinceId === provinceIdNum);
          if(province) {
             setSelectedProvinceObj(province); // Set state object
-            fetchDistricts(provinceIdNum); // Fetch districts
+            fetchDistricts(province.provinceId); // Fetch districts
          }
       }
     } else {
@@ -204,7 +204,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
           const district = districts.find(d => d.districtId === districtIdNum);
           if(district) {
              setSelectedDistrictObj(district); // Set state object
-             fetchWards(districtIdNum); // Fetch wards
+             fetchWards(district.districtId); // Fetch wards
           }
        }
     } else {
@@ -264,8 +264,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     });
 
     // Dữ liệu `data` từ react-hook-form đã chứa đúng ID dạng số (lưu dưới dạng string)
-    // trong các trường provinceCode, districtCode, wardCode nhờ các hàm onChange đã sửa.
-    // Chỉ cần gọi onSubmit trực tiếp với data.
+    // trong các trường provinceCode, districtCode, wardCode
     onSubmit(data);
   };
 
@@ -329,13 +328,13 @@ const BranchForm: React.FC<BranchFormProps> = ({
                 // Tìm province dựa trên provinceId
                 const province = provinces.find(p => p.provinceId === provinceIdNum);
 
-                // Lưu PROVINCE_CODE thay vì provinceId
-                if (province && province.provinceCode) {
-                  setValue('provinceCode', province.provinceCode);
-                  console.log(`Using province code: ${province.provinceCode} instead of ID: ${provinceIdNum}`);
-                } else {
-                  // Fallback nếu không có provinceCode
+                // Lưu provinceId thay vì provinceCode
+                if (province) {
                   setValue('provinceCode', provinceIdStr);
+                  console.log(`Sử dụng provinceId: ${provinceIdStr}`);
+                } else {
+                  // Fallback nếu không có province
+                  setValue('provinceCode', '');
                 }
                 setValue('districtCode', ''); // Reset district RHF
                 setValue('wardCode', ''); // Reset ward RHF
@@ -350,7 +349,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
                   const province = provinces.find(p => p.provinceId === provinceIdNum);
                   setSelectedProvinceObj(province || null); // Lưu đối tượng province vào state
                   if (province) {
-                    console.log(`Selected province: ${province.provinceName} (ID: ${province.provinceId}, Code: ${province.provinceCode})`);
+                    console.log(`Selected province: ${province.provinceName} (ID: ${province.provinceId})`);
                     // Fetch districts bằng provinceId dạng số
                     fetchDistricts(province.provinceId);
                   } else {
@@ -386,8 +385,6 @@ const BranchForm: React.FC<BranchFormProps> = ({
               disabled={!watchedProvinceCode || loadingDistricts || districts.length === 0}
               onChange={(e) => {
                 // Lấy districtId từ value
-                const districtId = e.target.value;
-                // Lấy districtId từ value
                 const districtIdStr = e.target.value;
                 // Lưu districtId (dưới dạng string) vào trường districtCode của RHF
                 setValue('districtCode', districtIdStr);
@@ -401,7 +398,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
                   const district = districts.find(d => d.districtId === districtIdNum);
                   setSelectedDistrictObj(district || null); // Lưu đối tượng district vào state
                   if (district) {
-                    console.log(`Selected district: ${district.districtName} (ID: ${district.districtId}, Code: ${district.districtCode})`);
+                    console.log(`Selected district: ${district.districtName} (ID: ${district.districtId})`);
                     // Fetch wards bằng districtId dạng số
                     fetchWards(district.districtId);
                   } else {
@@ -437,8 +434,6 @@ const BranchForm: React.FC<BranchFormProps> = ({
               disabled={!watchedDistrictCode || loadingWards || wards.length === 0}
               onChange={(e) => {
                 // Lấy wardId từ value
-                const wardId = e.target.value;
-                // Lấy wardId từ value
                 const wardIdStr = e.target.value;
                 // Lưu wardId (dưới dạng string) vào trường wardCode của RHF
                 setValue('wardCode', wardIdStr);
@@ -449,7 +444,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
                   const ward = wards.find(w => w.wardId === wardIdNum);
                   setSelectedWardObj(ward || null); // Lưu đối tượng ward vào state
                   if (ward) {
-                    console.log(`Selected ward: ${ward.wardName} (ID: ${ward.wardId}, Code: ${ward.wardCode})`);
+                    console.log(`Selected ward: ${ward.wardName} (ID: ${ward.wardId})`);
                   } else {
                      setSelectedWardObj(null); // Clear nếu không tìm thấy
                   }

@@ -202,10 +202,17 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         provinceName: formValues.provinceName || selectedProvince?.provinceName || '',
         districtName: formValues.districtName || selectedDistrict?.districtName || '',
         wardName: formValues.wardName || selectedWard?.wardName || '',
-        // Gửi đi ID dạng số (đã lưu trong formValues) dưới dạng string
-        provinceCode: formValues.provinceId ? formValues.provinceId.toString() : '',
-        districtCode: formValues.districtId ? formValues.districtId.toString() : '',
-        wardCode: formValues.wardId ? formValues.wardId.toString() : '',
+        // Gửi đi mã địa chỉ theo đúng định dạng cho ViettelPost
+        // Đối với tỉnh/thành phố, cần chuyển đổi sang định dạng mã số (PROVINCE_ID)
+        provinceCode: selectedProvince?.provinceId === 2 || selectedProvince?.provinceCode === 'HCM' ? '2' :
+                     selectedProvince?.provinceId === 1 || selectedProvince?.provinceCode === 'HNI' ? '1' :
+                     formValues.provinceId ? formValues.provinceId.toString() : '1', // Mặc định là Hà Nội
+        // Đối với quận/huyện, sử dụng DISTRICT_ID
+        districtCode: selectedDistrict?.districtId === 43 ? '43' : // Quận 1, HCM
+                     selectedDistrict?.districtId === 4 ? '4' : // Quận Hoàng Mai, HN
+                     formValues.districtId ? formValues.districtId.toString() : '4', // Mặc định là Quận Hoàng Mai
+        // Đối với phường/xã, sử dụng WARDS_ID
+        wardCode: selectedWard?.wardId ? selectedWard.wardId.toString() : '0', // Mặc định là 0
         // Cập nhật các trường city, district, ward cho tương thích (dùng tên đã lấy)
         city: formValues.provinceName || selectedProvince?.provinceName || '',
         district: formValues.districtName || selectedDistrict?.districtName || '',

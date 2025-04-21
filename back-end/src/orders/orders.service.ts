@@ -716,6 +716,16 @@ export class OrdersService {
     try {
       this.logger.log(`Creating ViettelPost shipment for order ${order._id}`);
 
+      // Log thông tin địa chỉ gốc từ order
+      this.logger.debug('Original shipping address from order:', {
+        fullName: order.shippingAddress.fullName,
+        phone: order.shippingAddress.phone,
+        addressLine1: order.shippingAddress.addressLine1,
+        provinceCode: order.shippingAddress.provinceCode,
+        districtCode: order.shippingAddress.districtCode,
+        wardCode: order.shippingAddress.wardCode
+      });
+
       // Kiểm tra xem đơn hàng đã có mã vận đơn chưa
       if (order.trackingCode) {
         throw new BadRequestException(`Order ${order._id} already has tracking code: ${order.trackingCode}`);
@@ -931,15 +941,15 @@ export class OrdersService {
       throw new Error('Invalid address code format. Ensure data is standardized to ViettelPost numeric IDs.');
     }
 
-    // Sử dụng các mã địa chỉ mặc định từ ví dụ của ViettelPost
-    // Ghi đè các giá trị địa chỉ để đảm bảo tương thích với ViettelPost
-    const finalSenderWard = 0; // 0 là giá trị mặc định trong ví dụ của ViettelPost
-    const finalSenderDistrict = 4; // Mã quận Hoàng Mai, Hà Nội theo ví dụ của ViettelPost
-    const finalSenderProvince = 1; // PROVINCE_ID = 1 cho Hà Nội theo API ViettelPost
+    // Sử dụng các mã địa chỉ thực tế từ đơn hàng và chi nhánh
+    // Nếu các mã địa chỉ không hợp lệ, sử dụng giá trị mặc định
+    const finalSenderWard = senderWard || 0; // Sử dụng mã phường/xã thực tế của chi nhánh hoặc giá trị mặc định
+    const finalSenderDistrict = senderDistrict || 4; // Sử dụng mã quận/huyện thực tế của chi nhánh hoặc giá trị mặc định
+    const finalSenderProvince = senderProvince || 1; // Sử dụng mã tỉnh/thành phố thực tế của chi nhánh hoặc giá trị mặc định
 
-    const finalReceiverWard = 0; // 0 là giá trị mặc định trong ví dụ của ViettelPost
-    const finalReceiverDistrict = 43; // Mã quận 1, TP HCM theo ví dụ của ViettelPost
-    const finalReceiverProvince = 2; // PROVINCE_ID = 2 cho HCM theo API ViettelPost
+    const finalReceiverWard = receiverWard || 0; // Sử dụng mã phường/xã thực tế của người nhận hoặc giá trị mặc định
+    const finalReceiverDistrict = receiverDistrict || 43; // Sử dụng mã quận/huyện thực tế của người nhận hoặc giá trị mặc định
+    const finalReceiverProvince = receiverProvince || 2; // Sử dụng mã tỉnh/thành phố thực tế của người nhận hoặc giá trị mặc định
 
     this.logger.debug('Using hardcoded address codes for ViettelPost compatibility:', {
       originalSenderWard: senderWard,
@@ -963,26 +973,26 @@ export class OrdersService {
       // GROUPADDRESS_ID: 5818802,
       // CUS_ID: 722,
       DELIVERY_DATE: new Date().toISOString().split('T')[0].split('-').reverse().join('/') + ' ' + new Date().toTimeString().split(' ')[0], // Định dạng ngày giờ theo ví dụ của ViettelPost (DD/MM/YYYY HH:MM:SS)
-      SENDER_FULLNAME: 'Yanme Shop',
-      SENDER_ADDRESS: 'Số 5A ngách 22 ngõ 282 Kim Giang, Đại Kim, Quận Hoàng Mai, Hà Nội',
-      SENDER_PHONE: '0967.363.789',
-      SENDER_EMAIL: 'admin@yumin.vn', // Thêm email người gửi
+      SENDER_FULLNAME: storeName,
+      SENDER_ADDRESS: storeAddress,
+      SENDER_PHONE: senderPhone,
+      SENDER_EMAIL: 'admin@yumin.vn', // Email mặc định cho người gửi
       SENDER_WARD: finalSenderWard,
       SENDER_DISTRICT: finalSenderDistrict,
       SENDER_PROVINCE: finalSenderProvince,
-      RECEIVER_FULLNAME: 'Hoàng - Test',
-      RECEIVER_ADDRESS: '1 NKKN P.Nguyễn Thái Bình, Quận 1, TP Hồ Chí Minh',
-      RECEIVER_PHONE: '0907.882.792',
-      RECEIVER_EMAIL: 'customer@yumin.vn', // Thêm email người nhận
+      RECEIVER_FULLNAME: order.shippingAddress.fullName,
+      RECEIVER_ADDRESS: order.shippingAddress.addressLine1,
+      RECEIVER_PHONE: receiverPhone,
+      RECEIVER_EMAIL: 'customer@yumin.vn', // Email mặc định cho người nhận
       RECEIVER_WARD: finalReceiverWard,
       RECEIVER_DISTRICT: finalReceiverDistrict,
       RECEIVER_PROVINCE: finalReceiverProvince,
-      PRODUCT_NAME: 'Máy xay sinh tố Philips HR2118 2.0L',
-      PRODUCT_DESCRIPTION: 'Máy xay sinh tố Philips HR2118 2.0L',
+      PRODUCT_NAME: productDescription,
+      PRODUCT_DESCRIPTION: productDescription,
       PRODUCT_QUANTITY: totalQuantity,
-      PRODUCT_PRICE: 2292764,
+      PRODUCT_PRICE: order.finalPrice,
       PRODUCT_TYPE: 'HH', // Hàng hóa
-      MONEY_COLLECTION: 2292764,
+      MONEY_COLLECTION: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0,
       MONEY_TOTALFEE: 0, // Để 0 theo ví dụ của ViettelPost
       MONEY_FEECOD: 0,
       MONEY_FEEVAS: 0,
@@ -991,7 +1001,7 @@ export class OrdersService {
       MONEY_FEEOTHER: 0,
       MONEY_TOTALVAT: 0,
       MONEY_TOTAL: 0, // Để 0 theo ví dụ của ViettelPost
-      PRODUCT_WEIGHT: 40000, // 40kg theo ví dụ của ViettelPost
+      PRODUCT_WEIGHT: totalWeight || 40000, // Sử dụng trọng lượng thực tế hoặc giá trị mặc định
       PRODUCT_LENGTH: 38,
       PRODUCT_WIDTH: 24,
       PRODUCT_HEIGHT: 25,
@@ -1001,13 +1011,12 @@ export class OrdersService {
       ORDER_VOUCHER: '', // Thêm trường này theo ví dụ của ViettelPost
       ORDER_NOTE: order.notes || 'cho xem hàng, không cho thử', // Thêm ghi chú mặc định
       MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0,
-      // Bỏ qua trường LIST_ITEM vì có thể không cần thiết
-      // LIST_ITEM: order.items.map(item => ({
-      //   PRODUCT_NAME: item.name,
-      //   PRODUCT_PRICE: item.price,
-      //   PRODUCT_WEIGHT: 2500,
-      //   PRODUCT_QUANTITY: item.quantity
-      // }))
+      LIST_ITEM: order.items.map(item => ({
+        PRODUCT_NAME: item.name,
+        PRODUCT_PRICE: item.price,
+        PRODUCT_WEIGHT: 2500, // 2.5kg mặc định cho mỗi sản phẩm
+        PRODUCT_QUANTITY: item.quantity
+      }))
     };
 
     // Thêm thông tin debug về payload

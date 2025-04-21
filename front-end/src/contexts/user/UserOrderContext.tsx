@@ -28,11 +28,11 @@ export interface ShippingAddress {
   addressLine1: string;
   addressLine2?: string;
   ward: string;
-  wardCode?: string;
+  wardCode: string; // Bắt buộc cho ViettelPost
   district: string;
-  districtCode?: string;
+  districtCode: string; // Bắt buộc cho ViettelPost
   province: string;
-  provinceCode?: string;
+  provinceCode: string; // Bắt buộc cho ViettelPost
   postalCode?: string;
   country?: string;
 }

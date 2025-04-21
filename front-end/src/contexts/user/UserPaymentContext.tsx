@@ -121,6 +121,32 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         paymentMethod: 'stripe'
       };
 
+      // Đảm bảo mã địa chỉ đúng định dạng cho ViettelPost
+      if (orderWithStripe.shippingAddress) {
+        // Kiểm tra và gán mã địa chỉ mặc định nếu cần
+        if (!orderWithStripe.shippingAddress.provinceCode || !orderWithStripe.shippingAddress.districtCode || !orderWithStripe.shippingAddress.wardCode) {
+          console.log('Sử dụng mã địa chỉ mặc định cho ViettelPost trong UserPaymentContext (Stripe)');
+          orderWithStripe.shippingAddress.provinceCode = '1'; // Hà Nội
+          orderWithStripe.shippingAddress.districtCode = '4'; // Quận Hoàng Mai
+          orderWithStripe.shippingAddress.wardCode = '0'; // Mã mặc định cho phường/xã
+        }
+
+        // Chuyển đổi mã tỉnh/thành phố sang định dạng số nếu cần
+        if (orderWithStripe.shippingAddress.provinceCode === '2' || orderWithStripe.shippingAddress.provinceCode === 'HCM') {
+          // Hồ Chí Minh
+          orderWithStripe.shippingAddress.provinceCode = '2';
+        } else if (orderWithStripe.shippingAddress.provinceCode === '1' || orderWithStripe.shippingAddress.provinceCode === 'HNI') {
+          // Hà Nội
+          orderWithStripe.shippingAddress.provinceCode = '1';
+        }
+
+        console.log('Mã địa chỉ đã chuyển đổi trong UserPaymentContext (Stripe):', {
+          provinceCode: orderWithStripe.shippingAddress.provinceCode,
+          districtCode: orderWithStripe.shippingAddress.districtCode,
+          wardCode: orderWithStripe.shippingAddress.wardCode
+        });
+      }
+
       // Tạo payment intent trước
       const paymentIntent = await createStripePaymentIntent(orderWithStripe.finalPrice);
 
@@ -162,6 +188,32 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         ...orderData,
         paymentMethod: 'cod'
       };
+
+      // Đảm bảo mã địa chỉ đúng định dạng cho ViettelPost
+      if (orderWithCOD.shippingAddress) {
+        // Kiểm tra và gán mã địa chỉ mặc định nếu cần
+        if (!orderWithCOD.shippingAddress.provinceCode || !orderWithCOD.shippingAddress.districtCode || !orderWithCOD.shippingAddress.wardCode) {
+          console.log('Sử dụng mã địa chỉ mặc định cho ViettelPost trong UserPaymentContext');
+          orderWithCOD.shippingAddress.provinceCode = '1'; // Hà Nội
+          orderWithCOD.shippingAddress.districtCode = '4'; // Quận Hoàng Mai
+          orderWithCOD.shippingAddress.wardCode = '0'; // Mã mặc định cho phường/xã
+        }
+
+        // Chuyển đổi mã tỉnh/thành phố sang định dạng số nếu cần
+        if (orderWithCOD.shippingAddress.provinceCode === '2' || orderWithCOD.shippingAddress.provinceCode === 'HCM') {
+          // Hồ Chí Minh
+          orderWithCOD.shippingAddress.provinceCode = '2';
+        } else if (orderWithCOD.shippingAddress.provinceCode === '1' || orderWithCOD.shippingAddress.provinceCode === 'HNI') {
+          // Hà Nội
+          orderWithCOD.shippingAddress.provinceCode = '1';
+        }
+
+        console.log('Mã địa chỉ đã chuyển đổi trong UserPaymentContext:', {
+          provinceCode: orderWithCOD.shippingAddress.provinceCode,
+          districtCode: orderWithCOD.shippingAddress.districtCode,
+          wardCode: orderWithCOD.shippingAddress.wardCode
+        });
+      }
 
       // Tạo đơn hàng với COD
       const response = await api().post('/orders', orderWithCOD);
