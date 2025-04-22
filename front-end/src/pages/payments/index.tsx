@@ -79,6 +79,7 @@ const PaymentsPage: NextPage = () => {
     shipping,
     total: cartTotal,
     voucherCode,
+    voucherId,
     isLoading: cartLoading,
     itemCount,
     clearCart
@@ -750,10 +751,11 @@ const PaymentsPage: NextPage = () => {
       // Nếu có voucher, thêm vào đơn hàng
       if (voucherCode && discount > 0) {
         orderData.voucher = {
-          voucherId: '', // Sẽ được xử lý ở backend
+          voucherId: voucherId,
           code: voucherCode,
           discountAmount: discount
         };
+        console.log(`Adding voucher to order - code: ${voucherCode}, id: ${voucherId}, discount: ${discount}`);
       }
 
       // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success

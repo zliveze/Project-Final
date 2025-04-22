@@ -133,6 +133,7 @@ interface CartContextType {
   shipping: number;
   total: number;
   voucherCode: string;
+  voucherId: string;
   fetchCart: () => Promise<void>;
   addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined, null, or empty string variantId
   updateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>;
@@ -151,6 +152,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voucherCode, setVoucherCode] = useState<string>('');
+  const [voucherId, setVoucherId] = useState<string>('');
   const [shipping, setShipping] = useState<number>(0);
   const { isAuthenticated } = useAuth(); // Chỉ cần isAuthenticated từ context
   const {
@@ -816,6 +818,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (result) {
         setVoucherCode(code);
+        // Lưu voucherId từ kết quả API
+        if (result.voucherId) {
+          setVoucherId(result.voucherId);
+          console.log(`Applied voucher with ID: ${result.voucherId}`);
+        }
 
         // Không cập nhật phí vận chuyển ở đây nữa, phí vận chuyển sẽ được tính ở trang thanh toán
 
@@ -832,6 +839,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const clearVoucher = () => {
     clearAppliedVoucher();
     setVoucherCode('');
+    setVoucherId(''); // Reset voucherId
     // Không cập nhật phí vận chuyển ở đây nữa
   };
 
@@ -854,6 +862,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         shipping,
         total,
         voucherCode,
+        voucherId,
         fetchCart: fetchAndPopulateCart,
         addItemToCart,
         updateCartItem,

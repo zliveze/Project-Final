@@ -15,6 +15,7 @@ export interface Voucher {
   endDate: Date;
   usageLimit: number;
   usedCount: number;
+  usedByUsers?: string[]; // Thêm mảng chứa ID của người dùng đã sử dụng voucher
   applicableUserGroups?: {
     all: boolean;
     new: boolean;
@@ -75,6 +76,28 @@ export const useUserVoucher = (): UseUserVoucherResult => {
     const unavailable: Voucher[] = [];
 
     allVouchers.forEach((voucher: Voucher) => {
+      // Kiểm tra xem người dùng hiện tại đã sử dụng voucher này chưa
+      const isUsedByCurrentUser = () => {
+        if (!user?._id || !voucher.usedByUsers || voucher.usedByUsers.length === 0) return false;
+        
+        // Kiểm tra cả trường hợp ID thông thường và ID dạng MongoDB ObjectId
+        return voucher.usedByUsers.some(userId => {
+          // Trường hợp ID là chuỗi đơn giản
+          if (typeof userId === 'string') {
+            return userId === user._id;
+          }
+          
+          // Trường hợp ID là object từ MongoDB với $oid
+          // @ts-ignore - Bỏ qua kiểm tra kiểu dữ liệu cho trường hợp đặc biệt này
+          if (userId && userId.$oid) {
+            // @ts-ignore
+            return userId.$oid === user._id;
+          }
+          
+          return false;
+        });
+      };
+
       // Kiểm tra các điều kiện cơ bản
       const startDate = new Date(voucher.startDate);
       const endDate = new Date(voucher.endDate);
@@ -89,6 +112,12 @@ export const useUserVoucher = (): UseUserVoucherResult => {
         return voucher.applicableUserGroups.levels?.includes(user.customerLevel);
       };
 
+      // Kiểm tra nếu người dùng đã sử dụng voucher này rồi thì cho vào danh sách không khả dụng
+      if (isUsedByCurrentUser()) {
+        unavailable.push(voucher);
+        return; // Thoát sớm nếu người dùng đã sử dụng
+      }
+
       // Nếu đáp ứng tất cả các điều kiện, thêm vào danh sách khả dụng
       if (isActive && meetsMinimumOrder && isApplicableToUserLevel()) {
         available.push(voucher);
@@ -102,7 +131,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
     setUnavailableVouchers(unavailable);
 
     return { available, unavailable };
-  }, [user?.customerLevel]);
+  }, [user?._id, user?.customerLevel]);
 
   // Lấy tất cả voucher và phân loại
   const fetchAllVouchers = useCallback(async (
@@ -111,7 +140,6 @@ export const useUserVoucher = (): UseUserVoucherResult => {
     _productIds: string[] = []
   ): Promise<{available: Voucher[], unavailable: Voucher[]}> => {
     if (!isAuthenticated) {
-      console.log('Người dùng chưa đăng nhập, không thể lấy danh sách voucher');
       return {available: [], unavailable: []};
     }
 
@@ -123,7 +151,6 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       const response = await fetch(`${API_URL}/vouchers`, getAuthHeaders());
 
       if (!response.ok) {
-        console.error('Không thể tải danh sách voucher:', response.statusText);
         setIsLoading(false);
         return {available: [], unavailable: []};
       }
@@ -136,7 +163,6 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       setIsLoading(false);
       const errorMsg = err.message || 'Đã xảy ra lỗi khi tải voucher';
       setError(errorMsg);
-      console.error('Lỗi khi tải voucher:', err);
       return {available: [], unavailable: []};
     }
   }, [API_URL, getAuthHeaders, isAuthenticated, processVouchers]);
@@ -194,12 +220,11 @@ export const useUserVoucher = (): UseUserVoucherResult => {
         // Luôn gửi customerLevel, nếu không có thì gửi null
         customerLevel: user?.customerLevel || null
       };
-      console.log('[useUserVoucher] Applying voucher with payload:', JSON.stringify(payload, null, 2)); // Re-added log
 
       const response = await fetch(`${API_URL}/vouchers/apply`, {
         method: 'POST',
         ...getAuthHeaders(),
-        body: JSON.stringify(payload) // Send the logged payload - Corrected syntax
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -257,7 +282,6 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       setIsLoading(false);
       const errorMsg = err.message || 'Đã xảy ra lỗi khi tìm kiếm mã giảm giá';
       setError(errorMsg);
-      console.error('Lỗi khi tìm kiếm mã giảm giá:', err);
       return null;
     }
   }, [API_URL, getAuthHeaders, isAuthenticated]);

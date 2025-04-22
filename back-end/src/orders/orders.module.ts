@@ -10,6 +10,7 @@ import { SharedModule } from '../shared/shared.module';
 import { ConfigModule } from '@nestjs/config';
 import { ProductsModule } from '../products/products.module';
 import { BranchesModule } from '../branches/branches.module'; // Import BranchesModule
+import { VouchersModule } from '../vouchers/vouchers.module'; // Import VouchersModule
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BranchesModule } from '../branches/branches.module'; // Import Branches
     ConfigModule, // Import ConfigModule để sử dụng ConfigService
     ProductsModule, // Import ProductsModule để sử dụng ProductsService
     BranchesModule, // Add BranchesModule here
+    VouchersModule, // Import VouchersModule
   ],
   controllers: [OrdersAdminController, OrdersUserController, ShippingController],
   providers: [OrdersService],

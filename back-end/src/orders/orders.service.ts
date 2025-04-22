@@ -16,10 +16,11 @@ import { ViettelPostService } from '../shared/services/viettel-post.service';
 import { OrderTracking, OrderTrackingDocument } from './schemas/order-tracking.schema';
 import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../products/products.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 
 @Injectable()
 export class OrdersService {
-  private readonly logger = new Logger(OrdersService.name);
+  public readonly logger = new Logger(OrdersService.name);
 
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
@@ -29,6 +30,7 @@ export class OrdersService {
     private readonly viettelPostService: ViettelPostService,
     private readonly configService: ConfigService,
     private readonly productsService: ProductsService,
+    private readonly vouchersService: VouchersService,
   ) {}
 
   /**
@@ -76,6 +78,55 @@ export class OrdersService {
 
       // Giảm số lượng sản phẩm trong kho
       await this.decreaseProductInventory(createOrderDto.items);
+      
+      // Đánh dấu voucher đã được sử dụng nếu có
+      if (createOrderDto.voucher && createOrderDto.voucher.voucherId && createOrderDto.voucher.code) {
+        try {
+          this.logger.debug(`Marking voucher ${createOrderDto.voucher.code} as used by user ${userId}`);
+          this.logger.debug(`Voucher details: ${JSON.stringify(createOrderDto.voucher)}`);
+          
+          // Kiểm tra voucherId có đúng định dạng MongoDB ObjectId không
+          if (!Types.ObjectId.isValid(createOrderDto.voucher.voucherId)) {
+            this.logger.error(`Invalid voucher ID format: ${createOrderDto.voucher.voucherId}`);
+          } else {
+            // Kiểm tra voucher có tồn tại không trước khi đánh dấu đã sử dụng
+            const voucher = await this.vouchersService.findOne(createOrderDto.voucher.voucherId).catch(error => {
+              this.logger.error(`Error finding voucher: ${error.message}`);
+              return null;
+            });
+            
+            if (voucher) {
+              await this.vouchersService.markVoucherAsUsed(createOrderDto.voucher.voucherId, userId);
+              this.logger.debug(`Successfully marked voucher ${createOrderDto.voucher.code} as used by user ${userId}`);
+            } else {
+              this.logger.error(`Voucher with ID ${createOrderDto.voucher.voucherId} not found`);
+            }
+          }
+        } catch (error) {
+          this.logger.error(`Error marking voucher as used: ${error.message}`, error.stack);
+          // Không throw lỗi ở đây, vẫn tiếp tục xử lý đơn hàng
+        }
+      } else {
+        if (createOrderDto.voucher) {
+          this.logger.debug(`Voucher information incomplete: ${JSON.stringify(createOrderDto.voucher)}`);
+          
+          // Nếu có mã voucher nhưng không có voucherId, thử tìm voucher theo mã
+          if (createOrderDto.voucher.code && !createOrderDto.voucher.voucherId) {
+            try {
+              const voucher = await this.vouchersService.findByCode(createOrderDto.voucher.code);
+              if (voucher) {
+                this.logger.debug(`Found voucher by code: ${voucher._id}`);
+                await this.vouchersService.markVoucherAsUsed(voucher._id.toString(), userId);
+                this.logger.debug(`Successfully marked voucher ${createOrderDto.voucher.code} as used by user ${userId}`);
+              }
+            } catch (error) {
+              this.logger.error(`Error finding voucher by code: ${error.message}`, error.stack);
+            }
+          }
+        } else {
+          this.logger.debug(`No voucher in the order for user ${userId}`);
+        }
+      }
 
       // Nếu phương thức thanh toán là COD, tạo vận đơn Viettel Post
       if (createOrderDto.paymentMethod === PaymentMethod.COD) {

@@ -202,26 +202,68 @@ export class VouchersService {
   
   // Cập nhật voucher khi đơn hàng hoàn tất
   async markVoucherAsUsed(voucherId: string, userId: string): Promise<void> {
+    console.log(`[VoucherService] markVoucherAsUsed called with voucherId: ${voucherId}, userId: ${userId}`);
+    
     if (!Types.ObjectId.isValid(voucherId) || !Types.ObjectId.isValid(userId)) {
+      console.log(`[VoucherService] Invalid ID format - voucherId: ${voucherId}, userId: ${userId}`);
       throw new BadRequestException('ID không hợp lệ');
     }
     
-    // Sử dụng atomic operation để cập nhật
-    const result = await this.voucherModel.updateOne(
-      { 
-        _id: new Types.ObjectId(voucherId),
-        usedByUsers: { $ne: new Types.ObjectId(userId) }, // Đảm bảo chưa có userId trong danh sách
-        $expr: { $lt: ['$usedCount', '$usageLimit'] }, // Đảm bảo chưa đạt giới hạn sử dụng
-      },
-      { 
-        $inc: { usedCount: 1 },
-        $push: { usedByUsers: new Types.ObjectId(userId) }
-      }
-    );
+    // Kiểm tra xem voucher có tồn tại không
+    const voucher = await this.voucherModel.findById(voucherId);
+    if (!voucher) {
+      console.log(`[VoucherService] Voucher not found with ID: ${voucherId}`);
+      throw new NotFoundException(`Không tìm thấy voucher với ID ${voucherId}`);
+    }
     
-    if (result.matchedCount === 0) {
-      // Không tìm thấy voucher phù hợp hoặc voucher đã đạt giới hạn
-      throw new BadRequestException('Không thể đánh dấu voucher đã sử dụng');
+    console.log(`[VoucherService] Found voucher: ${voucher.code}, usedCount: ${voucher.usedCount}/${voucher.usageLimit}`);
+    console.log(`[VoucherService] Current usedByUsers: ${JSON.stringify(voucher.usedByUsers.map(id => id.toString()))}`);
+    
+    // Kiểm tra xem người dùng đã sử dụng voucher này chưa
+    const hasUserUsed = voucher.usedByUsers.some(id => id.toString() === userId);
+    console.log(`[VoucherService] Has user used this voucher? ${hasUserUsed}`);
+    
+    if (hasUserUsed) {
+      console.log(`[VoucherService] User ${userId} has already used voucher ${voucherId}`);
+      throw new BadRequestException('Người dùng đã sử dụng voucher này rồi');
+    }
+    
+    // Kiểm tra xem voucher còn lượt sử dụng không
+    if (voucher.usedCount >= voucher.usageLimit) {
+      console.log(`[VoucherService] Voucher ${voucherId} has reached usage limit: ${voucher.usedCount}/${voucher.usageLimit}`);
+      throw new BadRequestException('Voucher đã hết lượt sử dụng');
+    }
+    
+    try {
+      // Sử dụng atomic operation để cập nhật
+      const result = await this.voucherModel.updateOne(
+        { 
+          _id: new Types.ObjectId(voucherId),
+          usedByUsers: { $ne: new Types.ObjectId(userId) }, // Đảm bảo chưa có userId trong danh sách
+          $expr: { $lt: ['$usedCount', '$usageLimit'] }, // Đảm bảo chưa đạt giới hạn sử dụng
+        },
+        { 
+          $inc: { usedCount: 1 },
+          $push: { usedByUsers: new Types.ObjectId(userId) }
+        }
+      );
+      
+      console.log(`[VoucherService] Update result: ${JSON.stringify(result)}`);
+      
+      if (result.matchedCount === 0) {
+        // Không tìm thấy voucher phù hợp hoặc voucher đã đạt giới hạn
+        console.log(`[VoucherService] Failed to update voucher - matchedCount: ${result.matchedCount}, modifiedCount: ${result.modifiedCount}`);
+        throw new BadRequestException('Không thể đánh dấu voucher đã sử dụng');
+      }
+      
+      if (result.modifiedCount === 0) {
+        console.log(`[VoucherService] Voucher found but not modified - possible race condition or already updated`);
+      }
+      
+      console.log(`Voucher ${voucherId} đã được sử dụng bởi người dùng ${userId}. Lượt sử dụng hiện tại: ${voucher.usedCount + 1}/${voucher.usageLimit}`);
+    } catch (error) {
+      console.log(`[VoucherService] Error during voucher update: ${error.message}`);
+      throw error;
     }
   }
   
@@ -310,7 +352,7 @@ export class VouchersService {
       endDate: { $gte: now },
       $expr: { $lt: ['$usedCount', '$usageLimit'] },
       // Người dùng chưa sử dụng voucher này
-      usedByUsers: { $ne: new Types.ObjectId(userId) }
+      usedByUsers: { $nin: [new Types.ObjectId(userId)] }
     };
     
     // Thêm điều kiện về giá trị đơn hàng tối thiểu nếu có
