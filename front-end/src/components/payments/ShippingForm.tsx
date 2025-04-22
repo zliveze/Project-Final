@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave } from 'react-icons/fi';
+import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave, FiEdit } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 // Import service and data types
 import ViettelPostService, { ProvinceData, DistrictData, WardData } from '@/services/ViettelPostService';
@@ -11,7 +11,7 @@ interface District extends DistrictData {}
 interface Ward extends WardData {}
 
 // Update ShippingInfo to store IDs and potentially names separately
-interface ShippingInfo {
+export interface ShippingInfo {
   fullName: string;
   phone: string;
   email: string;
@@ -43,9 +43,15 @@ interface ShippingFormProps {
   initialValues?: ShippingInfo;
   onSubmit: (values: ShippingInfo) => void;
   showSubmitButton?: boolean;
+  disableEditing?: boolean; // Thêm prop để kiểm soát khả năng chỉnh sửa từ bên ngoài
 }
 
-const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, showSubmitButton = true }) => {
+const ShippingForm: React.FC<ShippingFormProps> = ({ 
+  initialValues, 
+  onSubmit, 
+  showSubmitButton = true,
+  disableEditing = false
+}) => {
   const [formValues, setFormValues] = useState<ShippingInfo>(
     initialValues || {
       fullName: '',
@@ -62,6 +68,9 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
     }
   );
 
+  // State để kiểm soát việc chỉnh sửa form
+  const [isEditing, setIsEditing] = useState<boolean>(true);  // Luôn bật chế độ chỉnh sửa mặc định
+  
   const [errors, setErrors] = useState<Partial<ShippingInfo>>({});
 
   // Use updated interfaces for state
@@ -186,6 +195,20 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
     return isValid;
   };
 
+  // Hàm để bắt đầu chỉnh sửa
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  // Hàm để hủy chỉnh sửa và quay lại giá trị ban đầu
+  const handleCancel = () => {
+    if (initialValues) {
+      setFormValues(initialValues);
+      setErrors({});
+    }
+    setIsEditing(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
@@ -226,12 +249,25 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
       });
 
       onSubmit(submittedData);
+      
+      // Nếu đang ở chế độ chỉnh sửa, tắt chế độ chỉnh sửa sau khi lưu
+      if (initialValues) {
+        setIsEditing(false);
+        toast.success('Đã cập nhật thông tin địa chỉ thành công');
+      }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {!initialValues?.fullName && <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin giao hàng</h2>}
+      <div className="flex justify-between items-center mb-4">
+        {!initialValues?.fullName && <h2 className="text-lg font-semibold text-gray-800">Thông tin giao hàng</h2>}
+        {initialValues && (
+          <div className="flex items-center">
+            <h2 className="text-lg font-semibold text-gray-800 flex-grow">Thông tin giao hàng</h2>
+          </div>
+        )}
+      </div>
 
       {/* Họ tên */}
       <div>
@@ -243,7 +279,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             <FiUser className="text-gray-400" />
           </div>
           <input type="text" id="fullName" name="fullName" value={formValues.fullName} onChange={handleChange}
-            className={`pl-10 w-full px-4 py-2 border ${errors.fullName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51]`}
+            disabled={!isEditing}
+            className={`pl-10 w-full px-4 py-2 border ${errors.fullName ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] ${!isEditing ? 'bg-gray-100' : ''}`}
             placeholder="Nhập họ tên" />
         </div>
         {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
@@ -259,7 +296,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             <FiPhone className="text-gray-400" />
           </div>
           <input type="tel" id="phone" name="phone" value={formValues.phone} onChange={handleChange}
-            className={`pl-10 w-full px-4 py-2 border ${errors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500`}
+            disabled={!isEditing}
+            className={`pl-10 w-full px-4 py-2 border ${errors.phone ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 ${!isEditing ? 'bg-gray-100' : ''}`}
             placeholder="Nhập số điện thoại (ví dụ: 0987654321)" />
         </div>
         {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
@@ -274,7 +312,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             <FiMail className="text-gray-400" />
           </div>
           <input type="email" id="email" name="email" value={formValues.email} onChange={handleChange}
-            className={`pl-10 w-full px-4 py-2 border ${errors.email ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51]`}
+            disabled={!isEditing}
+            className={`pl-10 w-full px-4 py-2 border ${errors.email ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] ${!isEditing ? 'bg-gray-100' : ''}`}
             placeholder="Nhập email" />
         </div>
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
@@ -290,7 +329,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             <FiHome className="text-gray-400" />
           </div>
           <input type="text" id="address" name="address" value={formValues.address} onChange={handleChange}
-            className={`pl-10 w-full px-4 py-2 border ${errors.address ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51]`}
+            disabled={!isEditing}
+            className={`pl-10 w-full px-4 py-2 border ${errors.address ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] ${!isEditing ? 'bg-gray-100' : ''}`}
             placeholder="Nhập địa chỉ" />
         </div>
         {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
@@ -307,8 +347,9 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <FiMapPin className="text-gray-400" />
             </div>
-            <select id="provinceId" name="provinceId" value={formValues.provinceId} onChange={handleChange} disabled={loadingProvinces}
-              className={`pl-10 w-full px-4 py-2 border ${errors.provinceId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${loadingProvinces ? 'cursor-wait opacity-70' : ''}`}>
+            <select id="provinceId" name="provinceId" value={formValues.provinceId} onChange={handleChange} 
+              disabled={!isEditing || loadingProvinces}
+              className={`pl-10 w-full px-4 py-2 border ${errors.provinceId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${loadingProvinces ? 'cursor-wait opacity-70' : ''} ${!isEditing ? 'bg-gray-100' : ''}`}>
               <option value="">Chọn tỉnh/thành phố</option>
               {provinces.map((province) => (
                 <option key={province.provinceId} value={province.provinceId}>
@@ -330,8 +371,9 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           <label htmlFor="districtId" className="block text-sm font-medium text-gray-700 mb-1">
             Quận/Huyện <span className="text-red-500">*</span>
           </label>
-          <select id="districtId" name="districtId" value={formValues.districtId} onChange={handleChange} disabled={!formValues.provinceId || loadingDistricts}
-            className={`w-full px-4 py-2 border ${errors.districtId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${!formValues.provinceId || loadingDistricts ? 'cursor-not-allowed opacity-70' : ''}`}>
+          <select id="districtId" name="districtId" value={formValues.districtId} onChange={handleChange} 
+            disabled={!isEditing || !formValues.provinceId || loadingDistricts}
+            className={`w-full px-4 py-2 border ${errors.districtId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${!formValues.provinceId || loadingDistricts ? 'cursor-not-allowed opacity-70' : ''} ${!isEditing ? 'bg-gray-100' : ''}`}>
             <option value="">Chọn quận/huyện</option>
             {districts.map((district) => (
               <option key={district.districtId} value={district.districtId}>
@@ -352,8 +394,9 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
           <label htmlFor="wardId" className="block text-sm font-medium text-gray-700 mb-1">
             Phường/Xã <span className="text-red-500">*</span>
           </label>
-          <select id="wardId" name="wardId" value={formValues.wardId} onChange={handleChange} disabled={!formValues.districtId || loadingWards}
-            className={`w-full px-4 py-2 border ${errors.wardId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${!formValues.districtId || loadingWards ? 'cursor-not-allowed opacity-70' : ''}`}>
+          <select id="wardId" name="wardId" value={formValues.wardId} onChange={handleChange} 
+            disabled={!isEditing || !formValues.districtId || loadingWards}
+            className={`w-full px-4 py-2 border ${errors.wardId ? 'border-red-300' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] bg-white ${!formValues.districtId || loadingWards ? 'cursor-not-allowed opacity-70' : ''} ${!isEditing ? 'bg-gray-100' : ''}`}>
             <option value="">Chọn phường/xã</option>
             {wards.map((ward) => (
               <option key={ward.wardId} value={ward.wardId}>
@@ -374,7 +417,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
       <div>
         <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
         <textarea id="notes" name="notes" value={formValues.notes} onChange={handleChange} rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51]"
+          disabled={!isEditing}
+          className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#306E51] focus:border-[#306E51] ${!isEditing ? 'bg-gray-100' : ''}`}
           placeholder="Nhập ghi chú (nếu có)" />
       </div>
 
@@ -388,14 +432,24 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ initialValues, onSubmit, sh
         </div>
       )}
 
-      {/* Nút lưu thông tin */}
-      {showSubmitButton && (
-        <div className="mt-8">
+      {/* Nút lưu thông tin và hủy */}
+      {showSubmitButton && isEditing && (
+        <div className="mt-8 flex flex-col md:flex-row gap-3">
           <button type="submit"
-            className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:opacity-90 transition-opacity flex items-center justify-center">
+            className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:opacity-90 transition-opacity flex items-center justify-center">
             <FiSave className="mr-2" />
-            Lưu thông tin giao hàng
+            {initialValues ? 'Cập nhật địa chỉ' : 'Lưu thông tin giao hàng'}
           </button>
+          
+          {initialValues && (
+            <button 
+              type="button" 
+              onClick={handleCancel}
+              className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors flex items-center justify-center"
+            >
+              Hủy thay đổi
+            </button>
+          )}
         </div>
       )}
     </form>

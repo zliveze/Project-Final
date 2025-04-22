@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FiAlertCircle, FiPlus, FiCheck } from 'react-icons/fi';
+import { FiAlertCircle, FiPlus, FiCheck, FiEdit } from 'react-icons/fi';
 
 // Components
-import ShippingForm from '@/components/payments/ShippingForm';
+import ShippingForm, { ShippingInfo } from '@/components/payments/ShippingForm';
 import PaymentMethods, { PaymentMethod } from '@/components/payments/PaymentMethods';
 import OrderSummary from '@/components/payments/OrderSummary';
 import Breadcrum from '@/components/common/Breadcrum';
@@ -34,18 +34,7 @@ interface User {
   role: string;
 }
 
-// Định nghĩa kiểu dữ liệu
-interface ShippingInfo {
-  fullName: string;
-  phone: string;
-  email: string;
-  address: string;
-  city: string;
-  district: string;
-  ward: string;
-  notes?: string;
-}
-
+// Thêm lại OrderItem interface đã bị mất
 interface OrderItem {
   _id: string;
   name: string;
@@ -109,6 +98,9 @@ const PaymentsPage: NextPage = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
 
+  // Thêm state mới để quản lý việc sửa địa chỉ
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+
   // Chuyển đổi từ CartItems sang OrderItems
   useEffect(() => {
     if (!cartLoading) {
@@ -162,7 +154,19 @@ const PaymentsPage: NextPage = () => {
                 city: defaultAddress.city || '',
                 district: addressParts.length > 2 ? addressParts[2] : '',
                 ward: addressParts.length > 1 ? addressParts[1] : '',
-                notes: ''
+                notes: '',
+                // Thêm các trường mới cho ViettelPost
+                provinceId: defaultAddress.provinceCode,
+                districtId: defaultAddress.districtCode,
+                wardId: defaultAddress.wardCode,
+                // Thêm các thông tin tên cần thiết
+                provinceName: defaultAddress.city,
+                districtName: defaultAddress.district,
+                wardName: defaultAddress.ward,
+                // Thêm mã code nếu có
+                provinceCode: defaultAddress.provinceCode,
+                districtCode: defaultAddress.districtCode,
+                wardCode: defaultAddress.wardCode
               };
 
               // Log thông tin để debug
@@ -227,7 +231,19 @@ const PaymentsPage: NextPage = () => {
         city: selectedAddress.city || '',
         district: addressParts.length > 2 ? addressParts[2] : '',
         ward: addressParts.length > 1 ? addressParts[1] : '',
-        notes: ''
+        notes: '',
+        // Thêm các trường mới cho ViettelPost
+        provinceId: selectedAddress.provinceCode,
+        districtId: selectedAddress.districtCode,
+        wardId: selectedAddress.wardCode,
+        // Thêm các thông tin tên cần thiết
+        provinceName: selectedAddress.provinceName || selectedAddress.city,
+        districtName: selectedAddress.districtName || selectedAddress.state,
+        wardName: selectedAddress.wardName,
+        // Thêm mã code nếu có
+        provinceCode: selectedAddress.provinceCode,
+        districtCode: selectedAddress.districtCode,
+        wardCode: selectedAddress.wardCode
       };
 
       // Log thông tin để debug
@@ -244,57 +260,55 @@ const PaymentsPage: NextPage = () => {
 
   // Xử lý khi muốn thêm địa chỉ mới
   const handleAddNewAddress = () => {
-    setSelectedAddressId(null);
+    if (selectedAddressId) setSelectedAddressId(null);
     setShowAddressForm(true);
+    setEditingAddressId(null); // Reset trạng thái sửa địa chỉ khi thêm địa chỉ mới
+  };
 
-    // Điền trước thông tin cơ bản từ user nếu đã đăng nhập
-    if (user) {
-      const newShippingInfo = {
-        fullName: user.name || '',
-        phone: user.phoneNumber || user.phone || '', // Đảm bảo số điện thoại được lấy từ profile
-        email: user.email || '',
-        address: '',
-        city: '',
-        district: '',
-        ward: '',
-        notes: ''
-      };
+  // Thêm hàm mới để bắt đầu sửa địa chỉ
+  const handleEditAddress = (addressId: string) => {
+    setEditingAddressId(addressId);
+    setShowAddressForm(true); // Hiển thị form
+    setSelectedAddressId(null); // Bỏ chọn địa chỉ hiện tại
 
-      // Log thông tin để debug
-      console.log('User phone for new address:', user.phoneNumber || user.phone);
-      console.log('New shipping info with phone:', newShippingInfo);
-
-      setShippingInfo(newShippingInfo);
-    } else {
-      setShippingInfo(null);
+    // Tìm địa chỉ cần sửa
+    const addressToEdit = userAddresses.find(addr => addr._id === addressId);
+    if (addressToEdit) {
+      // Chuyển đổi thành dữ liệu ShippingInfo
+      const convertedAddress = convertAddressToShippingInfo(addressToEdit);
+      
+      // Cập nhật state với dữ liệu địa chỉ đã chọn
+      setShippingInfo(convertedAddress);
+      
+      console.log('Bắt đầu chỉnh sửa địa chỉ:', convertedAddress);
+      
+      // Cuộn đến vị trí form để người dùng dễ nhìn thấy
+      setTimeout(() => {
+        const formElement = document.querySelector('.shipping-form');
+        if (formElement) {
+          formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     }
   };
 
   // Xử lý cập nhật thông tin giao hàng
   const handleShippingInfoSubmit = (values: ShippingInfo) => {
     setShippingInfo(values);
-    setErrorMessage(null); // Xóa thông báo lỗi khi lưu thông tin thành công
-
-    // Lưu thông tin giao hàng vào localStorage để sử dụng lần sau
-    localStorage.setItem('shippingInfo', JSON.stringify(values));
-
-    toast.success('Đã cập nhật thông tin giao hàng', {
-      position: "bottom-right",
-      autoClose: 2000,
-      theme: "light",
-      style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
-    });
-
-    // Nếu đã đăng nhập và đang ở chế độ thêm địa chỉ mới, lưu địa chỉ vào tài khoản
-    if (user && user._id && values.address && values.city && values.district && values.ward) {
+    
+    // Lưu địa chỉ nếu người dùng đã đăng nhập
+    if (user && user._id) {
       saveAddressToAccount(values);
     }
+    
+    setShowAddressForm(false);
+    setEditingAddressId(null); // Reset trạng thái sửa sau khi lưu
   };
 
   // Lưu địa chỉ vào tài khoản người dùng
   const saveAddressToAccount = async (addressData: ShippingInfo) => {
     try {
-      // Tìm các mã địa chỉ từ form
+      // Tạo đối tượng địa chỉ từ dữ liệu form
       const formattedAddress: any = {
         addressLine: `${addressData.address}, ${addressData.ward}, ${addressData.district}`,
         city: addressData.city,
@@ -303,9 +317,9 @@ const PaymentsPage: NextPage = () => {
         postalCode: '',
         isDefault: userAddresses.length === 0, // Đặt làm mặc định nếu là địa chỉ đầu tiên
         // Thêm các mã địa chỉ cần thiết cho ViettelPost
-        provinceCode: '1', // Mã mặc định cho Hà Nội theo API ViettelPost
-        districtCode: '4', // Mã mặc định cho Quận Hoàng Mai theo API ViettelPost
-        wardCode: '0', // Mã mặc định cho phường/xã theo API ViettelPost
+        provinceCode: addressData.provinceCode || '1', 
+        districtCode: addressData.districtCode || '4',
+        wardCode: addressData.wardCode || '0',
         // Thêm các trường tên địa chỉ
         provinceName: addressData.city,
         districtName: addressData.district,
@@ -314,8 +328,37 @@ const PaymentsPage: NextPage = () => {
 
       console.log('Saving address with ViettelPost codes:', formattedAddress);
 
-      // Gọi API để lưu địa chỉ
-      const updatedUser = await UserApiService.addAddress(formattedAddress);
+      let updatedUser;
+
+      // Kiểm tra xem đang cập nhật địa chỉ hay tạo mới
+      if (editingAddressId) {
+        // Đang sửa địa chỉ hiện có
+        formattedAddress._id = editingAddressId; // Thêm ID địa chỉ đang sửa
+        console.log('Cập nhật địa chỉ có ID:', editingAddressId);
+        
+        // Gọi API để cập nhật địa chỉ
+        updatedUser = await UserApiService.updateAddress(editingAddressId, formattedAddress);
+        
+        toast.success('Đã cập nhật địa chỉ thành công', {
+          position: "bottom-right",
+          autoClose: 2000,
+          theme: "light",
+          style: { backgroundColor: '#f0fff4', color: '#22543d', borderLeft: '4px solid #22543d' }
+        });
+      } else {
+        // Đang thêm địa chỉ mới
+        console.log('Tạo địa chỉ mới');
+        
+        // Gọi API để thêm địa chỉ mới
+        updatedUser = await UserApiService.addAddress(formattedAddress);
+        
+        toast.success('Đã thêm địa chỉ mới vào tài khoản của bạn', {
+          position: "bottom-right",
+          autoClose: 2000,
+          theme: "light",
+          style: { backgroundColor: '#f0fff4', color: '#22543d', borderLeft: '4px solid #22543d' }
+        });
+      }
 
       // Cập nhật danh sách địa chỉ
       if (updatedUser && updatedUser.addresses) {
@@ -338,23 +381,22 @@ const PaymentsPage: NextPage = () => {
 
         setUserAddresses(convertedAddresses);
 
-        // Tìm địa chỉ vừa thêm
-        const newAddress = convertedAddresses[convertedAddresses.length - 1];
-        if (newAddress) {
-          setSelectedAddressId(newAddress._id);
-          setShowAddressForm(false);
-
-          toast.success('Đã lưu địa chỉ mới vào tài khoản của bạn', {
-            position: "bottom-right",
-            autoClose: 2000,
-            theme: "light",
-            style: { backgroundColor: '#f0fff4', color: '#22543d', borderLeft: '4px solid #22543d' }
-          });
+        if (editingAddressId) {
+          // Nếu đang sửa, chọn lại địa chỉ đó
+          setSelectedAddressId(editingAddressId);
+        } else {
+          // Nếu đang thêm mới, chọn địa chỉ vừa thêm
+          const newAddress = convertedAddresses[convertedAddresses.length - 1];
+          if (newAddress) {
+            setSelectedAddressId(newAddress._id);
+          }
         }
+        
+        setShowAddressForm(false);
       }
     } catch (error) {
       console.error('Error saving address to account:', error);
-      toast.error('Không thể lưu địa chỉ vào tài khoản. Địa chỉ chỉ được lưu cho đơn hàng này.');
+      toast.error('Không thể lưu địa chỉ vào tài khoản. Vui lòng thử lại sau.');
     }
   };
 
@@ -574,6 +616,37 @@ const PaymentsPage: NextPage = () => {
     }
   };
 
+  // Tìm địa chỉ đang được sửa để truyền vào form
+  const addressBeingEdited = editingAddressId 
+    ? userAddresses.find(addr => addr._id === editingAddressId)
+    : null;
+
+  // Chuyển đổi từ UserAddress sang ShippingInfo
+  const convertAddressToShippingInfo = (address: UserAddress): ShippingInfo => {
+    return {
+      fullName: user?.name || '',
+      phone: user?.phoneNumber || (user as any)?.phone || '',
+      email: user?.email || '',
+      address: address.addressLine,
+      city: address.provinceName || address.city || '',
+      district: address.districtName || address.state || '',
+      ward: address.wardName || '',
+      notes: '',
+      // Thêm các ID cần thiết cho form ViettelPost
+      provinceId: address.provinceCode,
+      districtId: address.districtCode,
+      wardId: address.wardCode,
+      // Thêm các thông tin tên cần thiết
+      provinceName: address.provinceName || address.city,
+      districtName: address.districtName || address.state,
+      wardName: address.wardName,
+      // Thêm mã code nếu có
+      provinceCode: address.provinceCode,
+      districtCode: address.districtCode,
+      wardCode: address.wardCode
+    };
+  };
+
   // Breadcrumb items
   const breadcrumbItems = [
     { label: 'Giỏ hàng', href: '/cart' },
@@ -700,14 +773,27 @@ const PaymentsPage: NextPage = () => {
                                   {address.postalCode && ` - ${address.postalCode}`}
                                 </p>
                               </div>
-                              {selectedAddressId === address._id && (
-                                <div className="flex-shrink-0 h-6 w-6 bg-pink-500 rounded-full flex items-center justify-center">
-                                  <FiCheck className="text-white" />
-                                </div>
-                              )}
-                              {address.isDefault && selectedAddressId !== address._id && (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Mặc định</span>
-                              )}
+                              <div className="flex items-center">
+                                {selectedAddressId === address._id && (
+                                  <div className="flex-shrink-0 h-6 w-6 bg-pink-500 rounded-full flex items-center justify-center mr-2">
+                                    <FiCheck className="text-white" />
+                                  </div>
+                                )}
+                                {address.isDefault && selectedAddressId !== address._id && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full mr-2">Mặc định</span>
+                                )}
+                                <button 
+                                  type="button" 
+                                  className="ml-2 px-2 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); // Ngăn chặn sự kiện click lan tỏa lên phần tử cha
+                                    handleEditAddress(address._id); 
+                                  }}
+                                >
+                                  <FiEdit className="mr-1 inline-block" />
+                                  Sửa
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -717,11 +803,33 @@ const PaymentsPage: NextPage = () => {
 
                   {/* Hiển thị form nhập địa chỉ mới nếu không có địa chỉ hoặc chọn thêm địa chỉ mới */}
                   {(userAddresses.length === 0 || showAddressForm) && (
-                    <ShippingForm
-                      initialValues={shippingInfo || undefined}
-                      onSubmit={handleShippingInfoSubmit}
-                      showSubmitButton={true}
-                    />
+                    <div className={`${editingAddressId ? 'border-2 border-blue-500 p-4 rounded-lg bg-blue-50 transition-all animate-pulse' : ''}`}
+                         ref={(el) => {
+                           // Tự động cuộn đến vị trí form khi nó xuất hiện
+                           if (el && editingAddressId) {
+                             setTimeout(() => {
+                               el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                               // Dừng animation sau 1 giây để không làm rối mắt người dùng
+                               setTimeout(() => {
+                                 el.classList.remove('animate-pulse');
+                               }, 1000);
+                             }, 100);
+                           }
+                         }}>
+                      {editingAddressId && (
+                        <div className="mb-4 bg-blue-100 p-3 rounded text-blue-700 font-medium flex items-center">
+                          <FiEdit className="mr-2" />
+                          Đang chỉnh sửa địa chỉ. Vui lòng cập nhật thông tin bên dưới.
+                        </div>
+                      )}
+                      <ShippingForm
+                        initialValues={editingAddressId && addressBeingEdited 
+                          ? convertAddressToShippingInfo(addressBeingEdited) 
+                          : (shippingInfo || undefined)}
+                        onSubmit={handleShippingInfoSubmit}
+                        showSubmitButton={true}
+                      />
+                    </div>
                   )}
 
                   {/* Hiển thị thông tin đã lưu nếu đã chọn địa chỉ nhưng không muốn thêm mới */}
