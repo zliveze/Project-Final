@@ -763,23 +763,54 @@ export class OrdersService {
       const shipmentResult = await this.viettelPostService.createShipmentOrder(viettelPostPayload);
       this.logger.log(`ViettelPost shipment created for order ${order._id}. Result: ${JSON.stringify(shipmentResult)}`);
 
+      // Log chi tiết về kết quả COD
+      this.logger.debug('ViettelPost COD result details:', {
+        orderPaymentMethod: order.paymentMethod,
+        isCOD: order.paymentMethod === PaymentMethod.COD,
+        moneyCollection: shipmentResult.MONEY_COLLECTION,
+        moneyTotal: shipmentResult.MONEY_TOTAL,
+        moneyTotalFee: shipmentResult.MONEY_TOTAL_FEE,
+        moneyFee: shipmentResult.MONEY_FEE,
+        moneyCollectionFee: shipmentResult.MONEY_COLLECTION_FEE,
+        moneyVat: shipmentResult.MONEY_VAT,
+        orderNumber: shipmentResult.ORDER_NUMBER,
+        fullResponse: shipmentResult
+      });
+
       // Kiểm tra kết quả từ Viettel Post
       if (!shipmentResult || !shipmentResult.ORDER_NUMBER) {
         throw new BadRequestException('Failed to create ViettelPost shipment. Invalid response from ViettelPost API.');
       }
 
+      // Xử lý đặc biệt cho COD
+      let updateData: any = {
+        trackingCode: shipmentResult.ORDER_NUMBER,
+        status: OrderStatus.PROCESSING,
+        'metadata.viettelPost': {
+          orderNumber: shipmentResult.ORDER_NUMBER,
+          createdAt: new Date(),
+          details: shipmentResult,
+        },
+      };
+
+      // Nếu là đơn hàng COD nhưng Viettel Post trả về MONEY_COLLECTION = 0
+      if (order.paymentMethod === PaymentMethod.COD && shipmentResult.MONEY_COLLECTION === 0) {
+        this.logger.warn(`ViettelPost returned MONEY_COLLECTION=0 for COD order ${order._id}. Trying to fix...`);
+
+        // Cập nhật thông tin COD trong metadata
+        updateData['metadata.codInfo'] = {
+          isCOD: true,
+          moneyCollection: order.finalPrice,
+          viettelPostMoneyCollection: 0,
+          fixedManually: true,
+          fixedAt: new Date()
+        };
+      }
+
       // Cập nhật thông tin đơn hàng với mã vận đơn
       const updatedOrder = await this.orderModel.findByIdAndUpdate(
         order._id,
-        {
-          trackingCode: shipmentResult.ORDER_NUMBER,
-          status: OrderStatus.PROCESSING,
-          'metadata.viettelPost': {
-            orderNumber: shipmentResult.ORDER_NUMBER,
-            createdAt: new Date(),
-            details: shipmentResult,
-          },
-        },
+        updateData,
         { new: true }
       ).exec();
 
@@ -868,8 +899,15 @@ export class OrdersService {
 
     // Tính tổng số lượng và trọng lượng sản phẩm
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
-    // Giả sử mỗi sản phẩm có trọng lượng trung bình 200g
-    const totalWeight = order.items.reduce((sum, item) => sum + (item.quantity * 200), 0);
+
+    // Tính trọng lượng dựa trên sản phẩm thực tế
+    // Mặc định mỗi sản phẩm có trọng lượng 200g
+    const totalWeight = order.items.reduce((sum, item) => {
+      // Sử dụng trọng lượng mặc định 200g cho mỗi sản phẩm
+      // Hoặc có thể lấy từ metadata của item nếu có
+      const itemWeight = (item as any).metadata?.weight || 200; // Gram
+      return sum + (item.quantity * itemWeight);
+    }, 0);
 
     // Tạo mô tả sản phẩm
     const productDescription = order.items.map(item => `${item.name} x${item.quantity}`).join(', ');
@@ -992,29 +1030,36 @@ export class OrdersService {
       PRODUCT_QUANTITY: totalQuantity,
       PRODUCT_PRICE: order.finalPrice,
       PRODUCT_TYPE: 'HH', // Hàng hóa
-      MONEY_COLLECTION: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0,
-      MONEY_TOTALFEE: 0, // Để 0 theo ví dụ của ViettelPost
-      MONEY_FEECOD: 0,
+      MONEY_COLLECTION: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0, // Số tiền thu hộ (theo docs)
+      // IS_COLLECTION: order.paymentMethod === PaymentMethod.COD ? 1 : 0, // Bỏ trường không có trong docs
+      MONEY_TOTALFEE: order.shippingFee || 0, // Sử dụng phí vận chuyển từ đơn hàng
+      MONEY_FEECOD: order.paymentMethod === PaymentMethod.COD ? Math.round((order.finalPrice || 0) * 0.01) : 0, // Phí thu hộ (theo docs, có thể cần xác nhận lại công thức tính)
+      // MONEY_COLLECTION_FEE: order.paymentMethod === PaymentMethod.COD ? Math.round((order.finalPrice || 0) * 0.01) : 0, // Bỏ trường không có trong docs
       MONEY_FEEVAS: 0,
-      MONEY_FEEINSURRANCE: 0,
-      MONEY_FEE: 0, // Để 0 theo ví dụ của ViettelPost
+      MONEY_FEEINSURRANCE: 0, // Sửa tên trường theo docs (INSURANCE -> INSURRANCE có vẻ là lỗi typo trong docs?)
+      MONEY_FEE: order.shippingFee || 0, // Sử dụng phí vận chuyển từ đơn hàng
       MONEY_FEEOTHER: 0,
-      MONEY_TOTALVAT: 0,
-      MONEY_TOTAL: 0, // Để 0 theo ví dụ của ViettelPost
+      MONEY_TOTALVAT: Math.round((order.shippingFee || 0) * 0.08), // VAT 8% cho phí vận chuyển
+      MONEY_TOTAL: order.finalPrice, // Sử dụng tổng tiền từ đơn hàng
       PRODUCT_WEIGHT: totalWeight || 40000, // Sử dụng trọng lượng thực tế hoặc giá trị mặc định
       PRODUCT_LENGTH: 38,
       PRODUCT_WIDTH: 24,
       PRODUCT_HEIGHT: 25,
-      ORDER_PAYMENT: 1, // 1: COD, 2: Không thu tiền, 3: Theo ví dụ của ViettelPost
-      ORDER_SERVICE: 'LCOD', // Dịch vụ chuyển phát tiêu chuẩn có thu hộ
+      ORDER_PAYMENT: order.paymentMethod === PaymentMethod.COD ? 3 : 1, // Sửa theo docs: 3: Thu tiền hàng (COD), 1: Không thu tiền
+      ORDER_SERVICE: order.paymentMethod === PaymentMethod.COD ? 'LCOD' : 'VCN', // LCOD: Dịch vụ chuyển phát tiêu chuẩn có thu hộ, VCN: Chuyển phát tiêu chuẩn
+      // ORDER_SERVICE_CODE: order.paymentMethod === PaymentMethod.COD ? 'LCOD' : 'VCN', // Bỏ trường không có trong docs
+      // PICK_MONEY: order.paymentMethod === PaymentMethod.COD ? 1 : 0, // Bỏ trường không có trong docs
+      // COD_AMOUNT: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0, // Bỏ trường không có trong docs
+      // COD_FLAG: order.paymentMethod === PaymentMethod.COD ? 1 : 0, // Bỏ trường không có trong docs
+      // AUTO_SELECT_COD: order.paymentMethod === PaymentMethod.COD ? 1 : 0, // Bỏ trường không có trong docs
       ORDER_SERVICE_ADD: '',
-      ORDER_VOUCHER: '', // Thêm trường này theo ví dụ của ViettelPost
+      ORDER_VOUCHER: '', // Giữ lại trường này theo ví dụ của ViettelPost
       ORDER_NOTE: order.notes || 'cho xem hàng, không cho thử', // Thêm ghi chú mặc định
-      MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0,
+      MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0, // Giả sử trường này đúng hoặc cần thiết
       LIST_ITEM: order.items.map(item => ({
         PRODUCT_NAME: item.name,
         PRODUCT_PRICE: item.price,
-        PRODUCT_WEIGHT: 2500, // 2.5kg mặc định cho mỗi sản phẩm
+        PRODUCT_WEIGHT: (item as any).metadata?.weight || 200, // Sử dụng trọng lượng từ metadata hoặc mặc định 200g
         PRODUCT_QUANTITY: item.quantity
       }))
     };
@@ -1034,6 +1079,16 @@ export class OrdersService {
         PRODUCT_PRICE: typeof payload.PRODUCT_PRICE,
         MONEY_COLLECTION: typeof payload.MONEY_COLLECTION
       }
+    });
+
+    // Log chi tiết các trường liên quan đến COD theo docs
+    this.logger.debug('COD-related fields (based on docs):', {
+      paymentMethod: order.paymentMethod,
+      ORDER_PAYMENT: payload.ORDER_PAYMENT,
+      MONEY_COLLECTION: payload.MONEY_COLLECTION,
+      ORDER_SERVICE: payload.ORDER_SERVICE,
+      MONEY_FEECOD: payload.MONEY_FEECOD,
+      finalPrice: order.finalPrice
     });
 
     return payload;
