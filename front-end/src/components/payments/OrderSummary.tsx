@@ -27,6 +27,8 @@ interface OrderSummaryProps {
   shippingError?: string | null;
   calculatedShipping?: number; // Thêm trường phí vận chuyển đã tính
   availableServices?: ShippingService[];
+  selectedServiceCode?: string; // Mã dịch vụ vận chuyển được chọn
+  onSelectShippingService: (serviceCode: string, fee: number) => void; // Hàm xử lý khi chọn dịch vụ vận chuyển
   onPlaceOrder: () => void;
   isProcessing: boolean;
 }
@@ -41,6 +43,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   shippingError,
   calculatedShipping,
   availableServices,
+  selectedServiceCode,
+  onSelectShippingService,
   onPlaceOrder,
   isProcessing
 }) => {
@@ -122,12 +126,27 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
         {/* Hiển thị các dịch vụ vận chuyển khả dụng */}
         {availableServices && availableServices.length > 0 && (
           <div className="mt-3 border-t pt-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">Dịch vụ vận chuyển khả dụng:</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Chọn dịch vụ vận chuyển:</p>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {availableServices.map((service, index) => (
-                <div key={index} className="flex justify-between text-xs border-b pb-1">
-                  <span className="text-gray-600">{service.serviceName}</span>
-                  <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(service.fee)}đ</span>
+                <div
+                  key={index}
+                  className={`flex justify-between text-xs border-b pb-2 pt-1 px-2 rounded cursor-pointer ${selectedServiceCode === service.serviceCode ? 'bg-pink-50 border-pink-300' : 'hover:bg-gray-50'}`}
+                  onClick={() => onSelectShippingService(service.serviceCode, service.fee)}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-4 h-4 rounded-full border mr-2 flex items-center justify-center ${selectedServiceCode === service.serviceCode ? 'border-pink-500 bg-pink-500' : 'border-gray-300'}`}>
+                      {selectedServiceCode === service.serviceCode && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <span className={`${selectedServiceCode === service.serviceCode ? 'font-medium text-pink-700' : 'text-gray-600'}`}>
+                      {service.serviceName}
+                    </span>
+                  </div>
+                  <span className={`font-medium ${selectedServiceCode === service.serviceCode ? 'text-pink-600' : ''}`}>
+                    {new Intl.NumberFormat('vi-VN').format(service.fee)}đ
+                  </span>
                 </div>
               ))}
             </div>

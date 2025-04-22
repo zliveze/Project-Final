@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -10,7 +10,7 @@ import { FiAlertCircle, FiPlus, FiCheck, FiEdit } from 'react-icons/fi';
 import ShippingForm, { ShippingInfo } from '@/components/payments/ShippingForm';
 import PaymentMethods, { PaymentMethod } from '@/components/payments/PaymentMethods';
 import OrderSummary from '@/components/payments/OrderSummary';
-import Breadcrum from '@/components/common/Breadcrum';
+// import Breadcrum from '@/components/common/Breadcrum';
 import DefaultLayout from '@/layout/DefaultLayout';
 
 // Context
@@ -23,7 +23,7 @@ import { useUserPayment } from '@/contexts/user/UserPaymentContext';
 import { UserApiService } from '@/contexts/user/UserApiService';
 
 // Định nghĩa kiểu dữ liệu User rõ ràng hơn
-interface User {
+interface UserProfile {
   _id: string;
   name: string;
   email: string;
@@ -77,12 +77,30 @@ const PaymentsPage: NextPage = () => {
     subtotal,
     discount,
     shipping,
-    total,
+    total: cartTotal,
     voucherCode,
     isLoading: cartLoading,
     itemCount,
     clearCart
   } = useCart();
+
+  // Tính tổng chi phí bao gồm cả phí vận chuyển
+  const [total, setTotal] = useState<number>(cartTotal + shipping);
+
+  // Cập nhật tổng chi phí khi phí vận chuyển hoặc giá trị giỏ hàng thay đổi
+  useEffect(() => {
+    const newTotal = cartTotal + shipping;
+    setTotal(newTotal);
+
+    // Log giá trị để kiểm tra
+    console.log('Chi phí tại trang thanh toán đã được cập nhật:', {
+      subtotal,
+      discount,
+      shipping,
+      cartTotal,
+      newTotal
+    });
+  }, [cartTotal, shipping, subtotal, discount]);
 
   // State
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -245,6 +263,13 @@ const PaymentsPage: NextPage = () => {
       setShippingError('Không thể tính phí vận chuyển do thiếu thông tin địa chỉ');
       setCalculatedShipping(32000); // Sử dụng phí mặc định
       updateShipping(32000);
+
+      // Log giá trị sau khi cập nhật phí vận chuyển mặc định do thiếu thông tin địa chỉ
+      console.log('Phí vận chuyển mặc định đã được cập nhật do thiếu thông tin địa chỉ:', {
+        shippingFee: 32000,
+        calculatedShipping: 32000,
+        shipping: 32000
+      });
       return;
     }
 
@@ -340,6 +365,7 @@ const PaymentsPage: NextPage = () => {
         // Lưu mã dịch vụ được chọn
         if (result.selectedServiceCode) {
           setSelectedServiceCode(result.selectedServiceCode);
+          console.log(`Dịch vụ vận chuyển mặc định: ${result.selectedServiceCode}`);
         }
 
         // Lưu các dịch vụ vận chuyển khả dụng
@@ -350,12 +376,28 @@ const PaymentsPage: NextPage = () => {
         setCalculatedShipping(shippingFee);
         updateShipping(shippingFee);
         setShippingError(null);
+
+        // Log giá trị sau khi cập nhật phí vận chuyển
+        console.log('Phí vận chuyển đã được cập nhật:', {
+          shippingFee,
+          calculatedShipping: shippingFee,
+          shipping: shippingFee
+        });
+
+        // Cập nhật tổng chi phí (useEffect sẽ tự động cập nhật khi shipping thay đổi)
       } else {
         console.error('Lỗi tính phí vận chuyển:', result.error);
         setShippingError(result.error || 'Không thể tính phí vận chuyển');
         setCalculatedShipping(32000); // Sử dụng phí mặc định
         updateShipping(32000);
         setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
+
+        // Log giá trị sau khi cập nhật phí vận chuyển mặc định
+        console.log('Phí vận chuyển mặc định đã được cập nhật:', {
+          shippingFee: 32000,
+          calculatedShipping: 32000,
+          shipping: 32000
+        });
       }
     } catch (error) {
       console.error('Lỗi khi tính phí vận chuyển:', error);
@@ -363,6 +405,13 @@ const PaymentsPage: NextPage = () => {
       setCalculatedShipping(32000); // Sử dụng phí mặc định
       updateShipping(32000);
       setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
+
+      // Log giá trị sau khi cập nhật phí vận chuyển mặc định do lỗi
+      console.log('Phí vận chuyển mặc định đã được cập nhật do lỗi:', {
+        shippingFee: 32000,
+        calculatedShipping: 32000,
+        shipping: 32000
+      });
     }
   };
 
@@ -593,6 +642,24 @@ const PaymentsPage: NextPage = () => {
   const [availableServices, setAvailableServices] = useState<ShippingService[]>([]); // Lưu các dịch vụ vận chuyển khả dụng
   const [selectedServiceCode, setSelectedServiceCode] = useState<string>('LCOD'); // Lưu mã dịch vụ đã chọn, mặc định là LCOD
   const { updateShipping } = useCart(); // Lấy hàm cập nhật phí vận chuyển từ CartContext
+
+  // Xử lý khi người dùng chọn dịch vụ vận chuyển
+  const handleSelectShippingService = (serviceCode: string, fee: number) => {
+    console.log(`Chọn dịch vụ vận chuyển: ${serviceCode} với phí ${fee}đ`);
+    setSelectedServiceCode(serviceCode);
+    setCalculatedShipping(fee);
+    updateShipping(fee);
+
+    // Hiển thị thông báo đã chọn dịch vụ vận chuyển
+    const selectedService = availableServices.find(service => service.serviceCode === serviceCode);
+    if (selectedService) {
+      toast.success(`Đã chọn dịch vụ vận chuyển: ${selectedService.serviceName}`, {
+        position: "bottom-right",
+        autoClose: 2000,
+        theme: "light"
+      });
+    }
+  };
 
   // Xử lý đặt hàng
   const handlePlaceOrder = async () => {
@@ -1090,6 +1157,8 @@ const PaymentsPage: NextPage = () => {
                   shippingError={shippingError}
                   calculatedShipping={calculatedShipping}
                   availableServices={availableServices}
+                  selectedServiceCode={selectedServiceCode}
+                  onSelectShippingService={handleSelectShippingService}
                   onPlaceOrder={handlePlaceOrder}
                   isProcessing={isProcessing}
                 />
