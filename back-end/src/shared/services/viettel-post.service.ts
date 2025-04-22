@@ -535,7 +535,7 @@ export class ViettelPostService {
   }
 
   /**
-   * Tính phí vận chuyển
+   * Tính phí vận chuyển (API getPrice)
    */
   async calculateShippingFee(payload: any): Promise<any> {
     try {
@@ -546,7 +546,7 @@ export class ViettelPostService {
 
       const url = `${this.apiUrl}/order/getPrice`;
 
-      this.logger.log(`Calculating shipping fee`);
+      this.logger.log(`Calculating shipping fee using getPrice API`);
       this.logger.debug(`Payload: ${JSON.stringify(payload)}`);
 
       const response = await firstValueFrom(
@@ -568,6 +568,62 @@ export class ViettelPostService {
         this.logger.log('Token expired, trying to login again...');
         await this.login();
         return this.calculateShippingFee(payload); // Gọi lại API sau khi đăng nhập
+      }
+
+      if (axiosError.response) {
+        this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Tính phí vận chuyển cho tất cả dịch vụ (API getPriceAll)
+   */
+  async calculateShippingFeeAll(payload: any): Promise<any> {
+    try {
+      // Đảm bảo có token
+      if (!this.token) {
+        await this.initializeToken();
+      }
+
+      const url = `${this.apiUrl}/order/getPriceAll`;
+
+      this.logger.log(`Calculating shipping fee using getPriceAll API`);
+      this.logger.debug(`Payload: ${JSON.stringify(payload)}`);
+
+      // Chuẩn hóa payload
+      const normalizedPayload = {
+        SENDER_PROVINCE: payload.SENDER_PROVINCE,
+        SENDER_DISTRICT: payload.SENDER_DISTRICT,
+        RECEIVER_PROVINCE: payload.RECEIVER_PROVINCE,
+        RECEIVER_DISTRICT: payload.RECEIVER_DISTRICT,
+        PRODUCT_TYPE: payload.PRODUCT_TYPE || 'HH',
+        PRODUCT_WEIGHT: payload.PRODUCT_WEIGHT || 500,
+        PRODUCT_PRICE: payload.PRODUCT_PRICE || 10000,
+        MONEY_COLLECTION: payload.MONEY_COLLECTION || payload.PRODUCT_PRICE || 10000,
+        TYPE: payload.TYPE || 1
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post(url, normalizedPayload, { headers: this.getHeaders() }),
+      );
+
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else {
+        this.logger.error(`ViettelPost API error: ${JSON.stringify(response.data)}`);
+        throw new Error(`ViettelPost API Error: Invalid response format`);
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      this.logger.error(`Error calculating shipping fee with getPriceAll: ${axiosError.message}`, axiosError.stack);
+
+      // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
+      if (axiosError.response?.status === 401) {
+        this.logger.log('Token expired, trying to login again...');
+        await this.login();
+        return this.calculateShippingFeeAll(payload); // Gọi lại API sau khi đăng nhập
       }
 
       if (axiosError.response) {

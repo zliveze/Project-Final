@@ -15,6 +15,8 @@ interface OrderItem {
   };
 }
 
+import { ShippingService } from '@/contexts/user/UserOrderContext';
+
 interface OrderSummaryProps {
   items: OrderItem[];
   subtotal: number;
@@ -22,6 +24,9 @@ interface OrderSummaryProps {
   shipping: number;
   total: number;
   voucherCode?: string;
+  shippingError?: string | null;
+  calculatedShipping?: number; // Thêm trường phí vận chuyển đã tính
+  availableServices?: ShippingService[];
   onPlaceOrder: () => void;
   isProcessing: boolean;
 }
@@ -33,6 +38,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   shipping,
   total,
   voucherCode,
+  shippingError,
+  calculatedShipping,
+  availableServices,
   onPlaceOrder,
   isProcessing
 }) => {
@@ -88,12 +96,43 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
 
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Phí vận chuyển</span>
-          {shipping > 0 ? (
+          {shippingError ? (
+            <span className="text-red-500 text-xs italic">{shippingError}</span>
+          ) : shipping > 0 ? (
             <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(shipping)}đ</span>
           ) : (
             <span className="text-green-600">Miễn phí</span>
           )}
         </div>
+
+        {/* Thông báo về phí vận chuyển */}
+        <div className="text-xs text-gray-500 mt-1 italic">
+          {calculatedShipping ? (
+            <>
+              Phí vận chuyển đã tính: {new Intl.NumberFormat('vi-VN').format(calculatedShipping)}đ
+              {calculatedShipping !== shipping && (
+                <span className="text-pink-500"> (Cập nhật: {new Intl.NumberFormat('vi-VN').format(shipping)}đ)</span>
+              )}
+            </>
+          ) : (
+            <>Phí vận chuyển được tính dựa trên trọng lượng sản phẩm và địa chỉ giao hàng</>
+          )}
+        </div>
+
+        {/* Hiển thị các dịch vụ vận chuyển khả dụng */}
+        {availableServices && availableServices.length > 0 && (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-sm font-medium text-gray-700 mb-2">Dịch vụ vận chuyển khả dụng:</p>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {availableServices.map((service, index) => (
+                <div key={index} className="flex justify-between text-xs border-b pb-1">
+                  <span className="text-gray-600">{service.serviceName}</span>
+                  <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(service.fee)}đ</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-gray-200 pt-3 flex justify-between">
           <span className="font-semibold">Tổng cộng</span>

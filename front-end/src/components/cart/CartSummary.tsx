@@ -59,14 +59,7 @@ const CartSummary: React.FC<CartSummaryProps> = ({
           <span className="text-pink-500">-{new Intl.NumberFormat('vi-VN').format(discount)}đ</span>
         </div>
 
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Phí vận chuyển</span>
-          {shipping > 0 ? (
-            <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(shipping)}đ</span>
-          ) : (
-            <span className="text-pink-600">Miễn phí</span>
-          )}
-        </div>
+        {/* Phí vận chuyển sẽ được tính ở trang thanh toán */}
 
         <div className="border-t border-gray-200 pt-3 flex justify-between">
           <span className="font-semibold">Tổng cộng</span>

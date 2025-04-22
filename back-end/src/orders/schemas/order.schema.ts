@@ -75,6 +75,9 @@ export class ShippingAddress {
   @Prop({ required: true })
   phone: string;
 
+  @Prop()
+  email: string;
+
   @Prop({ required: true })
   addressLine1: string;
 
@@ -136,10 +139,10 @@ export class Order {
   @Prop({ required: true, min: 0 })
   finalPrice: number; // Tổng tiền sau khi áp dụng voucher
 
-  @Prop({ 
-    type: String, 
-    enum: Object.values(OrderStatus), 
-    default: OrderStatus.PENDING 
+  @Prop({
+    type: String,
+    enum: Object.values(OrderStatus),
+    default: OrderStatus.PENDING
   })
   status: OrderStatus;
 
@@ -149,17 +152,17 @@ export class Order {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch' })
   branchId: Types.ObjectId;
 
-  @Prop({ 
-    type: String, 
-    enum: Object.values(PaymentMethod), 
-    default: PaymentMethod.COD 
+  @Prop({
+    type: String,
+    enum: Object.values(PaymentMethod),
+    default: PaymentMethod.COD
   })
   paymentMethod: PaymentMethod;
 
-  @Prop({ 
-    type: String, 
-    enum: Object.values(PaymentStatus), 
-    default: PaymentStatus.PENDING 
+  @Prop({
+    type: String,
+    enum: Object.values(PaymentStatus),
+    default: PaymentStatus.PENDING
   })
   paymentStatus: PaymentStatus;
 
@@ -168,6 +171,9 @@ export class Order {
 
   @Prop()
   trackingCode: string; // Mã vận đơn
+
+  @Prop()
+  shippingServiceCode: string; // Mã dịch vụ vận chuyển
 
   @Prop()
   notes: string; // Ghi chú của khách hàng

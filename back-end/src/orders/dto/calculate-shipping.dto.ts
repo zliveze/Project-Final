@@ -45,6 +45,7 @@ export class ProductInfoDto {
 }
 
 export class CalculateShippingDto {
+  // Các trường của CalculateShippingDto cũ
   @ValidateNested()
   @Type(() => ShippingCalculationAddressDto)
   shippingAddress: ShippingCalculationAddressDto;
@@ -60,12 +61,70 @@ export class CalculateShippingDto {
   @IsString()
   @IsOptional()
   serviceCode?: string = 'LCOD'; // Mặc định là LCOD (Chuyển phát tiêu chuẩn)
+
+  // Các trường của API getPrice của Viettel Post
+  @IsNumber()
+  @IsOptional()
+  PRODUCT_WEIGHT?: number;
+
+  @IsNumber()
+  @IsOptional()
+  PRODUCT_PRICE?: number;
+
+  @IsNumber()
+  @IsOptional()
+  MONEY_COLLECTION?: number;
+
+  @IsString()
+  @IsOptional()
+  ORDER_SERVICE_ADD?: string;
+
+  @IsString()
+  @IsOptional()
+  ORDER_SERVICE?: string;
+
+  @IsString()
+  @IsOptional()
+  SENDER_PROVINCE?: string;
+
+  @IsString()
+  @IsOptional()
+  SENDER_DISTRICT?: string;
+
+  @IsString()
+  @IsOptional()
+  RECEIVER_PROVINCE?: string;
+
+  @IsString()
+  @IsOptional()
+  RECEIVER_DISTRICT?: string;
+
+  @IsString()
+  @IsOptional()
+  PRODUCT_TYPE?: string;
+
+  @IsNumber()
+  @IsOptional()
+  NATIONAL_TYPE?: number;
+
+  @IsNumber()
+  @IsOptional()
+  PRODUCT_LENGTH?: number;
+
+  @IsNumber()
+  @IsOptional()
+  PRODUCT_WIDTH?: number;
+
+  @IsNumber()
+  @IsOptional()
+  PRODUCT_HEIGHT?: number;
 }
 
 export class ShippingFeeResponseDto {
   success: boolean;
   fee: number;
   estimatedDeliveryTime?: string;
+  selectedServiceCode?: string; // Thêm mã dịch vụ đã chọn
   availableServices?: Array<{
     serviceCode: string;
     serviceName: string;

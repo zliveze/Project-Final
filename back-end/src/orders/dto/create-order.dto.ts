@@ -67,6 +67,10 @@ export class ShippingAddressDto {
   phone: string;
 
   @IsString()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
   @IsNotEmpty()
   addressLine1: string;
 
@@ -164,4 +168,8 @@ export class CreateOrderDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  shippingServiceCode?: string;
 }

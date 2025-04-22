@@ -170,12 +170,22 @@ export class OrdersUserController {
   }
 
   @Post('calculate-shipping')
-  @ApiOperation({ summary: 'Tính phí vận chuyển' })
+  @ApiOperation({ summary: 'Tính phí vận chuyển (API getPrice)' })
   @ApiBody({ type: CalculateShippingDto })
   @ApiResponse({ status: 200, description: 'Trả về phí vận chuyển và thời gian giao hàng dự kiến' })
   @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ' })
   @HttpCode(HttpStatus.OK)
   async calculateShippingFee(@Body() calculateShippingDto: CalculateShippingDto) {
     return this.ordersService.calculateShippingFee(calculateShippingDto);
+  }
+
+  @Post('calculate-shipping-all')
+  @ApiOperation({ summary: 'Tính phí vận chuyển cho tất cả dịch vụ (API getPriceAll)' })
+  @ApiBody({ type: CalculateShippingDto })
+  @ApiResponse({ status: 200, description: 'Trả về phí vận chuyển cho tất cả dịch vụ và thời gian giao hàng dự kiến' })
+  @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ' })
+  @HttpCode(HttpStatus.OK)
+  async calculateShippingFeeAll(@Body() calculateShippingDto: CalculateShippingDto) {
+    return this.ordersService.calculateShippingFeeAll(calculateShippingDto);
   }
 }

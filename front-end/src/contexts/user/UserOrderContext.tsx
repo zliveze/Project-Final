@@ -49,6 +49,7 @@ export interface CreateOrderDto {
   branchId?: string;
   paymentMethod: 'cod' | 'bank_transfer' | 'credit_card' | 'stripe';
   notes?: string;
+  shippingServiceCode?: string; // Thêm mã dịch vụ vận chuyển đã chọn
 }
 
 export interface Order {
@@ -94,18 +95,39 @@ export interface OrderTracking {
 }
 
 export interface ShippingFeeRequest {
-  provinceCode: string;
-  districtCode: string;
-  wardCode: string;
-  weight?: number;
-  serviceCode?: string;
+  // Cấu trúc này phải khớp với API getPrice và getPriceAll của Viettel Post
+  PRODUCT_WEIGHT: number;
+  PRODUCT_PRICE: number;
+  MONEY_COLLECTION: number | string;
+  SENDER_PROVINCE: number | string;
+  SENDER_DISTRICT: number | string;
+  RECEIVER_PROVINCE: number | string;
+  RECEIVER_DISTRICT: number | string;
+  PRODUCT_TYPE: string;
+  // Các trường tùy chọn
+  ORDER_SERVICE_ADD?: string;
+  ORDER_SERVICE?: string;
+  NATIONAL_TYPE?: number;
+  TYPE?: number;
+  PRODUCT_LENGTH?: number;
+  PRODUCT_WIDTH?: number;
+  PRODUCT_HEIGHT?: number;
+}
+
+export interface ShippingService {
+  serviceCode: string;
+  serviceName: string;
+  fee: number;
+  estimatedDeliveryTime: string;
 }
 
 export interface ShippingFeeResponse {
   success: boolean;
   fee: number;
   estimatedDeliveryTime?: string;
+  selectedServiceCode?: string; // Thêm mã dịch vụ đã chọn
   error?: string;
+  availableServices?: ShippingService[];
 }
 
 export interface UserOrderContextType {
@@ -123,6 +145,7 @@ export interface UserOrderContextType {
   createOrder: (orderData: CreateOrderDto) => Promise<Order | null>;
   cancelOrder: (id: string, reason: string) => Promise<Order | null>;
   calculateShippingFee: (data: ShippingFeeRequest) => Promise<ShippingFeeResponse>;
+  calculateShippingFeeAll: (data: ShippingFeeRequest) => Promise<ShippingFeeResponse>;
   refreshData: () => Promise<void>;
 }
 
@@ -295,7 +318,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [api, currentOrder, user, isAuthenticated]);
 
-  // Tính phí vận chuyển
+  // Tính phí vận chuyển (API getPrice)
   const calculateShippingFee = useCallback(async (data: ShippingFeeRequest): Promise<ShippingFeeResponse> => {
     try {
       setLoading(true);
@@ -310,6 +333,27 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
         success: false,
         fee: 0,
         error: 'Không thể tính phí vận chuyển'
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  // Tính phí vận chuyển cho tất cả dịch vụ (API getPriceAll)
+  const calculateShippingFeeAll = useCallback(async (data: ShippingFeeRequest): Promise<ShippingFeeResponse> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await api().post('/orders/calculate-shipping-all', data);
+
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      return {
+        success: false,
+        fee: 0,
+        error: 'Không thể tính phí vận chuyển cho tất cả dịch vụ'
       };
     } finally {
       setLoading(false);
@@ -345,6 +389,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
         createOrder,
         cancelOrder,
         calculateShippingFee,
+        calculateShippingFeeAll,
         refreshData,
       }}
     >

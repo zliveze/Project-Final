@@ -53,6 +53,13 @@ export class OrdersService {
             : PaymentStatus.PENDING,
       };
 
+      // Log thông tin về dịch vụ vận chuyển đã chọn
+      if (createOrderDto.shippingServiceCode) {
+        this.logger.log(`Using shipping service code: ${createOrderDto.shippingServiceCode}`);
+      } else {
+        this.logger.log('No shipping service code provided, will use default service');
+      }
+
       const createdOrder = await this.orderModel.create(orderData);
       this.logger.log(`Order created successfully: ${createdOrder._id}`);
 
@@ -605,35 +612,19 @@ export class OrdersService {
   }
 
   /**
-   * Tính phí vận chuyển
+   * Tính phí vận chuyển (sử dụng API getPrice)
    */
-  async calculateShippingFee(calculateShippingDto: CalculateShippingDto): Promise<ShippingFeeResponseDto> {
+  async calculateShippingFee(calculateShippingDto: any): Promise<ShippingFeeResponseDto> {
     try {
-      this.logger.log(`Calculating shipping fee for order value: ${calculateShippingDto.orderValue}`);
+      this.logger.log(`Calculating shipping fee for order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
 
-      const { shippingAddress, productInfo, orderValue, serviceCode } = calculateShippingDto;
+      // Sử dụng trực tiếp payload từ frontend
+      const payload = calculateShippingDto;
 
-      // Lấy thông tin cửa hàng từ config
-      const storeWardCode = this.configService.get<string>('STORE_WARD_CODE') || '00001';
-      const storeDistrictCode = this.configService.get<string>('STORE_DISTRICT_CODE') || '001';
-      const storeProvinceCode = this.configService.get<string>('STORE_PROVINCE_CODE') || '01';
-
-      // Chuẩn bị payload cho Viettel Post
-      const payload = {
-        PRODUCT_WEIGHT: productInfo.weight,
-        PRODUCT_LENGTH: productInfo.length,
-        PRODUCT_WIDTH: productInfo.width,
-        PRODUCT_HEIGHT: productInfo.height,
-        MONEY_COLLECTION: orderValue,
-        ORDER_SERVICE: serviceCode,
-        SENDER_WARD: storeWardCode,
-        SENDER_DISTRICT: storeDistrictCode,
-        SENDER_PROVINCE: storeProvinceCode,
-        RECEIVER_WARD: shippingAddress.wardCode,
-        RECEIVER_DISTRICT: shippingAddress.districtCode,
-        RECEIVER_PROVINCE: shippingAddress.provinceCode,
-        PRODUCT_QUANTITY: productInfo.quantity,
-      };
+      // Đảm bảo các trường bắt buộc
+      if (!payload.PRODUCT_TYPE) payload.PRODUCT_TYPE = 'HH';
+      if (!payload.NATIONAL_TYPE) payload.NATIONAL_TYPE = 1;
+      if (!payload.ORDER_SERVICE) payload.ORDER_SERVICE = 'VCN';
 
       try {
         // Gọi API Viettel Post để tính phí vận chuyển
@@ -647,8 +638,14 @@ export class OrdersService {
           };
         }
 
-        // Xử lý kết quả trả về
-        if (Array.isArray(result)) {
+        // Xử lý kết quả trả về từ API getPrice
+        if (typeof result === 'object' && result.MONEY_TOTAL) {
+          return {
+            success: true,
+            fee: result.MONEY_TOTAL,
+            estimatedDeliveryTime: result.KPI_HT ? `Dự kiến ${result.KPI_HT} giờ` : 'Dự kiến 2-3 ngày'
+          };
+        } else if (Array.isArray(result)) {
           // Nếu kết quả là một mảng các dịch vụ
           const services = result.map(service => ({
             serviceCode: service.MA_DV_CHINH,
@@ -658,8 +655,8 @@ export class OrdersService {
           }));
 
           // Tìm dịch vụ được chỉ định hoặc dịch vụ đầu tiên
-          const selectedService = serviceCode
-            ? services.find(s => s.serviceCode === serviceCode)
+          const selectedService = calculateShippingDto.ORDER_SERVICE
+            ? services.find(s => s.serviceCode === calculateShippingDto.ORDER_SERVICE)
             : services[0];
 
           if (selectedService) {
@@ -703,6 +700,84 @@ export class OrdersService {
       }
     } catch (error) {
       this.logger.error(`Error in calculateShippingFee: ${error.message}`, error.stack);
+      return {
+        success: false,
+        fee: 0,
+        error: `Lỗi hệ thống: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Tính phí vận chuyển cho tất cả dịch vụ (sử dụng API getPriceAll)
+   */
+  async calculateShippingFeeAll(calculateShippingDto: any): Promise<ShippingFeeResponseDto> {
+    try {
+      this.logger.log(`Calculating shipping fee for all services, order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
+
+      // Sử dụng trực tiếp payload từ frontend
+      const payload = calculateShippingDto;
+
+      try {
+        // Gọi API Viettel Post để tính phí vận chuyển cho tất cả dịch vụ
+        const result = await this.viettelPostService.calculateShippingFeeAll(payload);
+
+        if (!result || !Array.isArray(result) || result.length === 0) {
+          return {
+            success: false,
+            fee: 0,
+            error: 'Không thể tính phí vận chuyển. Vui lòng thử lại sau.'
+          };
+        }
+
+        // Xử lý kết quả trả về từ API getPriceAll
+        // Kết quả là một mảng các dịch vụ
+        const services = result.map(service => ({
+          serviceCode: service.MA_DV_CHINH,
+          serviceName: service.TEN_DICHVU,
+          fee: service.GIA_CUOC,
+          estimatedDeliveryTime: service.THOI_GIAN
+        }));
+
+        // Tìm dịch vụ được chỉ định hoặc dịch vụ LCOD hoặc dịch vụ đầu tiên
+        const selectedService = calculateShippingDto.ORDER_SERVICE
+          ? services.find(s => s.serviceCode === calculateShippingDto.ORDER_SERVICE)
+          : services.find(s => s.serviceCode === 'LCOD') || services[0];
+
+        if (selectedService) {
+          // Log thông tin dịch vụ được chọn
+          this.logger.log(`Selected shipping service: ${selectedService.serviceCode} - ${selectedService.serviceName} - ${selectedService.fee}đ`);
+          return {
+            success: true,
+            fee: selectedService.fee,
+            estimatedDeliveryTime: selectedService.estimatedDeliveryTime,
+            selectedServiceCode: selectedService.serviceCode,
+            availableServices: services
+          };
+        } else {
+          // Nếu không tìm thấy dịch vụ được chỉ định, uu tiên chọn LCOD hoặc dịch vụ đầu tiên
+          const defaultService = services.find(s => s.serviceCode === 'LCOD') || services[0];
+          this.logger.log(`Default shipping service: ${defaultService.serviceCode} - ${defaultService.serviceName} - ${defaultService.fee}đ`);
+
+          return {
+            success: true,
+            fee: defaultService.fee,
+            estimatedDeliveryTime: defaultService.estimatedDeliveryTime,
+            selectedServiceCode: defaultService.serviceCode,
+            availableServices: services,
+            error: 'Dịch vụ được chỉ định không khả dụng. Đã chọn dịch vụ mặc định.'
+          };
+        }
+      } catch (error) {
+        this.logger.error(`Error calculating shipping fee with getPriceAll: ${error.message}`, error.stack);
+        return {
+          success: false,
+          fee: 0,
+          error: `Không thể tính phí vận chuyển: ${error.message}`
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Error in calculateShippingFeeAll: ${error.message}`, error.stack);
       return {
         success: false,
         fee: 0,
@@ -933,11 +1008,11 @@ export class OrdersService {
       const product = productMap.get(item.productId.toString());
 
       // Lấy trọng lượng từ cosmetic_info.volume.value nếu có
-      let itemWeight = 200; // Giá trị mặc định 200g
+      let itemWeight = 0; // Khởi tạo trọng lượng là 0
 
       if (product && product.cosmetic_info && product.cosmetic_info.volume) {
         // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
-        itemWeight = product.cosmetic_info.volume.value || 200;
+        itemWeight = product.cosmetic_info.volume.value || 0;
 
         // Log thông tin trọng lượng sản phẩm
         this.logger.debug(`Using product weight for ${product.name}: ${itemWeight}${product.cosmetic_info.volume.unit || 'g'}`);
@@ -948,7 +1023,7 @@ export class OrdersService {
           itemWeight = metadataWeight;
           this.logger.debug(`Using metadata weight for item ${item.name}: ${itemWeight}g`);
         } else {
-          this.logger.debug(`Using default weight for item ${item.name}: ${itemWeight}g`);
+          this.logger.debug(`No weight information found for item ${item.name}, using 0g`);
         }
       }
 
@@ -1067,7 +1142,7 @@ export class OrdersService {
       RECEIVER_FULLNAME: order.shippingAddress.fullName,
       RECEIVER_ADDRESS: order.shippingAddress.addressLine1,
       RECEIVER_PHONE: receiverPhone,
-      RECEIVER_EMAIL: 'customer@yumin.vn', // Email mặc định cho người nhận
+      RECEIVER_EMAIL: order.shippingAddress.email || 'customer@yumin.vn', // Sử dụng email của người dùng hoặc mặc định
       RECEIVER_WARD: finalReceiverWard,
       RECEIVER_DISTRICT: finalReceiverDistrict,
       RECEIVER_PROVINCE: finalReceiverProvince,
@@ -1087,12 +1162,13 @@ export class OrdersService {
       MONEY_FEEOTHER: 0,
       MONEY_TOTALVAT: Math.round((order.shippingFee || 0) * 0.08), // VAT 8% cho phí vận chuyển
       MONEY_TOTAL: order.finalPrice, // Sử dụng tổng tiền từ đơn hàng
-      PRODUCT_WEIGHT: totalWeight || 40000, // Sử dụng trọng lượng thực tế hoặc giá trị mặc định
+      PRODUCT_WEIGHT: totalWeight, // Sử dụng trọng lượng thực tế từ sản phẩm
       PRODUCT_LENGTH: 38,
       PRODUCT_WIDTH: 24,
       PRODUCT_HEIGHT: 25,
       ORDER_PAYMENT: order.paymentMethod === PaymentMethod.COD ? 3 : 1, // Sửa theo docs: 3: Thu tiền hàng (COD), 1: Không thu tiền
-      ORDER_SERVICE: order.paymentMethod === PaymentMethod.COD ? 'LCOD' : 'VCN', // LCOD: Dịch vụ chuyển phát tiêu chuẩn có thu hộ, VCN: Chuyển phát tiêu chuẩn
+      // Sử dụng mã dịch vụ vận chuyển đã chọn hoặc mặc định theo phương thức thanh toán
+      ORDER_SERVICE: (order as any).shippingServiceCode || (order.paymentMethod === PaymentMethod.COD ? 'LCOD' : 'VCN'),
       // ORDER_SERVICE_CODE: order.paymentMethod === PaymentMethod.COD ? 'LCOD' : 'VCN', // Bỏ trường không có trong docs
       // PICK_MONEY: order.paymentMethod === PaymentMethod.COD ? 1 : 0, // Bỏ trường không có trong docs
       // COD_AMOUNT: order.paymentMethod === PaymentMethod.COD ? order.finalPrice : 0, // Bỏ trường không có trong docs
@@ -1107,16 +1183,20 @@ export class OrdersService {
         const product = productMap.get(item.productId.toString());
 
         // Lấy trọng lượng từ cosmetic_info.volume.value nếu có
-        let itemWeight = 200; // Giá trị mặc định 200g
+        let itemWeight = 0; // Khởi tạo trọng lượng là 0
 
         if (product && product.cosmetic_info && product.cosmetic_info.volume) {
           // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
-          itemWeight = product.cosmetic_info.volume.value || 200;
+          itemWeight = product.cosmetic_info.volume.value || 0;
+          this.logger.debug(`Item ${item.name} weight from product: ${itemWeight}g`);
         } else {
           // Nếu không có thông tin trọng lượng trong sản phẩm, thử lấy từ metadata của item
           const metadataWeight = (item as any).metadata?.weight;
           if (metadataWeight) {
             itemWeight = metadataWeight;
+            this.logger.debug(`Item ${item.name} weight from metadata: ${itemWeight}g`);
+          } else {
+            this.logger.debug(`No weight information found for item ${item.name}, using 0g`);
           }
         }
 
@@ -1146,14 +1226,15 @@ export class OrdersService {
       }
     });
 
-    // Log chi tiết các trường liên quan đến COD theo docs
-    this.logger.debug('COD-related fields (based on docs):', {
+    // Log chi tiết các trường liên quan đến COD và dịch vụ vận chuyển
+    this.logger.debug('COD-related fields and shipping service:', {
       paymentMethod: order.paymentMethod,
       ORDER_PAYMENT: payload.ORDER_PAYMENT,
       MONEY_COLLECTION: payload.MONEY_COLLECTION,
       ORDER_SERVICE: payload.ORDER_SERVICE,
       MONEY_FEECOD: payload.MONEY_FEECOD,
-      finalPrice: order.finalPrice
+      finalPrice: order.finalPrice,
+      shippingServiceCode: (order as any).shippingServiceCode
     });
 
     return payload;

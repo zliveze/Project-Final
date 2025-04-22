@@ -16,7 +16,7 @@ import DefaultLayout from '@/layout/DefaultLayout';
 // Context
 import { useCart } from '@/contexts/user/cart/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserOrder, ShippingAddress, CreateOrderDto } from '@/contexts/user/UserOrderContext';
+import { useUserOrder, ShippingAddress, CreateOrderDto, ShippingService } from '@/contexts/user/UserOrderContext';
 import { useUserPayment } from '@/contexts/user/UserPaymentContext';
 
 // API
@@ -32,6 +32,7 @@ interface User {
   addresses?: UserAddress[];
   customerLevel?: string;
   role: string;
+  [key: string]: any; // Cho phép các trường khác
 }
 
 // Thêm lại OrderItem interface đã bị mất
@@ -101,7 +102,7 @@ const PaymentsPage: NextPage = () => {
   // Thêm state mới để quản lý việc sửa địa chỉ
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
-  // Chuyển đổi từ CartItems sang OrderItems
+  // Chuyển đổi từ CartItems sang OrderItems và tính phí vận chuyển
   useEffect(() => {
     if (!cartLoading) {
       if (itemCount === 0) {
@@ -127,8 +128,13 @@ const PaymentsPage: NextPage = () => {
 
       setOrderItems(items);
       setIsLoading(false);
+
+      // Tính phí vận chuyển nếu đã có địa chỉ giao hàng
+      if (shippingInfo && shippingInfo.provinceCode && shippingInfo.districtCode && shippingInfo.wardCode) {
+        calculateShippingFeeForAddress(shippingInfo);
+      }
     }
-  }, [cartItems, cartLoading, router, itemCount]);
+  }, [cartItems, cartLoading, router, itemCount, shippingInfo]);
 
   // Tải danh sách địa chỉ của người dùng
   useEffect(() => {
@@ -148,7 +154,7 @@ const PaymentsPage: NextPage = () => {
               const addressParts: string[] = defaultAddress.addressLine.split(',').map((part: string) => part.trim());
               const addressData: ShippingInfo = {
                 fullName: user.name || '',
-                phone: user.phoneNumber || user.phone || '', // Đảm bảo số điện thoại được lấy từ profile
+                phone: user.phoneNumber || (user as any).phone || '', // Đảm bảo số điện thoại được lấy từ profile
                 email: user.email || '',
                 address: addressParts[0] || '',
                 city: defaultAddress.city || '',
@@ -170,7 +176,7 @@ const PaymentsPage: NextPage = () => {
               };
 
               // Log thông tin để debug
-              console.log('User phone from profile:', user.phoneNumber || user.phone);
+              console.log('User phone from profile:', user.phoneNumber || (user as any).phone);
               console.log('Shipping info with phone:', addressData);
 
               setShippingInfo(addressData);
@@ -189,7 +195,7 @@ const PaymentsPage: NextPage = () => {
               const initialShippingInfo: Partial<ShippingInfo> = {
                 fullName: user.name || '',
                 email: user.email || '',
-                phone: user.phoneNumber || user.phone || ''
+                phone: user.phoneNumber || (user as any).phone || ''
               };
 
               setShippingInfo(initialShippingInfo as ShippingInfo);
@@ -213,6 +219,153 @@ const PaymentsPage: NextPage = () => {
     fetchUserAddresses();
   }, [user]);
 
+  // Hàm tính tổng trọng lượng của các sản phẩm trong giỏ hàng
+  const calculateTotalWeight = (): number => {
+    // Khởi tạo trọng lượng
+    let totalWeight = 0;
+
+    // Lấy trọng lượng thực tế từ cosmetic_info
+    cartItems.forEach(item => {
+      // Truy cập cosmetic_info.volume.value, không sử dụng giá trị mặc định
+      const itemWeight = item.cosmetic_info?.volume?.value || 0;
+      totalWeight += itemWeight * item.quantity;
+      console.log(`Sản phẩm ${item.name}: ${itemWeight}g x ${item.quantity} = ${itemWeight * item.quantity}g`);
+    });
+
+    console.log('Tổng trọng lượng các sản phẩm:', totalWeight, 'g');
+
+    // Trả về trọng lượng thực tế, không áp dụng giá trị mặc định
+    return totalWeight;
+  };
+
+  // Hàm tính phí vận chuyển dựa trên địa chỉ và trọng lượng
+  const calculateShippingFeeForAddress = async (address: ShippingInfo) => {
+    if (!address.provinceCode || !address.districtCode || !address.wardCode) {
+      console.error('Thiếu mã địa chỉ cần thiết cho ViettelPost');
+      setShippingError('Không thể tính phí vận chuyển do thiếu thông tin địa chỉ');
+      setCalculatedShipping(32000); // Sử dụng phí mặc định
+      updateShipping(32000);
+      return;
+    }
+
+    try {
+      // Tính tổng trọng lượng
+      const totalWeight = calculateTotalWeight();
+      console.log('Tổng trọng lượng các sản phẩm:', totalWeight, 'g');
+
+      // Chuyển đổi mã tỉnh/huyện sang số nguyên nếu cần
+      let provinceCode = address.provinceCode;
+      let districtCode = address.districtCode;
+      let wardCode = address.wardCode;
+
+      // Đảm bảo mã tỉnh/thành phố đúng định dạng
+      if (provinceCode === 'HCM') provinceCode = '2';
+      else if (provinceCode === 'HNI') provinceCode = '1';
+
+      // Đảm bảo mã quận/huyện và phường/xã là số nguyên
+      // Nếu là chuỗi, chuyển đổi sang số
+      if (districtCode && isNaN(Number(districtCode))) {
+        // Nếu là chuỗi không phải số, sử dụng một giá trị mặc định
+        if (provinceCode === '2') { // HCM
+          districtCode = '43'; // Quận 1
+        } else {
+          districtCode = '14'; // Quận Hoàng Mai
+        }
+      }
+
+      if (wardCode && isNaN(Number(wardCode))) {
+        // Sử dụng một giá trị mặc định cho phường/xã
+        wardCode = '0';
+      }
+
+      // Lấy thông tin chi nhánh từ sản phẩm đầu tiên trong giỏ hàng
+      const firstItemWithBranch = cartItems.find(item => item.selectedBranchId);
+      const branchId = firstItemWithBranch?.selectedBranchId || '67f4e29303d581f233241b76'; // ID chi nhánh mặc định
+
+      // Lấy mã tỉnh/quận của chi nhánh (người gửi)
+      // Thông thường, chi nhánh sẽ có thông tin địa chỉ đã được xác thực với ViettelPost
+      // Ở đây, chúng ta sử dụng mã địa chỉ của chi nhánh đầu tiên trong giỏ hàng
+      const senderProvinceCode = 1; // Hà Nội - Mã tỉnh của chi nhánh
+      const senderDistrictCode = 4; // Quận Hoàng Mai - Mã quận của chi nhánh
+
+      // Lấy mã tỉnh/quận của người nhận (người dùng)
+      // Sử dụng mã địa chỉ đã chuẩn hóa của người dùng
+      const receiverProvinceCode = Number(provinceCode) || 2; // Mặc định là Hồ Chí Minh nếu không có
+      const receiverDistrictCode = Number(districtCode) || 35; // Mặc định là Quận Tân Bình nếu không có
+
+      console.log('Thông tin địa chỉ gửi hàng (chi nhánh):', {
+        branchId,
+        senderProvinceCode,
+        senderDistrictCode
+      });
+
+      console.log('Thông tin địa chỉ nhận hàng (người dùng):', {
+        receiverProvinceCode,
+        receiverDistrictCode
+      });
+
+      // Chuẩn bị dữ liệu cho API tính phí vận chuyển theo đúng cấu trúc API getPriceAll của Viettel Post
+      // Sử dụng trọng lượng thực tế của sản phẩm và địa chỉ thực tế của chi nhánh và người dùng
+      const shippingFeeData = {
+        PRODUCT_WEIGHT: totalWeight, // Sử dụng trọng lượng thực tế từ cartItems
+        PRODUCT_PRICE: Math.max(subtotal - discount, 10000),
+        MONEY_COLLECTION: Math.max(subtotal - discount, 10000),
+        SENDER_PROVINCE: senderProvinceCode, // Sử dụng mã tỉnh của chi nhánh
+        SENDER_DISTRICT: senderDistrictCode, // Sử dụng mã quận của chi nhánh
+        RECEIVER_PROVINCE: receiverProvinceCode, // Sử dụng mã tỉnh của người dùng
+        RECEIVER_DISTRICT: receiverDistrictCode, // Sử dụng mã quận của người dùng
+        PRODUCT_TYPE: 'HH',
+        TYPE: 1
+      };
+
+      // Log chi tiết về trọng lượng sản phẩm
+      console.log('Chi tiết trọng lượng sản phẩm:');
+      cartItems.forEach(item => {
+        console.log(`- ${item.name}: ${item.cosmetic_info?.volume?.value || 0}g x ${item.quantity}`);
+      });
+
+      console.log('Gọi API tính phí vận chuyển với dữ liệu:', shippingFeeData);
+
+      // Gọi API tính phí vận chuyển cho tất cả dịch vụ
+      const result = await calculateShippingFeeAll(shippingFeeData);
+
+      if (result.success) {
+        console.log('Phí vận chuyển đã tính được:', result.fee);
+        console.log('Các dịch vụ vận chuyển khả dụng:', result.availableServices);
+        console.log('Dịch vụ được chọn:', result.selectedServiceCode);
+
+        // Lấy phí vận chuyển từ dịch vụ được chọn
+        const shippingFee = result.fee;
+
+        // Lưu mã dịch vụ được chọn
+        if (result.selectedServiceCode) {
+          setSelectedServiceCode(result.selectedServiceCode);
+        }
+
+        // Lưu các dịch vụ vận chuyển khả dụng
+        if (result.availableServices && result.availableServices.length > 0) {
+          setAvailableServices(result.availableServices);
+        }
+
+        setCalculatedShipping(shippingFee);
+        updateShipping(shippingFee);
+        setShippingError(null);
+      } else {
+        console.error('Lỗi tính phí vận chuyển:', result.error);
+        setShippingError(result.error || 'Không thể tính phí vận chuyển');
+        setCalculatedShipping(32000); // Sử dụng phí mặc định
+        updateShipping(32000);
+        setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
+      }
+    } catch (error) {
+      console.error('Lỗi khi tính phí vận chuyển:', error);
+      setShippingError('Có lỗi xảy ra khi tính phí vận chuyển');
+      setCalculatedShipping(32000); // Sử dụng phí mặc định
+      updateShipping(32000);
+      setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
+    }
+  };
+
   // Xử lý khi chọn địa chỉ
   const handleSelectAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
@@ -223,9 +376,31 @@ const PaymentsPage: NextPage = () => {
     if (selectedAddress) {
       // Chuyển đổi dữ liệu địa chỉ sang định dạng ShippingInfo
       const addressParts: string[] = selectedAddress.addressLine.split(',').map((part: string) => part.trim());
+
+      // Chuẩn hóa mã tỉnh/thành phố
+      let provinceCode = selectedAddress.provinceCode;
+      if (provinceCode === 'HCM') provinceCode = '2';
+      else if (provinceCode === 'HNI') provinceCode = '1';
+
+      // Chuẩn hóa mã quận/huyện
+      let districtCode = selectedAddress.districtCode;
+      if (districtCode && isNaN(Number(districtCode))) {
+        if (provinceCode === '2') { // HCM
+          districtCode = '43'; // Quận 1
+        } else {
+          districtCode = '14'; // Quận Hoàng Mai
+        }
+      }
+
+      // Chuẩn hóa mã phường/xã
+      let wardCode = selectedAddress.wardCode;
+      if (wardCode && isNaN(Number(wardCode))) {
+        wardCode = '0';
+      }
+
       const addressData: ShippingInfo = {
         fullName: user?.name || '',
-        phone: user?.phoneNumber || user?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
+        phone: user?.phoneNumber || (user as any)?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
         email: user?.email || '',
         address: addressParts[0] || '',
         city: selectedAddress.city || '',
@@ -240,21 +415,29 @@ const PaymentsPage: NextPage = () => {
         provinceName: selectedAddress.provinceName || selectedAddress.city,
         districtName: selectedAddress.districtName || selectedAddress.state,
         wardName: selectedAddress.wardName,
-        // Thêm mã code nếu có
-        provinceCode: selectedAddress.provinceCode,
-        districtCode: selectedAddress.districtCode,
-        wardCode: selectedAddress.wardCode
+        // Thêm mã code đã chuẩn hóa
+        provinceCode: provinceCode,
+        districtCode: districtCode,
+        wardCode: wardCode
       };
 
       // Log thông tin để debug
-      console.log('User phone from selected address:', user?.phoneNumber || user?.phone);
+      console.log('User phone from selected address:', user?.phoneNumber || (user as any)?.phone);
       console.log('Shipping info with phone from selected address:', addressData);
+      console.log('Mã địa chỉ đã chuẩn hóa:', {
+        provinceCode,
+        districtCode,
+        wardCode
+      });
 
       setShippingInfo(addressData);
       localStorage.setItem('shippingInfo', JSON.stringify(addressData));
 
       // Xóa thông báo lỗi khi người dùng chọn địa chỉ
       setErrorMessage(null);
+
+      // Tính phí vận chuyển cho địa chỉ đã chọn
+      calculateShippingFeeForAddress(addressData);
     }
   };
 
@@ -276,12 +459,12 @@ const PaymentsPage: NextPage = () => {
     if (addressToEdit) {
       // Chuyển đổi thành dữ liệu ShippingInfo
       const convertedAddress = convertAddressToShippingInfo(addressToEdit);
-      
+
       // Cập nhật state với dữ liệu địa chỉ đã chọn
       setShippingInfo(convertedAddress);
-      
+
       console.log('Bắt đầu chỉnh sửa địa chỉ:', convertedAddress);
-      
+
       // Cuộn đến vị trí form để người dùng dễ nhìn thấy
       setTimeout(() => {
         const formElement = document.querySelector('.shipping-form');
@@ -295,12 +478,12 @@ const PaymentsPage: NextPage = () => {
   // Xử lý cập nhật thông tin giao hàng
   const handleShippingInfoSubmit = (values: ShippingInfo) => {
     setShippingInfo(values);
-    
+
     // Lưu địa chỉ nếu người dùng đã đăng nhập
     if (user && user._id) {
       saveAddressToAccount(values);
     }
-    
+
     setShowAddressForm(false);
     setEditingAddressId(null); // Reset trạng thái sửa sau khi lưu
   };
@@ -317,7 +500,7 @@ const PaymentsPage: NextPage = () => {
         postalCode: '',
         isDefault: userAddresses.length === 0, // Đặt làm mặc định nếu là địa chỉ đầu tiên
         // Thêm các mã địa chỉ cần thiết cho ViettelPost
-        provinceCode: addressData.provinceCode || '1', 
+        provinceCode: addressData.provinceCode || '1',
         districtCode: addressData.districtCode || '4',
         wardCode: addressData.wardCode || '0',
         // Thêm các trường tên địa chỉ
@@ -335,10 +518,10 @@ const PaymentsPage: NextPage = () => {
         // Đang sửa địa chỉ hiện có
         formattedAddress._id = editingAddressId; // Thêm ID địa chỉ đang sửa
         console.log('Cập nhật địa chỉ có ID:', editingAddressId);
-        
+
         // Gọi API để cập nhật địa chỉ
         updatedUser = await UserApiService.updateAddress(editingAddressId, formattedAddress);
-        
+
         toast.success('Đã cập nhật địa chỉ thành công', {
           position: "bottom-right",
           autoClose: 2000,
@@ -348,10 +531,10 @@ const PaymentsPage: NextPage = () => {
       } else {
         // Đang thêm địa chỉ mới
         console.log('Tạo địa chỉ mới');
-        
+
         // Gọi API để thêm địa chỉ mới
         updatedUser = await UserApiService.addAddress(formattedAddress);
-        
+
         toast.success('Đã thêm địa chỉ mới vào tài khoản của bạn', {
           position: "bottom-right",
           autoClose: 2000,
@@ -391,7 +574,7 @@ const PaymentsPage: NextPage = () => {
             setSelectedAddressId(newAddress._id);
           }
         }
-        
+
         setShowAddressForm(false);
       }
     } catch (error) {
@@ -401,8 +584,15 @@ const PaymentsPage: NextPage = () => {
   };
 
   // Sử dụng UserOrderContext và UserPaymentContext
-  const { createOrder, calculateShippingFee } = useUserOrder();
+  const { calculateShippingFeeAll } = useUserOrder();
   const { createOrderWithCOD, createOrderWithStripe } = useUserPayment();
+
+  // State cho phí vận chuyển và lỗi
+  const [calculatedShipping, setCalculatedShipping] = useState<number>(0); // Lưu trạng thái phí vận chuyển đã tính
+  const [shippingError, setShippingError] = useState<string | null>(null); // Lưu lỗi khi tính phí vận chuyển
+  const [availableServices, setAvailableServices] = useState<ShippingService[]>([]); // Lưu các dịch vụ vận chuyển khả dụng
+  const [selectedServiceCode, setSelectedServiceCode] = useState<string>('LCOD'); // Lưu mã dịch vụ đã chọn, mặc định là LCOD
+  const { updateShipping } = useCart(); // Lấy hàm cập nhật phí vận chuyển từ CartContext
 
   // Xử lý đặt hàng
   const handlePlaceOrder = async () => {
@@ -483,18 +673,33 @@ const PaymentsPage: NextPage = () => {
         // Sử dụng mã địa chỉ mặc định cho ViettelPost
         console.log('Sử dụng mã địa chỉ mặc định cho ViettelPost');
         shippingAddress.provinceCode = '1'; // Hà Nội
-        shippingAddress.districtCode = '4'; // Quận Hoàng Mai
+        shippingAddress.districtCode = '14'; // Quận Hoàng Mai
         shippingAddress.wardCode = '0'; // Mã mặc định cho phường/xã
       }
 
       // Đảm bảo mã địa chỉ đúng định dạng cho ViettelPost
       // Chuyển đổi mã tỉnh/thành phố sang định dạng số nếu cần
-      if (shippingAddress.provinceCode === '2' || shippingAddress.provinceCode === 'HCM') {
+      if (shippingAddress.provinceCode === 'HCM') {
         // Hồ Chí Minh
         shippingAddress.provinceCode = '2';
-      } else if (shippingAddress.provinceCode === '1' || shippingAddress.provinceCode === 'HNI') {
+      } else if (shippingAddress.provinceCode === 'HNI') {
         // Hà Nội
         shippingAddress.provinceCode = '1';
+      }
+
+      // Đảm bảo mã quận/huyện và phường/xã là số nguyên
+      if (shippingAddress.districtCode && isNaN(Number(shippingAddress.districtCode))) {
+        // Nếu là chuỗi không phải số, sử dụng một giá trị mặc định
+        if (shippingAddress.provinceCode === '2') { // HCM
+          shippingAddress.districtCode = '43'; // Quận 1
+        } else {
+          shippingAddress.districtCode = '14'; // Quận Hoàng Mai
+        }
+      }
+
+      if (shippingAddress.wardCode && isNaN(Number(shippingAddress.wardCode))) {
+        // Sử dụng một giá trị mặc định cho phường/xã
+        shippingAddress.wardCode = '0';
       }
 
       // Log thông tin địa chỉ đã chuyển đổi
@@ -551,7 +756,8 @@ const PaymentsPage: NextPage = () => {
         shippingAddress,
         branchId: selectedBranchId, // Thêm branchId vào đơn hàng
         paymentMethod: paymentMethod as 'cod' | 'bank_transfer' | 'credit_card' | 'stripe',
-        notes: shippingInfo.notes
+        notes: shippingInfo.notes,
+        shippingServiceCode: selectedServiceCode // Thêm mã dịch vụ vận chuyển đã chọn
       };
 
       // Nếu có voucher, thêm vào đơn hàng
@@ -617,7 +823,7 @@ const PaymentsPage: NextPage = () => {
   };
 
   // Tìm địa chỉ đang được sửa để truyền vào form
-  const addressBeingEdited = editingAddressId 
+  const addressBeingEdited = editingAddressId
     ? userAddresses.find(addr => addr._id === editingAddressId)
     : null;
 
@@ -782,12 +988,12 @@ const PaymentsPage: NextPage = () => {
                                 {address.isDefault && selectedAddressId !== address._id && (
                                   <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full mr-2">Mặc định</span>
                                 )}
-                                <button 
-                                  type="button" 
+                                <button
+                                  type="button"
                                   className="ml-2 px-2 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                                  onClick={(e) => { 
+                                  onClick={(e) => {
                                     e.stopPropagation(); // Ngăn chặn sự kiện click lan tỏa lên phần tử cha
-                                    handleEditAddress(address._id); 
+                                    handleEditAddress(address._id);
                                   }}
                                 >
                                   <FiEdit className="mr-1 inline-block" />
@@ -823,8 +1029,8 @@ const PaymentsPage: NextPage = () => {
                         </div>
                       )}
                       <ShippingForm
-                        initialValues={editingAddressId && addressBeingEdited 
-                          ? convertAddressToShippingInfo(addressBeingEdited) 
+                        initialValues={editingAddressId && addressBeingEdited
+                          ? convertAddressToShippingInfo(addressBeingEdited)
                           : (shippingInfo || undefined)}
                         onSubmit={handleShippingInfoSubmit}
                         showSubmitButton={true}
@@ -881,6 +1087,9 @@ const PaymentsPage: NextPage = () => {
                   shipping={shipping}
                   total={total}
                   voucherCode={voucherCode}
+                  shippingError={shippingError}
+                  calculatedShipping={calculatedShipping}
+                  availableServices={availableServices}
                   onPlaceOrder={handlePlaceOrder}
                   isProcessing={isProcessing}
                 />

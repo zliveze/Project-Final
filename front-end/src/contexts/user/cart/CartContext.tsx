@@ -19,7 +19,16 @@ interface EmbeddedVariant {
     };
     price: number;
     images?: { url: string; alt?: string; isPrimary?: boolean }[];
+    combinations?: Combination[]; // Thêm trường combinations
     // Thêm các trường khác nếu có trong ProductVariant schema
+}
+
+// Interface cho Combination (dựa trên dữ liệu sản phẩm mẫu)
+interface Combination {
+    combinationId: string;
+    attributes: Record<string, string>; // e.g., { shade: 'Đỏ', size: '15ml' }
+    price?: number; // Giá riêng cho combination
+    additionalPrice?: number; // Giá cộng thêm vào giá variant
 }
 
 // Interface cho Product được populate trong Cart Item
@@ -37,6 +46,14 @@ interface PopulatedProduct {
         _id: string;
         name: string;
         slug: string;
+    };
+    // Thêm cosmetic_info vào PopulatedProduct
+    cosmetic_info?: {
+        volume?: {
+            value?: number;
+            unit?: string;
+        };
+        // Thêm các trường khác nếu có
     };
 }
 
@@ -95,6 +112,14 @@ export interface CartProduct {
   branchInventory?: Array<{ branchId: string; quantity: number }>; // Tồn kho theo chi nhánh
   selectedBranchId?: string; // Chi nhánh đã chọn (nếu có)
   isProductWithoutVariants?: boolean; // Flag to identify products without variants
+  // Thêm trường để lưu thông tin cosmetic_info
+  cosmetic_info?: {
+    volume?: {
+      value?: number;
+      unit?: string;
+    };
+    // Thêm các trường khác của cosmetic_info nếu cần
+  };
 }
 
 interface CartContextType {
@@ -236,16 +261,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // If we have variant options but no selectedOptions from the cart item,
           // create a more detailed selectedOptions object from the variant data
-          if (Object.keys(enhancedOptions).length === 0 && embeddedVariant?.options) {
+          // Thêm kiểm tra null cho embeddedVariant
+          if (Object.keys(enhancedOptions).length === 0 && embeddedVariant && embeddedVariant.options) {
             if (embeddedVariant.options.color) {
               enhancedOptions['Color'] = embeddedVariant.options.color;
             }
 
-            if (embeddedVariant.options.sizes && embeddedVariant.options.sizes.length > 0) {
+            // Thêm kiểm tra null cho embeddedVariant
+            if (embeddedVariant && embeddedVariant.options.sizes && embeddedVariant.options.sizes.length > 0) {
               enhancedOptions['Size'] = embeddedVariant.options.sizes[0];
             }
-
-            if (embeddedVariant.options.shades && embeddedVariant.options.shades.length > 0) {
+            // Thêm kiểm tra null cho embeddedVariant
+            if (embeddedVariant && embeddedVariant.options.shades && embeddedVariant.options.shades.length > 0) {
               enhancedOptions['Shade'] = embeddedVariant.options.shades[0];
             }
           }
@@ -265,41 +292,44 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (isProductWithoutVariants) {
             originalPrice = productData.currentPrice || productData.price;
           } else {
-            // For products with variants, use the variant's price
-            originalPrice = embeddedVariant.price;
+          // For products with variants, use the variant's price (Thêm kiểm tra null)
+          originalPrice = embeddedVariant?.price || productData.price; // Fallback to product price if variant price missing
 
-            // If there's a combinationId in selectedOptions, find the combination and use its price
-            const combinationId = item.selectedOptions?.combinationId;
-            if (combinationId && embeddedVariant.combinations) {
-              const combination = embeddedVariant.combinations.find(c => c.combinationId === combinationId);
-              if (combination) {
-                console.log(`Found combination for ${combinationId}:`, combination);
+          // If there's a combinationId in selectedOptions, find the combination and use its price
+          const combinationId = item.selectedOptions?.combinationId;
+          // Thêm kiểm tra null cho embeddedVariant và combinations
+          if (combinationId && embeddedVariant && embeddedVariant.combinations) {
+            // Thêm kiểu dữ liệu cho 'c'
+            const combination = embeddedVariant.combinations.find((c: Combination) => c.combinationId === combinationId);
+            if (combination) {
+              console.log(`Found combination for ${combinationId}:`, combination);
 
                 // If combination has a direct price, use it
                 if (combination.price) {
                   originalPrice = combination.price;
                   itemPrice = combination.price; // Update itemPrice too
                 }
-                // If combination has additionalPrice, add it to the variant price
-                else if (combination.additionalPrice) {
-                  originalPrice = embeddedVariant.price + combination.additionalPrice;
-                  itemPrice = embeddedVariant.price + combination.additionalPrice; // Update itemPrice too
-                }
-              } else {
+              // If combination has additionalPrice, add it to the variant price (Thêm kiểm tra null)
+              else if (combination.additionalPrice && embeddedVariant?.price) {
+                originalPrice = embeddedVariant.price + combination.additionalPrice;
+                itemPrice = embeddedVariant.price + combination.additionalPrice; // Update itemPrice too
+              }
+            } else {
                 console.log(`Combination ${combinationId} not found in variant:`, embeddedVariant);
               }
             }
           }
 
           // For products without variants, use the product's images
-          // For products with variants, use the variant's images if available
+          // For products with variants, use the variant's images if available (Thêm kiểm tra null)
           const imageUrl = isProductWithoutVariants
             ? productData.images?.[0]?.url || '/404.png'
-            : embeddedVariant.images?.[0]?.url || productData.images?.[0]?.url || '/404.png';
+            : embeddedVariant?.images?.[0]?.url || productData.images?.[0]?.url || '/404.png';
 
+          // Thêm kiểm tra null
           const imageAlt = isProductWithoutVariants
             ? productData.images?.[0]?.alt || productData.name
-            : embeddedVariant.images?.[0]?.alt || productData.name;
+            : embeddedVariant?.images?.[0]?.alt || productData.name;
 
           // Generate a unique ID for the cart item
           // For products with variants, use the variantId combined with combinationId if available
@@ -341,6 +371,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             branchInventory: branchInventory,
             selectedBranchId: selectedBranchId, // Add selectedBranchId from options
             isProductWithoutVariants: isProductWithoutVariants, // Flag to identify products without variants
+            // Gán cosmetic_info từ productData
+            cosmetic_info: productData.cosmetic_info,
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
@@ -776,8 +808,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Tính toán giảm giá từ voucher đã áp dụng
   const discount = appliedVoucher ? appliedVoucher.discountAmount : 0;
 
-  // Tính tổng tiền sau khi áp dụng giảm giá và phí vận chuyển
-  const total = subtotal - discount + shipping;
+  // Tính tổng tiền sau khi áp dụng giảm giá (phí vận chuyển sẽ được tính ở trang thanh toán)
+  const total = subtotal - discount;
 
   // Hàm áp dụng voucher
   const applyVoucher = async (code: string): Promise<boolean> => {
@@ -796,9 +828,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (result) {
         setVoucherCode(code);
 
-        // Cập nhật phí vận chuyển dựa trên tổng tiền sau khi áp dụng voucher
-        const afterDiscountTotal = subtotal - result.discountAmount;
-        setShipping(afterDiscountTotal >= 500000 ? 0 : 30000);
+        // Không cập nhật phí vận chuyển ở đây nữa, phí vận chuyển sẽ được tính ở trang thanh toán
 
         return true;
       }
@@ -813,8 +843,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const clearVoucher = () => {
     clearAppliedVoucher();
     setVoucherCode('');
-    // Cập nhật lại phí vận chuyển dựa trên tổng tiền gốc
-    setShipping(subtotal >= 500000 ? 0 : 30000);
+    // Không cập nhật phí vận chuyển ở đây nữa
   };
 
   // Hàm cập nhật phí vận chuyển
@@ -822,17 +851,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setShipping(amount);
   };
 
-  // Cập nhật phí vận chuyển khi subtotal thay đổi
-  useEffect(() => {
-    // Nếu không có voucher, tính phí vận chuyển dựa trên subtotal
-    if (!appliedVoucher) {
-      setShipping(subtotal >= 500000 ? 0 : 30000);
-    } else {
-      // Nếu có voucher, tính phí vận chuyển dựa trên tổng tiền sau khi áp dụng voucher
-      const afterDiscountTotal = subtotal - appliedVoucher.discountAmount;
-      setShipping(afterDiscountTotal >= 500000 ? 0 : 30000);
-    }
-  }, [subtotal, appliedVoucher]);
+  // Không cập nhật phí vận chuyển ở đây nữa, phí vận chuyển sẽ được tính ở trang thanh toán
 
   return (
     <CartContext.Provider value={{
