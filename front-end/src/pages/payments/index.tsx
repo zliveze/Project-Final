@@ -23,7 +23,7 @@ import { useUserPayment } from '@/contexts/user/UserPaymentContext';
 import { UserApiService } from '@/contexts/user/UserApiService';
 
 // Định nghĩa kiểu dữ liệu User rõ ràng hơn
-interface UserProfile {
+type UserProfile = {
   _id: string;
   name: string;
   email: string;
@@ -92,14 +92,7 @@ const PaymentsPage: NextPage = () => {
     const newTotal = cartTotal + shipping;
     setTotal(newTotal);
 
-    // Log giá trị để kiểm tra
-    console.log('Chi phí tại trang thanh toán đã được cập nhật:', {
-      subtotal,
-      discount,
-      shipping,
-      cartTotal,
-      newTotal
-    });
+
   }, [cartTotal, shipping, subtotal, discount]);
 
   // State
@@ -193,9 +186,7 @@ const PaymentsPage: NextPage = () => {
                 wardCode: defaultAddress.wardCode
               };
 
-              // Log thông tin để debug
-              console.log('User phone from profile:', user.phoneNumber || (user as any).phone);
-              console.log('Shipping info with phone:', addressData);
+
 
               setShippingInfo(addressData);
               localStorage.setItem('shippingInfo', JSON.stringify(addressData));
@@ -247,10 +238,10 @@ const PaymentsPage: NextPage = () => {
       // Truy cập cosmetic_info.volume.value, không sử dụng giá trị mặc định
       const itemWeight = item.cosmetic_info?.volume?.value || 0;
       totalWeight += itemWeight * item.quantity;
-      console.log(`Sản phẩm ${item.name}: ${itemWeight}g x ${item.quantity} = ${itemWeight * item.quantity}g`);
+
     });
 
-    console.log('Tổng trọng lượng các sản phẩm:', totalWeight, 'g');
+
 
     // Trả về trọng lượng thực tế, không áp dụng giá trị mặc định
     return totalWeight;
@@ -259,24 +250,15 @@ const PaymentsPage: NextPage = () => {
   // Hàm tính phí vận chuyển dựa trên địa chỉ và trọng lượng
   const calculateShippingFeeForAddress = async (address: ShippingInfo) => {
     if (!address.provinceCode || !address.districtCode || !address.wardCode) {
-      console.error('Thiếu mã địa chỉ cần thiết cho ViettelPost');
       setShippingError('Không thể tính phí vận chuyển do thiếu thông tin địa chỉ');
       setCalculatedShipping(32000); // Sử dụng phí mặc định
       updateShipping(32000);
-
-      // Log giá trị sau khi cập nhật phí vận chuyển mặc định do thiếu thông tin địa chỉ
-      console.log('Phí vận chuyển mặc định đã được cập nhật do thiếu thông tin địa chỉ:', {
-        shippingFee: 32000,
-        calculatedShipping: 32000,
-        shipping: 32000
-      });
       return;
     }
 
     try {
       // Tính tổng trọng lượng
       const totalWeight = calculateTotalWeight();
-      console.log('Tổng trọng lượng các sản phẩm:', totalWeight, 'g');
 
       // Chuyển đổi mã tỉnh/huyện sang số nguyên nếu cần
       let provinceCode = address.provinceCode;
@@ -303,31 +285,17 @@ const PaymentsPage: NextPage = () => {
         wardCode = '0';
       }
 
-      // Lấy thông tin chi nhánh từ sản phẩm đầu tiên trong giỏ hàng
-      const firstItemWithBranch = cartItems.find(item => item.selectedBranchId);
-      const branchId = firstItemWithBranch?.selectedBranchId || '67f4e29303d581f233241b76'; // ID chi nhánh mặc định
+      // Sử dụng mã địa chỉ cố định cho chi nhánh
 
-      // Lấy mã tỉnh/quận của chi nhánh (người gửi)
-      // Thông thường, chi nhánh sẽ có thông tin địa chỉ đã được xác thực với ViettelPost
-      // Ở đây, chúng ta sử dụng mã địa chỉ của chi nhánh đầu tiên trong giỏ hàng
+      // Sử dụng mã địa chỉ cố định cho chi nhánh (người gửi)
       const senderProvinceCode = 1; // Hà Nội - Mã tỉnh của chi nhánh
       const senderDistrictCode = 4; // Quận Hoàng Mai - Mã quận của chi nhánh
 
-      // Lấy mã tỉnh/quận của người nhận (người dùng)
-      // Sử dụng mã địa chỉ đã chuẩn hóa của người dùng
+      // Sử dụng mã địa chỉ đã chuẩn hóa của người dùng (người nhận)
       const receiverProvinceCode = Number(provinceCode) || 2; // Mặc định là Hồ Chí Minh nếu không có
       const receiverDistrictCode = Number(districtCode) || 35; // Mặc định là Quận Tân Bình nếu không có
 
-      console.log('Thông tin địa chỉ gửi hàng (chi nhánh):', {
-        branchId,
-        senderProvinceCode,
-        senderDistrictCode
-      });
 
-      console.log('Thông tin địa chỉ nhận hàng (người dùng):', {
-        receiverProvinceCode,
-        receiverDistrictCode
-      });
 
       // Chuẩn bị dữ liệu cho API tính phí vận chuyển theo đúng cấu trúc API getPriceAll của Viettel Post
       // Sử dụng trọng lượng thực tế của sản phẩm và địa chỉ thực tế của chi nhánh và người dùng
@@ -343,21 +311,13 @@ const PaymentsPage: NextPage = () => {
         TYPE: 1
       };
 
-      // Log chi tiết về trọng lượng sản phẩm
-      console.log('Chi tiết trọng lượng sản phẩm:');
-      cartItems.forEach(item => {
-        console.log(`- ${item.name}: ${item.cosmetic_info?.volume?.value || 0}g x ${item.quantity}`);
-      });
 
-      console.log('Gọi API tính phí vận chuyển với dữ liệu:', shippingFeeData);
 
       // Gọi API tính phí vận chuyển cho tất cả dịch vụ
       const result = await calculateShippingFeeAll(shippingFeeData);
 
       if (result.success) {
-        console.log('Phí vận chuyển đã tính được:', result.fee);
-        console.log('Các dịch vụ vận chuyển khả dụng:', result.availableServices);
-        console.log('Dịch vụ được chọn:', result.selectedServiceCode);
+
 
         // Lấy phí vận chuyển từ dịch vụ được chọn
         const shippingFee = result.fee;
@@ -365,7 +325,7 @@ const PaymentsPage: NextPage = () => {
         // Lưu mã dịch vụ được chọn
         if (result.selectedServiceCode) {
           setSelectedServiceCode(result.selectedServiceCode);
-          console.log(`Dịch vụ vận chuyển mặc định: ${result.selectedServiceCode}`);
+
         }
 
         // Lưu các dịch vụ vận chuyển khả dụng
@@ -377,41 +337,20 @@ const PaymentsPage: NextPage = () => {
         updateShipping(shippingFee);
         setShippingError(null);
 
-        // Log giá trị sau khi cập nhật phí vận chuyển
-        console.log('Phí vận chuyển đã được cập nhật:', {
-          shippingFee,
-          calculatedShipping: shippingFee,
-          shipping: shippingFee
-        });
+
 
         // Cập nhật tổng chi phí (useEffect sẽ tự động cập nhật khi shipping thay đổi)
       } else {
-        console.error('Lỗi tính phí vận chuyển:', result.error);
         setShippingError(result.error || 'Không thể tính phí vận chuyển');
         setCalculatedShipping(32000); // Sử dụng phí mặc định
         updateShipping(32000);
         setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
-
-        // Log giá trị sau khi cập nhật phí vận chuyển mặc định
-        console.log('Phí vận chuyển mặc định đã được cập nhật:', {
-          shippingFee: 32000,
-          calculatedShipping: 32000,
-          shipping: 32000
-        });
       }
     } catch (error) {
-      console.error('Lỗi khi tính phí vận chuyển:', error);
       setShippingError('Có lỗi xảy ra khi tính phí vận chuyển');
       setCalculatedShipping(32000); // Sử dụng phí mặc định
       updateShipping(32000);
       setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
-
-      // Log giá trị sau khi cập nhật phí vận chuyển mặc định do lỗi
-      console.log('Phí vận chuyển mặc định đã được cập nhật do lỗi:', {
-        shippingFee: 32000,
-        calculatedShipping: 32000,
-        shipping: 32000
-      });
     }
   };
 
@@ -470,14 +409,7 @@ const PaymentsPage: NextPage = () => {
         wardCode: wardCode
       };
 
-      // Log thông tin để debug
-      console.log('User phone from selected address:', user?.phoneNumber || (user as any)?.phone);
-      console.log('Shipping info with phone from selected address:', addressData);
-      console.log('Mã địa chỉ đã chuẩn hóa:', {
-        provinceCode,
-        districtCode,
-        wardCode
-      });
+
 
       setShippingInfo(addressData);
       localStorage.setItem('shippingInfo', JSON.stringify(addressData));
@@ -512,7 +444,7 @@ const PaymentsPage: NextPage = () => {
       // Cập nhật state với dữ liệu địa chỉ đã chọn
       setShippingInfo(convertedAddress);
 
-      console.log('Bắt đầu chỉnh sửa địa chỉ:', convertedAddress);
+
 
       // Cuộn đến vị trí form để người dùng dễ nhìn thấy
       setTimeout(() => {
@@ -558,7 +490,7 @@ const PaymentsPage: NextPage = () => {
         wardName: addressData.ward
       };
 
-      console.log('Saving address with ViettelPost codes:', formattedAddress);
+
 
       let updatedUser;
 
@@ -566,7 +498,7 @@ const PaymentsPage: NextPage = () => {
       if (editingAddressId) {
         // Đang sửa địa chỉ hiện có
         formattedAddress._id = editingAddressId; // Thêm ID địa chỉ đang sửa
-        console.log('Cập nhật địa chỉ có ID:', editingAddressId);
+
 
         // Gọi API để cập nhật địa chỉ
         updatedUser = await UserApiService.updateAddress(editingAddressId, formattedAddress);
@@ -579,7 +511,7 @@ const PaymentsPage: NextPage = () => {
         });
       } else {
         // Đang thêm địa chỉ mới
-        console.log('Tạo địa chỉ mới');
+
 
         // Gọi API để thêm địa chỉ mới
         updatedUser = await UserApiService.addAddress(formattedAddress);
@@ -645,7 +577,7 @@ const PaymentsPage: NextPage = () => {
 
   // Xử lý khi người dùng chọn dịch vụ vận chuyển
   const handleSelectShippingService = (serviceCode: string, fee: number) => {
-    console.log(`Chọn dịch vụ vận chuyển: ${serviceCode} với phí ${fee}đ`);
+
     setSelectedServiceCode(serviceCode);
     setCalculatedShipping(fee);
     updateShipping(fee);
@@ -727,18 +659,11 @@ const PaymentsPage: NextPage = () => {
         wardCode: selectedUserAddress?.wardCode || ''
       };
 
-      console.log('Selected address for shipping:', selectedUserAddress);
+
 
       // Kiểm tra và chuyển đổi mã địa chỉ cho ViettelPost
       if (!shippingAddress.provinceCode || !shippingAddress.districtCode || !shippingAddress.wardCode) {
-        console.error('Thiếu mã địa chỉ cần thiết cho ViettelPost:', {
-          provinceCode: shippingAddress.provinceCode,
-          districtCode: shippingAddress.districtCode,
-          wardCode: shippingAddress.wardCode
-        });
-
         // Sử dụng mã địa chỉ mặc định cho ViettelPost
-        console.log('Sử dụng mã địa chỉ mặc định cho ViettelPost');
         shippingAddress.provinceCode = '1'; // Hà Nội
         shippingAddress.districtCode = '14'; // Quận Hoàng Mai
         shippingAddress.wardCode = '0'; // Mã mặc định cho phường/xã
@@ -769,12 +694,7 @@ const PaymentsPage: NextPage = () => {
         shippingAddress.wardCode = '0';
       }
 
-      // Log thông tin địa chỉ đã chuyển đổi
-      console.log('Mã địa chỉ đã chuyển đổi cho ViettelPost:', {
-        provinceCode: shippingAddress.provinceCode,
-        districtCode: shippingAddress.districtCode,
-        wardCode: shippingAddress.wardCode
-      });
+
 
       // Lấy branchId từ sản phẩm đầu tiên trong giỏ hàng
       // Ưu tiên sản phẩm có selectedBranchId
@@ -784,14 +704,14 @@ const PaymentsPage: NextPage = () => {
       const itemWithBranch = cartItems.find(item => item.selectedBranchId);
       if (itemWithBranch && itemWithBranch.selectedBranchId) {
         selectedBranchId = itemWithBranch.selectedBranchId;
-        console.log(`Sử dụng branchId từ sản phẩm ${itemWithBranch.name}: ${selectedBranchId}`);
+
       }
 
       // Nếu không tìm thấy, kiểm tra xem có sản phẩm nào không có selectedBranchId không
       if (!selectedBranchId) {
         const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
         if (itemsWithoutBranch.length > 0) {
-          console.warn(`Có ${itemsWithoutBranch.length} sản phẩm chưa chọn chi nhánh`);
+
           toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng quay lại giỏ hàng để chọn chi nhánh.`);
           setIsProcessing(false);
           return;
@@ -801,7 +721,7 @@ const PaymentsPage: NextPage = () => {
       // Sử dụng một branchId mặc định nếu không tìm thấy
       if (!selectedBranchId) {
         selectedBranchId = '67f4e29303d581f233241b76'; // Sử dụng ID chi nhánh mặc định
-        console.log(`Sử dụng branchId mặc định: ${selectedBranchId}`);
+
       }
 
       // Tạo dữ liệu đơn hàng

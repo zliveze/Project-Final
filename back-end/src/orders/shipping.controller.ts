@@ -3,7 +3,6 @@ import {
   Get,
   Param,
   UseGuards,
-  Query,
   BadRequestException,
   Logger,
   HttpCode,
@@ -17,7 +16,6 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
 
 @ApiTags('Shipping')
@@ -38,14 +36,14 @@ export class ShippingController {
       const provinces = await this.viettelPostService.getProvinces();
       return {
         success: true,
-        data: provinces.map(province => ({
+        data: provinces.map((province: any) => ({
           provinceId: province.PROVINCE_ID,
           provinceName: province.PROVINCE_NAME,
           provinceCode: province.PROVINCE_CODE,
         })),
       };
     } catch (error) {
-      this.logger.error(`Error getting provinces: ${error.message}`, error.stack);
+      this.logger.error(`Error getting provinces: ${error.message}`);
       return {
         success: false,
         error: 'Không thể lấy danh sách tỉnh/thành phố',
@@ -67,15 +65,15 @@ export class ShippingController {
       const districts = await this.viettelPostService.getDistricts(Number(provinceId));
       return {
         success: true,
-        data: districts.map(district => ({
+        data: districts.map((district: any) => ({
           districtId: district.DISTRICT_ID,
           districtName: district.DISTRICT_NAME,
           // Sử dụng DISTRICT_VALUE theo tài liệu API
-          districtCode: district.DISTRICT_VALUE, 
+          districtCode: district.DISTRICT_VALUE,
         })),
       };
     } catch (error) {
-      this.logger.error(`Error getting districts: ${error.message}`, error.stack);
+      this.logger.error(`Error getting districts: ${error.message}`);
       return {
         success: false,
         error: 'Không thể lấy danh sách quận/huyện',
@@ -97,14 +95,14 @@ export class ShippingController {
       const wards = await this.viettelPostService.getWards(Number(districtId));
       return {
         success: true,
-        data: wards.map(ward => ({
+        data: wards.map((ward: any) => ({
           wardId: ward.WARDS_ID,
           wardName: ward.WARDS_NAME,
           wardCode: ward.WARDS_ID.toString(), // Thêm wardCode (chính là WARDS_ID)
         })),
       };
     } catch (error) {
-      this.logger.error(`Error getting wards: ${error.message}`, error.stack);
+      this.logger.error(`Error getting wards: ${error.message}`);
       return {
         success: false,
         error: 'Không thể lấy danh sách phường/xã',

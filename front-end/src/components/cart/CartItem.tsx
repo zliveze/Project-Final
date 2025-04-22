@@ -33,8 +33,7 @@ interface CartItemProps {
 }
 
 const CartItem: React.FC<CartItemProps> = ({
-  // _id and productId are available but not directly used in this component
-  variantId, // Destructure variantId
+  variantId,
   name,
   slug,
   image,
@@ -55,18 +54,12 @@ const CartItem: React.FC<CartItemProps> = ({
   // Use the branches hook to get branch information
   const { getBranchName, error: branchError, preloadBranches } = useBranches();
 
-  // If there's an error loading branches, log it but continue with fallback branch names
+  // Preload branches when component mounts
   React.useEffect(() => {
-    // Preload branches when component mounts
     preloadBranches();
+  }, [preloadBranches]);
 
-    if (branchError) {
-      console.warn('Error loading branches, using fallback branch names:', branchError);
-    }
-  }, [branchError, preloadBranches]);
-  // We'll use the branch inventory directly when needed
-
-  // Xử lý tăng số lượng - Pass variantId
+  // Xử lý tăng số lượng
   const handleIncreaseQuantity = () => {
     // If we have a selected branch, check against that branch's inventory
     if (selectedBranchId) {
@@ -98,10 +91,10 @@ const CartItem: React.FC<CartItemProps> = ({
     }
   };
 
-  // Xử lý giảm số lượng - Pass variantId
+  // Xử lý giảm số lượng
   const handleDecreaseQuantity = () => {
     if (quantity > 1) {
-      onUpdateQuantity(variantId, quantity - 1, false); // Use variantId, don't show toast
+      onUpdateQuantity(variantId, quantity - 1, false);
     }
   };
 
@@ -332,7 +325,7 @@ const CartItem: React.FC<CartItemProps> = ({
                 </button>
               </div>
               <button
-                onClick={() => onRemove(variantId)} // Use variantId
+                onClick={() => onRemove(variantId)}
                 className="ml-4 p-2 text-gray-400 hover:text-pink-600 transition-colors"
                 title="Xóa sản phẩm"
               >
@@ -387,7 +380,7 @@ const CartItem: React.FC<CartItemProps> = ({
 
         {/* Nút xóa */}
         <button
-          onClick={() => onRemove(variantId)} // Use variantId
+          onClick={() => onRemove(variantId)}
           className="p-2 text-gray-400 hover:text-pink-600 transition-colors"
           title="Xóa sản phẩm"
         >

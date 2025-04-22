@@ -120,7 +120,8 @@ export class OrdersUserController {
         data: trackingInfo
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to get tracking information: ${error.message}`);
+      this.ordersService.logger.error(`Failed to get tracking information: ${error.message}`);
+      throw new BadRequestException('Không thể lấy thông tin vận đơn. Vui lòng thử lại sau.');
     }
   }
 

@@ -74,7 +74,8 @@ const PaymentSuccessPage: NextPage = () => {
           const parsedData = JSON.parse(savedOrderData);
           setOrderData(parsedData);
         } catch (error) {
-          console.error('Lỗi khi phân tích dữ liệu đơn hàng:', error);
+          // Xử lý lỗi khi phân tích dữ liệu đơn hàng
+          router.push('/cart');
         }
       } else {
         // Nếu không có dữ liệu đơn hàng, chuyển hướng về trang giỏ hàng
@@ -251,35 +252,35 @@ const PaymentSuccessPage: NextPage = () => {
   );
 };
 
-// Dữ liệu mẫu cho sản phẩm gợi ý
+// Dữ liệu sản phẩm gợi ý
 const recommendedProducts = [
   {
     id: 1,
     name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
     slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
     price: 405000,
-    image: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
+    image: '/images/products/kem-chong-nang.jpg',
   },
   {
     id: 2,
     name: 'Serum Vitamin C Klairs Freshly Juiced Vitamin Drop',
     slug: 'serum-vitamin-c-klairs-freshly-juiced-vitamin-drop',
     price: 320000,
-    image: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
+    image: '/images/products/serum-vitamin-c.jpg',
   },
   {
     id: 3,
     name: 'Nước Tẩy Trang Bioderma Sensibio H2O',
     slug: 'nuoc-tay-trang-bioderma-sensibio-h2o',
     price: 350000,
-    image: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
+    image: '/images/products/nuoc-tay-trang.jpg',
   },
   {
     id: 4,
     name: 'Kem Dưỡng Ẩm CeraVe Moisturizing Cream',
     slug: 'kem-duong-am-cerave-moisturizing-cream',
     price: 315000,
-    image: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
+    image: '/images/products/kem-duong-am.jpg',
   },
 ];
 

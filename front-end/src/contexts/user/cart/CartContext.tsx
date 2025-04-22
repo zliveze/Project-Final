@@ -227,13 +227,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (!embeddedVariant) {
               // Ghi log chi tiết hơn về lỗi
-              console.warn(`Could not find embedded variant details for variantId: ${item.variantId} (${typeof item.variantId}) in product ${productData._id}.`);
-              console.warn(`Available variants:`, productData.variants?.map(v => ({
-                variantId: v.variantId,
-                variantIdType: typeof v.variantId,
-                variantIdStr: v.variantId?.toString()
-              })));
-
               // Kiểm tra xem có phải là ID tạm thời không (new-timestamp)
               if (item.variantId && item.variantId.toString().startsWith('new-')) {
                 console.warn(`Detected temporary ID format: ${item.variantId}. This may be a newly created variant that hasn't been properly saved.`);
@@ -242,7 +235,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               return null; // Bỏ qua item nếu không lấy được chi tiết
             }
           } else {
-            console.log(`Processing product without variants: ${productData.name} (${productData._id})`);
+
           }
 
           // Calculate stock by summing inventory across all branches
@@ -286,7 +279,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // Determine the correct price based on product type and selected combination
           let originalPrice;
-          let itemPrice = item.price; // Default to the stored price
 
           // For products without variants, use the product's price
           if (isProductWithoutVariants) {
@@ -302,20 +294,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Thêm kiểu dữ liệu cho 'c'
             const combination = embeddedVariant.combinations.find((c: Combination) => c.combinationId === combinationId);
             if (combination) {
-              console.log(`Found combination for ${combinationId}:`, combination);
+
 
                 // If combination has a direct price, use it
                 if (combination.price) {
                   originalPrice = combination.price;
-                  itemPrice = combination.price; // Update itemPrice too
                 }
               // If combination has additionalPrice, add it to the variant price (Thêm kiểm tra null)
               else if (combination.additionalPrice && embeddedVariant?.price) {
                 originalPrice = embeddedVariant.price + combination.additionalPrice;
-                itemPrice = embeddedVariant.price + combination.additionalPrice; // Update itemPrice too
               }
             } else {
-                console.log(`Combination ${combinationId} not found in variant:`, embeddedVariant);
+
               }
             }
           }
@@ -414,7 +404,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                               ...getAuthHeaders(),
                           },
                       });
-                      console.log(`Đã tự động xóa sản phẩm lỗi với variantId: ${apiVariantId}`);
+
                   }
                   // Không cần fetch lại giỏ hàng vì chúng ta đã lọc các item lỗi
               } catch (cleanupErr) {
@@ -442,7 +432,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [fetchAndPopulateCart, isAuthenticated]); // Thêm isAuthenticated
 
   const addItemToCart = async (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>): Promise<boolean> => {
-    console.log(`[CartContext] addItemToCart called with productId: ${productId}, variantId: ${variantId} (${typeof variantId}), quantity: ${quantity}`, options);
+
     if (!isAuthenticated) {
       toast.info('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
       return false;
@@ -596,7 +586,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Prepare selectedOptions for the DTO
       // Start with current item's selectedOptions to preserve combinationId
-      let selectedOptions = { ...currentItem.selectedOptions } || {};
+      let selectedOptions = currentItem.selectedOptions ? { ...currentItem.selectedOptions } : {};
 
       // Add or update selectedBranchId if provided
       if (selectedBranchId) {
@@ -719,8 +709,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         apiVariantId = variantId;
       }
 
-      // Ghi log thông tin chi tiết về sản phẩm đang xóa
-      console.log(`Đang xóa sản phẩm với variantId: ${apiVariantId} (${typeof variantId})`);
+
 
       // Gọi API DELETE bằng fetch - encode variantId to handle special characters
       const encodedVariantId = encodeURIComponent(apiVariantId);
@@ -733,7 +722,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // API có thể trả về giỏ hàng mới (status 200) hoặc không (status 204)
       if (response.ok) { // Checks for 2xx status codes
-        console.log(`Xóa sản phẩm thành công với variantId: ${apiVariantId}`);
+
 
         // Fetch lại giỏ hàng để đảm bảo đồng bộ
         await fetchAndPopulateCart();
@@ -742,7 +731,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         // Xử lý các trường hợp lỗi cụ thể
         if (response.status === 404) {
-          console.warn(`Sản phẩm với variantId ${apiVariantId} không tồn tại trong giỏ hàng hoặc đã bị xóa trước đó.`);
+
           // Vẫn trả về true vì mục tiêu là xóa sản phẩm khỏi giỏ hàng
           return true;
         }

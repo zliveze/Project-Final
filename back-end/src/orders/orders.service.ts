@@ -53,15 +53,13 @@ export class OrdersService {
             : PaymentStatus.PENDING,
       };
 
-      // Log thông tin về dịch vụ vận chuyển đã chọn
-      if (createOrderDto.shippingServiceCode) {
-        this.logger.log(`Using shipping service code: ${createOrderDto.shippingServiceCode}`);
-      } else {
-        this.logger.log('No shipping service code provided, will use default service');
+      // Kiểm tra dịch vụ vận chuyển đã chọn
+      if (!createOrderDto.shippingServiceCode) {
+        this.logger.debug('No shipping service code provided, will use default service');
       }
 
       const createdOrder = await this.orderModel.create(orderData);
-      this.logger.log(`Order created successfully: ${createdOrder._id}`);
+      this.logger.debug(`Order created successfully: ${createdOrder._id}`);
 
       // Tạo bản ghi theo dõi đơn hàng
       await this.orderTrackingModel.create({
@@ -81,7 +79,7 @@ export class OrdersService {
 
       // Nếu phương thức thanh toán là COD, tạo vận đơn Viettel Post
       if (createOrderDto.paymentMethod === PaymentMethod.COD) {
-        this.logger.log(`Payment method is COD for order ${createdOrder._id}. Creating ViettelPost shipment.`);
+        this.logger.debug(`Payment method is COD for order ${createdOrder._id}. Creating ViettelPost shipment.`);
         try {
           await this.createViettelPostShipment(createdOrder);
         } catch (error) {
@@ -491,7 +489,7 @@ export class OrdersService {
         throw new BadRequestException('Tracking code is required');
       }
 
-      this.logger.log(`Getting tracking information for tracking code: ${trackingCode}`);
+      this.logger.debug(`Getting tracking information for tracking code: ${trackingCode}`);
 
       const trackingInfo = await this.viettelPostService.getOrderInfo(trackingCode);
 
@@ -511,7 +509,7 @@ export class OrdersService {
    */
   private async decreaseProductInventory(items: any[]): Promise<void> {
     try {
-      this.logger.log('Decreasing product inventory for order items');
+      this.logger.debug('Decreasing product inventory for order items');
 
       // Lấy thông tin chi nhánh mặc định (có thể lấy từ config hoặc cố định)
       const defaultBranchId = this.configService.get<string>('DEFAULT_BRANCH_ID') || '65a4e4c2a8a4e3c9ab9d1234'; // ID chi nhánh mặc định
@@ -548,7 +546,7 @@ export class OrdersService {
 
                 if (variantInventory) {
                   currentQuantity = variantInventory.quantity || 0;
-                  this.logger.log(`Found variant inventory: Product ${productId}, Variant ${variantId}, Current quantity: ${currentQuantity}`);
+
                 }
               }
 
@@ -563,7 +561,7 @@ export class OrdersService {
                 newQuantity
               );
 
-              this.logger.log(`Decreased variant inventory: Product ${productId}, Variant ${variantId}, From ${currentQuantity} to ${newQuantity}`);
+
             } catch (variantError) {
               this.logger.error(`Error updating variant inventory: ${variantError.message}`, variantError.stack);
             }
@@ -581,7 +579,7 @@ export class OrdersService {
 
                 if (productInventory) {
                   currentQuantity = productInventory.quantity || 0;
-                  this.logger.log(`Found product inventory: Product ${productId}, Current quantity: ${currentQuantity}`);
+
                 }
               }
 
@@ -595,7 +593,7 @@ export class OrdersService {
                 newQuantity
               );
 
-              this.logger.log(`Decreased product inventory: Product ${productId}, From ${currentQuantity} to ${newQuantity}`);
+
             } catch (productError) {
               this.logger.error(`Error updating product inventory: ${productError.message}`, productError.stack);
             }
@@ -616,7 +614,7 @@ export class OrdersService {
    */
   async calculateShippingFee(calculateShippingDto: any): Promise<ShippingFeeResponseDto> {
     try {
-      this.logger.log(`Calculating shipping fee for order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
+      this.logger.debug(`Calculating shipping fee for order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
 
       // Sử dụng trực tiếp payload từ frontend
       const payload = calculateShippingDto;
@@ -713,7 +711,7 @@ export class OrdersService {
    */
   async calculateShippingFeeAll(calculateShippingDto: any): Promise<ShippingFeeResponseDto> {
     try {
-      this.logger.log(`Calculating shipping fee for all services, order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
+      this.logger.debug(`Calculating shipping fee for all services, order value: ${calculateShippingDto.MONEY_COLLECTION || calculateShippingDto.PRODUCT_PRICE || 0}`);
 
       // Sử dụng trực tiếp payload từ frontend
       const payload = calculateShippingDto;
@@ -745,8 +743,8 @@ export class OrdersService {
           : services.find(s => s.serviceCode === 'LCOD') || services[0];
 
         if (selectedService) {
-          // Log thông tin dịch vụ được chọn
-          this.logger.log(`Selected shipping service: ${selectedService.serviceCode} - ${selectedService.serviceName} - ${selectedService.fee}đ`);
+          // Chọn dịch vụ vận chuyển
+          this.logger.debug(`Selected shipping service: ${selectedService.serviceCode} - ${selectedService.serviceName} - ${selectedService.fee}đ`);
           return {
             success: true,
             fee: selectedService.fee,
@@ -757,7 +755,7 @@ export class OrdersService {
         } else {
           // Nếu không tìm thấy dịch vụ được chỉ định, uu tiên chọn LCOD hoặc dịch vụ đầu tiên
           const defaultService = services.find(s => s.serviceCode === 'LCOD') || services[0];
-          this.logger.log(`Default shipping service: ${defaultService.serviceCode} - ${defaultService.serviceName} - ${defaultService.fee}đ`);
+          this.logger.debug(`Default shipping service: ${defaultService.serviceCode} - ${defaultService.serviceName} - ${defaultService.fee}đ`);
 
           return {
             success: true,
@@ -791,17 +789,9 @@ export class OrdersService {
    */
   async createViettelPostShipment(order: OrderDocument): Promise<any> {
     try {
-      this.logger.log(`Creating ViettelPost shipment for order ${order._id}`);
+      this.logger.debug(`Creating ViettelPost shipment for order ${order._id}`);
 
-      // Log thông tin địa chỉ gốc từ order
-      this.logger.debug('Original shipping address from order:', {
-        fullName: order.shippingAddress.fullName,
-        phone: order.shippingAddress.phone,
-        addressLine1: order.shippingAddress.addressLine1,
-        provinceCode: order.shippingAddress.provinceCode,
-        districtCode: order.shippingAddress.districtCode,
-        wardCode: order.shippingAddress.wardCode
-      });
+
 
       // Kiểm tra xem đơn hàng đã có mã vận đơn chưa
       if (order.trackingCode) {
@@ -810,26 +800,21 @@ export class OrdersService {
 
       // Kiểm tra số điện thoại người nhận
       if (!order.shippingAddress.phone) {
-        this.logger.error('Receiver phone number is missing', { shippingAddress: order.shippingAddress });
+        this.logger.error('Receiver phone number is missing');
         throw new BadRequestException('Receiver phone number is required for shipping');
       }
 
       // Kiểm tra định dạng số điện thoại
       const phoneRegex = /^[0-9]{10,11}$/;
       if (!phoneRegex.test(order.shippingAddress.phone)) {
-        this.logger.error('Invalid receiver phone number format', { phone: order.shippingAddress.phone });
+        this.logger.error(`Invalid receiver phone number format: ${order.shippingAddress.phone}`);
         throw new BadRequestException('Receiver phone number must be 10-11 digits');
       }
 
       // Chuẩn bị dữ liệu cho Viettel Post
       const viettelPostPayload = await this.prepareViettelPostPayload(order);
 
-      // Kiểm tra payload trước khi gọi API
-      this.logger.debug('ViettelPost payload prepared:', {
-        payload: viettelPostPayload,
-        receiverPhone: viettelPostPayload.RECEIVER_PHONE,
-        senderPhone: viettelPostPayload.SENDER_PHONE
-      });
+
 
       if (!viettelPostPayload || Object.keys(viettelPostPayload).length === 0) {
         this.logger.error('ViettelPost payload is empty');
@@ -838,21 +823,9 @@ export class OrdersService {
 
       // Gọi API Viettel Post để tạo vận đơn
       const shipmentResult = await this.viettelPostService.createShipmentOrder(viettelPostPayload);
-      this.logger.log(`ViettelPost shipment created for order ${order._id}. Result: ${JSON.stringify(shipmentResult)}`);
+      this.logger.log(`ViettelPost shipment created for order ${order._id}`);
 
-      // Log chi tiết về kết quả COD
-      this.logger.debug('ViettelPost COD result details:', {
-        orderPaymentMethod: order.paymentMethod,
-        isCOD: order.paymentMethod === PaymentMethod.COD,
-        moneyCollection: shipmentResult.MONEY_COLLECTION,
-        moneyTotal: shipmentResult.MONEY_TOTAL,
-        moneyTotalFee: shipmentResult.MONEY_TOTAL_FEE,
-        moneyFee: shipmentResult.MONEY_FEE,
-        moneyCollectionFee: shipmentResult.MONEY_COLLECTION_FEE,
-        moneyVat: shipmentResult.MONEY_VAT,
-        orderNumber: shipmentResult.ORDER_NUMBER,
-        fullResponse: shipmentResult
-      });
+
 
       // Kiểm tra kết quả từ Viettel Post
       if (!shipmentResult || !shipmentResult.ORDER_NUMBER) {
@@ -931,7 +904,7 @@ export class OrdersService {
   private async prepareViettelPostPayload(order: OrderDocument): Promise<any> { // Make function async
     // Kiểm tra xem đơn hàng có branchId không
     if (!order.branchId) {
-      this.logger.error(`Order ${order._id} does not have a branchId assigned.`);
+      this.logger.error('Order is missing branch assignment.');
       throw new InternalServerErrorException(`Order ${order._id} is missing branch assignment.`);
     }
 
@@ -950,26 +923,18 @@ export class OrdersService {
       productMap.set(product._id.toString(), product);
     });
 
-    // Log thông tin sản phẩm đã tìm thấy
-    this.logger.debug(`Found ${products.length} products for weight calculation:`, {
-      productIds: productIds.map(id => id.toString()),
-      foundProducts: products.map((p: any) => ({
-        id: p._id.toString(),
-        name: p.name,
-        volume: p.cosmetic_info?.volume
-      }))
-    });
+
 
     // Lấy thông tin chi nhánh từ branchId
     const branch = await this.branchModel.findById(order.branchId).exec();
     if (!branch) {
-      this.logger.error(`Branch with ID ${order.branchId} not found for order ${order._id}.`);
+      this.logger.error(`Branch not found for order ${order._id}.`);
       throw new NotFoundException(`Branch with ID ${order.branchId} not found.`);
     }
 
     // Kiểm tra xem chi nhánh có đủ thông tin mã địa chỉ ViettelPost không
     if (!branch.wardCode || !branch.districtCode || !branch.provinceCode) {
-      this.logger.error(`Branch ${branch.name} (ID: ${branch._id}) is missing ViettelPost address codes.`);
+      this.logger.error(`Branch ${branch.name} is missing ViettelPost address codes.`);
       throw new InternalServerErrorException(`Branch ${branch.name} is missing required ViettelPost address codes.`);
     }
 
@@ -981,21 +946,10 @@ export class OrdersService {
     const storeDistrictCode = branch.districtCode;
     const storeProvinceCode = branch.provinceCode;
 
-    // Kiểm tra mã địa chỉ người nhận (giữ nguyên)
-    this.logger.debug('Checking receiver address codes:', {
-      shippingAddress: order.shippingAddress,
-      wardCode: order.shippingAddress.wardCode,
-      districtCode: order.shippingAddress.districtCode,
-      provinceCode: order.shippingAddress.provinceCode
-    });
+    // Kiểm tra mã địa chỉ người nhận
 
     if (!order.shippingAddress.wardCode || !order.shippingAddress.districtCode || !order.shippingAddress.provinceCode) {
-      this.logger.error('Receiver address codes are missing', {
-        wardCode: order.shippingAddress.wardCode,
-        districtCode: order.shippingAddress.districtCode,
-        provinceCode: order.shippingAddress.provinceCode,
-        fullAddress: order.shippingAddress
-      });
+      this.logger.error('Receiver address codes are missing');
       throw new Error('Receiver address codes are required for shipping');
     }
 
@@ -1014,16 +968,15 @@ export class OrdersService {
         // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
         itemWeight = product.cosmetic_info.volume.value || 0;
 
-        // Log thông tin trọng lượng sản phẩm
-        this.logger.debug(`Using product weight for ${product.name}: ${itemWeight}${product.cosmetic_info.volume.unit || 'g'}`);
+
       } else {
         // Nếu không có thông tin trọng lượng trong sản phẩm, thử lấy từ metadata của item
         const metadataWeight = (item as any).metadata?.weight;
         if (metadataWeight) {
           itemWeight = metadataWeight;
-          this.logger.debug(`Using metadata weight for item ${item.name}: ${itemWeight}g`);
+
         } else {
-          this.logger.debug(`No weight information found for item ${item.name}, using 0g`);
+
         }
       }
 
@@ -1053,19 +1006,11 @@ export class OrdersService {
 
     // Đảm bảo số điện thoại có ít nhất 10 chữ số
     if (receiverPhone.replace(/[^0-9]/g, '').length < 10) {
-      this.logger.error('Receiver phone number is too short after formatting', {
-        originalPhone: order.shippingAddress.phone,
-        formattedPhone: receiverPhone
-      });
+      this.logger.error(`Receiver phone number is too short after formatting: ${order.shippingAddress.phone}`);
       throw new Error('Receiver phone number must have at least 10 digits');
     }
 
-    this.logger.debug('Formatted phone numbers:', {
-      originalReceiverPhone: order.shippingAddress.phone,
-      formattedReceiverPhone: receiverPhone,
-      originalSenderPhone: storePhone,
-      formattedSenderPhone: senderPhone
-    });
+
 
     // Sử dụng các mã địa chỉ mặc định đã được xác nhận hoạt động với ViettelPost
     // Ghi log các mã địa chỉ gốc
@@ -1090,13 +1035,7 @@ export class OrdersService {
     // Kiểm tra nếu chuyển đổi thất bại (NaN) - Phòng trường hợp dữ liệu chưa được chuẩn hóa
     if (isNaN(senderWard) || isNaN(senderDistrict) || isNaN(senderProvince) ||
         isNaN(receiverWard) || isNaN(receiverDistrict) || isNaN(receiverProvince)) {
-      this.logger.error('Failed to parse standardized address codes to numbers. Data might not be standardized yet.', {
-        storeWardCode, storeDistrictCode, storeProvinceCode,
-        receiverWardCode: order.shippingAddress.wardCode,
-        receiverDistrictCode: order.shippingAddress.districtCode,
-        receiverProvinceCode: order.shippingAddress.provinceCode,
-        parsed: { senderWard, senderDistrict, senderProvince, receiverWard, receiverDistrict, receiverProvince }
-      });
+      this.logger.error('Failed to parse standardized address codes to numbers. Data might not be standardized yet.');
       throw new Error('Invalid address code format. Ensure data is standardized to ViettelPost numeric IDs.');
     }
 
@@ -1188,15 +1127,15 @@ export class OrdersService {
         if (product && product.cosmetic_info && product.cosmetic_info.volume) {
           // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
           itemWeight = product.cosmetic_info.volume.value || 0;
-          this.logger.debug(`Item ${item.name} weight from product: ${itemWeight}g`);
+
         } else {
           // Nếu không có thông tin trọng lượng trong sản phẩm, thử lấy từ metadata của item
           const metadataWeight = (item as any).metadata?.weight;
           if (metadataWeight) {
             itemWeight = metadataWeight;
-            this.logger.debug(`Item ${item.name} weight from metadata: ${itemWeight}g`);
+
           } else {
-            this.logger.debug(`No weight information found for item ${item.name}, using 0g`);
+
           }
         }
 
@@ -1209,33 +1148,7 @@ export class OrdersService {
       })
     };
 
-    // Thêm thông tin debug về payload
-    this.logger.debug('Final ViettelPost payload:', {
-      payload,
-      types: {
-        ORDER_NUMBER: typeof payload.ORDER_NUMBER,
-        SENDER_WARD: typeof payload.SENDER_WARD,
-        SENDER_DISTRICT: typeof payload.SENDER_DISTRICT,
-        SENDER_PROVINCE: typeof payload.SENDER_PROVINCE,
-        RECEIVER_WARD: typeof payload.RECEIVER_WARD,
-        RECEIVER_DISTRICT: typeof payload.RECEIVER_DISTRICT,
-        RECEIVER_PROVINCE: typeof payload.RECEIVER_PROVINCE,
-        PRODUCT_WEIGHT: typeof payload.PRODUCT_WEIGHT,
-        PRODUCT_PRICE: typeof payload.PRODUCT_PRICE,
-        MONEY_COLLECTION: typeof payload.MONEY_COLLECTION
-      }
-    });
 
-    // Log chi tiết các trường liên quan đến COD và dịch vụ vận chuyển
-    this.logger.debug('COD-related fields and shipping service:', {
-      paymentMethod: order.paymentMethod,
-      ORDER_PAYMENT: payload.ORDER_PAYMENT,
-      MONEY_COLLECTION: payload.MONEY_COLLECTION,
-      ORDER_SERVICE: payload.ORDER_SERVICE,
-      MONEY_FEECOD: payload.MONEY_FEECOD,
-      finalPrice: order.finalPrice,
-      shippingServiceCode: (order as any).shippingServiceCode
-    });
 
     return payload;
   }

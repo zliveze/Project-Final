@@ -115,7 +115,7 @@ export class ViettelPostService {
 
       if (tokenDoc) {
         this.token = tokenDoc.token;
-        this.logger.log('Loaded existing ViettelPost token from database');
+        this.logger.debug('Loaded existing ViettelPost token from database');
       } else {
         // Nếu không có token hoặc token hết hạn, login để lấy token mới
         await this.login();
@@ -159,11 +159,7 @@ export class ViettelPostService {
       'Token': this.token,
     };
 
-    this.logger.debug('ViettelPost API headers:', {
-      headers,
-      tokenLength: this.token ? this.token.length : 0,
-      tokenFirstChars: this.token ? this.token.substring(0, 10) + '...' : 'null'
-    });
+
 
     return headers;
   }
@@ -183,30 +179,18 @@ export class ViettelPostService {
         PASSWORD: this.password,
       };
 
-      this.logger.log(`Logging in to ViettelPost with username: ${this.username}`);
-      this.logger.debug('ViettelPost login payload:', {
-        url,
-        username: this.username,
-        passwordLength: this.password ? this.password.length : 0
-      });
+      this.logger.debug(`Logging in to ViettelPost with username: ${this.username}`);
 
       const response = await firstValueFrom(
         this.httpService.post<ViettelPostLoginResponse>(url, payload),
       );
 
-      this.logger.debug('ViettelPost login response:', {
-        status: response.status,
-        statusText: response.statusText,
-        dataStatus: response.data?.status,
-        message: response.data?.message,
-        hasToken: response.data?.data?.token ? 'Yes' : 'No',
-        tokenLength: response.data?.data?.token ? response.data.data.token.length : 0
-      });
+
 
       if (response.data && response.data.status === 200 && response.data.data?.token) {
         // Lưu token vào database
         await this.saveToken(response.data.data.token);
-        this.logger.log('Successfully logged in to ViettelPost and saved token');
+        this.logger.debug('Successfully logged in to ViettelPost and saved token');
         return this.token;
       } else {
         this.logger.error(`ViettelPost login failed: ${response.data?.message || 'Unknown error'}`);
@@ -256,15 +240,13 @@ export class ViettelPostService {
         }
       }
 
-      this.logger.log(`Sending request to create ViettelPost shipment`);
-      this.logger.debug(`Payload: ${JSON.stringify(payload, null, 2)}`);
+      this.logger.debug(`Sending request to create ViettelPost shipment`);
 
       const response = await firstValueFrom(
         this.httpService.post<ViettelPostOrderResponse>(url, payload, { headers: this.getHeaders() }),
       );
 
-      this.logger.log(`ViettelPost response status: ${response.status}`);
-      this.logger.debug(`ViettelPost response data: ${JSON.stringify(response.data)}`);
+      this.logger.debug(`ViettelPost response status: ${response.status}`);
 
       if (response.data && response.data.status === 200) {
         return response.data.data;
@@ -276,21 +258,7 @@ export class ViettelPostService {
       const axiosError = error as AxiosError;
       this.logger.error(`Error calling ViettelPost API: ${axiosError.message}`, axiosError.stack);
 
-      // Hiển thị thông tin chi tiết về lỗi
-      this.logger.debug('ViettelPost API error details:', {
-        message: axiosError.message,
-        code: axiosError.code,
-        status: axiosError.response?.status,
-        statusText: axiosError.response?.statusText,
-        headers: axiosError.response?.headers,
-        config: {
-          url: axiosError.config?.url,
-          method: axiosError.config?.method,
-          headers: axiosError.config?.headers,
-          data: axiosError.config?.data
-        },
-        responseData: axiosError.response?.data
-      });
+
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401 ||
@@ -299,7 +267,7 @@ export class ViettelPostService {
            'message' in axiosError.response.data &&
            typeof (axiosError.response.data as any).message === 'string' &&
            (axiosError.response.data as any).message.includes('token'))) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.createShipmentOrder(payload); // Gọi lại API sau khi đăng nhập
       }
@@ -325,7 +293,7 @@ export class ViettelPostService {
       const url = `${this.apiUrl}/order/GetOrderDetailByOrderNumber`;
       const payload = { ORDER_NUMBER: orderNumber };
 
-      this.logger.log(`Getting order info for order number: ${orderNumber}`);
+      this.logger.debug(`Getting order info for order number: ${orderNumber}`);
 
       const response = await firstValueFrom(
         this.httpService.post<ViettelPostTrackingResponse>(url, payload, { headers: this.getHeaders() }),
@@ -343,7 +311,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.getOrderInfo(orderNumber); // Gọi lại API sau khi đăng nhập
       }
@@ -373,7 +341,7 @@ export class ViettelPostService {
         NOTE: reason || 'Cancelled by system',
       };
 
-      this.logger.log(`Cancelling order: ${orderNumber}`);
+      this.logger.debug(`Cancelling order: ${orderNumber}`);
 
       const response = await firstValueFrom(
         this.httpService.post(url, payload, { headers: this.getHeaders() }),
@@ -391,7 +359,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.cancelOrder(orderNumber, reason); // Gọi lại API sau khi đăng nhập
       }
@@ -415,7 +383,7 @@ export class ViettelPostService {
       }
 
       const url = `${this.apiUrl}/categories/listProvinceById`;
-      this.logger.log('Fetching provinces from ViettelPost');
+      this.logger.debug('Fetching provinces from ViettelPost');
 
       const response = await firstValueFrom(
         this.httpService.get(url, {
@@ -436,7 +404,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.getProvinces(); // Gọi lại API sau khi đăng nhập
       }
@@ -479,7 +447,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.getDistricts(provinceId); // Gọi lại API sau khi đăng nhập
       }
@@ -522,7 +490,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.getWards(districtId); // Gọi lại API sau khi đăng nhập
       }
@@ -546,8 +514,7 @@ export class ViettelPostService {
 
       const url = `${this.apiUrl}/order/getPrice`;
 
-      this.logger.log(`Calculating shipping fee using getPrice API`);
-      this.logger.debug(`Payload: ${JSON.stringify(payload)}`);
+      this.logger.debug(`Calculating shipping fee using getPrice API`);
 
       const response = await firstValueFrom(
         this.httpService.post(url, payload, { headers: this.getHeaders() }),
@@ -565,7 +532,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.calculateShippingFee(payload); // Gọi lại API sau khi đăng nhập
       }
@@ -589,8 +556,7 @@ export class ViettelPostService {
 
       const url = `${this.apiUrl}/order/getPriceAll`;
 
-      this.logger.log(`Calculating shipping fee using getPriceAll API`);
-      this.logger.debug(`Payload: ${JSON.stringify(payload)}`);
+      this.logger.debug(`Calculating shipping fee using getPriceAll API`);
 
       // Chuẩn hóa payload
       const normalizedPayload = {
@@ -621,7 +587,7 @@ export class ViettelPostService {
 
       // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
       if (axiosError.response?.status === 401) {
-        this.logger.log('Token expired, trying to login again...');
+        this.logger.debug('Token expired, trying to login again...');
         await this.login();
         return this.calculateShippingFeeAll(payload); // Gọi lại API sau khi đăng nhập
       }

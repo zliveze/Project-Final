@@ -6,8 +6,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
-import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
+import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/user/cart/CartContext';
 
 // Components
 import CartItem from '@/components/cart/CartItem';
@@ -21,15 +21,14 @@ import DefaultLayout from '@/layout/DefaultLayout';
 import { useBranches } from '@/hooks/useBranches';
 import { useUserVoucher } from '@/hooks/useUserVoucher';
 
-// Import CartProduct interface from CartContext
 import { CartProduct } from '@/contexts/user/cart/CartContext';
 
-// Extend CartProduct interface to include branchName
+// Mở rộng CartProduct để bao gồm branchName
 interface ExtendedCartProduct extends CartProduct {
   branchInventory?: Array<{ branchId: string; quantity: number; branchName?: string }>;
 }
 
-// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý (Keep for RecommendedProducts)
+// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
 interface RecommendedProduct {
   _id: string;
   name: string;
@@ -49,25 +48,24 @@ interface RecommendedProduct {
 
 const CartPage: NextPage = () => {
   const router = useRouter();
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user } = useAuth();
   const {
     cartItems,
     isLoading,
-    error, // Get error state from context
-    subtotal, // Get subtotal directly from context
-    itemCount, // Get itemCount directly from context
-    discount, // Get discount from context
-    shipping, // Get shipping from context
-    total, // Get total from context
-    voucherCode, // Get voucher code from context
+    error,
+    subtotal,
+    itemCount,
+    discount,
+    shipping,
+    total,
+    voucherCode,
     debouncedUpdateCartItem,
     removeCartItem,
-    applyVoucher, // Get applyVoucher function from context
-    clearVoucher, // Get clearVoucher function from context
-    // addItemToCart // Keep if needed for RecommendedProducts later
+    applyVoucher,
+    clearVoucher
   } = useCart();
 
-  // Use the branches hook to get branch information
+  // Sử dụng hook branches để lấy thông tin chi nhánh
   const { branches, loading: branchesLoading } = useBranches();
 
   // State for page loading and voucher modal
@@ -98,43 +96,41 @@ const CartPage: NextPage = () => {
     }
   }, [cartItems, subtotal, isLoading, fetchApplicableVouchers]);
 
-  // State for recommended products (temporary, fetch later)
+  // State for recommended products
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
 
-  // Fetch recommended products (example, replace with actual API call)
+  // Fetch recommended products
   useEffect(() => {
     const fetchRecommended = async () => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Set temporary recommended products data here if needed for UI
-      setRecommendedProducts([
-        // Add some sample RecommendedProduct data if you want to display them
-        // Example:
-        { _id: 'rec1', name: 'Recommended Item 1', slug: 'rec-item-1', price: 100000, currentPrice: 90000, image: { url: '/placeholder.jpg', alt: 'Rec 1'}, brand: { name: 'Brand Rec', slug: 'brand-rec'}, inStock: true },
-      ]);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/recommended?limit=4`);
+        if (response.ok) {
+          const data = await response.json();
+          setRecommendedProducts(data.data || []);
+        }
+      } catch (error) {
+        console.error('Lỗi khi tải sản phẩm gợi ý:', error);
+      }
     };
     fetchRecommended();
   }, []);
 
 
-  // Không cần tính toán shipping ở đây nữa vì đã được xử lý trong CartContext
 
-
-  // Xử lý cập nhật số lượng sản phẩm - Use debounced context function
-  // Note: CartItem component should pass variantId as 'id' prop
+  // Xử lý cập nhật số lượng sản phẩm
   const handleUpdateQuantity = (variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
     debouncedUpdateCartItem(variantId, quantity, showToast, selectedBranchId);
-    // Toast messages are handled within the context now
+
   };
 
   // Xử lý xóa sản phẩm khỏi giỏ hàng - Use context function
-  // Note: CartItem component should pass variantId as 'id' prop
+
   const handleRemoveItem = (variantId: string) => {
     removeCartItem(variantId);
-    // Toast messages are handled within the context now
+
   };
 
-  // Xử lý áp dụng mã giảm giá (Sử dụng hàm từ context)
+  // Xử lý áp dụng mã giảm giá
   const handleApplyVoucher = async (code: string) => {
     const success = await applyVoucher(code);
     if (success) {
@@ -159,7 +155,7 @@ const CartPage: NextPage = () => {
     setShowVoucherModal(false);
   };
 
-  // Xử lý nút thanh toán (Keep as is)
+  // Xử lý nút thanh toán
   const handleProceedToCheckout = () => {
     if (itemCount === 0) {
         toast.warn('Giỏ hàng của bạn đang trống.');
@@ -195,7 +191,7 @@ const CartPage: NextPage = () => {
     router.push('/payments'); // Navigate to payments page
   };
 
-  // Sử dụng total từ context
+
 
   // Define interface for grouped cart items
   interface CartItemGroup {
@@ -205,8 +201,7 @@ const CartPage: NextPage = () => {
     items: ExtendedCartProduct[];
   }
 
-  // Branch information is already fetched at the top of the component
-  // If there's an error loading branches, we'll still show the cart with fallback branch names
+
 
   // Group cart items by branch
   const groupedCartItems = React.useMemo<CartItemGroup[]>(() => {
@@ -267,7 +262,7 @@ const CartPage: NextPage = () => {
         <meta name="description" content="Giỏ hàng của bạn tại YUMIN Beauty - Mỹ phẩm chính hãng" />
       </Head>
 
-      {/* Toast Container is now in DefaultLayout */}
+
 
       <div className="bg-gray-50 min-h-screen py-8">
         <div className="container mx-auto px-4">
@@ -327,8 +322,8 @@ const CartPage: NextPage = () => {
                     <div className="space-y-1">
                       {group.items.map(item => (
                         <CartItem
-                          key={item._id} // Use _id as key which is unique for all items
-                          _id={item.variantId} // Pass variantId as _id prop for CartItem internal use if needed
+                          key={item._id}
+                          _id={item.variantId}
                           productId={item.productId}
                           variantId={item.variantId}
                           name={item.name}
@@ -343,8 +338,8 @@ const CartPage: NextPage = () => {
                           maxQuantity={item.maxQuantity}
                           branchInventory={item.branchInventory || []}
                           selectedBranchId={item.selectedBranchId}
-                          onUpdateQuantity={handleUpdateQuantity} // Pass context function
-                          onRemove={handleRemoveItem} // Pass context function
+                          onUpdateQuantity={handleUpdateQuantity}
+                          onRemove={handleRemoveItem}
                         />
                       ))}
                     </div>
@@ -355,16 +350,16 @@ const CartPage: NextPage = () => {
               {/* Cart Summary Section */}
               <div className="lg:col-span-1">
                 <CartSummary
-                  subtotal={subtotal} // Use subtotal from context
-                  discount={discount} // Use discount from context
-                  shipping={shipping} // Use shipping from context
-                  total={total} // Use total from context
-                  itemCount={itemCount} // Use itemCount from context
-                  voucherCode={voucherCode} // Use voucherCode from context
-                  onApplyVoucher={handleApplyVoucher} // Pass local handler
-                  onProceedToCheckout={handleProceedToCheckout} // Pass local handler
-                  onClearVoucher={clearVoucher} // Pass clearVoucher function from context
-                  onShowVoucherList={handleShowVoucherModal} // Pass handler to show voucher list
+                  subtotal={subtotal}
+                  discount={discount}
+                  shipping={shipping}
+                  total={total}
+                  itemCount={itemCount}
+                  voucherCode={voucherCode}
+                  onApplyVoucher={handleApplyVoucher}
+                  onProceedToCheckout={handleProceedToCheckout}
+                  onClearVoucher={clearVoucher}
+                  onShowVoucherList={handleShowVoucherModal}
                 />
               </div>
             </div>
@@ -379,17 +374,15 @@ const CartPage: NextPage = () => {
             onSelectVoucher={handleApplyVoucher}
             appliedVoucherCode={voucherCode}
             subtotal={subtotal}
-            currentUserLevel={user?.customerLevel || ''} // Pass customerLevel
+            currentUserLevel={user?.customerLevel || ''}
           />
 
           {/* Recommended Products Section */}
-          {/* Consider fetching recommended products based on cart items */}
+
           {!isLoading && recommendedProducts.length > 0 && (
             <div className="mt-16">
               <RecommendedProducts
                 products={recommendedProducts as any[]}
-                // Remove onAddToWishlist prop if not supported by the component
-                // onAddToWishlist={handleAddToWishlist}
               />
             </div>
           )}

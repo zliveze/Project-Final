@@ -20,78 +20,77 @@ import { useCart } from '@/contexts/user/cart/CartContext';
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 // Component thanh toán Stripe
-const StripeCheckoutForm: React.FC<{ clientSecret: string; orderId: string }> = ({ 
-  clientSecret, 
-  orderId 
+const StripeCheckoutForm: React.FC<{ clientSecret: string; orderId: string }> = ({
+  clientSecret,
+  orderId
 }) => {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
   const { confirmPayment } = useUserPayment();
   const { clearCart } = useCart();
-  
+
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [disabled, setDisabled] = useState(true);
-  
+
   // Xử lý khi thẻ thay đổi
   const handleChange = (event: any) => {
     setDisabled(event.empty);
     setError(event.error ? event.error.message : '');
   };
-  
+
   // Xử lý khi submit form
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    
+
     if (!stripe || !elements) {
       return;
     }
-    
+
     setProcessing(true);
-    
+
     try {
       // Lấy CardElement
       const cardElement = elements.getElement(CardElement);
-      
+
       if (!cardElement) {
         throw new Error('Không thể lấy thông tin thẻ');
       }
-      
+
       // Xác nhận thanh toán với Stripe
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: cardElement,
         }
       });
-      
+
       if (error) {
         setError(`Thanh toán thất bại: ${error.message}`);
         setProcessing(false);
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         // Thanh toán thành công, cập nhật đơn hàng
         await confirmPayment(paymentIntent.id, orderId);
-        
+
         // Lưu thông tin đơn hàng vào localStorage
         localStorage.setItem('paymentStatus', 'succeeded');
-        
+
         // Xóa giỏ hàng
         await clearCart();
-        
+
         setSucceeded(true);
         setProcessing(false);
-        
+
         // Chuyển đến trang thành công
         router.push('/payments/success');
       }
     } catch (err: any) {
-      console.error('Lỗi khi xử lý thanh toán:', err);
       setError(`Đã xảy ra lỗi khi xử lý thanh toán: ${err.message}`);
       setProcessing(false);
     }
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="stripe-form">
       <div className="mb-6">
@@ -118,7 +117,7 @@ const StripeCheckoutForm: React.FC<{ clientSecret: string; orderId: string }> = 
           />
         </div>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md">
           <div className="flex">
@@ -131,7 +130,7 @@ const StripeCheckoutForm: React.FC<{ clientSecret: string; orderId: string }> = 
           </div>
         </div>
       )}
-      
+
       <button
         type="submit"
         disabled={processing || disabled || succeeded}
@@ -163,49 +162,49 @@ const StripeCheckoutForm: React.FC<{ clientSecret: string; orderId: string }> = 
 const StripePaymentPage: NextPage = () => {
   const router = useRouter();
   const { order_id } = router.query;
-  
+
   const [clientSecret, setClientSecret] = useState<string>('');
   const [orderId, setOrderId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Lấy thông tin thanh toán từ localStorage
   useEffect(() => {
     if (router.isReady) {
       const id = order_id as string;
       const secret = localStorage.getItem('paymentIntentClientSecret');
-      
+
       if (!id || !secret) {
         setError('Không tìm thấy thông tin thanh toán. Vui lòng thử lại.');
         setLoading(false);
         return;
       }
-      
+
       setOrderId(id);
       setClientSecret(secret);
       setLoading(false);
     }
   }, [router.isReady, order_id]);
-  
+
   // Breadcrumb items
   const breadcrumbItems = [
     { label: 'Giỏ hàng', href: '/cart' },
     { label: 'Thanh toán', href: '/payments' },
     { label: 'Thanh toán Stripe' }
   ];
-  
+
   // Quay lại trang thanh toán
   const handleGoBack = () => {
     router.push('/payments');
   };
-  
+
   return (
     <DefaultLayout breadcrumItems={breadcrumbItems}>
       <Head>
         <title>Thanh toán với Stripe | YUMIN</title>
         <meta name="description" content="Thanh toán đơn hàng với Stripe tại YUMIN" />
       </Head>
-      
+
       <main className="min-h-screen bg-gray-50 pb-12">
         <div className="container mx-auto px-4 py-6">
           <button
@@ -215,9 +214,9 @@ const StripePaymentPage: NextPage = () => {
             <FiArrowLeft className="mr-2" />
             Quay lại
           </button>
-          
+
           <h1 className="text-2xl font-semibold text-gray-800 mt-2 mb-8">Thanh toán với Stripe</h1>
-          
+
           {loading ? (
             <div className="bg-white rounded-lg shadow-sm p-8 max-w-md mx-auto">
               <div className="animate-pulse space-y-4">
@@ -251,11 +250,11 @@ const StripePaymentPage: NextPage = () => {
                 <FiCreditCard className="text-[#306E51] text-3xl" />
                 <span className="ml-2 text-lg font-medium">Stripe</span>
               </div>
-              
+
               <p className="text-gray-600 mb-6 text-center">
                 Vui lòng nhập thông tin thẻ của bạn để hoàn tất thanh toán
               </p>
-              
+
               {clientSecret && (
                 <Elements stripe={stripePromise} options={{ clientSecret }}>
                   <StripeCheckoutForm clientSecret={clientSecret} orderId={orderId} />
@@ -265,7 +264,7 @@ const StripePaymentPage: NextPage = () => {
           )}
         </div>
       </main>
-      
+
       <ToastContainer
         position="bottom-right"
         autoClose={3000}
