@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Order, OrderDocument, OrderStatus, PaymentMethod, PaymentStatus } from './schemas/order.schema';
 import { Branch, BranchDocument } from '../branches/schemas/branch.schema'; // Import Branch schema
+import { Product, ProductDocument } from '../products/schemas/product.schema'; // Import Product schema
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -24,6 +25,7 @@ export class OrdersService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(OrderTracking.name) private orderTrackingModel: Model<OrderTrackingDocument>,
     @InjectModel(Branch.name) private branchModel: Model<BranchDocument>, // Inject BranchModel
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>, // Inject ProductModel
     private readonly viettelPostService: ViettelPostService,
     private readonly configService: ConfigService,
     private readonly productsService: ProductsService,
@@ -858,6 +860,31 @@ export class OrdersService {
       throw new InternalServerErrorException(`Order ${order._id} is missing branch assignment.`);
     }
 
+    // Lấy thông tin chi tiết về sản phẩm từ database để có thông tin trọng lượng chính xác
+    const productIds = order.items.map(item => new Types.ObjectId(item.productId));
+
+    // Truy vấn sản phẩm từ database
+    const products = await this.productModel.find({ _id: { $in: productIds } })
+      .select('_id name cosmetic_info.volume')
+      .lean()
+      .exec();
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm
+    const productMap = new Map<string, any>();
+    products.forEach((product: any) => {
+      productMap.set(product._id.toString(), product);
+    });
+
+    // Log thông tin sản phẩm đã tìm thấy
+    this.logger.debug(`Found ${products.length} products for weight calculation:`, {
+      productIds: productIds.map(id => id.toString()),
+      foundProducts: products.map((p: any) => ({
+        id: p._id.toString(),
+        name: p.name,
+        volume: p.cosmetic_info?.volume
+      }))
+    });
+
     // Lấy thông tin chi nhánh từ branchId
     const branch = await this.branchModel.findById(order.branchId).exec();
     if (!branch) {
@@ -901,11 +928,30 @@ export class OrdersService {
     const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
     // Tính trọng lượng dựa trên sản phẩm thực tế
-    // Mặc định mỗi sản phẩm có trọng lượng 200g
     const totalWeight = order.items.reduce((sum, item) => {
-      // Sử dụng trọng lượng mặc định 200g cho mỗi sản phẩm
-      // Hoặc có thể lấy từ metadata của item nếu có
-      const itemWeight = (item as any).metadata?.weight || 200; // Gram
+      // Lấy thông tin sản phẩm từ map
+      const product = productMap.get(item.productId.toString());
+
+      // Lấy trọng lượng từ cosmetic_info.volume.value nếu có
+      let itemWeight = 200; // Giá trị mặc định 200g
+
+      if (product && product.cosmetic_info && product.cosmetic_info.volume) {
+        // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
+        itemWeight = product.cosmetic_info.volume.value || 200;
+
+        // Log thông tin trọng lượng sản phẩm
+        this.logger.debug(`Using product weight for ${product.name}: ${itemWeight}${product.cosmetic_info.volume.unit || 'g'}`);
+      } else {
+        // Nếu không có thông tin trọng lượng trong sản phẩm, thử lấy từ metadata của item
+        const metadataWeight = (item as any).metadata?.weight;
+        if (metadataWeight) {
+          itemWeight = metadataWeight;
+          this.logger.debug(`Using metadata weight for item ${item.name}: ${itemWeight}g`);
+        } else {
+          this.logger.debug(`Using default weight for item ${item.name}: ${itemWeight}g`);
+        }
+      }
+
       return sum + (item.quantity * itemWeight);
     }, 0);
 
@@ -1056,12 +1102,31 @@ export class OrdersService {
       ORDER_VOUCHER: '', // Giữ lại trường này theo ví dụ của ViettelPost
       ORDER_NOTE: order.notes || 'cho xem hàng, không cho thử', // Thêm ghi chú mặc định
       MONEY_VOUCHER: order.voucher ? order.voucher.discountAmount : 0, // Giả sử trường này đúng hoặc cần thiết
-      LIST_ITEM: order.items.map(item => ({
-        PRODUCT_NAME: item.name,
-        PRODUCT_PRICE: item.price,
-        PRODUCT_WEIGHT: (item as any).metadata?.weight || 200, // Sử dụng trọng lượng từ metadata hoặc mặc định 200g
-        PRODUCT_QUANTITY: item.quantity
-      }))
+      LIST_ITEM: order.items.map(item => {
+        // Lấy thông tin sản phẩm từ map
+        const product = productMap.get(item.productId.toString());
+
+        // Lấy trọng lượng từ cosmetic_info.volume.value nếu có
+        let itemWeight = 200; // Giá trị mặc định 200g
+
+        if (product && product.cosmetic_info && product.cosmetic_info.volume) {
+          // Nếu có thông tin trọng lượng trong sản phẩm, sử dụng nó
+          itemWeight = product.cosmetic_info.volume.value || 200;
+        } else {
+          // Nếu không có thông tin trọng lượng trong sản phẩm, thử lấy từ metadata của item
+          const metadataWeight = (item as any).metadata?.weight;
+          if (metadataWeight) {
+            itemWeight = metadataWeight;
+          }
+        }
+
+        return {
+          PRODUCT_NAME: item.name,
+          PRODUCT_PRICE: item.price,
+          PRODUCT_WEIGHT: itemWeight,
+          PRODUCT_QUANTITY: item.quantity
+        };
+      })
     };
 
     // Thêm thông tin debug về payload
