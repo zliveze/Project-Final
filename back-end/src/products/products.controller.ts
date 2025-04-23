@@ -39,16 +39,23 @@ export class ProductsController {
     return this.productsService.findAllLight(queryDto);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a product by ID' })
+  @Get('recommended')
+  @ApiOperation({ summary: 'Get recommended products' })
   @ApiResponse({ 
     status: 200, 
-    description: 'Returns a product', 
-    type: ProductResponseDto 
+    description: 'Returns recommended products', 
+    type: LightProductResponseDto 
   })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
-    return this.productsService.findOne(id);
+  async getRecommended(@Query() queryDto: QueryProductDto): Promise<LightProductResponseDto> {
+    this.logger.log('Request received for recommended products');
+    // Gọi findAllLight với các tham số phù hợp để lấy các sản phẩm mới nhất
+    return this.productsService.findAllLight({
+      ...queryDto,
+      sortBy: 'createdAt', // Sắp xếp theo ngày tạo
+      sortOrder: 'desc',   // Mới nhất trước
+      isNew: true,         // Chỉ lấy sản phẩm mới
+      limit: queryDto.limit || 4 // Mặc định lấy 4 sản phẩm nếu không có limit
+    });
   }
 
   @Get('slug/:slug')
@@ -85,5 +92,17 @@ export class ProductsController {
   async getConcerns(): Promise<ConcernsResponseDto> {
     this.logger.log('Request received for unique concerns');
     return this.productsService.getConcerns();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a product by ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns a product', 
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
+    return this.productsService.findOne(id);
   }
 }
