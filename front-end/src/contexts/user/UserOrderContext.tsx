@@ -47,7 +47,7 @@ export interface CreateOrderDto {
   finalPrice: number;
   shippingAddress: ShippingAddress;
   branchId?: string;
-  paymentMethod: 'cod' | 'bank_transfer' | 'credit_card' | 'stripe';
+  paymentMethod: 'cod' | 'bank_transfer' | 'credit_card' | 'stripe' | 'momo';
   notes?: string;
   shippingServiceCode?: string; // Thêm mã dịch vụ vận chuyển đã chọn
 }
@@ -154,7 +154,7 @@ const UserOrderContext = createContext<UserOrderContextType | undefined>(undefin
 
 // Provider component
 export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated, accessToken } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [orderTracking, setOrderTracking] = useState<OrderTracking | null>(null);

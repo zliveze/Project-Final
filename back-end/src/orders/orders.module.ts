@@ -26,6 +26,9 @@ import { VouchersModule } from '../vouchers/vouchers.module'; // Import Vouchers
   ],
   controllers: [OrdersAdminController, OrdersUserController, ShippingController],
   providers: [OrdersService],
-  exports: [OrdersService],
+  exports: [
+    OrdersService,
+    MongooseModule // Export MongooseModule để các module khác có thể inject OrderModel
+  ],
 })
 export class OrdersModule {}

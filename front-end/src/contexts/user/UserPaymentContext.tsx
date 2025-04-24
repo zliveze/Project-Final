@@ -14,10 +14,22 @@ export interface StripePaymentIntent {
   status: string;
 }
 
+export interface MomoPaymentResponse {
+  resultCode: number;
+  message: string;
+  payUrl: string;
+  requestId: string;
+  orderId: string;
+  extraData: string;
+  requestType: string;
+  ipnUrl: string;
+  redirectUrl: string;
+}
+
 export interface CreatePaymentDto {
   orderId: string;
   amount: number;
-  method: 'cod' | 'bank_transfer' | 'credit_card' | 'stripe';
+  method: 'cod' | 'bank_transfer' | 'credit_card' | 'stripe' | 'momo';
   returnUrl: string;
 }
 
@@ -38,8 +50,11 @@ export interface UserPaymentContextType {
   loading: boolean;
   error: string | null;
   stripePaymentIntent: StripePaymentIntent | null;
+  momoPaymentResponse: MomoPaymentResponse | null;
   createStripePaymentIntent: (amount: number, orderId?: string) => Promise<StripePaymentIntent | null>;
+  createMomoPayment: (amount: number, orderId: string, returnUrl: string, orderData?: any) => Promise<MomoPaymentResponse | null>;
   createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order: Order; paymentIntent: StripePaymentIntent } | null>;
+  createOrderWithMomo: (orderData: CreateOrderDto) => Promise<{ payUrl: string } | null>;
   createOrderWithCOD: (orderData: CreateOrderDto) => Promise<Order | null>;
   confirmPayment: (paymentId: string, orderId: string) => Promise<Payment | null>;
 }
@@ -53,6 +68,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [stripePaymentIntent, setStripePaymentIntent] = useState<StripePaymentIntent | null>(null);
+  const [momoPaymentResponse, setMomoPaymentResponse] = useState<MomoPaymentResponse | null>(null);
 
   // Cấu hình Axios với Auth token
   const api = useCallback(() => {
@@ -256,14 +272,122 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [api, user, isAuthenticated]);
 
+  // Tạo thanh toán MoMo
+  const createMomoPayment = useCallback(async (
+    amount: number,
+    orderId: string,
+    returnUrl: string,
+    orderData?: any
+  ): Promise<MomoPaymentResponse | null> => {
+    if (!user || !isAuthenticated) return null;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const payload = {
+        amount,
+        orderId,
+        returnUrl,
+        orderInfo: 'Thanh toán đơn hàng Yumin',
+        orderData
+      };
+
+      const response = await api().post('/payments/momo', payload);
+
+      setMomoPaymentResponse(response.data);
+
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [api, user, isAuthenticated]);
+
+  // Tạo đơn hàng với MoMo
+  const createOrderWithMomo = useCallback(async (
+    orderData: CreateOrderDto
+  ): Promise<{ payUrl: string } | null> => {
+    if (!user || !isAuthenticated) return null;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Đảm bảo phương thức thanh toán là MoMo
+      const orderWithMomo = {
+        ...orderData,
+        paymentMethod: 'momo'
+      };
+
+      // Đảm bảo mã địa chỉ đúng định dạng cho ViettelPost
+      if (orderWithMomo.shippingAddress) {
+        // Kiểm tra và gán mã địa chỉ mặc định nếu cần
+        if (!orderWithMomo.shippingAddress.provinceCode || !orderWithMomo.shippingAddress.districtCode || !orderWithMomo.shippingAddress.wardCode) {
+          console.log('Sử dụng mã địa chỉ mặc định cho ViettelPost trong UserPaymentContext (MoMo)');
+          orderWithMomo.shippingAddress.provinceCode = '1'; // Hà Nội
+          orderWithMomo.shippingAddress.districtCode = '4'; // Quận Hoàng Mai
+          orderWithMomo.shippingAddress.wardCode = '0'; // Mã mặc định cho phường/xã
+        }
+
+        // Chuyển đổi mã tỉnh/thành phố sang định dạng số nếu cần
+        if (orderWithMomo.shippingAddress.provinceCode === '2' || orderWithMomo.shippingAddress.provinceCode === 'HCM') {
+          // Hồ Chí Minh
+          orderWithMomo.shippingAddress.provinceCode = '2';
+        } else if (orderWithMomo.shippingAddress.provinceCode === '1' || orderWithMomo.shippingAddress.provinceCode === 'HNI') {
+          // Hà Nội
+          orderWithMomo.shippingAddress.provinceCode = '1';
+        }
+
+        console.log('Mã địa chỉ đã chuyển đổi trong UserPaymentContext (MoMo):', {
+          provinceCode: orderWithMomo.shippingAddress.provinceCode,
+          districtCode: orderWithMomo.shippingAddress.districtCode,
+          wardCode: orderWithMomo.shippingAddress.wardCode
+        });
+      }
+
+      // Tạo thanh toán MoMo
+      const momoResponse = await createMomoPayment(
+        orderWithMomo.finalPrice,
+        'new', // Tạo đơn hàng mới
+        `${window.location.origin}/payments/success`,
+        {
+          ...orderWithMomo,
+          userId: user._id
+        }
+      );
+
+      if (!momoResponse || !momoResponse.payUrl) {
+        throw new Error('Không thể tạo thanh toán MoMo');
+      }
+
+      // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
+      localStorage.setItem('currentOrder', JSON.stringify(orderWithMomo));
+
+      return {
+        payUrl: momoResponse.payUrl
+      };
+    } catch (error) {
+      handleError(error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [api, createMomoPayment, user, isAuthenticated]);
+
   return (
     <UserPaymentContext.Provider
       value={{
         loading,
         error,
         stripePaymentIntent,
+        momoPaymentResponse,
         createStripePaymentIntent,
+        createMomoPayment,
         createOrderWithStripe,
+        createOrderWithMomo,
         createOrderWithCOD,
         confirmPayment
       }}

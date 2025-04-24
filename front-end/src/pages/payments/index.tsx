@@ -567,7 +567,7 @@ const PaymentsPage: NextPage = () => {
 
   // Sử dụng UserOrderContext và UserPaymentContext
   const { calculateShippingFeeAll } = useUserOrder();
-  const { createOrderWithCOD, createOrderWithStripe } = useUserPayment();
+  const { createOrderWithCOD, createOrderWithStripe, createOrderWithMomo } = useUserPayment();
 
   // State cho phí vận chuyển và lỗi
   const [calculatedShipping, setCalculatedShipping] = useState<number>(0); // Lưu trạng thái phí vận chuyển đã tính
@@ -743,7 +743,7 @@ const PaymentsPage: NextPage = () => {
         finalPrice: total,
         shippingAddress,
         branchId: selectedBranchId, // Thêm branchId vào đơn hàng
-        paymentMethod: paymentMethod as 'cod' | 'bank_transfer' | 'credit_card' | 'stripe',
+        paymentMethod: paymentMethod as 'cod' | 'bank_transfer' | 'credit_card' | 'stripe' | 'momo',
         notes: shippingInfo.notes,
         shippingServiceCode: selectedServiceCode // Thêm mã dịch vụ vận chuyển đã chọn
       };
@@ -796,6 +796,16 @@ const PaymentsPage: NextPage = () => {
           router.push(`/payments/stripe?order_id=${result.order._id}`);
         } else {
           throw new Error('Không thể tạo đơn hàng với Stripe');
+        }
+      } else if (paymentMethod === 'momo') {
+        // Tạo đơn hàng với MoMo
+        result = await createOrderWithMomo(orderData);
+
+        if (result && result.payUrl) {
+          // Chuyển đến trang thanh toán MoMo
+          router.push(`/payments/momo?payUrl=${encodeURIComponent(result.payUrl)}`);
+        } else {
+          throw new Error('Không thể tạo đơn hàng với MoMo');
         }
       } else {
         // Các phương thức thanh toán khác (chưa hỗ trợ)
