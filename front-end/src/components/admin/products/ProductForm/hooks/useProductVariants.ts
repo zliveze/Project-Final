@@ -80,16 +80,44 @@ export const useProductVariants = (
 
         // Handle arrays for shades and sizes (convert comma-separated string to array)
         if (optionKey === 'shades' || optionKey === 'sizes') {
+          // Lưu lại giá trị cũ để so sánh
+          const oldValues = currentOptions[optionKey] || [];
+
+          // Xử lý giá trị mới
           const arrayValue = typeof parsedValue === 'string'
             ? parsedValue.split(',').map(item => item.trim()).filter(item => item !== '')
             : parsedValue;
 
+          // Tạo options mới với giá trị mới
+          const newOptions = {
+            ...currentOptions,
+            [optionKey]: arrayValue
+          };
+
+          // Nếu có sự thay đổi trong shades hoặc sizes, cập nhật lại combinations
+          if (JSON.stringify(oldValues.sort()) !== JSON.stringify(arrayValue.sort())) {
+            console.log(`Phát hiện thay đổi trong ${optionKey}. Cập nhật lại tổ hợp.`);
+
+            // Lưu lại các tổ hợp hiện tại
+            const existingCombinations = prev.combinations || [];
+
+            // Tạo tổ hợp mới dựa trên options mới
+            const newCombinations = generateCombinations(
+              newOptions.shades || [],
+              newOptions.sizes || [],
+              existingCombinations
+            );
+
+            return {
+              ...prev,
+              options: newOptions,
+              combinations: newCombinations
+            };
+          }
+
           return {
             ...prev,
-            options: {
-              ...currentOptions,
-              [optionKey]: arrayValue
-            }
+            options: newOptions
           };
         }
 
@@ -112,6 +140,82 @@ export const useProductVariants = (
       return { ...prev, [name]: parsedValue };
     });
   }, []);
+
+  // Hàm tạo tổ hợp từ shades và sizes
+  const generateCombinations = (shades: string[], sizes: string[], existingCombinations: any[] = []) => {
+    const newCombinations: any[] = [];
+
+    // Nếu có cả shades và sizes, tạo tổ hợp từ cả hai
+    if (shades.length > 0 && sizes.length > 0) {
+      for (const shade of shades) {
+        for (const size of sizes) {
+          // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+          const existingCombination = existingCombinations.find(c =>
+            c.attributes && c.attributes.shade === shade && c.attributes.size === size
+          );
+
+          if (existingCombination) {
+            // Sử dụng lại tổ hợp hiện tại
+            newCombinations.push(existingCombination);
+          } else {
+            // Tạo tổ hợp mới
+            newCombinations.push({
+              combinationId: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              attributes: { shade, size },
+              price: 0,
+              additionalPrice: 0
+            });
+          }
+        }
+      }
+    }
+    // Nếu chỉ có shades, tạo tổ hợp từ shades
+    else if (shades.length > 0) {
+      for (const shade of shades) {
+        // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+        const existingCombination = existingCombinations.find(c =>
+          c.attributes && c.attributes.shade === shade && !c.attributes.size
+        );
+
+        if (existingCombination) {
+          // Sử dụng lại tổ hợp hiện tại
+          newCombinations.push(existingCombination);
+        } else {
+          // Tạo tổ hợp mới
+          newCombinations.push({
+            combinationId: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            attributes: { shade },
+            price: 0,
+            additionalPrice: 0
+          });
+        }
+      }
+    }
+    // Nếu chỉ có sizes, tạo tổ hợp từ sizes
+    else if (sizes.length > 0) {
+      for (const size of sizes) {
+        // Tìm tổ hợp tương ứng trong các tổ hợp hiện tại (nếu có)
+        const existingCombination = existingCombinations.find(c =>
+          c.attributes && c.attributes.size === size && !c.attributes.shade
+        );
+
+        if (existingCombination) {
+          // Sử dụng lại tổ hợp hiện tại
+          newCombinations.push(existingCombination);
+        } else {
+          // Tạo tổ hợp mới
+          newCombinations.push({
+            combinationId: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            attributes: { size },
+            price: 0,
+            additionalPrice: 0
+          });
+        }
+      }
+    }
+
+    return newCombinations;
+  };
 
   // Handler for selecting/deselecting images in VariantForm
   // Accepts either publicId or id and toggles selection
@@ -305,6 +409,46 @@ export const useProductVariants = (
         const updatedVariants = (formData.variants || []).map(v =>
           v.variantId === editingVariant.variantId ? typedVariantData : v
         );
+
+        // Xử lý khi cập nhật biến thể đã tồn tại
+        // Tìm biến thể cũ để so sánh
+        const oldVariant = formData.variants?.find(v => v.variantId === editingVariant.variantId);
+
+        if (oldVariant) {
+          // Lấy danh sách các tổ hợp cũ
+          const oldCombinations = oldVariant.combinations || [];
+          // Lấy danh sách các tổ hợp mới
+          const newCombinations = typedVariantData.combinations || [];
+
+          // Tìm các tổ hợp đã bị xóa
+          const oldCombinationIds = oldCombinations.map(c => c.combinationId?.toString());
+          const newCombinationIds = newCombinations.map(c => c.combinationId?.toString());
+
+          // Lọc ra các combinationId đã bị xóa
+          const removedCombinationIds = oldCombinationIds.filter(id =>
+            id && !newCombinationIds.includes(id)
+          );
+
+          if (removedCombinationIds.length > 0) {
+            console.log(`Phát hiện ${removedCombinationIds.length} tổ hợp đã bị xóa. Cập nhật tồn kho.`);
+
+            // Lọc ra các mục tồn kho tổ hợp còn lại (loại bỏ các mục của tổ hợp bị xóa)
+            const updatedCombinationInventory = (formData.combinationInventory || []).filter(
+              item => !removedCombinationIds.includes(item.combinationId?.toString())
+            );
+
+            // Cập nhật formData với tồn kho tổ hợp đã được cập nhật
+            setFormData(prev => ({
+              ...prev,
+              variants: updatedVariants,
+              combinationInventory: updatedCombinationInventory
+            }));
+
+            return; // Đã cập nhật formData, không cần thực hiện setFormData bên dưới nữa
+          }
+        }
+
+        // Nếu không có tổ hợp nào bị xóa, cập nhật formData bình thường
         setFormData(prev => ({ ...prev, variants: updatedVariants }));
       } else {
         // Adding new: Append to formData.variants
@@ -320,7 +464,7 @@ export const useProductVariants = (
     } finally {
       setIsVariantProcessing(false);
     }
-  }, [currentVariantData, editingVariant, formData.variants, setFormData, handleCancelVariant, allProductImages]); // Added allProductImages
+  }, [currentVariantData, editingVariant, formData.variants, formData.combinationInventory, setFormData, handleCancelVariant, allProductImages]); // Added dependencies
 
   // Xóa biến thể
   const handleDeleteVariant = useCallback((variantId: string) => {
@@ -329,15 +473,79 @@ export const useProductVariants = (
       handleCancelVariant(); // Use the correct cancel handler
     }
 
+    // Tìm biến thể cần xóa để lấy thông tin về các tổ hợp
+    const variantToDelete = formData.variants?.find(v => v.variantId === variantId);
+    const combinationIds = variantToDelete?.combinations?.map(c => c.combinationId) || [];
+
+    // Lọc ra các biến thể còn lại
     const updatedVariants = (formData.variants || []).filter(
       variant => variant.variantId !== variantId
     );
 
-    setFormData(prev => ({
-      ...prev,
-      variants: updatedVariants
-    }));
-  }, [editingVariant, formData.variants, handleCancelVariant, setFormData]); // Use handleCancelVariant here
+    // Lọc ra các mục tồn kho biến thể còn lại (loại bỏ các mục của biến thể bị xóa)
+    const updatedVariantInventory = (formData.variantInventory || []).filter(
+      item => item.variantId !== variantId
+    );
+
+    // Lọc ra các mục tồn kho tổ hợp còn lại (loại bỏ các mục của biến thể bị xóa)
+    const updatedCombinationInventory = (formData.combinationInventory || []).filter(
+      item => item.variantId !== variantId || !combinationIds.includes(item.combinationId)
+    );
+
+    // Cập nhật lại số lượng tồn kho của các chi nhánh
+    const updatedInventory = [...(formData.inventory || [])];
+
+    // Tạo Map để theo dõi các chi nhánh cần cập nhật
+    const branchesToUpdate = new Map<string, boolean>();
+
+    // Đánh dấu các chi nhánh có biến thể bị xóa
+    (formData.variantInventory || []).forEach(item => {
+      if (item.variantId === variantId) {
+        branchesToUpdate.set(item.branchId, true);
+      }
+    });
+
+    // Cập nhật số lượng tồn kho cho từng chi nhánh
+    branchesToUpdate.forEach((_, branchId) => {
+      const branchIndex = updatedInventory.findIndex(item => item.branchId === branchId);
+
+      if (branchIndex !== -1) {
+        // Tính tổng số lượng từ các biến thể còn lại trong chi nhánh
+        const remainingVariantInventory = updatedVariantInventory.filter(
+          item => item.branchId === branchId
+        );
+
+        const newBranchTotal = remainingVariantInventory.reduce(
+          (sum, item) => sum + (item.quantity || 0),
+          0
+        );
+
+        // Cập nhật số lượng mới cho chi nhánh
+        updatedInventory[branchIndex].quantity = newBranchTotal;
+      }
+    });
+
+    setFormData(prev => {
+      // Nếu đã xóa biến thể cuối cùng, xóa tất cả tồn kho biến thể và tổ hợp
+      if (updatedVariants.length === 0) {
+        return {
+          ...prev,
+          variants: updatedVariants,
+          variantInventory: [],
+          combinationInventory: [],
+          inventory: updatedInventory
+        };
+      }
+
+      return {
+        ...prev,
+        variants: updatedVariants,
+        variantInventory: updatedVariantInventory,
+        combinationInventory: updatedCombinationInventory,
+        inventory: updatedInventory
+      };
+    });
+  }, [editingVariant, formData.variants, formData.variantInventory, formData.combinationInventory, formData.inventory, handleCancelVariant, setFormData]); // Updated dependencies
 
   return {
     showVariantForm, // Renamed state

@@ -132,7 +132,14 @@ const VariantForm: React.FC<VariantFormProps> = ({
     inputName: 'options.shades' | 'options.sizes',
     inputValue: string
   ) => {
+    // Lưu lại giá trị cũ để so sánh
+    const oldValues = inputName === 'options.shades'
+      ? Array.isArray(currentVariant.options?.shades) ? currentVariant.options.shades : []
+      : Array.isArray(currentVariant.options?.sizes) ? currentVariant.options.sizes : [];
+
+    // Xử lý giá trị mới
     const processedArray = inputValue.split(',').map(s => s.trim()).filter(s => s);
+
     // Create a synthetic event that matches the expected structure for handleVariantChange
     const syntheticEvent = {
       target: {
@@ -142,15 +149,20 @@ const VariantForm: React.FC<VariantFormProps> = ({
     } as unknown as React.ChangeEvent<HTMLInputElement>; // Use InputElement type assertion as handleVariantChange expects it
     handleVariantChange(syntheticEvent);
 
-    // Generate combinations if both shades and sizes have values
-    if (inputName === 'options.shades' || inputName === 'options.sizes') {
-      const shades = inputName === 'options.shades' ? processedArray :
-                    Array.isArray(currentVariant.options?.shades) ? currentVariant.options.shades : [];
-      const sizes = inputName === 'options.sizes' ? processedArray :
-                   Array.isArray(currentVariant.options?.sizes) ? currentVariant.options.sizes : [];
+    // Kiểm tra xem có sự thay đổi không
+    if (JSON.stringify(oldValues.sort()) !== JSON.stringify(processedArray.sort())) {
+      console.log(`Phát hiện thay đổi trong ${inputName}. Cập nhật lại tổ hợp.`);
 
-      if (shades.length > 0 || sizes.length > 0) {
-        generateCombinations(shades, sizes);
+      // Generate combinations if both shades and sizes have values
+      if (inputName === 'options.shades' || inputName === 'options.sizes') {
+        const shades = inputName === 'options.shades' ? processedArray :
+                      Array.isArray(currentVariant.options?.shades) ? currentVariant.options.shades : [];
+        const sizes = inputName === 'options.sizes' ? processedArray :
+                     Array.isArray(currentVariant.options?.sizes) ? currentVariant.options.sizes : [];
+
+        if (shades.length > 0 || sizes.length > 0) {
+          generateCombinations(shades, sizes);
+        }
       }
     }
   };

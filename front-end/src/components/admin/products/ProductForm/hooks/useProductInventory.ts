@@ -91,11 +91,45 @@ export const useProductInventory = (
   const handleRemoveInventory = (index: number) => {
     if (!formData.inventory || !Array.isArray(formData.inventory)) return;
 
+    // Lấy thông tin chi nhánh cần xóa
+    const branchToRemove = formData.inventory[index];
+    if (!branchToRemove || !branchToRemove.branchId) {
+      console.error('Không tìm thấy thông tin chi nhánh cần xóa');
+      return;
+    }
+
+    const branchId = branchToRemove.branchId;
+    console.log(`Xóa chi nhánh: ID=${branchId}, Tên=${branchToRemove.branchName}`);
+
+    // Xóa chi nhánh khỏi inventory
     const updatedInventory = [...formData.inventory];
     updatedInventory.splice(index, 1);
 
+    // Xóa tất cả variantInventory của chi nhánh này
+    const updatedVariantInventory = formData.variantInventory
+      ? formData.variantInventory.filter(item => item.branchId !== branchId)
+      : [];
+
+    // Xóa tất cả combinationInventory của chi nhánh này
+    const updatedCombinationInventory = formData.combinationInventory
+      ? formData.combinationInventory.filter(item => item.branchId !== branchId)
+      : [];
+
+    // Nếu đang chọn chi nhánh này để quản lý tồn kho biến thể, hủy chọn
+    if (selectedBranchForVariants === branchId) {
+      setSelectedBranchForVariants(null);
+      setBranchVariants([]);
+      setSelectedVariantForCombinations(null);
+      setVariantCombinations([]);
+    }
+
     setFormData(prev => {
-      const nextFormData = { ...prev, inventory: updatedInventory };
+      const nextFormData = {
+        ...prev,
+        inventory: updatedInventory,
+        variantInventory: updatedVariantInventory,
+        combinationInventory: updatedCombinationInventory
+      };
       const totalInventory = calculateTotalInventory(nextFormData);
       const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
       console.log(`[handleRemoveInventory] Total Inventory: ${totalInventory}, New Status: ${newStatus}`);
