@@ -660,8 +660,8 @@ export class OrdersService {
                 const productData = await this.productModel.findById(productId);
                 if (!productData) {
                   this.logger.warn(`Product not found in database: ${productId}`);
-                  continue;
-                }
+            continue;
+          }
 
                 // Log thông tin để debug
                 this.logger.debug(`Looking for combination inventory with branchId=${branchId}, variantId=${variantId}, combinationId=${combinationId}`);
@@ -669,8 +669,8 @@ export class OrdersService {
                 // Kiểm tra xem combinationInventory có tồn tại không
                 if (!productData.combinationInventory || productData.combinationInventory.length === 0) {
                   this.logger.warn(`Product ${productId} has no combinationInventory`);
-                  continue;
-                }
+                continue;
+              }
 
                 // Log danh sách các combinationInventory để debug
                 this.logger.debug(`Available combinationInventory items: ${JSON.stringify(productData.combinationInventory.map(inv => ({
@@ -682,8 +682,8 @@ export class OrdersService {
                 // Tìm kiếm inventory của tổ hợp trong chi nhánh
                 const combinationInventoryItem = productData.combinationInventory.find(
                   inv => inv.branchId?.toString() === branchId &&
-                         inv.variantId?.toString() === variantId &&
-                         inv.combinationId?.toString() === combinationId
+                    inv.variantId?.toString() === variantId &&
+                    inv.combinationId?.toString() === combinationId
                 );
 
                 if (!combinationInventoryItem) {
@@ -696,7 +696,7 @@ export class OrdersService {
                 this.logger.debug(`Found combination inventory: ${currentQuantity} units`);
 
                 // Tính toán số lượng mới
-                const newQuantity = Math.max(0, currentQuantity - quantity);
+              const newQuantity = Math.max(0, currentQuantity - quantity);
                 this.logger.debug(`New combination quantity: ${newQuantity} units`);
 
                 // Cập nhật trực tiếp vào database sử dụng MongoDB native
@@ -834,7 +834,7 @@ export class OrdersService {
                 this.logger.debug(`Found variant inventory: ${currentQuantity} units`);
 
                 // Tính toán số lượng mới
-                const newQuantity = Math.max(0, currentQuantity - quantity);
+              const newQuantity = Math.max(0, currentQuantity - quantity);
                 this.logger.debug(`New variant quantity: ${newQuantity} units`);
 
                 // Cập nhật trực tiếp vào database sử dụng MongoDB native
