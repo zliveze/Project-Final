@@ -289,38 +289,66 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Handle search input change
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    // Log để debug
+    console.log('Search input changed:', value);
   };
 
   // Handle search submission (e.g., on Enter key press or button click)
   const handleSearchSubmit = () => {
-    onSearch(searchTerm);
+    // Xử lý từ khóa tìm kiếm
+    const processedTerm = searchTerm.trim();
+    console.log('Submitting search with term:', processedTerm);
+
+    // Kiểm tra nếu từ khóa có chứa dấu gạch dưới
+    if (processedTerm.includes('_')) {
+      console.log('Search term contains underscore, handling special case');
+      
+      // Chúng ta không cần hiển thị alert nữa - việc tìm kiếm đã được cải thiện ở backend
+      // Chỉ cần gửi từ khóa gốc lên server, server sẽ tự động xử lý
+    }
+
+    // Gửi từ khóa tìm kiếm lên server, server đã được cải thiện để xử lý từ khóa có dấu gạch dưới
+    onSearch(processedTerm);
   };
 
   // Handle Enter key press in search input
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      e.preventDefault(); // Ngăn chặn hành vi mặc định của form
       handleSearchSubmit();
     }
   };
 
   // Debounce search submission
   useEffect(() => {
-    const handler = setTimeout(() => {
-      // Only call onSearch if the searchTerm in state differs from the filter in context
-      if (searchTerm !== filters.search) {
-        onSearch(searchTerm);
-      }
-    }, 500); // Adjust debounce time as needed (e.g., 500ms)
+    // Chỉ áp dụng debounce nếu từ khóa tìm kiếm có ít nhất 2 ký tự
+    if (searchTerm.trim().length >= 2) {
+      const handler = setTimeout(() => {
+        // Only call onSearch if the searchTerm in state differs from the filter in context
+        if (searchTerm.trim() !== filters.search) {
+          console.log('Debounced search triggered with term:', searchTerm.trim());
+          onSearch(searchTerm.trim());
+        }
+      }, 500); // Adjust debounce time as needed (e.g., 500ms)
 
-    return () => {
-      clearTimeout(handler);
-    };
+      return () => {
+        clearTimeout(handler);
+      };
+    } else if (searchTerm.trim() === '' && filters.search) {
+      // Nếu người dùng xóa hết từ khóa tìm kiếm, reset tìm kiếm
+      console.log('Search term cleared, resetting search');
+      onSearch('');
+    }
   }, [searchTerm, onSearch, filters.search]);
 
 
   // Updated Reset Filters Handler
   const handleResetFilters = () => {
+    console.log('Resetting all filters');
+
     // Cập nhật URL để xóa tất cả tham số trước khi reset filters
     const url = new URL(window.location.href);
     const pathname = url.pathname;
@@ -329,7 +357,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     router.replace(pathname, undefined, { shallow: true })
       .then(() => {
         // Thực hiện reset filters
-        onFilterChange({
+        const resetFilters = {
           categoryId: undefined,
           brandId: undefined,
           minPrice: undefined,
@@ -338,7 +366,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           concerns: undefined,
           isOnSale: undefined,
           hasGifts: undefined,
-          // Keep search term or reset it? Resetting for now.
+          // Reset search term
           search: undefined,
           // Reset sorting if needed
           // sortBy: 'createdAt',
@@ -346,18 +374,28 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
           // Thêm các trường khác nếu cần
           eventId: undefined,
           campaignId: undefined,
-        });
+        };
 
-        // Reset các trạng thái local nếu cần
-        setSearchTerm(''); // Reset local search term state as well
+        console.log('Applying reset filters:', resetFilters);
+        onFilterChange(resetFilters);
+
+        // Reset các trạng thái local
+        setSearchTerm(''); // Reset local search term state
         setMinPriceInput('0');
         setMaxPriceInput('5000000');
+
+        // Thông báo cho người dùng
+        console.log('All filters have been reset');
 
         // Gọi fetchProducts để cập nhật dữ liệu
         setTimeout(() => {
           // Fetch products với filters đã reset
+          console.log('Fetching products with reset filters');
           fetchProducts(1, itemsPerPage, {}, true);
         }, 0);
+      })
+      .catch(error => {
+        console.error('Error resetting filters:', error);
       });
   };
 

@@ -39,11 +39,60 @@ export class ProductsService {
   private async checkTextIndex() {
     try {
       const indexes = await this.productModel.collection.indexes();
-      this.hasTextIndex = indexes.some(index =>
-        index.name === 'name_text_description.full_text_description.short_text_tags_text'
-        || index.textIndexVersion !== undefined
-      );
+
+      // Log tất cả các indexes để debug
+      this.logger.log(`Danh sách indexes của collection products: ${JSON.stringify(indexes.map(idx => idx.name))}`);
+
+      // Kiểm tra xem có text index không
+      this.hasTextIndex = indexes.some(index => {
+        // Kiểm tra theo tên index hoặc theo textIndexVersion
+        const isTextIndex =
+          (index.name && index.name.includes('text')) ||
+          index.textIndexVersion !== undefined;
+
+        if (isTextIndex) {
+          this.logger.log(`Tìm thấy text index: ${index.name}`);
+        }
+
+        return isTextIndex;
+      });
+
       this.logger.log(`Text index for products ${this.hasTextIndex ? 'found' : 'not found'}`);
+
+      // Nếu không tìm thấy text index, tạo text index mới
+      if (!this.hasTextIndex) {
+        this.logger.log('Không tìm thấy text index, đang tạo text index mới...');
+        try {
+          // Tạo text index mới
+          await this.productModel.collection.createIndex(
+            {
+              name: 'text',
+              'description.short': 'text',
+              'description.full': 'text',
+              'tags': 'text',
+              'cosmetic_info.ingredients': 'text',
+              sku: 'text',
+              slug: 'text'
+            },
+            {
+              weights: {
+                name: 10,
+                sku: 8,
+                slug: 8,
+                'description.short': 5,
+                'description.full': 3,
+                'tags': 2,
+                'cosmetic_info.ingredients': 1
+              },
+              name: 'products_text_search_index'
+            }
+          );
+          this.logger.log('Đã tạo text index mới thành công');
+          this.hasTextIndex = true;
+        } catch (indexError) {
+          this.logger.error(`Lỗi khi tạo text index: ${indexError.message}`, indexError.stack);
+        }
+      }
     } catch (error) {
       this.logger.error('Error checking text index', error.stack);
       this.hasTextIndex = false; // Mặc định false nếu có lỗi
@@ -229,20 +278,68 @@ export class ProductsService {
       } = queryDto;
 
       // Build query with optimized structure
-      const query: any = {};
+      const filter: any = {};
 
       // Use compound indexes when possible by combining filters
       // For example, if both status and brandId are provided, use the compound index
 
       // Text search - only add if needed as it's expensive
       if (search) {
-        query.$text = { $search: search };
+        // Xử lý từ khóa tìm kiếm
+        const processedSearch = search.trim();
+
+        // Log để debug
+        this.logger.log(`Tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
+
+        if (this.hasTextIndex) {
+          // Sử dụng text search nếu có text index
+          filter.$text = { $search: processedSearch };
+          this.logger.log(`Sử dụng text index search với từ khóa: "${processedSearch}"`);
+        } else {
+          // Chuẩn bị từ khóa cho regex search
+          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
+          const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
+          
+          // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
+          const alternativeSearch = processedSearch.replace(/_/g, ' ');
+
+          // Tạo regex đặc biệt cho việc tìm kiếm phần của từ chứa dấu gạch dưới
+          // Ví dụ: tìm kiếm "Foe" sẽ tìm thấy "Foellie_Venus"
+          const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+          // Mở rộng phạm vi tìm kiếm khi sử dụng regex
+          filter.$or = [
+            { name: { $regex: regexSearch, $options: 'i' } },
+            { sku: { $regex: regexSearch, $options: 'i' } },
+            { slug: { $regex: regexSearch, $options: 'i' } },
+            { tags: { $regex: regexSearch, $options: 'i' } },
+            { 'description.short': { $regex: regexSearch, $options: 'i' } },
+            { 'description.full': { $regex: regexSearch, $options: 'i' } },
+            // Thêm tìm kiếm theo phần của từ 
+            { name: { $regex: regexPattern, $options: 'i' } },
+          ];
+          
+          // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
+          if (processedSearch.includes('_')) {
+            this.logger.log(`Tìm kiếm bổ sung với từ khóa thay thế: "${alternativeSearch}"`);
+            filter.$or.push(
+              { name: { $regex: alternativeSearch, $options: 'i' } },
+              { sku: { $regex: alternativeSearch, $options: 'i' } },
+              { slug: { $regex: alternativeSearch, $options: 'i' } },
+              { tags: { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.short': { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.full': { $regex: alternativeSearch, $options: 'i' } }
+            );
+          }
+
+          this.logger.log(`Sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
+        }
       }
 
       // Filter by brand - use ObjectId for proper indexing
       if (brandId) {
         try {
-          query.brandId = new Types.ObjectId(brandId);
+          filter.brandId = new Types.ObjectId(brandId);
         } catch (e) {
           this.logger.warn(`Invalid brandId format: ${brandId}`);
         }
@@ -251,7 +348,7 @@ export class ProductsService {
       // Filter by category - use ObjectId for proper indexing
       if (categoryId) {
         try {
-          query.categoryIds = new Types.ObjectId(categoryId);
+          filter.categoryIds = new Types.ObjectId(categoryId);
         } catch (e) {
           this.logger.warn(`Invalid categoryId format: ${categoryId}`);
         }
@@ -259,61 +356,61 @@ export class ProductsService {
 
       // Filter by status
       if (status) {
-        query.status = status;
+        filter.status = status;
       }
 
       // Filter by price range
       if (minPrice !== undefined || maxPrice !== undefined) {
-        query.price = {};
+        filter.price = {};
         if (minPrice !== undefined) {
-          query.price.$gte = minPrice;
+          filter.price.$gte = minPrice;
         }
         if (maxPrice !== undefined) {
-          query.price.$lte = maxPrice;
+          filter.price.$lte = maxPrice;
         }
       }
 
       // Filter by tags - optimize by using $all for exact matches
       if (tags) {
         const tagList = tags.split(',').map(tag => tag.trim());
-        query.tags = tagList.length === 1 ? tagList[0] : { $in: tagList };
+        filter.tags = tagList.length === 1 ? tagList[0] : { $in: tagList };
       }
 
       // Filter by skin types - optimize by using $all for exact matches
       if (skinTypes) {
         const skinTypeList = skinTypes.split(',').map(type => type.trim());
-        query['cosmetic_info.skinType'] = skinTypeList.length === 1 ?
+        filter['cosmetic_info.skinType'] = skinTypeList.length === 1 ?
           skinTypeList[0] : { $in: skinTypeList };
       }
 
       // Filter by skin concerns - optimize by using $all for exact matches
       if (concerns) {
         const concernList = concerns.split(',').map(concern => concern.trim());
-        query['cosmetic_info.concerns'] = concernList.length === 1 ?
+        filter['cosmetic_info.concerns'] = concernList.length === 1 ?
           concernList[0] : { $in: concernList };
       }
 
       // Filter by flags
       if (isBestSeller !== undefined) {
-        query['flags.isBestSeller'] = typeof isBestSeller === 'string'
+        filter['flags.isBestSeller'] = typeof isBestSeller === 'string'
           ? isBestSeller === 'true'
           : Boolean(isBestSeller);
       }
 
       if (isNew !== undefined) {
-        query['flags.isNew'] = typeof isNew === 'string'
+        filter['flags.isNew'] = typeof isNew === 'string'
           ? isNew === 'true'
           : Boolean(isNew);
       }
 
       if (isOnSale !== undefined) {
-        query['flags.isOnSale'] = typeof isOnSale === 'string'
+        filter['flags.isOnSale'] = typeof isOnSale === 'string'
           ? isOnSale === 'true'
           : Boolean(isOnSale);
       }
 
       if (hasGifts !== undefined) {
-        query['flags.hasGifts'] = typeof hasGifts === 'string'
+        filter['flags.hasGifts'] = typeof hasGifts === 'string'
           ? hasGifts === 'true'
           : Boolean(hasGifts);
       }
@@ -348,7 +445,7 @@ export class ProductsService {
 
       // Execute query with projection for better performance
       const products = await this.productModel
-        .find(query, projection)
+        .find(filter, projection)
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
@@ -356,11 +453,21 @@ export class ProductsService {
         .exec();
 
       // Use countDocuments for better performance than count()
-      const total = await this.productModel.countDocuments(query).exec();
+      const total = await this.productModel.countDocuments(filter).exec();
       const totalPages = Math.ceil(total / limit);
 
       // Map products to response DTOs
       const items = products.map(product => this.mapProductToResponseDto(product));
+
+      // Log kết quả tìm kiếm để debug
+      if (search) {
+        this.logger.log(`Kết quả tìm kiếm cho "${search}": Tìm thấy ${items.length} sản phẩm`);
+        if (items.length > 0) {
+          this.logger.log(`Danh sách sản phẩm tìm thấy: ${items.map(p => p.name).join(', ')}`);
+        } else {
+          this.logger.log(`Không tìm thấy sản phẩm nào với từ khóa "${search}"`);
+        }
+      }
 
       return {
         items,
@@ -1388,15 +1495,54 @@ export class ProductsService {
 
       // Sử dụng text search nếu có index text thay vì regex cho hiệu suất tốt hơn
       if (search) {
+        // Xử lý từ khóa tìm kiếm
+        const processedSearch = search.trim();
+
+        // Log để debug
+        this.logger.log(`Tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
+
         if (this.hasTextIndex) {
           // Sử dụng text search nếu có text index
-          filter.$text = { $search: search };
+          filter.$text = { $search: processedSearch };
+          this.logger.log(`Sử dụng text index search với từ khóa: "${processedSearch}"`);
         } else {
-          // Fallback vào regex nếu không có text index
+          // Chuẩn bị từ khóa cho regex search
+          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
+          const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
+          
+          // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
+          const alternativeSearch = processedSearch.replace(/_/g, ' ');
+
+          // Tạo regex đặc biệt cho việc tìm kiếm phần của từ chứa dấu gạch dưới
+          // Ví dụ: tìm kiếm "Foe" sẽ tìm thấy "Foellie_Venus"
+          const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+          // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           filter.$or = [
-            { name: { $regex: search, $options: 'i' } },
-            { sku: { $regex: search, $options: 'i' } },
+            { name: { $regex: regexSearch, $options: 'i' } },
+            { sku: { $regex: regexSearch, $options: 'i' } },
+            { slug: { $regex: regexSearch, $options: 'i' } },
+            { tags: { $regex: regexSearch, $options: 'i' } },
+            { 'description.short': { $regex: regexSearch, $options: 'i' } },
+            { 'description.full': { $regex: regexSearch, $options: 'i' } },
+            // Thêm tìm kiếm theo phần của từ 
+            { name: { $regex: regexPattern, $options: 'i' } },
           ];
+          
+          // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
+          if (processedSearch.includes('_')) {
+            this.logger.log(`Tìm kiếm bổ sung với từ khóa thay thế: "${alternativeSearch}"`);
+            filter.$or.push(
+              { name: { $regex: alternativeSearch, $options: 'i' } },
+              { sku: { $regex: alternativeSearch, $options: 'i' } },
+              { slug: { $regex: alternativeSearch, $options: 'i' } },
+              { tags: { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.short': { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.full': { $regex: alternativeSearch, $options: 'i' } }
+            );
+          }
+
+          this.logger.log(`Sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
         }
       }
 
@@ -1595,6 +1741,44 @@ export class ProductsService {
         };
       });
 
+      // Log kết quả tìm kiếm để debug
+      if (search) {
+        this.logger.log(`Kết quả tìm kiếm cho "${search}": Tìm thấy ${lightProducts.length} sản phẩm`);
+        if (lightProducts.length > 0) {
+          this.logger.log(`Danh sách sản phẩm tìm thấy: ${lightProducts.map(p => p.name).join(', ')}`);
+        } else {
+          this.logger.log(`Không tìm thấy sản phẩm nào với từ khóa "${search}"`);
+
+          // Thử tìm kiếm với từ khóa đơn giản hơn để debug
+          const simpleSearch = search.replace(/[_\-\s]/g, '');
+          if (simpleSearch !== search) {
+            this.logger.log(`Thử tìm kiếm với từ khóa đơn giản hơn: "${simpleSearch}"`);
+
+            // Tạo filter mới chỉ để kiểm tra, không ảnh hưởng đến kết quả trả về
+            const testFilter = {
+              $or: [
+                { name: { $regex: simpleSearch, $options: 'i' } },
+                { sku: { $regex: simpleSearch, $options: 'i' } },
+                { slug: { $regex: simpleSearch, $options: 'i' } },
+              ]
+            };
+
+            // Thực hiện truy vấn kiểm tra
+            const testProducts = await this.productModel
+              .find(testFilter)
+              .select('name slug sku')
+              .limit(5)
+              .lean();
+
+            if (testProducts.length > 0) {
+              this.logger.log(`Tìm thấy ${testProducts.length} sản phẩm với từ khóa đơn giản "${simpleSearch}": ${testProducts.map(p => p.name).join(', ')}`);
+            } else {
+              this.logger.log(`Không tìm thấy sản phẩm nào với từ khóa đơn giản "${simpleSearch}"`);
+            }
+          }
+        }
+      }
+
       return {
         products: lightProducts, // Trả về danh sách đã cập nhật
         total,
@@ -1641,15 +1825,32 @@ export class ProductsService {
 
       // Thêm filter tìm kiếm
       if (search) {
+        // Xử lý từ khóa tìm kiếm
+        const processedSearch = search.trim();
+
+        // Log để debug
+        this.logger.log(`Admin tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
+
         if (this.hasTextIndex) {
           // Sử dụng text search nếu có text index
-          matchStage.$text = { $search: search };
+          matchStage.$text = { $search: processedSearch };
+          this.logger.log(`Admin sử dụng text index search với từ khóa: "${processedSearch}"`);
         } else {
-          // Fallback vào regex nếu không có text index
+          // Chuẩn bị từ khóa cho regex search
+          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
+          const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
+
+          // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           matchStage.$or = [
-            { name: { $regex: search, $options: 'i' } },
-            { sku: { $regex: search, $options: 'i' } },
+            { name: { $regex: regexSearch, $options: 'i' } },
+            { sku: { $regex: regexSearch, $options: 'i' } },
+            { slug: { $regex: regexSearch, $options: 'i' } },
+            { tags: { $regex: regexSearch, $options: 'i' } },
+            { 'description.short': { $regex: regexSearch, $options: 'i' } },
+            { 'description.full': { $regex: regexSearch, $options: 'i' } },
           ];
+
+          this.logger.log(`Admin sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
         }
       }
 
@@ -1807,6 +2008,16 @@ export class ProductsService {
       const totalItems = result[0].totalCount.length > 0 ? result[0].totalCount[0].count : 0;
       const totalPages = Math.ceil(totalItems / limit);
       const products = result[0].paginatedResults;
+
+      // Log kết quả tìm kiếm để debug
+      if (search) {
+        this.logger.log(`findAllForAdmin: Kết quả tìm kiếm cho "${search}": Tìm thấy ${products.length} sản phẩm`);
+        if (products.length > 0) {
+          this.logger.log(`findAllForAdmin: Danh sách sản phẩm tìm thấy: ${products.map(p => p.name).join(', ')}`);
+        } else {
+          this.logger.log(`findAllForAdmin: Không tìm thấy sản phẩm nào với từ khóa "${search}"`);
+        }
+      }
 
       // Chuyển đổi kết quả sang định dạng phù hợp cho frontend
       const formattedProducts = products.map(product => {
