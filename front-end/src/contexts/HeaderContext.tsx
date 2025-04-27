@@ -54,6 +54,8 @@ export type HeaderContextType = {
   setShowSearchResults: (show: boolean) => void;
   performSearch: (term: string) => Promise<void>;
   handleViewAllResults: () => void;
+  // Từ khóa phổ biến
+  popularSearchTerms: string[];
 };
 
 const HeaderContext = createContext<HeaderContextType | undefined>(undefined);
@@ -74,6 +76,20 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // Danh sách các từ khóa phổ biến
+  const [popularSearchTerms] = useState<string[]>([
+    'Sữa rửa mặt',
+    'Kem chống nắng',
+    'Serum vitamin C',
+    'Cetaphil',
+    'Mặt nạ dưỡng da',
+    'Nước tẩy trang',
+    'Innisfree',
+    'Tẩy tế bào chết',
+    'Son môi',
+    'Dưỡng ẩm'
+  ]);
 
   // Hàm cập nhật trạng thái đăng nhập và thông tin người dùng
   const updateAuthState = (newIsLoggedIn: boolean, newUserProfile: UserProfile | null) => {
@@ -271,6 +287,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setShowSearchResults,
     performSearch,
     handleViewAllResults,
+    popularSearchTerms
   };
 
   return <HeaderContext.Provider value={value}>{children}</HeaderContext.Provider>;

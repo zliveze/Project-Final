@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiSearch, FiX } from 'react-icons/fi';
+import { FiSearch, FiX, FiClock, FiTrendingUp } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '@/utils/format';
+import { useHeader } from '@/contexts/HeaderContext';
 
 // Định nghĩa kiểu dữ liệu cho sản phẩm tìm kiếm
 export interface SearchProduct {
@@ -34,6 +35,24 @@ export default function SearchResults({
   onViewAll
 }: SearchResultsProps) {
   const resultsRef = useRef<HTMLDivElement>(null);
+  const { popularSearchTerms } = useHeader();
+
+  // Tạo các gợi ý từ khóa tìm kiếm dựa trên từ khóa hiện tại
+  const searchSuggestions = React.useMemo(() => {
+    if (!searchTerm) return [];
+    
+    // Tạo gợi ý từ khóa liên quan đến mỹ phẩm dựa trên từ khóa đã nhập
+    const suggestions = [
+      `${searchTerm} giá rẻ`,
+      `${searchTerm} chính hãng`,
+      `${searchTerm} dưỡng da`,
+      `${searchTerm} mới nhất`,
+      `${searchTerm} mini`,
+    ];
+    
+    // Lọc bỏ các gợi ý trùng lặp hoặc là từ khóa gốc
+    return suggestions.filter(s => s !== searchTerm);
+  }, [searchTerm]);
 
   // Xử lý click bên ngoài để đóng kết quả tìm kiếm
   useEffect(() => {
@@ -69,6 +88,13 @@ export default function SearchResults({
     };
   }, [isVisible, onClose]);
 
+  // Xử lý khi click vào từ khóa gợi ý
+  const handleSuggestionClick = (suggestion: string) => {
+    // Tự động điều hướng đến trang shop với từ khóa gợi ý
+    window.location.href = `/shop?search=${encodeURIComponent(suggestion)}`;
+    onClose();
+  };
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -84,8 +110,10 @@ export default function SearchResults({
             <div className="flex items-center text-gray-600">
               <FiSearch className="mr-2 text-pink-500" />
               <span className="text-sm">
-                {loading ? 'Đang tìm kiếm...' : (
+                {loading ? 'Đang tìm kiếm...' : searchTerm ? (
                   <>Kết quả tìm kiếm cho <span className="font-medium text-pink-600">"{searchTerm}"</span></>
+                ) : (
+                  <>Tìm kiếm phổ biến</>
                 )}
               </span>
             </div>
@@ -98,12 +126,54 @@ export default function SearchResults({
             </button>
           </div>
 
+          {/* Hiển thị từ khóa phổ biến nếu chưa nhập từ khóa hoặc từ khóa quá ngắn */}
+          {(!searchTerm || searchTerm.length < 2) && (
+            <div className="p-3 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <FiTrendingUp className="text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">Tìm kiếm phổ biến</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {popularSearchTerms.map((term, index) => (
+                  <button
+                    key={`popular-term-${index}`}
+                    className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                    onClick={() => handleSuggestionClick(term)}
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Phần gợi ý từ khóa tìm kiếm */}
+          {searchTerm && searchTerm.length >= 2 && searchSuggestions.length > 0 && (
+            <div className="p-3 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <FiClock className="text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">Gợi ý tìm kiếm</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {searchSuggestions.map((suggestion, index) => (
+                  <button
+                    key={`suggestion-${index}`}
+                    className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-y-auto max-h-[70vh]">
             {loading ? (
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
               </div>
-            ) : products.length > 0 ? (
+            ) : searchTerm.length >= 2 && products.length > 0 ? (
               <div>
                 {/* Hiển thị kết quả dạng grid thay vì list */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
@@ -153,15 +223,33 @@ export default function SearchResults({
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : searchTerm.length >= 2 ? (
               <div className="py-8 px-4 text-center">
                 <div className="text-gray-400 mb-2">
                   <FiSearch className="h-8 w-8 mx-auto mb-2" />
                 </div>
                 <p className="text-gray-600 mb-1">Không tìm thấy sản phẩm nào phù hợp</p>
                 <p className="text-sm text-gray-500">Vui lòng thử lại với từ khóa khác</p>
+                
+                {/* Hiển thị các gợi ý từ khóa khi không tìm thấy kết quả */}
+                {searchSuggestions.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600 mb-2">Bạn có thể thử tìm với:</p>
+                    <div className="flex flex-wrap justify-center gap-2 mt-2">
+                      {searchSuggestions.map((suggestion, index) => (
+                        <button
+                          key={`no-result-suggestion-${index}`}
+                          className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
           </div>
         </motion.div>
       )}
