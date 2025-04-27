@@ -45,25 +45,64 @@ const PaymentSuccessPage: NextPage = () => {
 
   useEffect(() => {
     const loadOrderData = async () => {
-      // Lấy thông tin đơn hàng từ localStorage
-      const savedOrderNumber = localStorage.getItem('orderNumber');
+      // Lấy thông tin đơn hàng khác từ localStorage
       const savedOrderData = localStorage.getItem('currentOrder');
       const savedOrderCreatedAt = localStorage.getItem('orderCreatedAt');
 
-      // Kiểm tra xem có session_id từ Stripe không
-      const { session_id } = router.query;
-      if (session_id && typeof session_id === 'string' && session_id.startsWith('cs_')) {
-        // Đây là thanh toán từ Stripe Checkout
-        console.log('Stripe Checkout session completed:', session_id);
-        // Có thể gọi API để xác nhận thanh toán nếu cần
+      // Lấy tham số từ URL query
+      const { extraData, resultCode, message, session_id } = router.query;
+
+      let extractedOrderNumber = '';
+
+      // Xử lý redirect từ Momo
+      if (extraData && typeof extraData === 'string') {
+        try {
+          // Giải mã Base64 extraData
+          const decodedExtraData = Buffer.from(extraData, 'base64').toString('utf-8');
+          const parsedExtraData = JSON.parse(decodedExtraData);
+          // Lấy orderNumber từ extraData đã giải mã
+          if (parsedExtraData && parsedExtraData.orderNumber) {
+            extractedOrderNumber = parsedExtraData.orderNumber;
+            console.log('Extracted orderNumber from URL extraData:', extractedOrderNumber);
+          } else {
+             console.warn('orderNumber not found in parsed extraData:', parsedExtraData);
+          }
+        } catch (error) {
+          console.error('Error decoding/parsing extraData from URL:', error);
+          // Có thể hiển thị thông báo lỗi cho người dùng nếu cần
+        }
+      } else {
+         console.warn('extraData not found in URL query parameters for Momo payment.');
       }
 
-      if (savedOrderNumber) {
-        setOrderNumber(savedOrderNumber);
+      // Xử lý redirect từ Stripe Checkout (giữ nguyên logic cũ nếu cần)
+      if (session_id && typeof session_id === 'string' && session_id.startsWith('cs_')) {
+        console.log('Stripe Checkout session completed:', session_id);
+        // Nếu là Stripe và chưa có orderNumber từ Momo, thử lấy từ localStorage
+        if (!extractedOrderNumber) {
+           const savedOrderNumber = localStorage.getItem('orderNumber');
+           if (savedOrderNumber) {
+             extractedOrderNumber = savedOrderNumber;
+             console.log('Using orderNumber from localStorage for Stripe:', extractedOrderNumber);
+           }
+        }
+      }
+
+      // Ưu tiên orderNumber từ URL (Momo), sau đó là localStorage (Stripe fallback), cuối cùng báo lỗi
+      if (extractedOrderNumber) {
+        setOrderNumber(extractedOrderNumber);
       } else {
-        // Tạo mã đơn hàng ngẫu nhiên nếu không có
-        const randomOrderNumber = `YM${Math.floor(100000 + Math.random() * 900000)}`;
-        setOrderNumber(randomOrderNumber);
+        // Fallback: Thử lấy từ localStorage một lần nữa (cho các trường hợp khác)
+        const savedOrderNumber = localStorage.getItem('orderNumber');
+        if (savedOrderNumber) {
+          setOrderNumber(savedOrderNumber);
+          console.log('Using orderNumber from localStorage as fallback:', savedOrderNumber);
+        } else {
+          console.error('Could not determine order number from URL or localStorage!');
+          setOrderNumber('Không xác định'); // Hiển thị lỗi hoặc mã tạm
+          // Cân nhắc chuyển hướng về trang lỗi hoặc giỏ hàng
+          // router.push('/cart');
+        }
       }
 
       // Tính ngày giao hàng dự kiến (3-5 ngày từ hiện tại)

@@ -331,12 +331,33 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
       setLoading(true);
       setError(null);
 
+      // Tạo mã đơn hàng tạm thời nếu là đơn hàng mới
+      let orderNumber = '';
+      if (orderId === 'new' && orderData) {
+        // Tạo mã đơn hàng tạm thời theo cùng định dạng với backend
+        const date = new Date();
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        orderNumber = `YM${year}${month}${day}${random}`;
+        console.log(`Generated temporary order number: ${orderNumber}`);
+      }
+
+      // Tạo orderInfo bao gồm mã đơn hàng
+      const orderInfo = orderNumber
+        ? `Thanh toán đơn hàng Yumin #${orderNumber}`
+        : 'Thanh toán đơn hàng Yumin';
+
       const payload = {
         amount,
         orderId,
         returnUrl,
-        orderInfo: 'Thanh toán đơn hàng Yumin',
-        orderData
+        orderInfo,
+        orderData: {
+          ...orderData,
+          ...(orderNumber && { orderNumber }) // Thêm orderNumber vào orderData
+        }
       };
 
       const response = await api().post('/payments/momo', payload);
@@ -394,13 +415,28 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
       }
 
+      // Tạo mã đơn hàng tạm thời
+      const date = new Date();
+      const year = date.getFullYear().toString().slice(-2);
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const orderNumber = `YM${year}${month}${day}${random}`;
+      console.log(`Generated temporary order number for MoMo order: ${orderNumber}`);
+
+      // Thêm orderNumber vào orderWithMomo
+      const orderWithMomoAndNumber = {
+        ...orderWithMomo,
+        orderNumber
+      };
+
       // Tạo thanh toán MoMo
       const momoResponse = await createMomoPayment(
-        orderWithMomo.finalPrice,
+        orderWithMomoAndNumber.finalPrice,
         'new', // Tạo đơn hàng mới
         `${window.location.origin}/payments/success`,
         {
-          ...orderWithMomo,
+          ...orderWithMomoAndNumber,
           userId: user._id
         }
       );
@@ -410,7 +446,8 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
 
       // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
-      localStorage.setItem('currentOrder', JSON.stringify(orderWithMomo));
+      localStorage.setItem('currentOrder', JSON.stringify(orderWithMomoAndNumber));
+      localStorage.setItem('orderNumber', orderNumber);
 
       return {
         payUrl: momoResponse.payUrl

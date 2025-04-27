@@ -116,6 +116,10 @@ export class CreateOrderDto {
   @IsOptional()
   userId?: string; // Có thể lấy từ JWT token
 
+  @IsString()
+  @IsOptional()
+  orderNumber?: string; // Thêm trường này để nhận mã đơn hàng từ Momo IPN
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)

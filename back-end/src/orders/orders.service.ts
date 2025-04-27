@@ -39,9 +39,11 @@ export class OrdersService {
   async create(createOrderDto: CreateOrderDto, userId: string): Promise<OrderDocument> {
     try {
       this.logger.log(`Creating new order for user ${userId}`);
+      this.logger.debug(`Received createOrderDto: ${JSON.stringify(createOrderDto)}`); // Log dữ liệu đầu vào
 
-      // Tạo mã đơn hàng duy nhất
-      const orderNumber = this.generateOrderNumber();
+      // Ưu tiên sử dụng orderNumber từ DTO, nếu không có thì tạo mới
+      const orderNumber = createOrderDto.orderNumber || this.generateOrderNumber();
+      this.logger.debug(`Using order number: ${orderNumber}`); // Log mã đơn hàng sẽ sử dụng
 
       // Tạo đơn hàng mới
       const orderData = {

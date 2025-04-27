@@ -50,7 +50,7 @@ export class MomoService {
 
   async createPayment(createMomoPaymentDto: CreateMomoPaymentDto): Promise<MomoPaymentResponseDto> {
     try {
-      const { orderId, amount, returnUrl, orderInfo = 'Thanh toán đơn hàng Yumin', orderData } = createMomoPaymentDto;
+      const { orderId, amount, returnUrl, orderInfo: originalOrderInfo, orderData } = createMomoPaymentDto;
 
       // Tạo requestId và orderId cho MoMo
       const requestId = `${this.partnerCode}_${new Date().getTime()}`;
@@ -59,9 +59,44 @@ export class MomoService {
       // Kiểm tra xem có phải đơn hàng tạm thời không (bắt đầu bằng YM)
       const isTemporaryOrder = orderId && orderId.startsWith('YM');
 
+      // Tạo mã đơn hàng tạm thời nếu là đơn hàng mới
+      let orderNumber = '';
+      if (!orderId || orderId === 'new' || isTemporaryOrder) {
+        // Nếu là đơn hàng mới, tạo mã đơn hàng tạm thời
+        const date = new Date();
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        orderNumber = `YM${year}${month}${day}${random}`;
+        this.logger.debug(`Generated temporary order number: ${orderNumber}`);
+      } else if (isTemporaryOrder) {
+        // Nếu đã có mã đơn hàng tạm thời, sử dụng nó
+        orderNumber = orderId;
+      } else {
+        // Nếu là đơn hàng đã tồn tại, lấy mã đơn hàng từ database
+        try {
+          const order = await this.orderModel.findById(orderId).lean().exec();
+          if (order) {
+            orderNumber = order.orderNumber;
+            this.logger.debug(`Found order number from database: ${orderNumber}`);
+          }
+        } catch (error) {
+          this.logger.error(`Error finding order number: ${error.message}`, error.stack);
+        }
+      }
+
+      // Tạo orderInfo bao gồm mã đơn hàng
+      const orderInfo = orderNumber
+        ? `Thanh toán đơn hàng Yumin #${orderNumber}`
+        : (originalOrderInfo || 'Thanh toán đơn hàng Yumin');
+
+      this.logger.debug(`Using orderInfo: ${orderInfo}`);
+
       // Tạo extraData để lưu thông tin đơn hàng
       const extraData = Buffer.from(JSON.stringify({
         orderId,
+        orderNumber,
         isNewOrder: !orderId || orderId === 'new' || isTemporaryOrder
       })).toString('base64');
 
@@ -212,17 +247,19 @@ export class MomoService {
 
       interface ExtraData {
         orderId: string;
+        orderNumber: string;
         isNewOrder: boolean;
       }
 
       interface ParsedData {
         orderId?: string;
+        orderNumber?: string;
         isNewOrder?: boolean;
       }
 
       // Giải mã extraData để lấy thông tin đơn hàng
       this.logger.debug('Parsing extraData...');
-      let extraDataObj: ExtraData = { orderId: '', isNewOrder: false };
+      let extraDataObj: ExtraData = { orderId: '', orderNumber: '', isNewOrder: false };
       try {
         if (ipnData.extraData) {
           const decodedExtraData = Buffer.from(ipnData.extraData, 'base64').toString();
@@ -231,6 +268,7 @@ export class MomoService {
           if (parsedData && typeof parsedData === 'object') {
             extraDataObj = {
               orderId: String(parsedData.orderId || ''),
+              orderNumber: String(parsedData.orderNumber || ''),
               isNewOrder: Boolean(parsedData.isNewOrder)
             };
             this.logger.debug(`Parsed extraData: ${JSON.stringify(extraDataObj)}`);
@@ -261,6 +299,13 @@ export class MomoService {
         // Chuẩn bị dữ liệu đơn hàng với trạng thái đã thanh toán
         this.logger.debug('Preparing order data from pending order...');
         const orderData = pendingOrder.orderData as any;
+
+        // Sử dụng orderNumber từ extraData nếu có
+        const customOrderNumber = extraDataObj.orderNumber || undefined;
+        if (customOrderNumber) {
+          this.logger.debug(`Using custom order number from extraData: ${customOrderNumber}`);
+        }
+
         const orderDataWithPayment: CreateOrderDto = {
           items: orderData.items.map((item: any) => ({
             productId: item.productId.toString(),
@@ -296,7 +341,8 @@ export class MomoService {
           ...(orderData.branchId && { branchId: orderData.branchId.toString() }),
           ...(orderData.notes && { notes: orderData.notes }),
           ...(orderData.metadata && { metadata: orderData.metadata }),
-          ...(orderData.shippingServiceCode && { shippingServiceCode: orderData.shippingServiceCode })
+          ...(orderData.shippingServiceCode && { shippingServiceCode: orderData.shippingServiceCode }),
+          ...(customOrderNumber && { orderNumber: customOrderNumber })
         };
 
         // Tạo đơn hàng mới với dữ liệu từ pendingOrder
