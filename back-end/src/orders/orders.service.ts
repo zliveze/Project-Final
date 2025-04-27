@@ -410,6 +410,47 @@ export class OrdersService {
   }
 
   /**
+   * Cập nhật trạng thái thanh toán của đơn hàng
+   */
+  async updatePaymentStatus(id: string, paymentStatus: PaymentStatus): Promise<OrderDocument> {
+    try {
+      if (!Types.ObjectId.isValid(id)) {
+        throw new NotFoundException(`Invalid order ID: ${id}`);
+      }
+
+      const order = await this.orderModel.findById(id).exec();
+
+      if (!order) {
+        throw new NotFoundException(`Order with ID ${id} not found`);
+      }
+
+      // Cập nhật trạng thái thanh toán
+      const updatedOrder = await this.orderModel
+        .findByIdAndUpdate(
+          id,
+          {
+            paymentStatus,
+            'metadata.paymentUpdatedAt': new Date(),
+          },
+          { new: true }
+        )
+        .exec();
+
+      this.logger.log(`Updated payment status for order ${id} to ${paymentStatus}`);
+
+      // Nếu thanh toán thành công và đơn hàng đang ở trạng thái chờ xử lý, cập nhật trạng thái đơn hàng
+      if (paymentStatus === PaymentStatus.PAID && order.status === OrderStatus.PENDING) {
+        await this.updateStatus(id, OrderStatus.CONFIRMED);
+      }
+
+      return updatedOrder as OrderDocument;
+    } catch (error) {
+      this.logger.error(`Error updating payment status: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
    * Xóa đơn hàng (chỉ dành cho admin và chỉ xóa được đơn hàng đã hủy)
    */
   async remove(id: string): Promise<{ deleted: boolean }> {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { FiCreditCard, FiDollarSign, FiSmartphone } from 'react-icons/fi';
 
-export type PaymentMethod = 'credit_card' | 'momo' | 'zalopay' | 'bank_transfer' | 'cod';
+export type PaymentMethod = 'credit_card' | 'momo' | 'zalopay' | 'bank_transfer' | 'cod' | 'stripe';
 
 interface PaymentMethodsProps {
   selectedMethod: PaymentMethod;
@@ -17,7 +17,7 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Phương thức thanh toán</h2>
-      
+
       {/* Thanh toán khi nhận hàng */}
       <div
         className={`border rounded-md p-4 cursor-pointer transition-colors ${
@@ -42,14 +42,14 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
             <span className="font-medium">Thanh toán khi nhận hàng (COD)</span>
           </div>
         </div>
-        
+
         {selectedMethod === 'cod' && (
           <div className="mt-3 pl-8 text-sm text-gray-600">
             <p>Bạn sẽ thanh toán bằng tiền mặt khi nhận hàng.</p>
           </div>
         )}
       </div>
-      
+
       {/* Thanh toán qua thẻ tín dụng/ghi nợ */}
       <div
         className={`border rounded-md p-4 cursor-pointer transition-colors ${
@@ -100,7 +100,7 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
             </div>
           </div>
         </div>
-        
+
         {selectedMethod === 'credit_card' && (
           <div className="mt-3 pl-8 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -154,9 +154,41 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
           </div>
         )}
       </div>
-      
-      {/* Thanh toán qua ví điện tử */}
+
+      {/* Thanh toán qua ví điện tử và Stripe */}
       <div className="space-y-3">
+        {/* Stripe */}
+        <div
+          className={`border rounded-md p-4 cursor-pointer transition-colors ${
+            selectedMethod === 'stripe'
+              ? 'border-pink-600 bg-pink-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+          onClick={() => handleMethodChange('stripe')}
+        >
+          <div className="flex items-center">
+            <div
+              className={`w-5 h-5 rounded-full border flex items-center justify-center mr-3 ${
+                selectedMethod === 'stripe' ? 'border-pink-600' : 'border-gray-400'
+              }`}
+            >
+              {selectedMethod === 'stripe' && (
+                <div className="w-3 h-3 rounded-full bg-pink-600"></div>
+              )}
+            </div>
+            <div className="flex items-center">
+              <FiCreditCard className="text-blue-600 mr-2" size={24} />
+              <span className="font-medium">Thanh toán với Stripe</span>
+            </div>
+          </div>
+
+          {selectedMethod === 'stripe' && (
+            <div className="mt-3 pl-8 text-sm text-gray-600">
+              <p>Bạn sẽ được chuyển đến trang thanh toán an toàn của Stripe.</p>
+            </div>
+          )}
+        </div>
+
         {/* MoMo */}
         <div
           className={`border rounded-md p-4 cursor-pointer transition-colors ${
@@ -188,14 +220,14 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
               <span className="font-medium">Ví MoMo</span>
             </div>
           </div>
-          
+
           {selectedMethod === 'momo' && (
             <div className="mt-3 pl-8 text-sm text-gray-600">
               <p>Bạn sẽ được chuyển đến trang thanh toán của MoMo.</p>
             </div>
           )}
         </div>
-        
+
         {/* ZaloPay */}
         <div
           className={`border rounded-md p-4 cursor-pointer transition-colors ${
@@ -227,7 +259,7 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
               <span className="font-medium">ZaloPay</span>
             </div>
           </div>
-          
+
           {selectedMethod === 'zalopay' && (
             <div className="mt-3 pl-8 text-sm text-gray-600">
               <p>Bạn sẽ được chuyển đến trang thanh toán của ZaloPay.</p>
@@ -235,7 +267,7 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
           )}
         </div>
       </div>
-      
+
       {/* Chuyển khoản ngân hàng */}
       <div
         className={`border rounded-md p-4 cursor-pointer transition-colors ${
@@ -260,7 +292,7 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
             <span className="font-medium">Chuyển khoản ngân hàng</span>
           </div>
         </div>
-        
+
         {selectedMethod === 'bank_transfer' && (
           <div className="mt-3 pl-8 text-sm text-gray-600 space-y-2">
             <p>Vui lòng chuyển khoản đến tài khoản sau:</p>
@@ -278,4 +310,4 @@ const PaymentMethods: React.FC<PaymentMethodsProps> = ({ selectedMethod, onSelec
   );
 };
 
-export default PaymentMethods; 
+export default PaymentMethods;

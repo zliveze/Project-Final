@@ -14,6 +14,14 @@ export interface StripePaymentIntent {
   status: string;
 }
 
+export interface StripeCheckoutSession {
+  id: string;
+  url: string;
+  amount: number;
+  currency: string;
+  status: string;
+}
+
 export interface MomoPaymentResponse {
   resultCode: number;
   message: string;
@@ -52,8 +60,9 @@ export interface UserPaymentContextType {
   stripePaymentIntent: StripePaymentIntent | null;
   momoPaymentResponse: MomoPaymentResponse | null;
   createStripePaymentIntent: (amount: number, orderId?: string) => Promise<StripePaymentIntent | null>;
+  createStripeCheckoutSession: (amount: number, orderId?: string) => Promise<StripeCheckoutSession | null>;
   createMomoPayment: (amount: number, orderId: string, returnUrl: string, orderData?: any) => Promise<MomoPaymentResponse | null>;
-  createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order: Order; paymentIntent: StripePaymentIntent } | null>;
+  createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order: Order; checkoutUrl: string } | null>;
   createOrderWithMomo: (orderData: CreateOrderDto) => Promise<{ payUrl: string } | null>;
   createOrderWithCOD: (orderData: CreateOrderDto) => Promise<Order | null>;
   confirmPayment: (paymentId: string, orderId: string) => Promise<Payment | null>;
@@ -68,6 +77,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [stripePaymentIntent, setStripePaymentIntent] = useState<StripePaymentIntent | null>(null);
+  const [stripeCheckoutSession, setStripeCheckoutSession] = useState<StripeCheckoutSession | null>(null);
   const [momoPaymentResponse, setMomoPaymentResponse] = useState<MomoPaymentResponse | null>(null);
 
   // Cấu hình Axios với Auth token
@@ -90,6 +100,36 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     setError(errorMessage);
     toast.error(errorMessage);
   };
+
+  // Tạo Stripe Checkout Session
+  const createStripeCheckoutSession = useCallback(async (
+    amount: number,
+    orderId?: string
+  ): Promise<StripeCheckoutSession | null> => {
+    if (!user || !isAuthenticated) return null;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const payload = {
+        amount,
+        currency: 'vnd',
+        orderId
+      };
+
+      const response = await api().post('/payments/stripe/create-checkout-session', payload);
+
+      setStripeCheckoutSession(response.data);
+
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [api, user, isAuthenticated]);
 
   // Tạo Stripe Payment Intent
   const createStripePaymentIntent = useCallback(async (
@@ -124,7 +164,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Tạo đơn hàng với Stripe
   const createOrderWithStripe = useCallback(async (
     orderData: CreateOrderDto
-  ): Promise<{ order: Order; paymentIntent: StripePaymentIntent } | null> => {
+  ): Promise<{ order: Order; checkoutUrl: string } | null> => {
     if (!user || !isAuthenticated) return null;
 
     try {
@@ -163,23 +203,29 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
       }
 
-      // Tạo payment intent trước
-      const paymentIntent = await createStripePaymentIntent(orderWithStripe.finalPrice);
-
-      if (!paymentIntent) {
-        throw new Error('Không thể tạo Stripe Payment Intent');
-      }
-
       // Tạo đơn hàng với trạng thái chờ thanh toán
       const orderResponse = await api().post('/orders', {
         ...orderWithStripe,
-        paymentStatus: 'pending',
-        paymentId: paymentIntent.id
+        paymentStatus: 'pending'
       });
+
+      // Tạo Stripe Checkout Session
+      const checkoutSession = await createStripeCheckoutSession(
+        orderWithStripe.finalPrice,
+        orderResponse.data._id
+      );
+
+      if (!checkoutSession || !checkoutSession.url) {
+        throw new Error('Không thể tạo phiên thanh toán Stripe');
+      }
+
+      // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
+      localStorage.setItem('orderNumber', orderResponse.data.orderNumber);
+      localStorage.setItem('orderCreatedAt', orderResponse.data.createdAt);
 
       return {
         order: orderResponse.data,
-        paymentIntent
+        checkoutUrl: checkoutSession.url
       };
     } catch (error) {
       handleError(error);
@@ -187,7 +233,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     } finally {
       setLoading(false);
     }
-  }, [api, createStripePaymentIntent, user, isAuthenticated]);
+  }, [api, createStripeCheckoutSession, user, isAuthenticated]);
 
   // Tạo đơn hàng với COD
   const createOrderWithCOD = useCallback(async (
@@ -385,6 +431,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         stripePaymentIntent,
         momoPaymentResponse,
         createStripePaymentIntent,
+        createStripeCheckoutSession,
         createMomoPayment,
         createOrderWithStripe,
         createOrderWithMomo,

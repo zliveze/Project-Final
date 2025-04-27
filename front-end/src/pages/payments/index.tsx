@@ -781,7 +781,7 @@ const PaymentsPage: NextPage = () => {
         } else {
           throw new Error('Không thể tạo đơn hàng');
         }
-      } else if (paymentMethod === 'credit_card') {
+      } else if (paymentMethod === 'credit_card' || paymentMethod === 'stripe') {
         // Tạo đơn hàng với Stripe
         result = await createOrderWithStripe(orderData);
 
@@ -789,11 +789,9 @@ const PaymentsPage: NextPage = () => {
           // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
           localStorage.setItem('orderNumber', result.order.orderNumber);
           localStorage.setItem('orderCreatedAt', result.order.createdAt);
-          localStorage.setItem('paymentIntentId', result.paymentIntent.id);
-          localStorage.setItem('paymentIntentClientSecret', result.paymentIntent.clientSecret);
 
-          // Chuyển đến trang thanh toán Stripe
-          router.push(`/payments/stripe?order_id=${result.order._id}`);
+          // Chuyển đến trang thanh toán Stripe Checkout
+          window.location.href = result.checkoutUrl;
         } else {
           throw new Error('Không thể tạo đơn hàng với Stripe');
         }
@@ -1047,7 +1045,7 @@ const PaymentsPage: NextPage = () => {
                         className={`w-full py-3 rounded-md font-medium flex items-center justify-center ${
                           isProcessing
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-[#306E51] text-white hover:bg-[#266246] transition-colors'
+                            : 'bg-pink-600 text-white hover:bg-pink-700 transition-colors'
                         }`}
                       >
                         {isProcessing ? (

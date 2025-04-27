@@ -50,6 +50,14 @@ const PaymentSuccessPage: NextPage = () => {
       const savedOrderData = localStorage.getItem('currentOrder');
       const savedOrderCreatedAt = localStorage.getItem('orderCreatedAt');
 
+      // Kiểm tra xem có session_id từ Stripe không
+      const { session_id } = router.query;
+      if (session_id && typeof session_id === 'string' && session_id.startsWith('cs_')) {
+        // Đây là thanh toán từ Stripe Checkout
+        console.log('Stripe Checkout session completed:', session_id);
+        // Có thể gọi API để xác nhận thanh toán nếu cần
+      }
+
       if (savedOrderNumber) {
         setOrderNumber(savedOrderNumber);
       } else {
