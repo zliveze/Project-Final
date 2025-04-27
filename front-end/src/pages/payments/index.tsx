@@ -785,15 +785,17 @@ const PaymentsPage: NextPage = () => {
         // Tạo đơn hàng với Stripe
         result = await createOrderWithStripe(orderData);
 
-        if (result) {
-          // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
-          localStorage.setItem('orderNumber', result.order.orderNumber);
-          localStorage.setItem('orderCreatedAt', result.order.createdAt);
+        if (result && result.checkoutUrl) {
+          // Lưu thông tin đơn hàng tạm thời vào localStorage để sử dụng ở trang success
+          if (orderData.orderNumber) {
+            localStorage.setItem('orderNumber', orderData.orderNumber);
+          }
+          localStorage.setItem('orderCreatedAt', new Date().toISOString());
 
           // Chuyển đến trang thanh toán Stripe Checkout
           window.location.href = result.checkoutUrl;
         } else {
-          throw new Error('Không thể tạo đơn hàng với Stripe');
+          throw new Error('Không thể tạo phiên thanh toán Stripe');
         }
       } else if (paymentMethod === 'momo') {
         // Tạo đơn hàng với MoMo

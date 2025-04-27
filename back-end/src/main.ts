@@ -10,22 +10,41 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  // Bật lại tất cả các level log
+  // Bật lại tất cả các level log và kích hoạt rawBody
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'], // Hiển thị tất cả các log
+    rawBody: true, // Kích hoạt rawBody cho tất cả requests
   });
   const logger = new Logger('Bootstrap');
-  
+
   // Cấu hình CORS để cho phép front-end truy cập API
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   });
-  
-  // Cấu hình để xử lý upload file
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  
+
+  // Cấu hình body parser cho tất cả các route ngoại trừ webhook
+  const stripeWebhookPath = '/api/payments/stripe/webhook';
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.originalUrl === stripeWebhookPath) {
+      // Bỏ qua body parser cho route webhook của Stripe
+      next();
+    } else {
+      // Áp dụng body parser cho các route khác
+      bodyParser.json({ limit: '50mb' })(req, res, next);
+    }
+  });
+
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.originalUrl === stripeWebhookPath) {
+      // Bỏ qua body parser cho route webhook của Stripe
+      next();
+    } else {
+      // Áp dụng body parser cho các route khác
+      bodyParser.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+    }
+  });
+
   // Cấu hình session middleware
   app.use(
     session({
@@ -39,11 +58,11 @@ async function bootstrap() {
       },
     }),
   );
-  
+
   // Khởi tạo passport
   app.use(passport.initialize());
   app.use(passport.session());
-  
+
   // Cấu hình Swagger
   const config = new DocumentBuilder()
     .setTitle('Yumin API')
@@ -53,30 +72,31 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
-  
+
   // Tạo thư mục uploads nếu chưa tồn tại
   const uploadsDir = path.join(__dirname, '..', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
-  
+
   const tempDir = path.join(uploadsDir, 'temp');
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
   }
-  
+
   // Không sử dụng prefix '/api' cho các routes
+  // Đặt global prefix SAU khi cấu hình body parser để path '/api/payments/stripe/webhook' được nhận diện đúng
   app.setGlobalPrefix('api');
-  
+
   // In ra tất cả các routes đã đăng ký
   await app.init();
   const server = app.getHttpServer();
   const router = server._events.request._router;
-  
+
   try {
     if (router && router.stack) {
       logger.debug('Registered Routes:');
-      router.stack.forEach(layer => {
+      router.stack.forEach((layer: any) => {
         if (layer.route) {
           const path = layer.route?.path;
           const method = layer.route?.stack[0]?.method?.toUpperCase();
@@ -91,12 +111,12 @@ async function bootstrap() {
   } catch (error) {
     logger.error('Error while logging routes:', error);
   }
-  
+
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
-  
+
   const serverUrl = `http://localhost:${port}`;
-  
+
   logger.log(`Application is running on port ${port}`);
   logger.log(`API endpoint: ${serverUrl}/api`);
   logger.log(`Health check: ${serverUrl}/api/health`);

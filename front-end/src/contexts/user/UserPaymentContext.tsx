@@ -62,7 +62,7 @@ export interface UserPaymentContextType {
   createStripePaymentIntent: (amount: number, orderId?: string) => Promise<StripePaymentIntent | null>;
   createStripeCheckoutSession: (amount: number, orderId?: string) => Promise<StripeCheckoutSession | null>;
   createMomoPayment: (amount: number, orderId: string, returnUrl: string, orderData?: any) => Promise<MomoPaymentResponse | null>;
-  createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order: Order; checkoutUrl: string } | null>;
+  createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order?: Order; checkoutUrl: string } | null>;
   createOrderWithMomo: (orderData: CreateOrderDto) => Promise<{ payUrl: string } | null>;
   createOrderWithCOD: (orderData: CreateOrderDto) => Promise<Order | null>;
   confirmPayment: (paymentId: string, orderId: string) => Promise<Payment | null>;
@@ -73,7 +73,7 @@ const UserPaymentContext = createContext<UserPaymentContextType | undefined>(und
 
 // Provider component
 export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated, accessToken } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [stripePaymentIntent, setStripePaymentIntent] = useState<StripePaymentIntent | null>(null);
@@ -164,7 +164,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   // Tạo đơn hàng với Stripe
   const createOrderWithStripe = useCallback(async (
     orderData: CreateOrderDto
-  ): Promise<{ order: Order; checkoutUrl: string } | null> => {
+  ): Promise<{ order?: Order; checkoutUrl: string } | null> => {
     if (!user || !isAuthenticated) return null;
 
     try {
@@ -203,29 +203,44 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
       }
 
-      // Tạo đơn hàng với trạng thái chờ thanh toán
-      const orderResponse = await api().post('/orders', {
+      // Tạo mã đơn hàng tạm thời
+      const date = new Date();
+      const year = date.getFullYear().toString().slice(-2);
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const orderNumber = `YM${year}${month}${day}${random}`;
+      console.log(`Generated temporary order number for Stripe order: ${orderNumber}`);
+
+      // Thêm orderNumber vào orderWithStripe
+      const orderWithStripeAndNumber = {
         ...orderWithStripe,
-        paymentStatus: 'pending'
+        orderNumber
+      };
+
+      // Tạo Stripe Checkout Session với dữ liệu đơn hàng
+      const checkoutSession = await api().post('/payments/stripe/create-checkout-session', {
+        amount: orderWithStripeAndNumber.finalPrice,
+        currency: 'vnd',
+        orderId: 'new',
+        description: `Thanh toán đơn hàng Yumin #${orderNumber}`,
+        returnUrl: `${window.location.origin}/payments/success`,
+        orderData: {
+          ...orderWithStripeAndNumber,
+          userId: user._id
+        }
       });
 
-      // Tạo Stripe Checkout Session
-      const checkoutSession = await createStripeCheckoutSession(
-        orderWithStripe.finalPrice,
-        orderResponse.data._id
-      );
-
-      if (!checkoutSession || !checkoutSession.url) {
+      if (!checkoutSession.data || !checkoutSession.data.url) {
         throw new Error('Không thể tạo phiên thanh toán Stripe');
       }
 
       // Lưu thông tin đơn hàng vào localStorage để sử dụng ở trang success
-      localStorage.setItem('orderNumber', orderResponse.data.orderNumber);
-      localStorage.setItem('orderCreatedAt', orderResponse.data.createdAt);
+      localStorage.setItem('orderNumber', orderNumber);
+      localStorage.setItem('orderCreatedAt', new Date().toISOString());
 
       return {
-        order: orderResponse.data,
-        checkoutUrl: checkoutSession.url
+        checkoutUrl: checkoutSession.data.url
       };
     } catch (error) {
       handleError(error);
@@ -233,7 +248,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     } finally {
       setLoading(false);
     }
-  }, [api, createStripeCheckoutSession, user, isAuthenticated]);
+  }, [api, user, isAuthenticated]);
 
   // Tạo đơn hàng với COD
   const createOrderWithCOD = useCallback(async (

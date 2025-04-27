@@ -17,6 +17,12 @@ export class PendingOrder {
   @Prop({ required: false })
   momoOrderId: string;
 
+  @Prop()
+  stripeSessionId: string;
+
+  @Prop()
+  stripePaymentIntentId: string;
+
   @Prop({ type: Date, default: Date.now, expires: 3600 }) // Tự động xóa sau 1 giờ
   createdAt: Date;
 }
