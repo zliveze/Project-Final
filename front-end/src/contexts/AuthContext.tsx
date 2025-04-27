@@ -71,27 +71,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Gọi API lấy profile đầy đủ
       const fullUserProfile = await UserApiService.getProfile();
-      if (fullUserProfile) { 
-        setUser(currentUser => ({
-          ...(currentUser || {}),
-          ...fullUserProfile
-        }));
-        localStorage.setItem('user', JSON.stringify(fullUserProfile));
+
+      // Kiểm tra nếu profile là null (do token không hợp lệ/hết hạn hoặc không có token)
+      if (fullUserProfile === null) {
         // Chỉ log trong môi trường development
         if (process.env.NODE_ENV === 'development') {
-          console.log('[AuthContext] User state and localStorage updated with full profile.');
+          console.log('[AuthContext] getProfile returned null. Logging out.');
         }
+        // Nếu không lấy được profile (ví dụ: token hết hạn), thực hiện logout
+        await logout();
+        return; // Dừng thực thi hàm này
       }
-    } catch (error) {
+
+      // Nếu có profile, cập nhật state và localStorage
+      setUser(currentUser => ({
+        ...(currentUser || {}),
+        ...fullUserProfile
+      })); // Xóa dấu chấm phẩy thừa và một dấu ngoặc đơn
+      localStorage.setItem('user', JSON.stringify(fullUserProfile));
       // Chỉ log trong môi trường development
       if (process.env.NODE_ENV === 'development') {
-        console.error('[AuthContext] Error fetching full user profile:', error);
+        console.log('[AuthContext] User state and localStorage updated with full profile.');
       }
-      if (error instanceof Error && error.message.includes('401')) {
-        await logout();
+    } // Đóng khối try ở đây
+    catch (error) { // catch phải đi liền sau try
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AuthContext] Error fetching full user profile (non-401):', error);
       }
+      // Xử lý các lỗi khác không phải 401 (ví dụ: network error)
+      // Có thể thêm logic xử lý lỗi cụ thể hơn ở đây nếu cần
     }
-  }, []);
+  }, []); // Xóa logout khỏi dependency array, vì hàm logout được định nghĩa bên ngoài và ổn định
 
   useEffect(() => {
     const loadUserFromStorage = async () => {

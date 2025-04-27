@@ -50,9 +50,16 @@ const handleApiError = async (response: Response) => {
 // Các API services liên quan đến User Profile
 export const UserApiService = {
   // Lấy thông tin profile người dùng
-  async getProfile(): Promise<User> {
+  async getProfile(): Promise<User | null> { // Thay đổi kiểu trả về
     const token = getToken();
-    if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
+    // Nếu không có token, trả về null thay vì ném lỗi ở đây
+    // AuthContext sẽ xử lý việc này
+    if (!token) {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[UserApiService] No token found.');
+        }
+        return null;
+    }
 
     const profileUrl = `${API_URL}/profile`;
 
@@ -71,9 +78,13 @@ export const UserApiService = {
 
       if (!response.ok) {
         if (response.status === 401) {
+          // Xóa token và user, trả về null thay vì ném lỗi
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
-          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[UserApiService] Token expired or invalid (401). Returning null.');
+          }
+          return null;
         }
 
         try {
@@ -94,10 +105,23 @@ export const UserApiService = {
         }
         throw new Error('Định dạng dữ liệu không hợp lệ');
       }
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Lỗi khi lấy profile:', error);
+
+      try {
+        const data = await responseClone.json();
+        return data;
+      } catch (parseError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
+        }
+        // Ném lỗi nếu không parse được JSON (lỗi server khác 401)
+        throw new Error('Định dạng dữ liệu không hợp lệ');
       }
+    } catch (error) {
+      // Chỉ log lỗi không mong muốn khác (ví dụ: network error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Lỗi không mong muốn khi lấy profile:', error);
+      }
+      // Ném lỗi cho các trường hợp không mong muốn khác
       throw error;
     }
   },
@@ -242,7 +266,13 @@ export const UserApiService = {
   // Lấy danh sách sản phẩm yêu thích
   async getWishlist(): Promise<WishlistItem[]> {
     const token = getToken();
-    if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
+    // Nếu không có token, trả về mảng rỗng vì không thể có wishlist
+    if (!token) {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[UserApiService] No token found for getWishlist. Returning empty array.');
+        }
+        return [];
+    }
     const wishlistUrl = `${API_URL}/profile/wishlist`; // Corrected URL
 
     console.log('Gọi API lấy wishlist với URL:', wishlistUrl);

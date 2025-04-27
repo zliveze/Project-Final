@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import axios from 'axios';
+// Bỏ import axios trực tiếp, Cookies vì đã xử lý trong axiosInstance
 import { toast } from 'react-hot-toast';
-import Cookies from 'js-cookie';
 import { useAuth } from '../AuthContext';
+import axiosInstance from '../../lib/axiosInstance'; // Import instance dùng chung
 
 // Định nghĩa các interface
 export interface OrderItem {
@@ -164,25 +164,17 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
 
-  // Cấu hình Axios với Auth token
-  const api = useCallback(() => {
-    const token = localStorage.getItem('accessToken') || Cookies.get('accessToken');
+  // Bỏ hook `api` vì đã dùng axiosInstance
 
-    return axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      }
-    });
-  }, []);
-
-  // Xử lý lỗi
+  // Xử lý lỗi - Kiểm tra nếu lỗi là từ interceptor 401 thì không toast nữa
   const handleError = (error: any) => {
-    console.error('API Error:', error);
+    console.error('API Error in UserOrderContext:', error);
     const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
-    toast.error(errorMessage);
+    // Chỉ hiển thị toast nếu lỗi không phải là lỗi 401 đã được interceptor xử lý
+    if (errorMessage !== 'Phiên đăng nhập đã hết hạn.') {
+      toast.error(errorMessage);
+    }
   };
 
   // Lấy danh sách đơn hàng
@@ -201,21 +193,36 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
 
-      const response = await api().get(`/orders?${queryParams.toString()}`);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.get(`/orders?${queryParams.toString()}`);
 
-      setOrders(response.data.data);
-      setTotalItems(response.data.total);
-      setCurrentPage(response.data.page);
-      setTotalPages(response.data.totalPages);
+      // API backend trả về { data: Order[], total: number, page: number, totalPages: number }
+      // Cần kiểm tra cấu trúc response thực tế từ backend
+      if (response.data && Array.isArray(response.data.data)) {
+        setOrders(response.data.data);
+        setTotalItems(response.data.total ?? 0);
+        setCurrentPage(response.data.page ?? 1);
+        setTotalPages(response.data.totalPages ?? 1);
+      } else {
+        // Xử lý trường hợp cấu trúc dữ liệu không mong đợi
+        console.warn('Unexpected API response structure for orders:', response.data);
+        setOrders([]);
+        setTotalItems(0);
+        setCurrentPage(1);
+        setTotalPages(1);
+      }
 
+      // Trả về dữ liệu gốc để tương thích nếu cần
       return response.data;
     } catch (error) {
       handleError(error);
-      return null;
+      // Trả về null hoặc cấu trúc lỗi phù hợp
+      return { data: [], total: 0, page: 1, totalPages: 1 };
     } finally {
       setLoading(false);
     }
-  }, [api, user, isAuthenticated]);
+  }, [user, isAuthenticated]); // Bỏ api khỏi dependencies
+  // Dòng lỗi đã bị xóa
 
   // Lấy chi tiết đơn hàng
   const fetchOrderDetail = useCallback(async (id: string): Promise<Order | null> => {
@@ -225,8 +232,9 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().get(`/orders/${id}`);
-      setCurrentOrder(response.data);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.get(`/orders/${id}`);
+      setCurrentOrder(response.data); // Giả sử backend trả về Order object trực tiếp
 
       return response.data;
     } catch (error) {
@@ -235,7 +243,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api, user, isAuthenticated]);
+  }, [user, isAuthenticated]); // Bỏ api khỏi dependencies
 
   // Lấy thông tin theo dõi đơn hàng
   const fetchOrderTracking = useCallback(async (id: string): Promise<OrderTracking | null> => {
@@ -245,8 +253,9 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().get(`/orders/${id}/tracking`);
-      setOrderTracking(response.data);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.get(`/orders/${id}/tracking`);
+      setOrderTracking(response.data); // Giả sử backend trả về OrderTracking object
 
       return response.data;
     } catch (error) {
@@ -255,7 +264,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api, user, isAuthenticated]);
+  }, [user, isAuthenticated]); // Bỏ api khỏi dependencies
 
   // Tạo đơn hàng mới
   const createOrder = useCallback(async (orderData: CreateOrderDto): Promise<Order | null> => {
@@ -265,9 +274,10 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().post('/orders', orderData);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.post('/orders', orderData);
 
-      // Cập nhật lại danh sách đơn hàng
+      // Cập nhật lại danh sách đơn hàng (giả sử response.data là Order mới)
       setOrders(prevOrders => [response.data, ...prevOrders]);
       setCurrentOrder(response.data);
 
@@ -280,7 +290,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api, user, isAuthenticated]);
+  }, [user, isAuthenticated]); // Bỏ api khỏi dependencies
 
   // Hủy đơn hàng
   const cancelOrder = useCallback(async (
@@ -293,9 +303,10 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().patch(`/orders/${id}/cancel`, { reason });
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.patch(`/orders/${id}/cancel`, { reason });
 
-      // Cập nhật lại danh sách đơn hàng
+      // Cập nhật lại danh sách đơn hàng (giả sử response.data là Order đã cập nhật)
       setOrders(prevOrders =>
         prevOrders.map(order =>
           order._id === id ? { ...order, status: 'cancelled' } : order
@@ -316,7 +327,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api, currentOrder, user, isAuthenticated]);
+  }, [currentOrder, user, isAuthenticated]); // Bỏ api khỏi dependencies
 
   // Tính phí vận chuyển (API getPrice)
   const calculateShippingFee = useCallback(async (data: ShippingFeeRequest): Promise<ShippingFeeResponse> => {
@@ -324,9 +335,10 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().post('/orders/calculate-shipping', data);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.post('/orders/calculate-shipping', data);
 
-      return response.data;
+      return response.data; // Giả sử backend trả về ShippingFeeResponse
     } catch (error) {
       handleError(error);
       return {
@@ -337,7 +349,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, []); // Bỏ api khỏi dependencies
 
   // Tính phí vận chuyển cho tất cả dịch vụ (API getPriceAll)
   const calculateShippingFeeAll = useCallback(async (data: ShippingFeeRequest): Promise<ShippingFeeResponse> => {
@@ -345,9 +357,10 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      const response = await api().post('/orders/calculate-shipping-all', data);
+      // Sử dụng axiosInstance
+      const response = await axiosInstance.post('/orders/calculate-shipping-all', data);
 
-      return response.data;
+      return response.data; // Giả sử backend trả về ShippingFeeResponse
     } catch (error) {
       handleError(error);
       return {
@@ -358,7 +371,7 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, []); // Bỏ api khỏi dependencies
 
   // Refresh dữ liệu
   const refreshData = useCallback(async () => {
