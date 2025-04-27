@@ -38,12 +38,7 @@ let promotionsCache: DisplayPromotion[] | null = null;
 let lastCacheTimestamp = 0;
 const CACHE_TTL = 600000; // Tăng lên 10 phút cache
 
-// Fallback promotions khi có lỗi hoặc đang tải
-const fallbackPromotions: DisplayPromotion[] = [
-  { id: 'event1', title: 'Giảm 20%', name: 'Giảm 20%', description: 'Cho đơn hàng từ 500K', code: 'SALE20', icon: 'tag', type: 'event' },
-  { id: 'event2', title: 'Freeship', name: 'Freeship', description: 'Cho đơn hàng từ 300K', code: 'FREESHIP', icon: 'truck', type: 'event' },
-  { id: 'event3', title: 'Quà tặng', name: 'Quà tặng', description: 'Khi mua 2 sản phẩm', code: 'GIFT', icon: 'gift', type: 'event' }
-];
+// Không sử dụng dữ liệu mẫu nữa
 
 // Biến để theo dõi trạng thái đang tải
 let isLoadingPromotions = false;
@@ -59,10 +54,8 @@ const ShopBanner = () => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
-    // Hiển thị fallback promotions ngay lập tức để tránh màn hình trống
-    if (!promotionsCache) {
-      setCurrentPromotions(fallbackPromotions);
-    } else {
+    // Kiểm tra cache trước khi tải dữ liệu mới
+    if (promotionsCache) {
       setCurrentPromotions(promotionsCache);
       setLoading(false);
     }
@@ -125,18 +118,18 @@ const ShopBanner = () => {
         const allPromotions = [...displayEvents, ...displayCampaigns];
         const promotionsToDisplay = allPromotions.length > 0
           ? allPromotions.slice(0, 3)
-          : fallbackPromotions;
+          : [];
 
         // Cập nhật state và cache
         setCurrentPromotions(promotionsToDisplay);
         promotionsCache = promotionsToDisplay;
         lastCacheTimestamp = Date.now();
       } catch (err) {
-        // Sử dụng fallback nếu có lỗi và chưa có cache
+        // Xử lý lỗi nhưng không hiển thị dữ liệu mẫu
+        console.error('Lỗi khi tải dữ liệu khuyến mãi:', err);
+        // Nếu không có cache, hiển thị mảng rỗng
         if (!promotionsCache) {
-          setCurrentPromotions(fallbackPromotions);
-          promotionsCache = fallbackPromotions;
-          lastCacheTimestamp = Date.now();
+          setCurrentPromotions([]);
         }
       } finally {
         setLoading(false);
@@ -163,26 +156,30 @@ const ShopBanner = () => {
 
   // Xử lý khi click vào promotion
   const handlePromotionClick = (promotion: DisplayPromotion) => {
+    // Kiểm tra ID hợp lệ (MongoDB ObjectId phải là chuỗi 24 ký tự hex)
+    const isValidMongoId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+
+    if (!promotion.id || !isValidMongoId(promotion.id)) {
+      console.error('ID không hợp lệ:', promotion.id);
+      return;
+    }
+
     if (promotion.type === 'event') {
       // Xây dựng URL chỉ với eventId, không thêm các tham số khác
       const url = new URL('/shop', window.location.origin);
 
-      if (promotion.id && promotion.id !== 'undefined') {
-        // Chỉ thêm eventId vào URL
-        url.searchParams.append('eventId', promotion.id);
-        console.log(`Chuyển hướng đến sự kiện: ${url.toString()}`);
-        router.push(url.toString());
-      }
+      // Chỉ thêm eventId vào URL nếu là ID MongoDB hợp lệ
+      url.searchParams.append('eventId', promotion.id);
+      console.log(`Chuyển hướng đến sự kiện: ${url.toString()}`);
+      router.push(url.toString());
     } else if (promotion.type === 'campaign') {
       // Xây dựng URL chỉ với campaignId, không thêm các tham số khác
       const url = new URL('/shop', window.location.origin);
 
-      if (promotion.id && promotion.id !== 'undefined') {
-        // Chỉ thêm campaignId vào URL
-        url.searchParams.append('campaignId', promotion.id);
-        console.log(`Chuyển hướng đến chiến dịch: ${url.toString()}`);
-        router.push(url.toString());
-      }
+      // Chỉ thêm campaignId vào URL nếu là ID MongoDB hợp lệ
+      url.searchParams.append('campaignId', promotion.id);
+      console.log(`Chuyển hướng đến chiến dịch: ${url.toString()}`);
+      router.push(url.toString());
     }
   };
 
