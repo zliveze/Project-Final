@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import NotificationSection from '../NotificationSection';
 import MiddleHeader from './MiddleHeader';
 import BottomHeader from './BottomHeader';
 import MobileSideMenu from './MobileSideMenu';
+import MobileSearch from './MobileSearch';
 import { useHeader } from '@/contexts/HeaderContext';
+import { FiSearch } from 'react-icons/fi';
 
 export default function MainHeader() {
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+
   const {
     isMobileMenuOpen,
     setMobileMenuOpen,
@@ -54,6 +58,21 @@ export default function MainHeader() {
           userProfile={userProfile}
         />
       </div>
+
+      {/* Mobile search */}
+      <MobileSearch
+        isOpen={isMobileSearchOpen}
+        onClose={() => setIsMobileSearchOpen(false)}
+      />
+
+      {/* Mobile search button */}
+      <button
+        className="lg:hidden fixed bottom-6 right-6 w-12 h-12 rounded-full bg-pink-600 text-white shadow-lg flex items-center justify-center z-40"
+        onClick={() => setIsMobileSearchOpen(true)}
+        aria-label="Tìm kiếm"
+      >
+        <FiSearch className="w-5 h-5" />
+      </button>
     </header>
   );
 }

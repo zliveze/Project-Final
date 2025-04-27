@@ -91,6 +91,13 @@ export default function Shop() {
     // Lấy các tham số cơ bản
     const eventId = searchParams.get('eventId');
     const campaignId = searchParams.get('campaignId');
+    const search = searchParams.get('search');
+
+    // Xử lý tham số tìm kiếm
+    if (search && search !== 'undefined') {
+      newFilters.search = search;
+      console.log('Đã tìm thấy tham số tìm kiếm từ URL:', search);
+    }
 
     // Chỉ áp dụng một loại filter: hoặc eventId hoặc campaignId, không áp dụng cả hai
     if (campaignId && campaignId !== 'undefined') {
@@ -261,6 +268,19 @@ export default function Shop() {
                 <span className="text-sm font-medium text-gray-700 mr-2">
                   Bộ lọc ({activeFiltersCount}):
                 </span>
+
+                {/* Hiển thị từ khóa tìm kiếm */}
+                {filters.search && (
+                  <div className="bg-[#fdf2f8] rounded-full px-3 py-1 text-sm flex items-center">
+                    Tìm kiếm: {filters.search}
+                    <button
+                      className="ml-2 text-gray-500 hover:text-gray-700"
+                      onClick={() => setFilters({ search: undefined })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
 
                 {/* Hiển thị tên thương hiệu thay vì ID */}
                 {filters.brandId && (
