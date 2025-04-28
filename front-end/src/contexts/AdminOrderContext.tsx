@@ -704,10 +704,30 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
       setLoading(true);
       setError(null);
 
+      // Kiểm tra xem đơn hàng hiện tại đang ở trạng thái gì
+      const currentOrder = orders.find(order => order._id === id) || orderDetail;
+      
+      if (!currentOrder) {
+        toast.error("Không tìm thấy thông tin đơn hàng");
+        return null;
+      }
+      
+      // Kiểm tra xem đơn hàng có thể hủy không
+      if (currentOrder.status === 'delivered' || currentOrder.status === 'cancelled' || currentOrder.status === 'returned') {
+        toast.error(`Không thể hủy đơn hàng có trạng thái ${currentOrder.status}`);
+        return null;
+      }
+      
+      // Kiểm tra lý do
+      if (!reason || reason.trim() === '') {
+        toast.error("Bạn cần nhập lý do khi hủy đơn hàng");
+        return null;
+      }
+
       try {
         const response = await api().patch(`/admin/orders/${id}/status`, {
           status: 'cancelled',
-          reason
+          reason: reason.trim()
         });
 
         // Cập nhật lại danh sách đơn hàng
@@ -726,6 +746,11 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
 
         return response.data;
       } catch (apiError: any) {
+        // Hiển thị thông báo lỗi chi tiết từ server
+        if (apiError.response && apiError.response.data && apiError.response.data.message) {
+          toast.error(`Lỗi: ${apiError.response.data.message}`);
+        }
+        
         // Nếu API không tồn tại (404), vẫn cập nhật UI
         if (apiError.response && apiError.response.status === 404) {
           console.warn(`API /admin/orders/${id}/status không tồn tại, chỉ cập nhật UI`);

@@ -189,7 +189,7 @@ function OrderActions({ orderId, onView, onEdit, onDelete }: OrderActionsProps) 
       <button
         onClick={() => onDelete(orderId)}
         className="text-red-600 hover:text-red-900"
-        title="Xóa"
+        title="Hủy đơn hàng"
       >
         <FiTrash2 className="h-5 w-5" />
       </button>

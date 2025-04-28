@@ -184,7 +184,7 @@ const PaymentsPage: NextPage = () => {
                 phone: user.phoneNumber || (user as any).phone || '', // Đảm bảo số điện thoại được lấy từ profile
                 email: user.email || '',
                 address: addressParts[0] || '',
-                city: defaultAddress.city || '',
+                city: defaultAddress.city || defaultAddress.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
                 district: addressParts.length > 2 ? addressParts[2] : '',
                 ward: addressParts.length > 1 ? addressParts[1] : '',
                 notes: '',
@@ -193,9 +193,9 @@ const PaymentsPage: NextPage = () => {
                 districtId: defaultAddress.districtCode,
                 wardId: defaultAddress.wardCode,
                 // Thêm các thông tin tên cần thiết
-                provinceName: defaultAddress.city,
-                districtName: defaultAddress.district,
-                wardName: defaultAddress.ward,
+                provinceName: defaultAddress.provinceName || defaultAddress.city || '', // Đảm bảo luôn có giá trị
+                districtName: defaultAddress.districtName || defaultAddress.district || defaultAddress.state || '',
+                wardName: defaultAddress.wardName || defaultAddress.ward || '',
                 // Thêm mã code nếu có
                 provinceCode: defaultAddress.provinceCode,
                 districtCode: defaultAddress.districtCode,
@@ -465,7 +465,7 @@ const PaymentsPage: NextPage = () => {
         phone: user?.phoneNumber || (user as any)?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
         email: user?.email || '',
         address: addressParts[0] || '',
-        city: selectedAddress.city || '',
+        city: selectedAddress.city || selectedAddress.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
         district: addressParts.length > 2 ? addressParts[2] : '',
         ward: addressParts.length > 1 ? addressParts[1] : '',
         notes: '',
@@ -474,9 +474,9 @@ const PaymentsPage: NextPage = () => {
         districtId: selectedAddress.districtCode,
         wardId: selectedAddress.wardCode,
         // Thêm các thông tin tên cần thiết
-        provinceName: selectedAddress.provinceName || selectedAddress.city,
-        districtName: selectedAddress.districtName || selectedAddress.state,
-        wardName: selectedAddress.wardName,
+        provinceName: selectedAddress.provinceName || selectedAddress.city || '', // Đảm bảo luôn có giá trị
+        districtName: selectedAddress.districtName || selectedAddress.state || '',
+        wardName: selectedAddress.wardName || '',
         // Thêm mã code đã chuẩn hóa
         provinceCode: provinceCode,
         districtCode: districtCode,
@@ -549,8 +549,8 @@ const PaymentsPage: NextPage = () => {
       // Tạo đối tượng địa chỉ từ dữ liệu form
       const formattedAddress: any = {
         addressLine: `${addressData.address}, ${addressData.ward}, ${addressData.district}`,
-        city: addressData.city,
-        state: addressData.district,
+        city: addressData.city || addressData.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
+        state: addressData.district || addressData.districtName || '',
         country: 'Việt Nam',
         postalCode: '',
         isDefault: userAddresses.length === 0, // Đặt làm mặc định nếu là địa chỉ đầu tiên
@@ -559,9 +559,9 @@ const PaymentsPage: NextPage = () => {
         districtCode: addressData.districtCode || '4',
         wardCode: addressData.wardCode || '0',
         // Thêm các trường tên địa chỉ
-        provinceName: addressData.city,
-        districtName: addressData.district,
-        wardName: addressData.ward
+        provinceName: addressData.provinceName || addressData.city || '', // Đảm bảo luôn có giá trị
+        districtName: addressData.districtName || addressData.district || '',
+        wardName: addressData.wardName || addressData.ward || ''
       };
 
 
@@ -604,7 +604,7 @@ const PaymentsPage: NextPage = () => {
         const convertedAddresses: UserAddress[] = updatedUser.addresses.map((addr: any) => ({
           _id: addr._id,
           addressLine: addr.addressLine,
-          city: addr.city || addr.provinceName || '',
+          city: addr.city || addr.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
           state: addr.state || addr.districtName || '',
           country: addr.country || 'Việt Nam',
           postalCode: addr.postalCode || '',
@@ -612,7 +612,7 @@ const PaymentsPage: NextPage = () => {
           provinceCode: addr.provinceCode || '2',
           districtCode: addr.districtCode || '51',
           wardCode: addr.wardCode || '897',
-          provinceName: addr.provinceName || addr.city || '',
+          provinceName: addr.provinceName || addr.city || '', // Đảm bảo luôn có giá trị
           districtName: addr.districtName || addr.state || '',
           wardName: addr.wardName || ''
         }));
@@ -731,13 +731,13 @@ const PaymentsPage: NextPage = () => {
         phone: shippingInfo.phone,
         email: shippingInfo.email,
         addressLine1: shippingInfo.address,
-        province: shippingInfo.city || '',
-        district: shippingInfo.district || '',
-        ward: shippingInfo.ward || '',
+        province: shippingInfo.city || shippingInfo.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
+        district: shippingInfo.district || shippingInfo.districtName || '',
+        ward: shippingInfo.ward || shippingInfo.wardName || '',
         // Thêm các mã địa chỉ cần thiết cho ViettelPost
-        provinceCode: selectedUserAddress?.provinceCode || '',
-        districtCode: selectedUserAddress?.districtCode || '',
-        wardCode: selectedUserAddress?.wardCode || ''
+        provinceCode: selectedUserAddress?.provinceCode || shippingInfo.provinceCode || '',
+        districtCode: selectedUserAddress?.districtCode || shippingInfo.districtCode || '',
+        wardCode: selectedUserAddress?.wardCode || shippingInfo.wardCode || ''
       };
 
 
@@ -896,8 +896,8 @@ const PaymentsPage: NextPage = () => {
       phone: user?.phoneNumber || (user as any)?.phone || '',
       email: user?.email || '',
       address: address.addressLine,
-      city: address.provinceName || address.city || '',
-      district: address.districtName || address.state || '',
+      city: address.city || address.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
+      district: address.state || address.districtName || '',
       ward: address.wardName || '',
       notes: '',
       // Thêm các ID cần thiết cho form ViettelPost
@@ -905,9 +905,9 @@ const PaymentsPage: NextPage = () => {
       districtId: address.districtCode,
       wardId: address.wardCode,
       // Thêm các thông tin tên cần thiết
-      provinceName: address.provinceName || address.city,
-      districtName: address.districtName || address.state,
-      wardName: address.wardName,
+      provinceName: address.provinceName || address.city || '', // Đảm bảo luôn có giá trị
+      districtName: address.districtName || address.state || '',
+      wardName: address.wardName || '',
       // Thêm mã code nếu có
       provinceCode: address.provinceCode,
       districtCode: address.districtCode,

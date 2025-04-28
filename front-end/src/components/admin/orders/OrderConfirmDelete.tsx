@@ -19,18 +19,18 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
       setIsDeleting(true);
 
       // Sử dụng hàm cancelOrder từ context
-      await cancelOrder(orderId, 'Xóa bởi admin');
+      await cancelOrder(orderId, 'Đơn hàng bị hủy bởi admin');
 
       setIsDeleting(false);
-      toast.success('Đã xóa đơn hàng thành công!', {
-        id: `delete-order-success-${orderId}`
+      toast.success('Đã hủy đơn hàng thành công!', {
+        id: `cancel-order-success-${orderId}`
       });
       onConfirm();
 
     } catch (error: any) {
-      console.error('Error deleting order:', error);
-      toast.error(`Có lỗi xảy ra khi xóa đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
-        id: `delete-order-error-${orderId}`
+      console.error('Error cancelling order:', error);
+      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+        id: `cancel-order-error-${orderId}`
       });
       setIsDeleting(false);
     }
@@ -55,11 +55,11 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
               </div>
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Xóa đơn hàng
+                  Hủy đơn hàng
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-500">
-                    Bạn có chắc chắn muốn xóa đơn hàng #{orderId}? Hành động này không thể hoàn tác.
+                    Bạn có chắc chắn muốn hủy đơn hàng #{orderId}? Hành động này không thể hoàn tác.
                   </p>
                 </div>
               </div>
@@ -75,10 +75,10 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
               {isDeleting ? (
                 <div className="flex items-center">
                   <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Đang xóa...
+                  Đang xử lý...
                 </div>
               ) : (
-                'Xóa'
+                'Hủy đơn hàng'
               )}
             </button>
             <button
@@ -87,7 +87,7 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
               onClick={onClose}
               disabled={isDeleting}
             >
-              Hủy
+              Đóng
             </button>
           </div>
         </div>

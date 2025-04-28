@@ -63,7 +63,7 @@ function AdminOrdersContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<OrderFilterState | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -151,27 +151,32 @@ function AdminOrdersContent() {
   };
 
   // Xử lý xóa đơn hàng
-  const handleDelete = (id: string) => {
+  const handleCancel = (id: string) => {
     setSelectedOrderId(id);
-    setShowDeleteModal(true);
+    setShowCancelModal(true);
   };
 
   // Xử lý xác nhận xóa đơn hàng
-  const confirmDelete = () => {
+  const confirmCancel = async () => {
     if (!selectedOrderId) return;
 
-    // Sử dụng hàm cancelOrder từ context
-    cancelOrder(selectedOrderId, 'Xóa bởi admin').then(() => {
+    try {
+      // Sử dụng hàm cancelOrder từ context
+      await cancelOrder(selectedOrderId, 'Đơn hàng bị hủy bởi admin');
+      
       // Đóng modal và refresh dữ liệu
-      setShowDeleteModal(false);
+      setShowCancelModal(false);
       setSelectedOrderId(null);
-      handleRefreshData();
-      toast.success('Đã xóa đơn hàng thành công', {
-        id: 'delete-success'
+      
+      // Chỉ gọi refreshData, không cần handleRefreshData
+      await refreshData();
+      
+      toast.success('Đã hủy đơn hàng thành công', {
+        id: 'cancel-success'
       });
-    }).catch(error => {
-      toast.error(`Lỗi khi xóa đơn hàng: ${error.message}`);
-    });
+    } catch (error: any) {
+      toast.error(`Lỗi khi hủy đơn hàng: ${error.message}`);
+    }
   };
 
   // Xử lý hủy chỉnh sửa
@@ -419,7 +424,7 @@ function AdminOrdersContent() {
             <AdminOrderList
               onView={handleView}
               onEdit={handleEdit}
-              onDelete={handleDelete}
+              onDelete={handleCancel}
             />
           ) : (
             <div className="bg-white shadow-md rounded-lg p-6">
@@ -444,15 +449,15 @@ function AdminOrdersContent() {
             isOpen={showDetailModal}
             onClose={() => setShowDetailModal(false)}
             onEdit={handleEdit}
-            onDelete={handleDelete}
+            onDelete={handleCancel}
           />
 
           {/* Modal xác nhận xóa */}
           <OrderConfirmDelete
             orderId={selectedOrderId || ''}
-            isOpen={showDeleteModal}
-            onClose={() => setShowDeleteModal(false)}
-            onConfirm={confirmDelete}
+            isOpen={showCancelModal}
+            onClose={() => setShowCancelModal(false)}
+            onConfirm={confirmCancel}
           />
 
           {/* Modal lọc nâng cao */}
