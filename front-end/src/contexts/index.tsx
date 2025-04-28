@@ -191,6 +191,7 @@ export { useCampaign } from './CampaignContext'; // Export useCampaign
 export { useAdminOrder, AdminOrderProvider } from './AdminOrderContext'; // Export useAdminOrder and AdminOrderProvider
 export { useUserOrder } from './user/UserOrderContext'; // Export useUserOrder
 export { useUserPayment } from './user/UserPaymentContext'; // Export useUserPayment
+export { useOrder } from './user/OrderContext'; // Export useOrder
 
 // Alias cho useBrands (để tương thích ngược)
 export const useBrand = useBrands;

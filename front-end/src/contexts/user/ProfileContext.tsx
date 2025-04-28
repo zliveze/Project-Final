@@ -5,6 +5,7 @@ import { User, WishlistItem, Order, Notification, Review, Address, TabType, Orde
 import { mockUser, mockWishlistItems, mockOrders, mockNotifications, mockReviews } from '../../mock/profileData';
 import { UserApiService } from './UserApiService';
 import { useAuth } from '../AuthContext';
+import { useOrder } from './OrderContext';
 
 interface ProfileContextProps {
   user: User;
@@ -60,6 +61,14 @@ const ProfileContext = createContext<ProfileContextProps | undefined>(undefined)
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const { logout, isAuthenticated, isLoading: authLoading, user: authUser } = useAuth(); // Thêm isLoading và user từ useAuth
+  const {
+    fetchOrderDetail,
+    downloadInvoice,
+    cancelOrder,
+    buyAgain,
+    fetchOrderTracking,
+    setOrderStatusFilter: setOrderContextFilter
+  } = useOrder();
 
   // States
   const [user, setUser] = useState<User>(mockUser);
@@ -351,10 +360,65 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedOrder(existingOrder);
         setShowOrderModal(true);
       } else {
-        // Gọi API để lấy chi tiết đơn hàng
-        const orderDetail = await UserApiService.getOrderDetail(orderId);
-        setSelectedOrder(orderDetail);
-        setShowOrderModal(true);
+        // Sử dụng OrderContext để lấy chi tiết đơn hàng
+        const orderDetail = await fetchOrderDetail(orderId);
+
+        if (orderDetail) {
+          // Chuyển đổi từ OrderContext.Order sang ProfileContext.Order
+          const convertedOrder: Order = {
+            _id: orderDetail._id,
+            orderNumber: orderDetail.orderNumber,
+            createdAt: orderDetail.createdAt,
+            status: orderDetail.status,
+            products: orderDetail.items.map(item => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              name: item.name,
+              image: item.image || '',
+              options: item.options,
+              quantity: item.quantity,
+              price: item.price
+            })),
+            totalPrice: orderDetail.totalPrice,
+            finalPrice: orderDetail.finalPrice,
+            voucher: orderDetail.voucher ? {
+              voucherId: orderDetail.voucher.voucherId,
+              discountAmount: orderDetail.voucher.discountAmount
+            } : undefined,
+            shippingInfo: {
+              address: `${orderDetail.shippingAddress.addressLine1}, ${orderDetail.shippingAddress.ward}, ${orderDetail.shippingAddress.district}, ${orderDetail.shippingAddress.province}`,
+              contact: `${orderDetail.shippingAddress.fullName} - ${orderDetail.shippingAddress.phone}`
+            }
+          };
+
+          // Lấy thông tin tracking nếu có
+          try {
+            const tracking = await fetchOrderTracking(orderId);
+            if (tracking) {
+              convertedOrder.tracking = {
+                status: tracking.history.map(hist => ({
+                  state: hist.status,
+                  description: hist.description || '',
+                  timestamp: hist.timestamp
+                })),
+                shippingCarrier: tracking.carrier ? {
+                  name: tracking.carrier.name,
+                  trackingNumber: tracking.carrier.trackingNumber,
+                  trackingUrl: tracking.carrier.trackingUrl || ''
+                } : undefined,
+                estimatedDelivery: tracking.estimatedDelivery,
+                actualDelivery: tracking.actualDelivery
+              };
+            }
+          } catch (trackingError) {
+            console.warn('Không thể lấy thông tin tracking:', trackingError);
+          }
+
+          setSelectedOrder(convertedOrder);
+          setShowOrderModal(true);
+        } else {
+          toast.error('Không thể lấy thông tin đơn hàng');
+        }
       }
     } catch (err) {
       console.error('Lỗi khi lấy chi tiết đơn hàng:', err);
@@ -369,21 +433,26 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       toast.info('Đang tải xuống hóa đơn...');
 
-      const blob = await UserApiService.downloadInvoice(orderId);
+      // Sử dụng OrderContext để tải hóa đơn
+      const blob = await downloadInvoice(orderId);
 
-      // Tạo đường dẫn URL từ blob và tạo link download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `invoice_${orderId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
+      if (blob) {
+        // Tạo đường dẫn URL từ blob và tạo link download
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `invoice_${orderId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
 
-      // Xóa đường dẫn tạm
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+        // Xóa đường dẫn tạm
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
 
-      toast.success('Tải xuống hóa đơn thành công!');
+        toast.success('Tải xuống hóa đơn thành công!');
+      } else {
+        toast.error('Không thể tải hóa đơn');
+      }
     } catch (err) {
       console.error('Lỗi khi tải hóa đơn:', err);
       toast.error(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải hóa đơn');
@@ -398,25 +467,33 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(true);
         const reason = window.prompt('Vui lòng cho biết lý do hủy đơn hàng:') || 'Người dùng hủy đơn';
 
-        // Gọi API hủy đơn hàng
-        const updatedOrder = await UserApiService.cancelOrder(orderId, reason);
+        // Sử dụng OrderContext để hủy đơn hàng
+        const updatedOrder = await cancelOrder(orderId, reason);
 
-        // Cập nhật danh sách đơn hàng
-        setOrders(prevOrders =>
-          prevOrders.map(order =>
-            order._id === orderId ? updatedOrder : order
-          )
-        );
+        if (updatedOrder) {
+          // Cập nhật danh sách đơn hàng
+          setOrders(prevOrders =>
+            prevOrders.map(order =>
+              order._id === orderId ? {
+                ...order,
+                status: 'cancelled'
+              } : order
+            )
+          );
 
-        // Cập nhật đơn hàng đang xem nếu cần
-        if (selectedOrder && selectedOrder._id === orderId) {
-          setSelectedOrder(updatedOrder);
+          // Cập nhật đơn hàng đang xem nếu cần
+          if (selectedOrder && selectedOrder._id === orderId) {
+            setSelectedOrder({
+              ...selectedOrder,
+              status: 'cancelled'
+            });
+          }
+
+          // Đóng modal chi tiết đơn hàng
+          setShowOrderModal(false);
+        } else {
+          toast.error('Không thể hủy đơn hàng');
         }
-
-        toast.success('Hủy đơn hàng thành công!');
-
-        // Đóng modal chi tiết đơn hàng
-        setShowOrderModal(false);
       } catch (err) {
         console.error('Lỗi khi hủy đơn hàng:', err);
         toast.error(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi hủy đơn hàng');
@@ -431,7 +508,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       const reason = window.prompt('Vui lòng cho biết lý do trả hàng:') || 'Không hài lòng với sản phẩm';
 
-      // Gọi API yêu cầu trả hàng
+      // Gọi API yêu cầu trả hàng (vẫn sử dụng UserApiService vì OrderContext chưa có hàm này)
       const updatedOrder = await UserApiService.requestReturnOrder(orderId, reason);
 
       // Cập nhật danh sách đơn hàng
@@ -460,19 +537,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setIsLoading(true);
 
-      // Gọi API mua lại sản phẩm
-      const result = await UserApiService.buyAgain(orderId);
+      // Sử dụng OrderContext để mua lại sản phẩm
+      const success = await buyAgain(orderId);
 
-      if (result.success) {
-        toast.success(result.message || 'Đã thêm các sản phẩm vào giỏ hàng!');
-
+      if (success) {
         // Đóng modal chi tiết đơn hàng
         setShowOrderModal(false);
 
         // Chuyển hướng đến trang giỏ hàng
         router.push('/cart');
       } else {
-        throw new Error(result.message || 'Đã xảy ra lỗi khi thêm sản phẩm vào giỏ hàng');
+        throw new Error('Đã xảy ra lỗi khi thêm sản phẩm vào giỏ hàng');
       }
     } catch (err) {
       console.error('Lỗi khi mua lại sản phẩm:', err);
@@ -592,21 +667,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const handleOrderStatusFilterChange = (status: OrderStatusType) => {
+    // Cập nhật state trong ProfileContext
     setOrderStatusFilter(status);
 
-    // Lấy danh sách đơn hàng theo trạng thái từ API
-    (async () => {
-      try {
-        setIsLoading(true);
-        const { orders: filteredOrders } = await UserApiService.getOrders(status);
-        setOrders(filteredOrders);
-      } catch (err) {
-        console.error('Lỗi khi lọc đơn hàng:', err);
-        toast.error(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lọc đơn hàng');
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+    // Cập nhật state trong OrderContext
+    setOrderContextFilter(status);
+
+    // OrderContext sẽ tự động fetch dữ liệu khi orderStatusFilter thay đổi
   };
 
   const handleSearchOrderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
