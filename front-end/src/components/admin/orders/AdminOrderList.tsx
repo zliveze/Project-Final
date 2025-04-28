@@ -139,7 +139,7 @@ function OrderSearchFilter({ onSearch, onStatusChange, selectedStatus }: OrderSe
             />
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <select
             className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
@@ -172,21 +172,21 @@ interface OrderActionsProps {
 function OrderActions({ orderId, onView, onEdit, onDelete }: OrderActionsProps) {
   return (
     <div className="flex items-center justify-end space-x-2">
-      <button 
+      <button
         onClick={() => onView(orderId)}
         className="text-gray-600 hover:text-gray-900"
         title="Xem chi tiết"
       >
         <FiEye className="h-5 w-5" />
       </button>
-      <button 
+      <button
         onClick={() => onEdit(orderId)}
         className="text-blue-600 hover:text-blue-900"
         title="Chỉnh sửa"
       >
         <FiEdit2 className="h-5 w-5" />
       </button>
-      <button 
+      <button
         onClick={() => onDelete(orderId)}
         className="text-red-600 hover:text-red-900"
         title="Xóa"
@@ -236,14 +236,14 @@ function Pagination({ currentPage, totalPages, onPageChange, totalItems }: Pagin
           Hiển thị {Math.min(totalItems, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(currentPage * itemsPerPage, totalItems)} / {totalItems} đơn hàng
         </div>
         <div className="flex items-center space-x-2">
-          <button 
+          <button
             className={`px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-100 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
             disabled={currentPage === 1}
           >
             Trước
           </button>
-          
+
           <div className="flex items-center space-x-1">
             <input
               type="text"
@@ -261,8 +261,8 @@ function Pagination({ currentPage, totalPages, onPageChange, totalItems }: Pagin
               Đi
             </button>
           </div>
-          
-          <button 
+
+          <button
             className={`px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-100 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
             disabled={currentPage === totalPages}
@@ -283,12 +283,12 @@ interface AdminOrderListProps {
 }
 
 export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderListProps) {
-  const { 
-    orders, 
-    loading, 
-    error, 
-    totalPages, 
-    currentPage, 
+  const {
+    orders,
+    loading,
+    error,
+    totalPages,
+    currentPage,
     totalItems,
     fetchOrders,
     setFilters
@@ -318,7 +318,8 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
-      currency: 'VND'
+      currency: 'VND',
+      maximumFractionDigits: 0
     }).format(amount);
   };
 
@@ -351,7 +352,7 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="p-6 text-center">
           <div className="text-red-500">Có lỗi xảy ra khi tải dữ liệu đơn hàng: {error}</div>
-          <button 
+          <button
             className="mt-4 px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700"
             onClick={() => fetchOrders(currentPage)}
           >
@@ -364,12 +365,12 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      <OrderSearchFilter 
+      <OrderSearchFilter
         onSearch={handleSearch}
         onStatusChange={handleStatusChange}
         selectedStatus={selectedStatus}
       />
-      
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -408,8 +409,16 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
                     {order.orderNumber}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{order.userName || 'Khách hàng'}</div>
-                    <div className="text-sm text-gray-500">{order.userEmail || 'Email không có'}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {typeof order.userId === 'object'
+                        ? (order.userId as any)?.name || order.userName || 'Khách hàng'
+                        : order.userName || 'Khách hàng'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {typeof order.userId === 'object'
+                        ? (order.userId as any)?.email || order.userEmail || 'Email không có'
+                        : order.userEmail || 'Email không có'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(order.createdAt)}
@@ -418,10 +427,11 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
                     {formatCurrency(order.finalPrice)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {order.paymentMethod === 'cod' ? 'COD' : 
+                    {order.paymentMethod === 'cod' ? 'COD' :
                      order.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' :
                      order.paymentMethod === 'credit_card' ? 'Thẻ tín dụng' :
-                     order.paymentMethod === 'stripe' ? 'Stripe' : order.paymentMethod}
+                     order.paymentMethod === 'stripe' ? 'Stripe' :
+                     order.paymentMethod === 'momo' ? 'MoMo' : order.paymentMethod}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <PaymentStatusBadge status={order.paymentStatus} />
@@ -430,11 +440,11 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
                     <OrderStatusBadge status={order.status} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <OrderActions 
-                      orderId={order._id} 
-                      onView={onView} 
-                      onEdit={onEdit} 
-                      onDelete={onDelete} 
+                    <OrderActions
+                      orderId={order._id}
+                      onView={onView}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
                     />
                   </td>
                 </tr>
@@ -449,8 +459,8 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
           </tbody>
         </table>
       </div>
-      
-      <Pagination 
+
+      <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}

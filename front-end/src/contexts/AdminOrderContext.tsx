@@ -39,7 +39,7 @@ export interface ShippingAddress {
 export interface Order {
   _id: string;
   orderNumber: string;
-  userId: string;
+  userId: string | { _id: string; name?: string; email?: string };
   userName?: string;
   userEmail?: string;
   items: OrderItem[];
