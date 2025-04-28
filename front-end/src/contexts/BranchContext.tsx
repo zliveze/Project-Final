@@ -4,7 +4,7 @@ import { useAdminAuth } from './AdminAuthContext';
 import toast from 'react-hot-toast';
 
 // Cờ điều khiển việc hiển thị debug logs
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 // Hàm debug có điều kiện
 const debugLog = (message: string, data?: any) => {
@@ -89,16 +89,37 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
   // Chuyển đổi dữ liệu từ API sang định dạng frontend
   const transformBranch = (branchData: any): Branch => {
+    // Log dữ liệu để debug
+    debugLog('Transforming branch data:', branchData);
+    
+    // Xử lý dữ liệu từ MongoDB có thể trả về dạng $oid hoặc $date
+    let id = branchData._id;
+    if (typeof branchData._id === 'object' && branchData._id.$oid) {
+      id = branchData._id.$oid;
+    }
+    
+    let createdAt = branchData.createdAt || '';
+    let updatedAt = branchData.updatedAt || '';
+    
+    // Xử lý định dạng ngày từ MongoDB
+    if (typeof branchData.createdAt === 'object' && branchData.createdAt.$date) {
+      createdAt = new Date(branchData.createdAt.$date).toISOString();
+    }
+    
+    if (typeof branchData.updatedAt === 'object' && branchData.updatedAt.$date) {
+      updatedAt = new Date(branchData.updatedAt.$date).toISOString();
+    }
+    
     return {
-      id: branchData._id,
-      name: branchData.name,
-      address: branchData.address,
+      id: id || branchData.id,
+      name: branchData.name || '',
+      address: branchData.address || '',
       contact: branchData.contact || '',
       provinceCode: branchData.provinceCode || '',
       districtCode: branchData.districtCode || '',
       wardCode: branchData.wardCode || '',
-      createdAt: branchData.createdAt,
-      updatedAt: branchData.updatedAt
+      createdAt: createdAt,
+      updatedAt: updatedAt
     };
   };
 
@@ -251,6 +272,8 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     setLoading(true);
     setError(null);
 
+    debugLog(`Fetching branch details for ID: ${id}`);
+    
     try {
       const response = await fetch(API_ENDPOINTS.BRANCH_DETAIL(id), {
         method: 'GET',
@@ -260,17 +283,35 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
         }
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Lỗi khi lấy thông tin chi nhánh');
+      // Log response status để debug
+      debugLog(`Branch API response status: ${response.status}`);
+
+      // Đọc response dưới dạng text trước để xử lý lỗi JSON
+      const responseText = await response.text();
+      
+      // Thử log text response để debug
+      debugLog(`Branch API response text: ${responseText.substring(0, 200)}...`);
+      
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        debugLog('Error parsing JSON response:', parseError);
+        throw new Error('Lỗi khi phân tích dữ liệu từ server');
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorMessage = data.message || 'Lỗi khi lấy thông tin chi nhánh';
+        debugLog('Error in API response:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      debugLog('Successfully fetched branch data', data);
       return transformBranch(data);
     } catch (err: any) {
       debugLog('Error fetching branch details:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      if (err.response?.status === 401 || (typeof err.message === 'string' && err.message.includes('xác thực'))) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
@@ -346,57 +387,48 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
   };
 
   const updateBranch = async (id: string, branchData: Partial<Branch>): Promise<Branch | null> => {
-    setLoading(true);
-    setError(null);
-
     try {
-      // Chuẩn bị dữ liệu để gửi đến API
-      const apiData = {
-        name: branchData.name,
-        address: branchData.address,
-        contact: branchData.contact,
-        provinceCode: branchData.provinceCode,
-        districtCode: branchData.districtCode,
-        wardCode: branchData.wardCode
-      };
-
-      // Kiểm tra ID chi nhánh trước khi gửi yêu cầu
-      if (!id || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('ID chi nhánh không hợp lệ');
-      }
-
-      debugLog(`Đang gửi yêu cầu cập nhật cho branch ID: ${id}`, apiData);
-
+      debugLog(`Updating branch with ID: ${id}`, branchData);
+      
       const response = await fetch(API_ENDPOINTS.BRANCH_DETAIL(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify(apiData)
+        body: JSON.stringify(branchData)
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Lỗi khi cập nhật chi nhánh');
+      // Đọc response dưới dạng text trước để xử lý lỗi JSON
+      const responseText = await response.text();
+      
+      debugLog(`Branch update API response text: ${responseText.substring(0, 200)}...`);
+      
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        debugLog('Error parsing JSON response:', parseError);
+        throw new Error('Lỗi khi phân tích dữ liệu từ server');
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorMessage = data.message || 'Lỗi khi cập nhật chi nhánh';
+        debugLog('Error in API response:', errorMessage);
+        throw new Error(errorMessage);
+      }
 
-      // Cập nhật danh sách chi nhánh
-      const updatedBranch = transformBranch(data);
-      setBranches(prevBranches =>
-        prevBranches.map(branch =>
-          branch.id === id ? updatedBranch : branch
-        )
-      );
+      debugLog('Branch updated successfully:', data);
 
-      toast.success('Cập nhật chi nhánh thành công!');
-      return updatedBranch;
+      // Sau khi cập nhật thành công, cập nhật lại danh sách chi nhánh
+      await fetchBranches(pagination.page, pagination.limit);
+      
+      // Trả về đối tượng chi nhánh đã cập nhật
+      return transformBranch(data);
     } catch (err: any) {
       debugLog('Error updating branch:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      if (err.response?.status === 401 || (typeof err.message === 'string' && err.message.includes('xác thực'))) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
@@ -406,8 +438,6 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       }
 
       return null;
-    } finally {
-      setLoading(false);
     }
   };
 

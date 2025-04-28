@@ -148,28 +148,37 @@ const BranchForm: React.FC<BranchFormProps> = ({
   // Effect để thiết lập state object ban đầu KHI EDIT và provinces đã load
   useEffect(() => {
     if (branch && provinces.length > 0 && !selectedProvinceObj) { // Chỉ chạy khi cần set state ban đầu
+      console.log("Đang tìm tỉnh/thành phố cho provinceCode:", branch.provinceCode);
       const initialProvinceId = parseInt(branch.provinceCode, 10);
       const province = provinces.find(p => p.provinceId === initialProvinceId);
+      
       if (province) {
+        console.log("Đã tìm thấy tỉnh/thành phố:", province.provinceName);
         setSelectedProvinceObj(province);
-        // Không cần gọi fetchDistricts ở đây, useEffect tiếp theo sẽ xử lý
+        fetchDistricts(initialProvinceId);
+      } else {
+        console.error("Không tìm thấy tỉnh/thành phố với mã:", initialProvinceId);
+        // In ra tất cả các tỉnh để debug
+        console.log("Danh sách tỉnh/thành phố:", provinces.map(p => ({ id: p.provinceId, name: p.provinceName })));
       }
     }
-  }, [branch, provinces, selectedProvinceObj]); // Phụ thuộc vào branch và provinces
+  }, [branch, provinces, selectedProvinceObj, fetchDistricts]); // Phụ thuộc vào branch và provinces
 
   // Effect để fetch districts KHI provinceId thay đổi (từ RHF) HOẶC state province object được set
   useEffect(() => {
     const provinceIdStr = watchedProvinceCode; // Lấy ID từ RHF
     if (provinceIdStr) {
       const provinceIdNum = parseInt(provinceIdStr, 10);
-      if (selectedProvinceObj && selectedProvinceObj.provinceId === provinceIdNum) { // Đảm bảo state object khớp với RHF
-        fetchDistricts(provinceIdNum);
-      } else if (!selectedProvinceObj) { // Nếu state object chưa được set (ví dụ: load lần đầu)
-         const province = provinces.find(p => p.provinceId === provinceIdNum);
-         if(province) {
-            setSelectedProvinceObj(province); // Set state object
-            fetchDistricts(province.provinceId); // Fetch districts
-         }
+      console.log("provinceId thay đổi:", provinceIdNum);
+      
+      if (!selectedProvinceObj || selectedProvinceObj.provinceId !== provinceIdNum) {
+        // Nếu state object chưa được set hoặc không khớp với giá trị hiện tại
+        const province = provinces.find(p => p.provinceId === provinceIdNum);
+        if (province) {
+          console.log("Cập nhật selectedProvinceObj:", province.provinceName);
+          setSelectedProvinceObj(province); // Set state object
+          fetchDistricts(province.provinceId); // Fetch districts
+        }
       }
     } else {
       // Clear khi không có provinceId
@@ -179,52 +188,68 @@ const BranchForm: React.FC<BranchFormProps> = ({
       setSelectedDistrictObj(null);
       setSelectedWardObj(null);
     }
-  }, [watchedProvinceCode, provinces, selectedProvinceObj, fetchDistricts, setSelectedProvinceObj]); // Thêm selectedProvinceObj
+  }, [watchedProvinceCode, provinces, selectedProvinceObj, fetchDistricts]);
 
   // Effect để thiết lập state district object ban đầu KHI EDIT và districts đã load
   useEffect(() => {
-      if (branch && districts.length > 0 && selectedProvinceObj && selectedProvinceObj.provinceId === parseInt(branch.provinceCode, 10) && !selectedDistrictObj) {
-          const initialDistrictId = parseInt(branch.districtCode, 10);
-          const district = districts.find(d => d.districtId === initialDistrictId);
-          if (district) {
-              setSelectedDistrictObj(district);
-              // Không cần gọi fetchWards ở đây, useEffect tiếp theo sẽ xử lý
-          }
+    if (branch && districts.length > 0 && selectedProvinceObj && !selectedDistrictObj) {
+      console.log("Đang tìm quận/huyện cho districtCode:", branch.districtCode);
+      const initialDistrictId = parseInt(branch.districtCode, 10);
+      const district = districts.find(d => d.districtId === initialDistrictId);
+      
+      if (district) {
+        console.log("Đã tìm thấy quận/huyện:", district.districtName);
+        setSelectedDistrictObj(district);
+        fetchWards(initialDistrictId);
+      } else {
+        console.error("Không tìm thấy quận/huyện với mã:", initialDistrictId);
+        // In ra tất cả các quận/huyện để debug
+        console.log("Danh sách quận/huyện:", districts.map(d => ({ id: d.districtId, name: d.districtName })));
       }
-  }, [branch, districts, selectedProvinceObj, selectedDistrictObj]); // Phụ thuộc district list và selected province
+    }
+  }, [branch, districts, selectedProvinceObj, selectedDistrictObj, fetchWards]);
 
   // Effect để fetch wards KHI districtId thay đổi (từ RHF) HOẶC state district object được set
   useEffect(() => {
     const districtIdStr = watchedDistrictCode; // Lấy ID từ RHF
     if (districtIdStr) {
       const districtIdNum = parseInt(districtIdStr, 10);
-       if (selectedDistrictObj && selectedDistrictObj.districtId === districtIdNum) { // Đảm bảo state object khớp với RHF
-         fetchWards(districtIdNum);
-       } else if (!selectedDistrictObj) { // Nếu state object chưa được set
-          const district = districts.find(d => d.districtId === districtIdNum);
-          if(district) {
-             setSelectedDistrictObj(district); // Set state object
-             fetchWards(district.districtId); // Fetch wards
-          }
-       }
+      console.log("districtId thay đổi:", districtIdNum);
+      
+      if (!selectedDistrictObj || selectedDistrictObj.districtId !== districtIdNum) {
+        // Nếu state object chưa được set hoặc không khớp với giá trị hiện tại
+        const district = districts.find(d => d.districtId === districtIdNum);
+        if (district) {
+          console.log("Cập nhật selectedDistrictObj:", district.districtName);
+          setSelectedDistrictObj(district); // Set state object
+          fetchWards(district.districtId); // Fetch wards
+        }
+      }
     } else {
       // Clear khi không có districtId
       setWards([]);
       setSelectedDistrictObj(null);
       setSelectedWardObj(null);
     }
-  }, [watchedDistrictCode, districts, selectedDistrictObj, fetchWards, setSelectedDistrictObj]); // Thêm selectedDistrictObj
+  }, [watchedDistrictCode, districts, selectedDistrictObj, fetchWards]);
 
   // Effect để thiết lập state ward object ban đầu KHI EDIT và wards đã load
   useEffect(() => {
-      if (branch && wards.length > 0 && selectedDistrictObj && selectedDistrictObj.districtId === parseInt(branch.districtCode, 10) && !selectedWardObj) {
-          const initialWardId = parseInt(branch.wardCode, 10);
-          const ward = wards.find(w => w.wardId === initialWardId);
-          if (ward) {
-              setSelectedWardObj(ward);
-          }
+    if (branch && wards.length > 0 && selectedDistrictObj && !selectedWardObj) {
+      console.log("Đang tìm phường/xã cho wardCode:", branch.wardCode);
+      const initialWardId = parseInt(branch.wardCode, 10);
+      const ward = wards.find(w => w.wardId === initialWardId);
+      
+      if (ward) {
+        console.log("Đã tìm thấy phường/xã:", ward.wardName);
+        setSelectedWardObj(ward);
+      } else {
+        console.error("Không tìm thấy phường/xã với mã:", initialWardId);
+        // In ra tất cả các phường/xã để debug
+        console.log("Danh sách phường/xã:", wards.map(w => ({ id: w.wardId, name: w.wardName })));
       }
-  }, [branch, wards, selectedDistrictObj, selectedWardObj]); // Phụ thuộc ward list và selected district
+    }
+  }, [branch, wards, selectedDistrictObj, selectedWardObj]);
 
 
   // Xử lý submit form

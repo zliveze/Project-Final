@@ -114,6 +114,21 @@ const PaymentsPage: NextPage = () => {
   // Thêm state mới để quản lý việc sửa địa chỉ
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
+  // Hàm để lấy thông tin chi nhánh từ sản phẩm trong giỏ hàng
+  const getSelectedBranchId = (): string => {
+    // Tìm sản phẩm đầu tiên có selectedBranchId
+    const itemWithBranch = cartItems.find(item => item.selectedBranchId);
+    if (itemWithBranch && itemWithBranch.selectedBranchId) {
+      console.log('Sử dụng branchId từ sản phẩm:', itemWithBranch.selectedBranchId);
+      return itemWithBranch.selectedBranchId;
+    }
+
+    // Nếu không tìm thấy chi nhánh, sử dụng chi nhánh mặc định
+    const defaultBranchId = '67f4e29303d581f233241b76';
+    console.log('Sử dụng branchId mặc định:', defaultBranchId);
+    return defaultBranchId;
+  };
+
   // Chuyển đổi từ CartItems sang OrderItems và tính phí vận chuyển
   useEffect(() => {
     if (!cartLoading) {
@@ -286,17 +301,75 @@ const PaymentsPage: NextPage = () => {
         wardCode = '0';
       }
 
-      // Sử dụng mã địa chỉ cố định cho chi nhánh
+      // Khai báo biến để lưu thông tin chi nhánh
+      let senderProvinceCode: number | null = null;
+      let senderDistrictCode: number | null = null;
 
-      // Sử dụng mã địa chỉ cố định cho chi nhánh (người gửi)
-      const senderProvinceCode = 1; // Hà Nội - Mã tỉnh của chi nhánh
-      const senderDistrictCode = 4; // Quận Hoàng Mai - Mã quận của chi nhánh
+      // Lấy thông tin chi nhánh từ sản phẩm đầu tiên có selectedBranchId
+      const itemWithBranchId = cartItems.find(item => item.selectedBranchId);
+
+      if (itemWithBranchId && itemWithBranchId.selectedBranchId) {
+        try {
+          // Gọi API để lấy thông tin chi nhánh
+          const response = await fetch(`/api/branches/${itemWithBranchId.selectedBranchId}`);
+
+          if (response.ok) {
+            const branchData = await response.json();
+
+            if (branchData && branchData.provinceCode && branchData.districtCode) {
+              // Chuyển đổi mã tỉnh/thành phố của chi nhánh sang số nếu cần
+              if (branchData.provinceCode === 'HCM') {
+                senderProvinceCode = 2;
+              } else if (branchData.provinceCode === 'HNI') {
+                senderProvinceCode = 1;
+              } else {
+                senderProvinceCode = Number(branchData.provinceCode);
+              }
+
+              // Chuyển đổi mã quận/huyện của chi nhánh sang số nếu cần
+              senderDistrictCode = Number(branchData.districtCode);
+
+              console.log('Sử dụng thông tin chi nhánh từ API:', {
+                name: branchData.name,
+                provinceCode: senderProvinceCode,
+                districtCode: senderDistrictCode
+              });
+            } else {
+              throw new Error('Thông tin chi nhánh không đầy đủ');
+            }
+          } else {
+            throw new Error('Không thể lấy thông tin chi nhánh từ API');
+          }
+        } catch (error) {
+          console.error('Lỗi khi lấy thông tin chi nhánh:', error);
+          console.log('Không thể lấy thông tin chi nhánh, sử dụng giá trị mặc định:', {
+            provinceCode: senderProvinceCode,
+            districtCode: senderDistrictCode
+          });
+        }
+      } else {
+        console.log('Không tìm thấy sản phẩm có selectedBranchId trong giỏ hàng');
+      }
 
       // Sử dụng mã địa chỉ đã chuẩn hóa của người dùng (người nhận)
       const receiverProvinceCode = Number(provinceCode) || 2; // Mặc định là Hồ Chí Minh nếu không có
       const receiverDistrictCode = Number(districtCode) || 35; // Mặc định là Quận Tân Bình nếu không có
 
+      // Đảm bảo có giá trị cho senderProvinceCode và senderDistrictCode
+      if (senderProvinceCode === null || senderDistrictCode === null) {
+        // Nếu không lấy được thông tin chi nhánh, hiển thị thông báo lỗi
+        toast.error('Không thể lấy thông tin chi nhánh. Vui lòng quay lại giỏ hàng và chọn chi nhánh khác.', {
+          position: "bottom-right",
+          autoClose: 5000,
+          theme: "light"
+        });
 
+        // Không thể tính phí vận chuyển, sử dụng giá trị mặc định
+        setShippingError('Không thể tính phí vận chuyển do thiếu thông tin chi nhánh');
+        setCalculatedShipping(32000);
+        updateShipping(32000);
+        return;
+      }
 
       // Chuẩn bị dữ liệu cho API tính phí vận chuyển theo đúng cấu trúc API getPriceAll của Viettel Post
       // Sử dụng trọng lượng thực tế của sản phẩm và địa chỉ thực tế của chi nhánh và người dùng
@@ -304,8 +377,8 @@ const PaymentsPage: NextPage = () => {
         PRODUCT_WEIGHT: totalWeight, // Sử dụng trọng lượng thực tế từ cartItems
         PRODUCT_PRICE: Math.max(subtotal - discount, 10000),
         MONEY_COLLECTION: Math.max(subtotal - discount, 10000),
-        SENDER_PROVINCE: senderProvinceCode, // Sử dụng mã tỉnh của chi nhánh
-        SENDER_DISTRICT: senderDistrictCode, // Sử dụng mã quận của chi nhánh
+        SENDER_PROVINCE: senderProvinceCode, // Sử dụng mã tỉnh thực tế của chi nhánh
+        SENDER_DISTRICT: senderDistrictCode, // Sử dụng mã quận thực tế của chi nhánh
         RECEIVER_PROVINCE: receiverProvinceCode, // Sử dụng mã tỉnh của người dùng
         RECEIVER_DISTRICT: receiverDistrictCode, // Sử dụng mã quận của người dùng
         PRODUCT_TYPE: 'HH',
@@ -576,9 +649,16 @@ const PaymentsPage: NextPage = () => {
   const [selectedServiceCode, setSelectedServiceCode] = useState<string>('LCOD'); // Lưu mã dịch vụ đã chọn, mặc định là LCOD
   const { updateShipping } = useCart(); // Lấy hàm cập nhật phí vận chuyển từ CartContext
 
+  // Tính lại phí vận chuyển khi thông tin địa chỉ thay đổi
+  useEffect(() => {
+    if (shippingInfo && shippingInfo.provinceCode && shippingInfo.districtCode && shippingInfo.wardCode) {
+      console.log('Thông tin địa chỉ đã thay đổi, tính lại phí vận chuyển');
+      calculateShippingFeeForAddress(shippingInfo);
+    }
+  }, [shippingInfo]);
+
   // Xử lý khi người dùng chọn dịch vụ vận chuyển
   const handleSelectShippingService = (serviceCode: string, fee: number) => {
-
     setSelectedServiceCode(serviceCode);
     setCalculatedShipping(fee);
     updateShipping(fee);
@@ -697,32 +777,15 @@ const PaymentsPage: NextPage = () => {
 
 
 
-      // Lấy branchId từ sản phẩm đầu tiên trong giỏ hàng
-      // Ưu tiên sản phẩm có selectedBranchId
-      let selectedBranchId: string | undefined = undefined;
+      // Lấy branchId từ sản phẩm trong giỏ hàng hoặc sử dụng giá trị mặc định
+      const selectedBranchId = getSelectedBranchId();
 
-      // Tìm sản phẩm đầu tiên có selectedBranchId
-      const itemWithBranch = cartItems.find(item => item.selectedBranchId);
-      if (itemWithBranch && itemWithBranch.selectedBranchId) {
-        selectedBranchId = itemWithBranch.selectedBranchId;
-
-      }
-
-      // Nếu không tìm thấy, kiểm tra xem có sản phẩm nào không có selectedBranchId không
-      if (!selectedBranchId) {
-        const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
-        if (itemsWithoutBranch.length > 0) {
-
-          toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng quay lại giỏ hàng để chọn chi nhánh.`);
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      // Sử dụng một branchId mặc định nếu không tìm thấy
-      if (!selectedBranchId) {
-        selectedBranchId = '67f4e29303d581f233241b76'; // Sử dụng ID chi nhánh mặc định
-
+      // Kiểm tra xem có sản phẩm nào không có selectedBranchId không
+      const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
+      if (itemsWithoutBranch.length > 0) {
+        toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng quay lại giỏ hàng để chọn chi nhánh.`);
+        setIsProcessing(false);
+        return;
       }
 
       // Tạo dữ liệu đơn hàng
