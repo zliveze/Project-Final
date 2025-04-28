@@ -305,7 +305,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     // Kiểm tra nếu từ khóa có chứa dấu gạch dưới
     if (processedTerm.includes('_')) {
       console.log('Search term contains underscore, handling special case');
-      
+
       // Chúng ta không cần hiển thị alert nữa - việc tìm kiếm đã được cải thiện ở backend
       // Chỉ cần gửi từ khóa gốc lên server, server sẽ tự động xử lý
     }
@@ -330,6 +330,15 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         // Only call onSearch if the searchTerm in state differs from the filter in context
         if (searchTerm.trim() !== filters.search) {
           console.log('Debounced search triggered with term:', searchTerm.trim());
+
+          // Cập nhật URL trước khi gọi onSearch
+          const url = new URL(window.location.href);
+          url.searchParams.set('search', searchTerm.trim());
+
+          // Cập nhật URL mà không gây reload trang
+          window.history.replaceState({}, '', url.toString());
+
+          // Sau đó gọi onSearch
           onSearch(searchTerm.trim());
         }
       }, 500); // Adjust debounce time as needed (e.g., 500ms)
@@ -338,11 +347,20 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         clearTimeout(handler);
       };
     } else if (searchTerm.trim() === '' && filters.search) {
-      // Nếu người dùng xóa hết từ khóa tìm kiếm, reset tìm kiếm
+      // Nếu người dùng xóa hết từ khóa tìm kiếm, reset tìm kiếm và xóa tham số search từ URL
       console.log('Search term cleared, resetting search');
+
+      // Xóa tham số search từ URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('search');
+
+      // Cập nhật URL mà không gây reload trang
+      window.history.replaceState({}, '', url.toString());
+
+      // Sau đó gọi onSearch
       onSearch('');
     }
-  }, [searchTerm, onSearch, filters.search]);
+  }, [searchTerm, onSearch, filters.search, router]);
 
 
   // Updated Reset Filters Handler

@@ -40,106 +40,41 @@ export default function SearchResults({
   const { popularSearchTerms } = useHeader();
   const [isLoadingMock, setIsLoadingMock] = useState(false);
 
-  // Dữ liệu mockup cho sản phẩm
-  const mockProducts: SearchProduct[] = [
-    {
-      _id: 'mock1',
-      name: 'Son Kem Lì Black Rouge Air Fit Velvet Tint Ver.9',
-      slug: 'son-kem-li-black-rouge-air-fit-velvet-tint-ver-9',
-      price: 180000,
-      currentPrice: 159000,
-      imageUrl: '/images/products/son-black-rouge-ver9.jpg',
-      brandName: 'Black Rouge',
-    },
-    {
-      _id: 'mock2',
-      name: 'Nước Tẩy Trang L\'Oreal Revitalift Hyaluronic Acid Hydrating Micellar Water',
-      slug: 'nuoc-tay-trang-loreal-revitalift-hyaluronic-acid',
-      price: 250000,
-      imageUrl: '/images/products/tay-trang-loreal-ha.jpg',
-      brandName: 'L\'Oréal',
-    },
-    {
-      _id: 'mock3',
-      name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF50+',
-      slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
-      price: 550000,
-      currentPrice: 495000,
-      imageUrl: '/images/products/kcn-laroche-posay-uvmune400.jpg',
-      brandName: 'La Roche-Posay',
-    },
-    {
-      _id: 'mock4',
-      name: 'Serum Klairs Midnight Blue Youth Activating Drop',
-      slug: 'serum-klairs-midnight-blue-youth-activating-drop',
-      price: 600000,
-      imageUrl: '/images/products/serum-klairs-midnight-blue.jpg',
-      brandName: 'Klairs',
-    },
-     {
-      _id: 'mock5',
-      name: 'Phấn Nước CLIO Kill Cover The New Founwear Cushion SPF50+',
-      slug: 'phan-nuoc-clio-kill-cover-the-new-founwear-cushion',
-      price: 700000,
-      currentPrice: 589000,
-      imageUrl: '/images/products/cushion-clio-kill-cover-new.jpg',
-      brandName: 'CLIO',
-    },
-    {
-      _id: 'mock6',
-      name: 'Mặt Nạ Đất Sét Kiehl\'s Rare Earth Deep Pore Cleansing Masque',
-      slug: 'mat-na-dat-set-kiehls-rare-earth',
-      price: 850000,
-      imageUrl: '/images/products/mat-na-kiehls-rare-earth.jpg',
-      brandName: 'Kiehl\'s',
-    },
-  ];
+  // Không cần dữ liệu mockup nữa vì chúng ta sẽ sử dụng dữ liệu thực từ API
 
   // Log để kiểm tra component được render và các props
   useEffect(() => {
     console.log('SearchResults rendered', { isVisible, searchTerm, loading });
-    
+
     // Thêm class vào body khi dropdown hiển thị để ngăn scroll
     if (isVisible) {
       document.body.classList.add('search-dropdown-open');
     } else {
       document.body.classList.remove('search-dropdown-open');
     }
-    
+
     return () => {
       document.body.classList.remove('search-dropdown-open');
     };
   }, [isVisible, searchTerm, loading]);
 
-  // Lọc sản phẩm mockup dựa trên searchTerm
-  const filteredMockProducts = React.useMemo(() => {
-    if (!searchTerm || searchTerm.length < 2) return [];
-    
-    console.log('Filtering products with term:', searchTerm);
-    setIsLoadingMock(true);
-    
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    
-    // Giả lập độ trễ mạng
-    const timer = setTimeout(() => {
-      setIsLoadingMock(false);
-    }, 300);
+  // Không cần lọc sản phẩm mockup nữa vì chúng ta sẽ sử dụng dữ liệu thực từ API
+  React.useEffect(() => {
+    // Chỉ cần xử lý trạng thái loading
+    if (searchTerm && searchTerm.length >= 2) {
+      setIsLoadingMock(true);
+      const timer = setTimeout(() => {
+        setIsLoadingMock(false);
+      }, 300);
 
-    // Thực hiện lọc
-    const results = mockProducts.filter(product =>
-      product.name.toLowerCase().includes(lowerCaseSearchTerm) ||
-      (product.brandName && product.brandName.toLowerCase().includes(lowerCaseSearchTerm))
-    );
-
-    console.log('Filtered results:', results);
-
-    return results;
+      return () => clearTimeout(timer);
+    }
   }, [searchTerm]);
 
   // Tạo các gợi ý từ khóa tìm kiếm dựa trên từ khóa hiện tại
   const searchSuggestions = React.useMemo(() => {
     if (!searchTerm) return [];
-    
+
     // Tạo gợi ý từ khóa liên quan đến mỹ phẩm dựa trên từ khóa đã nhập
     const suggestions = [
       `${searchTerm} giá rẻ`,
@@ -147,8 +82,12 @@ export default function SearchResults({
       `${searchTerm} dưỡng da`,
       `${searchTerm} mới nhất`,
       `${searchTerm} mini`,
+      `${searchTerm} cho da dầu`,
+      `${searchTerm} cho da khô`,
+      `${searchTerm} cho da mụn`,
+      `${searchTerm} cho da nhạy cảm`,
     ];
-    
+
     // Lọc bỏ các gợi ý trùng lặp hoặc là từ khóa gốc
     return suggestions.filter(s => s !== searchTerm);
   }, [searchTerm]);
@@ -160,7 +99,7 @@ export default function SearchResults({
       if (
         resultsRef.current &&
         !resultsRef.current.contains(target) &&
-        inputRef?.current && 
+        inputRef?.current &&
         !inputRef.current.contains(target)
       ) {
         onClose();
@@ -210,7 +149,7 @@ export default function SearchResults({
         <div className="flex items-center text-gray-600">
           <FiSearch className="mr-2 text-pink-500" />
           <span className="text-sm">
-            {isLoadingMock || loading ? 'Đang tìm kiếm...' : searchTerm ? ( 
+            {isLoadingMock || loading ? 'Đang tìm kiếm...' : searchTerm ? (
               <>Kết quả tìm kiếm cho <span className="font-medium text-pink-600">"{searchTerm}"</span></>
             ) : (
               <>Tìm kiếm phổ biến</>
@@ -269,89 +208,43 @@ export default function SearchResults({
       )}
 
       <div className="overflow-y-auto max-h-[70vh]">
-        {isLoadingMock || loading ? ( 
+        {isLoadingMock || loading ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
           </div>
-        ) : searchTerm.length >= 2 && (products.length > 0 || filteredMockProducts.length > 0) ? ( 
+        ) : searchTerm.length >= 2 && products.length > 0 ? (
           <div>
-            {/* Hiển thị kết quả dạng grid thay vì list */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
-              {/* Ưu tiên hiển thị sản phẩm thật từ API */}
-              {products.length > 0 ? (
-                products.map((product) => (
-                  <div key={product._id} className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow">
-                    <Link
-                      href={`/product/${product.slug}`}
-                      className="block h-full"
-                      onClick={onClose}
-                    >
-                      <div className="relative pt-[100%] bg-gray-50 rounded-t-md overflow-hidden">
-                        <Image
-                          src={product.imageUrl || '/placeholder.png'}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width: 640px) 50vw, 33vw"
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="p-2">
-                        <h4 className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">{product.name}</h4>
-                        {product.brandName && (
-                          <p className="text-xs text-gray-500 mt-1">{product.brandName}</p>
-                        )}
-                        <div className="flex items-center mt-2">
-                          <span className="text-sm font-medium text-pink-600">
-                            {formatCurrency(product.currentPrice || product.price)}
-                          </span>
-                          {product.currentPrice && product.currentPrice < product.price && (
-                            <span className="text-xs text-gray-400 line-through ml-2">
-                              {formatCurrency(product.price)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
+            {/* Hiển thị kết quả dạng bar thay vì grid */}
+            <div className="flex flex-col divide-y divide-gray-100">
+              {products.map((product) => (
+                <Link
+                  key={product._id}
+                  href={`/product/${product.slug}`}
+                  className="flex items-center p-3 hover:bg-gray-50 transition-colors"
+                  onClick={onClose}
+                >
+                  <div className="relative w-12 h-12 flex-shrink-0 bg-gray-50 rounded-md overflow-hidden">
+                    <Image
+                      src={product.imageUrl || '/placeholder.png'}
+                      alt={product.name}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
                   </div>
-                ))
-              ) : (
-                // Hiển thị sản phẩm mockup khi không có sản phẩm thật
-                filteredMockProducts.map((product) => (
-                  <div key={product._id} className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow">
-                    <Link
-                      href={`/product/${product.slug}`}
-                      className="block h-full"
-                      onClick={onClose}
-                    >
-                      <div className="relative pt-[100%] bg-gray-50 rounded-t-md overflow-hidden">
-                        <Image
-                          src={product.imageUrl || '/placeholder.png'}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width: 640px) 50vw, 33vw"
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="p-2">
-                        <h4 className="text-sm font-medium text-gray-800 line-clamp-2 min-h-[2.5rem]">{product.name}</h4>
-                        {product.brandName && (
-                          <p className="text-xs text-gray-500 mt-1">{product.brandName}</p>
-                        )}
-                        <div className="flex items-center mt-2">
-                          <span className="text-sm font-medium text-pink-600">
-                            {formatCurrency(product.currentPrice || product.price)}
-                          </span>
-                          {product.currentPrice && product.currentPrice < product.price && (
-                            <span className="text-xs text-gray-400 line-through ml-2">
-                              {formatCurrency(product.price)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
+                  <div className="ml-3 flex-grow min-w-0">
+                    <h4 className="text-sm font-medium text-gray-800 truncate">{product.name}</h4>
+                    {product.brandName && (
+                      <p className="text-xs text-gray-500 truncate">{product.brandName}</p>
+                    )}
                   </div>
-                ))
-              )}
+                  <div className="ml-2 flex-shrink-0">
+                    <span className="text-sm font-medium text-pink-600">
+                      {formatCurrency(product.currentPrice || product.price)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
 
             <div className="p-3 border-t border-gray-100 text-center">
@@ -359,7 +252,7 @@ export default function SearchResults({
                 onClick={onViewAll}
                 className="text-sm bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md transition-colors"
               >
-                Xem tất cả {products.length > 0 ? products.length : filteredMockProducts.length} kết quả
+                Xem tất cả {products.length} kết quả
               </button>
             </div>
           </div>
@@ -370,7 +263,7 @@ export default function SearchResults({
             </div>
             <p className="text-gray-600 mb-1">Không tìm thấy sản phẩm nào phù hợp</p>
             <p className="text-sm text-gray-500">Vui lòng thử lại với từ khóa khác</p>
-            
+
             {/* Hiển thị các gợi ý từ khóa khi không tìm thấy kết quả */}
             {searchSuggestions.length > 0 && (
               <div className="mt-4">

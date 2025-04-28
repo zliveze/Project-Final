@@ -76,13 +76,13 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  
+
   // Force reset showSearchResults when pathname changes
   useEffect(() => {
     setShowSearchResults(false);
     setSearchTerm('');
   }, [router.pathname]);
-  
+
   // Danh sách các từ khóa phổ biến
   const [popularSearchTerms] = useState<string[]>([
     'Sữa rửa mặt',
@@ -94,7 +94,12 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     'Innisfree',
     'Tẩy tế bào chết',
     'Son môi',
-    'Dưỡng ẩm'
+    'Dưỡng ẩm',
+    'La Roche-Posay',
+    'Lotion dưỡng ẩm',
+    'Kem dưỡng ban đêm',
+    'Phấn phủ kiềm dầu',
+    'Mascara chống trôi'
   ]);
 
   // Hàm cập nhật trạng thái đăng nhập và thông tin người dùng
@@ -124,13 +129,39 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsSearching(true);
       console.log('Performing search for term:', term);
 
-      // IMPORTANT: Mock search logic for demonstration purposes
-      // This code should be replaced with actual API call in production
-      
-      // Simulating API call
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Mock filtered products that match the search term
+      // Gọi API tìm kiếm sản phẩm
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const searchUrl = `${API_URL}/products/light?search=${encodeURIComponent(term.trim())}&limit=6`;
+
+      console.log('Calling API:', searchUrl);
+      const response = await fetch(searchUrl);
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API response:', data);
+
+      // Chuyển đổi dữ liệu từ API sang định dạng SearchProduct
+      const products: SearchProduct[] = data.products.map((product: any) => ({
+        _id: product._id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        currentPrice: product.currentPrice,
+        imageUrl: product.imageUrl || '/placeholder.png',
+        brandName: product.brandName
+      }));
+
+      console.log('Processed search results:', products.length);
+      setSearchResults(products);
+
+    } catch (error) {
+      console.error('Lỗi khi tìm kiếm sản phẩm:', error);
+      setSearchResults([]);
+
+      // Fallback to mock data in case of API error
       const mockProducts: SearchProduct[] = [
         {
           _id: 'mock1',
@@ -143,7 +174,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         },
         {
           _id: 'mock2',
-          name: 'Nước Tẩy Trang L\'Oreal Revitalift Hyaluronic Acid Hydrating Micellar Water',
+          name: 'Nước Tẩy Trang L\'Oreal Revitalift Hyaluronic Acid',
           slug: 'nuoc-tay-trang-loreal-revitalift-hyaluronic-acid',
           price: 250000,
           imageUrl: '/images/products/tay-trang-loreal-ha.jpg',
@@ -151,53 +182,24 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         },
         {
           _id: 'mock3',
-          name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400 Invisible Fluid SPF50+',
+          name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
           slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
           price: 550000,
           currentPrice: 495000,
           imageUrl: '/images/products/kcn-laroche-posay-uvmune400.jpg',
           brandName: 'La Roche-Posay',
-        },
-        {
-          _id: 'mock4',
-          name: 'Serum Klairs Midnight Blue Youth Activating Drop',
-          slug: 'serum-klairs-midnight-blue-youth-activating-drop',
-          price: 600000,
-          imageUrl: '/images/products/serum-klairs-midnight-blue.jpg',
-          brandName: 'Klairs',
-        },
-        {
-          _id: 'mock5',
-          name: 'Phấn Nước CLIO Kill Cover The New Founwear Cushion SPF50+',
-          slug: 'phan-nuoc-clio-kill-cover-the-new-founwear-cushion',
-          price: 700000,
-          currentPrice: 589000,
-          imageUrl: '/images/products/cushion-clio-kill-cover-new.jpg',
-          brandName: 'CLIO',
-        },
-        {
-          _id: 'mock6',
-          name: 'Mặt Nạ Đất Sét Kiehl\'s Rare Earth Deep Pore Cleansing Masque',
-          slug: 'mat-na-dat-set-kiehls-rare-earth',
-          price: 850000,
-          imageUrl: '/images/products/mat-na-kiehls-rare-earth.jpg',
-          brandName: 'Kiehl\'s',
-        },
+        }
       ];
-      
-      // Filter based on search term
+
+      // Lọc dữ liệu giả theo từ khóa tìm kiếm
       const lowerCaseTerm = term.toLowerCase();
-      const results = mockProducts.filter(product => 
-        product.name.toLowerCase().includes(lowerCaseTerm) || 
+      const results = mockProducts.filter(product =>
+        product.name.toLowerCase().includes(lowerCaseTerm) ||
         (product.brandName && product.brandName.toLowerCase().includes(lowerCaseTerm))
       );
-      
-      console.log('Search results:', results.length);
-      setSearchResults(results);
 
-    } catch (error) {
-      console.error('Lỗi khi tìm kiếm sản phẩm:', error);
-      setSearchResults([]);
+      console.log('Fallback to mock data:', results.length);
+      setSearchResults(results);
     } finally {
       setIsSearching(false);
     }
@@ -208,7 +210,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (searchTerm) {
       const encodedTerm = encodeURIComponent(searchTerm.trim());
       console.log('Chuyển hướng đến trang shop với từ khóa:', searchTerm);
-      
+
       router.push(`/shop?search=${encodedTerm}`);
       setShowSearchResults(false);
     }

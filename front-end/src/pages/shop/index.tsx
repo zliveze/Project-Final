@@ -97,6 +97,10 @@ export default function Shop() {
     if (search && search !== 'undefined') {
       newFilters.search = search;
       console.log('Đã tìm thấy tham số tìm kiếm từ URL:', search);
+    } else {
+      // Nếu không có tham số search trong URL, đặt search filter thành undefined
+      // Điều này giúp tránh việc gọi API liên tục khi xóa từ khóa tìm kiếm
+      newFilters.search = undefined;
     }
 
     // Chỉ áp dụng một loại filter: hoặc eventId hoặc campaignId, không áp dụng cả hai
@@ -115,7 +119,18 @@ export default function Shop() {
     // Chỉ áp dụng filters nếu có thay đổi và có ít nhất một filter
     if (Object.keys(newFilters).length > 0) {
       const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
-        return filters[key as keyof ShopProductFilters] !== value;
+        // Kiểm tra nếu giá trị mới khác với giá trị hiện tại
+        const currentValue = filters[key as keyof ShopProductFilters];
+
+        // Xử lý đặc biệt cho trường hợp search
+        if (key === 'search') {
+          // Nếu cả hai đều undefined hoặc empty string, coi như không có thay đổi
+          if ((!value || value === '') && (!currentValue || currentValue === '')) {
+            return false;
+          }
+        }
+
+        return currentValue !== value;
       });
 
       if (needsUpdate) {

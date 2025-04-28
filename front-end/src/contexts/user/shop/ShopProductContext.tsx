@@ -193,7 +193,16 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     // Kiểm tra nếu yêu cầu này giống với yêu cầu cuối cùng và không yêu cầu refresh
     if (!forceRefresh && requestKey === lastRequestKey) {
-      // Bỏ qua yêu cầu trùng lặp mà không cần log
+      console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
+      return;
+    }
+
+    // Kiểm tra đặc biệt cho trường hợp search
+    // Nếu search là undefined hoặc empty string, và lastRequestKey có chứa search, bỏ qua
+    if (!forceRefresh &&
+        (!currentFilters.search || currentFilters.search === '') &&
+        lastRequestKey.includes('"search":')) {
+      console.log('Bỏ qua yêu cầu khi xóa search term');
       return;
     }
 
@@ -390,6 +399,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     }, 200); // Giảm debounce xuống 200ms để cải thiện tốc độ phản hồi
   }, [currentPage, itemsPerPage, filters]);
 
+  // Thêm biến để theo dõi timer debounce cho setFilters
+  const [setFiltersDebounceTimer, setSetFiltersDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+
   // Function to update filters and trigger fetch
   const setFilters = useCallback((newFilters: Partial<ShopProductFilters>, skipFetch: boolean = false) => {
     // Chỉ log trong môi trường development
@@ -405,6 +417,30 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       });
     }
 
+    // Kiểm tra xem có thay đổi thực sự không
+    let hasRealChanges = false;
+    Object.entries(newFilters).forEach(([key, value]) => {
+      const currentValue = filters[key as keyof ShopProductFilters];
+
+      // Xử lý đặc biệt cho trường hợp search
+      if (key === 'search') {
+        // Nếu cả hai đều undefined hoặc empty string, coi như không có thay đổi
+        if ((!value || value === '') && (!currentValue || currentValue === '')) {
+          return;
+        }
+      }
+
+      if (currentValue !== value) {
+        hasRealChanges = true;
+      }
+    });
+
+    // Nếu không có thay đổi thực sự, bỏ qua
+    if (!hasRealChanges && !skipFetch) {
+      console.log('Không có thay đổi thực sự trong filters, bỏ qua');
+      return;
+    }
+
     const updatedFilters = { ...filters, ...newFilters };
 
     if (process.env.NODE_ENV === 'development') {
@@ -415,15 +451,27 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     setCurrentPage(1);
     setFiltersState(updatedFilters);
 
+    // Hủy timer debounce cũ nếu có
+    if (setFiltersDebounceTimer) {
+      clearTimeout(setFiltersDebounceTimer);
+    }
+
     // Chỉ gọi fetchProducts nếu không được yêu cầu bỏ qua
     if (!skipFetch) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Calling fetchProducts with new filters');
+        console.log('Calling fetchProducts with new filters (debounced)');
       }
-      // Fetch products with the new filters and reset page
-      fetchProducts(1, itemsPerPage, updatedFilters, true); // Force refresh to ensure data is reloaded
+
+      // Sử dụng debounce để tránh gọi API liên tục
+      const timer = setTimeout(() => {
+        // Fetch products with the new filters and reset page
+        fetchProducts(1, itemsPerPage, updatedFilters, true); // Force refresh to ensure data is reloaded
+        setSetFiltersDebounceTimer(null);
+      }, 300); // Debounce 300ms
+
+      setSetFiltersDebounceTimer(timer);
     }
-  }, [filters, itemsPerPage, fetchProducts]);
+  }, [filters, itemsPerPage, fetchProducts, setFiltersDebounceTimer]);
 
   // Function to change page
   const changePage = useCallback((newPage: number) => {

@@ -78,11 +78,11 @@ function MiddleHeader({
       console.log('Setting showSearchResults to true (>= 2 chars)');
       setShowSearchResults(true);
 
-      // Giảm thời gian debounce xuống 200ms để phản hồi nhanh hơn
+      // Giảm thời gian debounce xuống 150ms để phản hồi nhanh hơn - tìm kiếm tức thời
       searchDebounceRef.current = setTimeout(() => {
         console.log('Performing search after debounce');
         performSearch(value);
-      }, 200);
+      }, 150);
     } else {
       // Vẫn hiển thị dropdown với các từ khóa phổ biến nếu có ít hơn 2 ký tự
       const shouldShow = value.trim().length > 0;
