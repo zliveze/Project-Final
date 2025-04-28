@@ -29,6 +29,7 @@ function MiddleHeader({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchFormRef = useRef<HTMLFormElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const { logout } = useAuth();
@@ -65,33 +66,42 @@ function MiddleHeader({
     const value = e.target.value;
     setSearchTerm(value);
 
+    console.log('Search input changed:', value);
+
     // Debounce tìm kiếm để tránh gọi API quá nhiều
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
 
-    if (value.trim()) {
-      // Hiển thị kết quả tìm kiếm
+    // Hiển thị kết quả tìm kiếm ngay khi có giá trị nhập vào
+    if (value.trim().length >= 2) {
+      console.log('Setting showSearchResults to true (>= 2 chars)');
       setShowSearchResults(true);
 
       // Giảm thời gian debounce xuống 200ms để phản hồi nhanh hơn
       searchDebounceRef.current = setTimeout(() => {
+        console.log('Performing search after debounce');
         performSearch(value);
       }, 200);
     } else {
-      setShowSearchResults(false);
+      // Vẫn hiển thị dropdown với các từ khóa phổ biến nếu có ít hơn 2 ký tự
+      const shouldShow = value.trim().length > 0;
+      console.log('Setting showSearchResults to', shouldShow, '(< 2 chars)');
+      setShowSearchResults(shouldShow);
     }
   };
 
   // Xử lý khi người dùng focus vào ô tìm kiếm
   const handleSearchFocus = () => {
-    if (searchTerm.trim()) {
-      setShowSearchResults(true);
-    }
+    // Hiển thị kết quả tìm kiếm ngay cả khi chưa có từ khóa
+    // để hiển thị các từ khóa phổ biến
+    console.log('Search input focused, setting showSearchResults to true');
+    setShowSearchResults(true);
   };
 
   // Đóng kết quả tìm kiếm
   const handleCloseSearchResults = () => {
+    console.log('Closing search results, setting showSearchResults to false');
     setShowSearchResults(false);
   };
 
@@ -146,6 +156,12 @@ function MiddleHeader({
     }
   };
 
+  // Kiểm tra và log các giá trị để debug
+  useEffect(() => {
+    console.log('showSearchResults:', showSearchResults);
+    console.log('searchTerm:', searchTerm);
+  }, [showSearchResults, searchTerm]);
+
   // Dọn dẹp timeout khi component bị unmount
   useEffect(() => {
     return () => {
@@ -157,6 +173,19 @@ function MiddleHeader({
       }
     };
   }, []);
+
+  // Thêm một className đặc biệt khi search dropdown hiển thị
+  useEffect(() => {
+    const body = document.body;
+    if (showSearchResults) {
+      body.classList.add('search-active');
+    } else {
+      body.classList.remove('search-active');
+    }
+    return () => {
+      body.classList.remove('search-active');
+    };
+  }, [showSearchResults]);
 
   return (
     <div className="w-full bg-white border-b border-gray-100 py-3 shadow-sm">
@@ -180,8 +209,12 @@ function MiddleHeader({
           </Link>
 
           {/* Search bar */}
-          <div className="hidden lg:flex flex-1 max-w-2xl mx-8 bg-gray-50 rounded-md overflow-hidden border border-gray-200 transition-all hover:border-pink-300 focus-within:border-pink-400 focus-within:ring-1 focus-within:ring-pink-300">
-            <form onSubmit={handleSearch} className="w-full relative">
+          <div className="hidden lg:flex flex-1 max-w-2xl mx-8 bg-gray-50 rounded-md overflow-visible border border-gray-200 transition-all hover:border-pink-300 focus-within:border-pink-400 focus-within:ring-1 focus-within:ring-pink-300 relative">
+            <form
+              ref={searchFormRef}
+              onSubmit={handleSearch}
+              className="w-full relative"
+            >
               <input
                 ref={searchInputRef}
                 type="text"
@@ -203,15 +236,26 @@ function MiddleHeader({
                 </span>
               </button>
 
-              {/* Kết quả tìm kiếm */}
-              <SearchResults
-                isVisible={showSearchResults}
-                searchTerm={searchTerm}
-                products={searchResults}
-                loading={isSearching}
-                onClose={handleCloseSearchResults}
-                onViewAll={handleViewAllResults}
-              />
+              {/* Thay đổi cách hiển thị SearchResults - sử dụng motion.div tương tự như dropdown account */}
+              {showSearchResults && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full left-0 right-0 z-[9999] mt-1 shadow-lg"
+                >
+                  <SearchResults
+                    isVisible={showSearchResults}
+                    searchTerm={searchTerm}
+                    products={searchResults}
+                    loading={isSearching}
+                    onClose={handleCloseSearchResults}
+                    onViewAll={handleViewAllResults}
+                    inputRef={searchInputRef}
+                  />
+                </motion.div>
+              )}
             </form>
           </div>
 
