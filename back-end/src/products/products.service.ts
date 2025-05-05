@@ -299,7 +299,7 @@ export class ProductsService {
           // Chuẩn bị từ khóa cho regex search
           // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-          
+
           // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
 
@@ -315,10 +315,10 @@ export class ProductsService {
             { tags: { $regex: regexSearch, $options: 'i' } },
             { 'description.short': { $regex: regexSearch, $options: 'i' } },
             { 'description.full': { $regex: regexSearch, $options: 'i' } },
-            // Thêm tìm kiếm theo phần của từ 
+            // Thêm tìm kiếm theo phần của từ
             { name: { $regex: regexPattern, $options: 'i' } },
           ];
-          
+
           // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
           if (processedSearch.includes('_')) {
             this.logger.log(`Tìm kiếm bổ sung với từ khóa thay thế: "${alternativeSearch}"`);
@@ -1509,7 +1509,7 @@ export class ProductsService {
           // Chuẩn bị từ khóa cho regex search
           // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-          
+
           // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
 
@@ -1525,10 +1525,10 @@ export class ProductsService {
             { tags: { $regex: regexSearch, $options: 'i' } },
             { 'description.short': { $regex: regexSearch, $options: 'i' } },
             { 'description.full': { $regex: regexSearch, $options: 'i' } },
-            // Thêm tìm kiếm theo phần của từ 
+            // Thêm tìm kiếm theo phần của từ
             { name: { $regex: regexPattern, $options: 'i' } },
           ];
-          
+
           // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
           if (processedSearch.includes('_')) {
             this.logger.log(`Tìm kiếm bổ sung với từ khóa thay thế: "${alternativeSearch}"`);
@@ -1635,7 +1635,7 @@ export class ProductsService {
         this.productModel.countDocuments(filter),
         this.productModel
           .find(filter)
-          .select('_id name slug sku price currentPrice status images brandId categoryIds flags reviews')
+          .select('_id name slug sku price currentPrice status images brandId categoryIds flags reviews soldCount')
           .populate('brandId', 'name')
           .populate('categoryIds', 'name')
           .sort(sort)
@@ -1737,6 +1737,7 @@ export class ProductsService {
             : [],
           flags: product.flags,
           reviews: product.reviews,
+          soldCount: product.soldCount || 0, // Thêm số lượng đã bán
           promotion: promotionInfo, // Thêm thông tin khuyến mãi
         };
       });

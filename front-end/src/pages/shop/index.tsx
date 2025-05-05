@@ -552,14 +552,14 @@ export default function Shop() {
                       originalPrice={product.price}
                       rating={product.reviews?.averageRating || 0}
                       ratingCount={product.reviews?.reviewCount || 0}
-                      soldCount={Math.floor(Math.random() * 100) + 10} // Giữ lại random nếu chưa có API
+                      soldCount={product.soldCount || 0} // Hiển thị số lượng đã bán thực tế từ database
                       discount={product.currentPrice < product.price ? Math.round(((product.price - product.currentPrice) / product.price) * 100) : undefined}
                       slug={product.slug}
                       promotion={product.promotion} // Truyền thông tin promotion từ API
                       flashSale={product.promotion?.type === 'event' && product.promotion?.name === 'Flash Sale' ? {
                         isActive: true,
                         endTime: new Date(Date.now() + 86400000).toISOString(),
-                        soldPercent: Math.floor(Math.random() * 80) + 20
+                        soldPercent: product.soldCount ? Math.min(Math.round((product.soldCount / 100) * 100), 95) : 0 // Hiển thị phần trăm đã bán thực tế
                       } : undefined}
                     />
                   </div>

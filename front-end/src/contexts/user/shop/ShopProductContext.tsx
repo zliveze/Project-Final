@@ -56,6 +56,7 @@ export interface LightProduct {
     averageRating: number;
     reviewCount: number;
   };
+  soldCount?: number; // Số lượng sản phẩm đã bán
   promotion?: ProductPromotion | null;
 }
 

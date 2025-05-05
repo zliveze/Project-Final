@@ -44,6 +44,9 @@ export class LightProductDto {
     averageRating: number;
     reviewCount: number;
   };
+
+  @ApiProperty({ description: 'Number of products sold' })
+  soldCount?: number;
 }
 
 export class LightProductResponseDto {
@@ -61,4 +64,4 @@ export class LightProductResponseDto {
 
   @ApiProperty()
   totalPages: number;
-} 
+}

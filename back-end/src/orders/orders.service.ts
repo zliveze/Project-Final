@@ -323,9 +323,9 @@ export class OrdersService {
         throw new NotFoundException(`Invalid order ID: ${id}`);
       }
 
-      const order = await this.orderModel.findById(id).exec();
+      const orderBeforeUpdate = await this.orderModel.findById(id).lean().exec(); // Get state before update
 
-      if (!order) {
+      if (!orderBeforeUpdate) {
         throw new NotFoundException(`Order with ID ${id} not found`);
       }
 
@@ -334,18 +334,80 @@ export class OrdersService {
         .findByIdAndUpdate(id, updateOrderDto, { new: true })
         .exec();
 
-      // Nếu có cập nhật trạng thái, cập nhật lịch sử theo dõi
-      if (updateOrderDto.status && updateOrderDto.status !== order.status) {
-        await this.updateOrderTracking(id, updateOrderDto.status, updateOrderDto.updatedBy);
+      if (!updatedOrder) {
+        throw new NotFoundException(`Order with ID ${id} not found after attempting update`);
       }
 
-      if (!updatedOrder) {
-        throw new NotFoundException(`Order with ID ${id} not found after update`);
+      // Kiểm tra xem trạng thái có thay đổi và có trở thành DELIVERED không
+      const statusChanged = updateOrderDto.status && updateOrderDto.status !== orderBeforeUpdate.status;
+      const newStatusIsDelivered = updateOrderDto.status === OrderStatus.DELIVERED;
+
+      // this.logger.debug(`[Service Update] Order ${id} - Status changed: ${statusChanged}, New status: ${updateOrderDto.status}, Is delivered: ${newStatusIsDelivered}`); // DEBUG LOG - REMOVE
+
+      // Nếu có cập nhật trạng thái, cập nhật lịch sử theo dõi
+      if (statusChanged) {
+        // this.logger.debug(`[Service Update] Updating order tracking for Order ${id} to status: ${updateOrderDto.status}`); // DEBUG LOG - REMOVE
+        // Sử dụng toán tử khẳng định non-null (!) vì statusChanged đã đảm bảo status tồn tại
+        await this.updateOrderTracking(id, updateOrderDto.status!, updateOrderDto.updatedBy);
+      }
+
+      // Nếu trạng thái mới là DELIVERED, cập nhật soldCount
+      if (newStatusIsDelivered) {
+        // this.logger.debug(`[Service Update] Status is DELIVERED for Order ${id}. Initiating soldCount update.`); // DEBUG LOG - REMOVE
+        try {
+          // Lấy thông tin items từ đơn hàng vừa cập nhật (để chắc chắn là dữ liệu mới nhất)
+          const itemsToUpdate = updatedOrder.items;
+          // this.logger.debug(`[Service Update - SoldCount] Order ${id} - Items count: ${itemsToUpdate.length}`); // DEBUG LOG - REMOVE
+
+          for (const item of itemsToUpdate) {
+            const { productId, quantity } = item;
+            // this.logger.debug(`[Service Update - SoldCount] Processing item for Order ${id}: productId=${productId}, quantity=${quantity}`); // DEBUG LOG - REMOVE
+
+            try {
+              if (!Types.ObjectId.isValid(productId)) {
+                this.logger.error(`[SoldCount] Invalid ObjectId format for productId: ${productId} in Order ${id}`); // Keep error log
+                continue;
+              }
+
+              // this.logger.debug(`[Service Update - SoldCount] Finding product with ID: ${productId}`); // DEBUG LOG - REMOVE
+              const product = await this.productModel.findById(productId).exec();
+
+              if (!product) {
+                this.logger.error(`[SoldCount] Product ${productId} not found for Order ${id}`); // Keep error log
+                continue;
+              }
+              // this.logger.debug(`[Service Update - SoldCount] Product ${productId} found.`); // DEBUG LOG - REMOVE
+
+              const currentSoldCount = product.soldCount || 0;
+              const newSoldCount = currentSoldCount + quantity;
+              // this.logger.debug(`[Service Update - SoldCount] Product ${productId} - Current soldCount: ${currentSoldCount}, Quantity to add: ${quantity}, New soldCount: ${newSoldCount}`); // DEBUG LOG - REMOVE
+
+              product.soldCount = newSoldCount;
+              // this.logger.debug(`[Service Update - SoldCount] Attempting to save product ${productId} with new soldCount: ${newSoldCount}`); // DEBUG LOG - REMOVE
+              await product.save();
+              // this.logger.debug(`[Service Update - SoldCount] Save result for product ${productId}: ${JSON.stringify(saveResult)}`); // DEBUG LOG - REMOVE
+
+              // Kiểm tra lại giá trị sau khi save (không cần thiết trong production)
+              // const updatedProductCheck = await this.productModel.findById(productId).select('soldCount').lean().exec();
+              this.logger.debug(`[Service Update - SoldCount] Attempting to save product ${productId} with new soldCount: ${newSoldCount}`);
+              const saveResult = await product.save();
+              this.logger.debug(`[Service Update - SoldCount] Save result for product ${productId}: ${JSON.stringify(saveResult)}`);
+
+              const updatedProductCheck = await this.productModel.findById(productId).select('soldCount').lean().exec();
+              this.logger.debug(`[Service Update - SoldCount] Product ${productId} soldCount after save (verification): ${updatedProductCheck?.soldCount}`);
+              this.logger.debug(`[Service Update - SoldCount] Successfully updated soldCount for product ${productId} to ${newSoldCount}`);
+            } catch (error) {
+              this.logger.error(`[Service Update - SoldCount] Error updating soldCount for product ${productId}: ${error.message}`, error.stack);
+            }
+          }
+        } catch (error) {
+          this.logger.error(`[Service Update - SoldCount] Error during the overall process for order ${id}: ${error.message}`, error.stack);
+        }
       }
 
       return updatedOrder;
     } catch (error) {
-      this.logger.error(`Error updating order: ${error.message}`, error.stack);
+      this.logger.error(`Error updating order ${id}: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -355,7 +417,79 @@ export class OrdersService {
    */
   async updateStatus(id: string, status: OrderStatus, updatedBy?: string): Promise<OrderDocument> {
     try {
-      return this.update(id, { status, updatedBy });
+      // Ghi log trạng thái đơn hàng trước khi cập nhật
+      this.logger.debug(`Updating order ${id} status to ${status}`);
+
+      // Lấy thông tin đơn hàng trước khi cập nhật để kiểm tra trạng thái hiện tại
+      const currentOrder = await this.findOne(id);
+      this.logger.debug(`Current order status: ${currentOrder.status}`);
+
+      // Cập nhật trạng thái đơn hàng
+      const updatedOrder = await this.update(id, { status, updatedBy });
+
+      // Log trạng thái nhận được NGAY TRƯỚC KHI kiểm tra DELIVERED
+      // this.logger.debug(`[Service UpdateStatus] Status received before DELIVERED check: ${status} (Type: ${typeof status})`); // DEBUG LOG - REMOVE
+
+      // Nếu đơn hàng được giao thành công, cập nhật soldCount cho các sản phẩm
+      if (status === OrderStatus.DELIVERED) {
+        try {
+          this.logger.debug(`[SoldCount Update] Condition met (status === 'delivered'). Starting update process for Order ${id}.`);
+          // Lấy thông tin chi tiết đơn hàng
+          const order = await this.findOne(id);
+          this.logger.debug(`Order items count: ${order.items.length}`);
+
+          // Cập nhật soldCount cho từng sản phẩm trong đơn hàng
+          for (const item of order.items) {
+            const { productId, quantity } = item;
+
+            // this.logger.debug(`[SoldCount Update] Processing item for Order ${id}: productId=${productId}, quantity=${quantity}`); // DEBUG LOG - REMOVE
+
+            try {
+              // Kiểm tra xem productId có phải là ObjectId hợp lệ không
+              if (!Types.ObjectId.isValid(productId)) {
+                // this.logger.error(`[SoldCount Update] Invalid ObjectId format for productId: ${productId}`); // DEBUG LOG - REMOVE (Kept in update method)
+                continue;
+              }
+
+              // Tìm sản phẩm trong database
+              // this.logger.debug(`[SoldCount Update] Finding product with ID: ${productId}`); // DEBUG LOG - REMOVE
+              const product = await this.productModel.findById(productId).exec();
+              
+              if (!product) {
+                // this.logger.error(`[SoldCount Update] Product ${productId} not found in database.`); // DEBUG LOG - REMOVE (Kept in update method)
+                continue;
+              }
+              // this.logger.debug(`[SoldCount Update] Product ${productId} found.`); // DEBUG LOG - REMOVE
+
+              // Tăng soldCount
+              const currentSoldCount = product.soldCount || 0;
+              const newSoldCount = currentSoldCount + quantity;
+
+              // this.logger.debug(`[SoldCount Update] Product ${productId} - Current soldCount: ${currentSoldCount}, Quantity to add: ${quantity}, New soldCount: ${newSoldCount}`); // DEBUG LOG - REMOVE
+
+              // Cập nhật soldCount
+              product.soldCount = newSoldCount;
+              // this.logger.debug(`[SoldCount Update] Attempting to save product ${productId} with new soldCount: ${newSoldCount}`); // DEBUG LOG - REMOVE
+              await product.save();
+              // this.logger.debug(`[SoldCount Update] Save result for product ${productId}: ${JSON.stringify(saveResult)}`); // DEBUG LOG - REMOVE
+
+              // Kiểm tra lại giá trị sau khi save
+              // const updatedProductCheck = await this.productModel.findById(productId).select('soldCount').lean().exec();
+              // this.logger.debug(`[SoldCount Update] Product ${productId} soldCount after save (verification): ${updatedProductCheck?.soldCount}`); // DEBUG LOG - REMOVE
+
+              // this.logger.debug(`[SoldCount Update] Successfully updated soldCount for product ${productId} to ${newSoldCount}`); // DEBUG LOG - REMOVE (Kept in update method)
+            } catch (error) {
+              // this.logger.error(`[SoldCount Update] Error updating soldCount for product ${productId}: ${error.message}`, error.stack); // DEBUG LOG - REMOVE (Kept in update method)
+              // Tiếp tục xử lý các sản phẩm khác
+            }
+          }
+        } catch (error) {
+          // this.logger.error(`[SoldCount Update] Error during the overall process for order ${id}: ${error.message}`, error.stack); // DEBUG LOG - REMOVE (Kept in update method)
+          // Không throw lỗi để không ảnh hưởng đến luồng chính
+        }
+      }
+
+      return updatedOrder;
     } catch (error) {
       this.logger.error(`Error updating order status: ${error.message}`, error.stack);
       throw error;
@@ -1603,7 +1737,7 @@ export class OrdersService {
       MONEY_FEECOD: order.paymentMethod === PaymentMethod.COD ? Math.round((order.finalPrice || 0) * 0.01) : 0, // Phí thu hộ (theo docs, có thể cần xác nhận lại công thức tính)
       // MONEY_COLLECTION_FEE: order.paymentMethod === PaymentMethod.COD ? Math.round((order.finalPrice || 0) * 0.01) : 0, // Bỏ trường không có trong docs
       MONEY_FEEVAS: 0,
-      MONEY_FEEINSURRANCE: 0, // Sửa tên trường theo docs (INSURANCE -> INSURRANCE có vẻ là lỗi typo trong docs?)
+      MONEY_FEEINSURRANCE: 0, // Sửa tên trường theo docs (INSURANCE -> INSURRANCE có vẻ lỗi typo trong docs?)
       MONEY_FEE: order.shippingFee || 0, // Sử dụng phí vận chuyển từ đơn hàng
       MONEY_FEEOTHER: 0,
       MONEY_TOTALVAT: Math.round((order.shippingFee || 0) * 0.08), // VAT 8% cho phí vận chuyển

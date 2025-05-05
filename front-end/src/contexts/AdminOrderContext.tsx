@@ -527,39 +527,39 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
       // Lọc đơn hàng theo trạng thái
-      const pendingOrders = allOrders.filter(order => order.status === 'pending').length;
-      const processingOrders = allOrders.filter(order =>
+      const pendingOrders = allOrders.filter((order: Order) => order.status === 'pending').length;
+      const processingOrders = allOrders.filter((order: Order) =>
         ['confirmed', 'processing', 'shipping'].includes(order.status)
       ).length;
-      const completedOrders = allOrders.filter(order => order.status === 'completed').length;
-      const cancelledOrders = allOrders.filter(order => order.status === 'cancelled').length;
+      const completedOrders = allOrders.filter((order: Order) => order.status === 'completed').length;
+      const cancelledOrders = allOrders.filter((order: Order) => order.status === 'cancelled').length;
 
       // Tính tổng doanh thu
-      const totalRevenue = allOrders.reduce((sum, order) =>
+      const totalRevenue = allOrders.reduce((sum: number, order: Order) =>
         order.status !== 'cancelled' ? sum + order.finalPrice : sum, 0
       );
 
       // Đơn hàng hôm nay
-      const todayOrders = allOrders.filter(order => {
+      const todayOrders = allOrders.filter((order: Order) => {
         const orderDate = new Date(order.createdAt);
         return orderDate >= today;
       });
 
-      const todayRevenue = todayOrders.reduce((sum, order) =>
+      const todayRevenue = todayOrders.reduce((sum: number, order: Order) =>
         order.status !== 'cancelled' ? sum + order.finalPrice : sum, 0
       );
 
       // Thống kê theo tháng
-      const monthlyStats = [];
+      const monthlyStats: Array<{month: string, orders: number, revenue: number}> = [];
       const monthNames = [
         'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
         'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
       ];
 
       // Tính toán thống kê theo tháng
-      const monthlyData = {};
+      const monthlyData: Record<string, {month: string, year: number, orders: number, revenue: number}> = {};
 
-      allOrders.forEach(order => {
+      allOrders.forEach((order: Order) => {
         const orderDate = new Date(order.createdAt);
         const monthYear = `${orderDate.getMonth()}-${orderDate.getFullYear()}`;
 
@@ -633,9 +633,12 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
       setLoading(true);
       setError(null);
 
-      const payload = { status };
+      // Chuẩn hóa trạng thái trước khi gửi lên server
+      const normalizedStatus = status.toLowerCase() === 'completed' ? 'delivered' : status;
+
+      const payload: {status: string, reason?: string} = { status: normalizedStatus };
       if (reason) {
-        payload['reason'] = reason;
+        payload.reason = reason;
       }
 
       try {
@@ -644,13 +647,13 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
         // Cập nhật lại danh sách đơn hàng
         setOrders(prevOrders =>
           prevOrders.map(order =>
-            order._id === id ? { ...order, status } : order
+            order._id === id ? { ...order, status: normalizedStatus } : order
           )
         );
 
         // Cập nhật chi tiết đơn hàng nếu đang xem
         if (orderDetail && orderDetail._id === id) {
-          setOrderDetail({ ...orderDetail, status });
+          setOrderDetail({ ...orderDetail, status: normalizedStatus });
         }
 
         toast.success('Cập nhật trạng thái đơn hàng thành công');
@@ -664,13 +667,13 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
           // Cập nhật lại danh sách đơn hàng
           setOrders(prevOrders =>
             prevOrders.map(order =>
-              order._id === id ? { ...order, status } : order
+              order._id === id ? { ...order, status: normalizedStatus } : order
             )
           );
 
           // Cập nhật chi tiết đơn hàng nếu đang xem
           if (orderDetail && orderDetail._id === id) {
-            setOrderDetail({ ...orderDetail, status });
+            setOrderDetail({ ...orderDetail, status: normalizedStatus });
           }
 
           toast.success('Cập nhật trạng thái đơn hàng thành công (chế độ demo)');
@@ -678,7 +681,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
           // Trả về đơn hàng đã cập nhật
           const updatedOrder = orders.find(order => order._id === id);
           if (updatedOrder) {
-            return { ...updatedOrder, status };
+            return { ...updatedOrder, status: normalizedStatus };
           }
 
           return null;

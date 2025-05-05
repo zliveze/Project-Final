@@ -331,6 +331,9 @@ export class Product {
 
   @Prop({ type: Date, default: Date.now })
   updatedAt: Date;
+
+  @Prop({ type: Number, default: 0 })
+  soldCount: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
