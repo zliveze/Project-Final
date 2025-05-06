@@ -131,47 +131,40 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
     return <div className="min-h-screen flex flex-col"></div>;
   }
 
-  // Sử dụng các context để đảm bảo chúng được khởi tạo trước khi HeaderProvider
-  // Điều này giúp HeaderProvider có thể truy cập vào các context này
-  const cart = useCart();
-  const wishlist = useWishlist();
-
   return (
-    <HeaderProvider>
-      <div className="min-h-screen flex flex-col relative">
-        <div className="fixed inset-0 z-0">
-          <BackgroundAnimation />
-        </div>
-        <div className="sticky top-0 z-50">
-          <MainHeader />
-        </div>
-        <div className="relative z-30">
-           {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
-        </div>
-        <main className="flex-grow relative z-20">
-           {children}
-        </main>
-        <div className="relative z-10">
-          <Footer />
-        </div>
-        <ToastContainer
-          position="bottom-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          style={{ zIndex: 9999 }}
-          toastStyle={{
-            marginBottom: '60px',
-            marginRight: '10px'
-          }}
-          theme="light"
-        />
+    <div className="min-h-screen flex flex-col relative">
+      <div className="fixed inset-0 z-0">
+        <BackgroundAnimation />
       </div>
-    </HeaderProvider>
+      <div className="sticky top-0 z-50">
+        <MainHeader />
+      </div>
+      <div className="relative z-30">
+         {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
+      </div>
+      <main className="flex-grow relative z-20">
+         {children}
+      </main>
+      <div className="relative z-10">
+        <Footer />
+      </div>
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        style={{ zIndex: 9999 }}
+        toastStyle={{
+          marginBottom: '60px',
+          marginRight: '10px'
+        }}
+        theme="light"
+      />
+    </div>
   )
 }

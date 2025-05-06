@@ -1,25 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NotificationSection from '../NotificationSection';
 import MiddleHeader from './MiddleHeader';
 import BottomHeader from './BottomHeader';
 import MobileSideMenu from './MobileSideMenu';
 import MobileSearch from './MobileSearch';
 import { useHeader } from '@/contexts/HeaderContext';
+import { useCart } from '@/contexts/user/cart/CartContext';
+import { useWishlist } from '@/contexts/user/wishlist/WishlistContext';
 import { FiSearch } from 'react-icons/fi';
 
 export default function MainHeader() {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
+  // Lấy thông tin từ các context
   const {
     isMobileMenuOpen,
     setMobileMenuOpen,
     categories,
     featuredBrands,
-    cartItemCount,
-    wishlistItemCount,
     isLoggedIn,
     userProfile,
   } = useHeader();
+
+  // Lấy trực tiếp số lượng sản phẩm từ CartContext và WishlistContext
+  const { itemCount: cartItemCount } = useCart();
+  const { itemCount: wishlistItemCount } = useWishlist();
 
   return (
     <header className="w-full bg-white relative">

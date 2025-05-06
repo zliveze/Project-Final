@@ -74,20 +74,10 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // Sử dụng CartContext và WishlistContext để lấy số lượng sản phẩm
-  // Sử dụng try-catch để tránh lỗi khi context chưa được khởi tạo
-  let cart;
-  let wishlist;
-  try {
-    cart = useCart();
-  } catch (error) {
-    console.log('CartContext chưa được khởi tạo trong HeaderContext');
-  }
-
-  try {
-    wishlist = useWishlist();
-  } catch (error) {
-    console.log('WishlistContext chưa được khởi tạo trong HeaderContext');
-  }
+  // Không cần try-catch nữa vì chúng ta đảm bảo CartProvider và WishlistProvider
+  // đã được khởi tạo trước HeaderProvider trong cấu trúc component
+  const cart = useCart();
+  const wishlist = useWishlist();
 
   // State cho tìm kiếm sản phẩm
   const [searchTerm, setSearchTerm] = useState('');
