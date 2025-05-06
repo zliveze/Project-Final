@@ -136,9 +136,9 @@ interface CartContextType {
   voucherId: string;
   fetchCart: () => Promise<void>;
   addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined, null, or empty string variantId
-  updateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>;
-  debouncedUpdateCartItem: (variantId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
-  removeCartItem: (variantId: string) => Promise<boolean>;
+  updateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>; // Changed variantId to itemId
+  debouncedUpdateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void; // Changed variantId to itemId
+  removeCartItem: (itemId: string) => Promise<boolean>; // Changed variantId to itemId
   clearCart: () => Promise<boolean>;
   applyVoucher: (code: string) => Promise<boolean>;
   clearVoucher: () => void;
@@ -507,29 +507,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Queue for pending updates to prevent conflicting API calls
   const pendingUpdates = useRef<Record<string, number>>({});
 
-  const updateCartItem = async (variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string): Promise<boolean> => {
+  const updateCartItem = async (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string): Promise<boolean> => { // Changed variantId to itemId
      if (!isAuthenticated) return false;
 
-     // Tìm item hiện tại để lấy thông tin gốc (nếu cần rollback)
-     // For products without variants, variantId will be empty string
-     // For products with variants and combinations, variantId might be a composite ID like "variantId-combinationId"
-     const currentItem = cartItems.find(item => {
-       if (item.isProductWithoutVariants) {
-         return item.variantId === '' && variantId === '';
-       } else {
-         // Check if this is a composite ID (contains a hyphen)
-         if (variantId.includes('-')) {
-           // For composite IDs, match the exact string
-           return item._id === variantId;
-         } else {
-           // For regular variantIds, match just the variantId
-           return item.variantId === variantId;
-         }
-       }
-     });
+     // Tìm item hiện tại bằng itemId (là _id của CartProduct)
+     const currentItem = cartItems.find(item => item._id === itemId);
 
      if (!currentItem) {
-       console.error(`Could not find cart item with variantId: ${variantId}`);
+       console.error(`Could not find cart item with itemId: ${itemId}`);
        return false; // Không tìm thấy item
      }
 
@@ -546,32 +531,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      }
 
      // If quantity hasn't changed, do nothing
-     if (currentItem.quantity === validQuantity && !selectedBranchId) return true;
+     if (currentItem.quantity === validQuantity && currentItem.selectedBranchId === selectedBranchId) return true; // Check selectedBranchId too
 
      // Store this update in the pending queue
-     pendingUpdates.current[variantId] = validQuantity;
+     pendingUpdates.current[itemId] = validQuantity; // Use itemId as key
 
      // Optimistic UI update: Cập nhật state ngay lập tức
      const originalItems = [...cartItems];
      setCartItems(prevItems =>
        prevItems.map(item => {
-         // Match the item based on the same logic we used to find currentItem
-         let isMatchingItem = false;
-
-         if (item.isProductWithoutVariants) {
-           isMatchingItem = item.variantId === '' && variantId === '';
-         } else {
-           // Check if this is a composite ID (contains a hyphen)
-           if (variantId.includes('-')) {
-             // For composite IDs, match the exact string
-             isMatchingItem = item._id === variantId;
-           } else {
-             // For regular variantIds, match just the variantId
-             isMatchingItem = item.variantId === variantId;
-           }
-         }
-
-         if (isMatchingItem) {
+         if (item._id === itemId) { // Match by itemId
            return {
              ...item,
              quantity: validQuantity,
@@ -602,23 +571,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // For products with variants and combinations, format as "variantId:combinationId"
       let apiVariantId;
-      if (variantId === '') {
+      if (currentItem.isProductWithoutVariants) {
         apiVariantId = 'none';
-      } else if (variantId.includes('-')) {
-        // Extract parts from the composite ID (format: "variantId-combinationId")
-        const parts = variantId.split('-');
-        const actualVariantId = parts[0];
-        const combinationId = parts[1];
-
-        // Format as "variantId:combinationId" for backend to parse
-        apiVariantId = `${actualVariantId}:${combinationId}`;
-
-        // Make sure combinationId is included in selectedOptions
-        if (combinationId && selectedOptions) {
-          selectedOptions.combinationId = combinationId;
-        }
+      } else if (currentItem.selectedOptions && currentItem.selectedOptions.combinationId) {
+        // If there's a combinationId, use it with the actual variantId
+        apiVariantId = `${currentItem.variantId}:${currentItem.selectedOptions.combinationId}`;
       } else {
-        apiVariantId = variantId;
+        // Otherwise, just use the variantId
+        apiVariantId = currentItem.variantId;
       }
 
       // Gọi API PATCH bằng fetch - encode variantId to handle special characters
@@ -633,7 +593,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       // Remove from pending updates after API call completes
-      delete pendingUpdates.current[variantId];
+      delete pendingUpdates.current[itemId]; // Use itemId as key
 
       if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -664,51 +624,34 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Create a debounced version of updateCartItem
   const debouncedUpdateCartItem = useCallback(
-    debounce((variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
-      updateCartItem(variantId, quantity, showToast, selectedBranchId);
+    debounce((itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => { // Changed variantId to itemId
+      updateCartItem(itemId, quantity, showToast, selectedBranchId); // Changed variantId to itemId
     }, 500), // 500ms debounce delay
     [updateCartItem]
   );
 
-  const removeCartItem = async (variantId: string): Promise<boolean> => {
+  const removeCartItem = async (itemId: string): Promise<boolean> => { // Changed variantId to itemId
     if (!isAuthenticated) return false;
 
     // Optimistic UI update
     const originalItems = [...cartItems];
-
-    // For products without variants, variantId will be empty string
-    // For products with variants and combinations, variantId might be a composite ID like "variantId-combinationId"
-    setCartItems(prevItems => prevItems.filter(item => {
-      if (item.isProductWithoutVariants) {
-        return !(item.variantId === '' && variantId === '');
-      } else {
-        // Check if this is a composite ID (contains a hyphen)
-        if (variantId.includes('-')) {
-          // For composite IDs, match the exact string
-          return item._id !== variantId;
-        } else {
-          // For regular variantIds, match just the variantId
-          return item.variantId !== variantId;
-        }
-      }
-    }));
+    setCartItems(prevItems => prevItems.filter(item => item._id !== itemId)); // Filter by itemId
 
     try {
-      // For products without variants, use 'none' as the variantId in the API call
-      // For products with variants and combinations, format as "variantId:combinationId"
-      let apiVariantId;
-      if (variantId === '') {
-        apiVariantId = 'none';
-      } else if (variantId.includes('-')) {
-        // Extract parts from the composite ID (format: "variantId-combinationId")
-        const parts = variantId.split('-');
-        const actualVariantId = parts[0];
-        const combinationId = parts[1];
+      // Find the item to get its variantId and combinationId for the API call
+      const currentItem = originalItems.find(item => item._id === itemId);
+      if (!currentItem) {
+        console.warn(`Item with ID ${itemId} not found for removal, possibly already removed.`);
+        return true; // Consider it successful if item is already gone
+      }
 
-        // Format as "variantId:combinationId" for backend to parse
-        apiVariantId = `${actualVariantId}:${combinationId}`;
+      let apiVariantId;
+      if (currentItem.isProductWithoutVariants) {
+        apiVariantId = 'none';
+      } else if (currentItem.selectedOptions && currentItem.selectedOptions.combinationId) {
+        apiVariantId = `${currentItem.variantId}:${currentItem.selectedOptions.combinationId}`;
       } else {
-        apiVariantId = variantId;
+        apiVariantId = currentItem.variantId;
       }
 
 

@@ -7,9 +7,9 @@ import BranchSelectionModal from './BranchSelectionModal';
 import { useBranches } from '@/hooks/useBranches';
 
 interface CartItemProps {
-  _id: string; // Keep _id if CartPage still passes variantId as _id
+  _id: string; // This will now be the unique CartProduct ID (e.g., variantId-combinationId)
   productId: string;
-  variantId: string; // Make variantId required
+  variantId: string; // This remains the actual variantId (e.g., new-123)
   name: string;
   slug: string;
   image: {
@@ -28,12 +28,13 @@ interface CartItemProps {
   maxQuantity: number;
   branchInventory?: Array<{ branchId: string; quantity: number; branchName?: string }>; // Add branch inventory with name
   selectedBranchId?: string; // Add selected branch
-  onUpdateQuantity: (id: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
-  onRemove: (id: string) => void;
+  onUpdateQuantity: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
+  onRemove: (itemId: string) => void;
 }
 
 const CartItem: React.FC<CartItemProps> = ({
-  variantId,
+  _id, // Use the unique CartProduct ID passed as _id
+  variantId, // Keep actual variantId for other uses if needed
   name,
   slug,
   image,
@@ -67,7 +68,7 @@ const CartItem: React.FC<CartItemProps> = ({
 
       // If we can increase within this branch's inventory
       if (quantity < branchStock) {
-        onUpdateQuantity(variantId, quantity + 1, false, selectedBranchId);
+        onUpdateQuantity(_id, quantity + 1, false, selectedBranchId); // Use _id
       } else {
         // Show branch selection modal to let user choose another branch
         setShowBranchModal(true);
@@ -94,7 +95,7 @@ const CartItem: React.FC<CartItemProps> = ({
   // Xử lý giảm số lượng
   const handleDecreaseQuantity = () => {
     if (quantity > 1) {
-      onUpdateQuantity(variantId, quantity - 1, false);
+      onUpdateQuantity(_id, quantity - 1, false); // Use _id
     }
   };
 
@@ -117,7 +118,7 @@ const CartItem: React.FC<CartItemProps> = ({
       const newQuantity = Math.min(quantity || 1, selectedBranchInventory.quantity);
 
       // Pass the selected branch ID to the update function
-      onUpdateQuantity(variantId, newQuantity, false, branchId);
+      onUpdateQuantity(_id, newQuantity, false, branchId); // Use _id
 
       // Show a toast notification about the branch selection
       import('react-toastify').then(({ toast }) => {
@@ -325,7 +326,7 @@ const CartItem: React.FC<CartItemProps> = ({
                 </button>
               </div>
               <button
-                onClick={() => onRemove(variantId)}
+                onClick={() => onRemove(_id)} // Use _id
                 className="ml-4 p-2 text-gray-400 hover:text-pink-600 transition-colors"
                 title="Xóa sản phẩm"
               >
@@ -380,7 +381,7 @@ const CartItem: React.FC<CartItemProps> = ({
 
         {/* Nút xóa */}
         <button
-          onClick={() => onRemove(variantId)}
+          onClick={() => onRemove(_id)} // Use _id
           className="p-2 text-gray-400 hover:text-pink-600 transition-colors"
           title="Xóa sản phẩm"
         >

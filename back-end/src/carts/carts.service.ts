@@ -300,34 +300,54 @@ export class CartsService {
 
     // For products with variants, find by variantId and combinationId (if provided in selectedOptions)
     // For products without variants, find by empty variantId or null
-    const itemIndex = variantId ?
-      cart.items.findIndex(item => {
-        // First check if variantId matches
-        const variantMatches = item.variantId === variantId;
+    let itemIndex = -1;
+    let actualVariantIdFromParam = variantId;
+    let combinationIdFromParam: string | null = null;
 
-        // If variantId matches and we have selectedOptions with combinationId
-        if (variantMatches && selectedOptions && selectedOptions.combinationId) {
-          // Check if the item has the same combinationId
-          return item.selectedOptions &&
-                 item.selectedOptions.combinationId === selectedOptions.combinationId;
+    if (variantId && variantId.includes(':')) {
+      [actualVariantIdFromParam, combinationIdFromParam] = variantId.split(':');
+    }
+
+    if (variantId) { // Handles products with variants (with or without combinations)
+      itemIndex = cart.items.findIndex(item => {
+        const variantMatches = item.variantId === actualVariantIdFromParam;
+
+        if (variantMatches) {
+          // If a combinationId was passed in the param, we MUST match it
+          if (combinationIdFromParam) {
+            return item.selectedOptions && item.selectedOptions.combinationId === combinationIdFromParam;
+          }
+          // If no combinationId was passed in param, ensure the cart item ALSO doesn't have one,
+          // OR if selectedOptions from DTO has a combinationId, match that.
+          // This logic might need refinement based on how combination-less variants are handled.
+          if (selectedOptions && selectedOptions.combinationId) {
+             return item.selectedOptions && item.selectedOptions.combinationId === selectedOptions.combinationId;
+          }
+          // If no combinationId in DTO, then this item should also not have a combinationId
+          return !item.selectedOptions || !item.selectedOptions.combinationId;
         }
+        return false;
+      });
+    } else { // Handles products without variants (variantId is null)
+      itemIndex = cart.items.findIndex(item => !item.variantId || item.variantId === '');
+    }
 
-        // If no combinationId in selectedOptions, just match by variantId
-        // This handles the case for variants without combinations
-        return variantMatches &&
-               (!selectedOptions || !selectedOptions.combinationId) &&
-               (!item.selectedOptions || !item.selectedOptions.combinationId);
-      }) :
-      cart.items.findIndex(item => !item.variantId || item.variantId === '');
 
     if (itemIndex === -1) {
-      if (variantId) {
-        throw new NotFoundException(`Không tìm thấy sản phẩm với biến thể ID ${variantId} trong giỏ hàng.`);
-      } else {
-        throw new NotFoundException(`Không tìm thấy sản phẩm không có biến thể trong giỏ hàng.`);
+      // Construct a more informative error message
+      let errorMessage = "Không tìm thấy sản phẩm trong giỏ hàng.";
+      if (actualVariantIdFromParam && actualVariantIdFromParam !== 'none') {
+        errorMessage = `Không tìm thấy sản phẩm với biến thể ID ${actualVariantIdFromParam}`;
+        if (combinationIdFromParam) {
+          errorMessage += ` và tổ hợp ID ${combinationIdFromParam}`;
+        }
+        errorMessage += " trong giỏ hàng.";
+      } else if (variantId === 'none' || !variantId) {
+         errorMessage = "Không tìm thấy sản phẩm không có biến thể trong giỏ hàng.";
       }
+      throw new NotFoundException(errorMessage);
     }
-    console.log(`[CartsService] Item found at index: ${itemIndex}`);
+    console.log(`[CartsService] Item found at index: ${itemIndex} for variantId: ${variantId} (actual: ${actualVariantIdFromParam}, combo: ${combinationIdFromParam})`);
 
     // 3. Validate Variant and Stock (within updateCartItem)
     console.log(`[CartsService] Finding product containing variant. ProductId from cart item: ${cart.items[itemIndex].productId}`);
@@ -345,26 +365,49 @@ export class CartsService {
     let priceToUse: number = productContainingVariant.currentPrice || productContainingVariant.price;
 
     // Check if variantId is provided (for products with variants)
-    if (variantId) {
-      // Handle both MongoDB ObjectId and custom string format (e.g., "new-1234567890")
+    // Use actualVariantIdFromParam (which is the true variantId) to find the variant in the product
+    if (actualVariantIdFromParam && actualVariantIdFromParam !== 'none') {
       const foundVariant = productContainingVariant.variants.find(v => {
-          // Convert both to string for comparison
-          const variantIdStr = v.variantId?.toString() || '';
-          return variantIdStr === variantId;
+          // Ensure v.variantId is converted to string for comparison
+          const variantIdInProductString = v.variantId ? String(v.variantId) : '';
+          return variantIdInProductString === actualVariantIdFromParam;
       });
 
-      // Assign the found variant or null
       variant = foundVariant || null;
 
       if (!variant) {
-          console.error(`[CartsService] Variant NOT FOUND within product. VariantId: ${variantId}`);
+          // Log the correct ID that was not found
+          console.error(`[CartsService] Variant NOT FOUND within product. Actual VariantId: ${actualVariantIdFromParam}`);
           cart.items.splice(itemIndex, 1);
           await cart.save();
-          throw new NotFoundException(`Biến thể với ID ${variantId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
+          // Display the composite ID in the error message if it was provided
+          const displayId = (variantId && variantId.includes(':')) ? variantId : actualVariantIdFromParam;
+          throw new NotFoundException(`Biến thể với ID ${displayId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
       }
 
-      priceToUse = variant.price;
-    } else {
+      // If a combination was involved, the price might need to be adjusted based on the combination
+      if (combinationIdFromParam && variant.combinations) {
+        const combination = variant.combinations.find(c => c.combinationId.toString() === combinationIdFromParam);
+        if (combination) {
+          if (typeof combination.price === 'number') {
+            priceToUse = combination.price;
+          } else if (typeof combination.additionalPrice === 'number') {
+            priceToUse = variant.price + combination.additionalPrice;
+          } else {
+            priceToUse = variant.price; // Fallback to variant price
+          }
+        } else {
+          // Combination not found, this is an issue.
+          console.error(`[CartsService] Combination NOT FOUND within variant. CombinationId: ${combinationIdFromParam}`);
+          // Decide how to handle: error out, or use variant price? For now, error out.
+          cart.items.splice(itemIndex, 1);
+          await cart.save();
+          throw new NotFoundException(`Tổ hợp với ID ${combinationIdFromParam} không thuộc biến thể ${actualVariantIdFromParam}. Mục đã bị xóa.`);
+        }
+      } else {
+        priceToUse = variant.price; // No combination, use variant's base price
+      }
+    } else { // This 'else' corresponds to (actualVariantIdFromParam is null or 'none')
       // For products without variants, check if the product has variants
       if (productContainingVariant.variants && productContainingVariant.variants.length > 0) {
         console.error(`[CartsService] Product has variants but no variantId was provided.`);

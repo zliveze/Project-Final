@@ -118,16 +118,13 @@ const CartPage: NextPage = () => {
 
 
   // Xử lý cập nhật số lượng sản phẩm
-  const handleUpdateQuantity = (variantId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
-    debouncedUpdateCartItem(variantId, quantity, showToast, selectedBranchId);
-
+  const handleUpdateQuantity = (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
+    debouncedUpdateCartItem(itemId, quantity, showToast, selectedBranchId);
   };
 
   // Xử lý xóa sản phẩm khỏi giỏ hàng - Use context function
-
-  const handleRemoveItem = (variantId: string) => {
-    removeCartItem(variantId);
-
+  const handleRemoveItem = (itemId: string) => {
+    removeCartItem(itemId);
   };
 
   // Xử lý áp dụng mã giảm giá
@@ -322,10 +319,10 @@ const CartPage: NextPage = () => {
                     <div className="space-y-1">
                       {group.items.map(item => (
                         <CartItem
-                          key={item._id}
-                          _id={item.variantId}
+                          key={item._id} // key vẫn là item._id (unique CartProduct ID)
+                          _id={item._id} // Truyền item._id (unique CartProduct ID) cho prop _id của CartItem
                           productId={item.productId}
-                          variantId={item.variantId}
+                          variantId={item.variantId} // Vẫn truyền actual variantId cho prop variantId
                           name={item.name}
                           slug={item.slug}
                           image={item.image}
