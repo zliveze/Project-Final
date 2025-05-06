@@ -2,7 +2,45 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FiSave, FiX, FiAlertCircle } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
-import { useAdminOrder, Order, OrderItem, ShippingAddress } from '@/contexts';
+import { useAdminOrder } from '@/contexts';
+
+interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  options?: Record<string, string>;
+}
+
+interface ShippingAddress {
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  ward: string;
+  district: string;
+  province: string;
+  postalCode?: string;
+}
+
+interface Order {
+  _id: string;
+  status: string;
+  paymentStatus: string;
+  notes?: string;
+  items: OrderItem[];
+  shippingAddress: ShippingAddress;
+  subtotal: number;
+  tax: number;
+  shippingFee: number;
+  totalPrice: number;
+  finalPrice: number;
+  voucher?: {
+    code?: string;
+    discountAmount: number;
+  };
+}
 
 interface OrderEditFormProps {
   orderId: string;
@@ -456,7 +494,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {order.items.map((item, index) => (
+                {order.items.map((item: OrderItem, index: number) => (
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

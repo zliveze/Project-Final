@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useCart } from './user/cart/CartContext';
+import { useWishlist } from './user/wishlist/WishlistContext';
 
 // Định nghĩa các kiểu dữ liệu
 export interface CategoryItem {
@@ -70,6 +72,22 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [wishlistItemCount, setWishlistItemCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // Sử dụng CartContext và WishlistContext để lấy số lượng sản phẩm
+  // Sử dụng try-catch để tránh lỗi khi context chưa được khởi tạo
+  let cart;
+  let wishlist;
+  try {
+    cart = useCart();
+  } catch (error) {
+    console.log('CartContext chưa được khởi tạo trong HeaderContext');
+  }
+
+  try {
+    wishlist = useWishlist();
+  } catch (error) {
+    console.log('WishlistContext chưa được khởi tạo trong HeaderContext');
+  }
 
   // State cho tìm kiếm sản phẩm
   const [searchTerm, setSearchTerm] = useState('');
@@ -216,6 +234,20 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [searchTerm, router]);
 
+  // Cập nhật số lượng sản phẩm trong giỏ hàng từ CartContext
+  useEffect(() => {
+    if (cart && cart.itemCount !== undefined) {
+      setCartItemCount(cart.itemCount);
+    }
+  }, [cart?.itemCount]);
+
+  // Cập nhật số lượng sản phẩm trong wishlist từ WishlistContext
+  useEffect(() => {
+    if (wishlist && wishlist.itemCount !== undefined) {
+      setWishlistItemCount(wishlist.itemCount);
+    }
+  }, [wishlist?.itemCount]);
+
   // Tải dữ liệu từ API khi component được mount
   useEffect(() => {
     // Mock data cho categories
@@ -289,10 +321,8 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // TODO: Lấy số lượng sản phẩm trong giỏ hàng và wishlist
-    // Giả lập dữ liệu
-    setCartItemCount(0);
-    setWishlistItemCount(0);
+    // Không cần thiết lập giá trị mặc định cho cartItemCount và wishlistItemCount
+    // vì chúng sẽ được cập nhật từ CartContext và WishlistContext
   }, []);
 
   const value = {

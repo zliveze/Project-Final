@@ -7,6 +7,8 @@ import { HeaderProvider } from '@/contexts/HeaderContext'
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { useCart } from '@/contexts/user/cart/CartContext'
+import { useWishlist } from '@/contexts/user/wishlist/WishlistContext'
 
 interface DefaultLayoutProps {
   children: React.ReactNode;
@@ -128,6 +130,11 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
   if (!mounted) {
     return <div className="min-h-screen flex flex-col"></div>;
   }
+
+  // Sử dụng các context để đảm bảo chúng được khởi tạo trước khi HeaderProvider
+  // Điều này giúp HeaderProvider có thể truy cập vào các context này
+  const cart = useCart();
+  const wishlist = useWishlist();
 
   return (
     <HeaderProvider>
