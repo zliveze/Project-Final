@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings, FiBell, FiStar } from 'react-icons/fi';
+import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings, FiBell, FiStar, FiChevronDown } from 'react-icons/fi';
 import { UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
 import { useHeader } from '@/contexts/HeaderContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import SearchResults from './SearchResults';
 
 interface MiddleHeaderProps {
@@ -111,11 +111,13 @@ function MiddleHeader({
       timeoutRef.current = null;
     }
     setShowUserDropdown(true);
+    console.log('Mouse enter - showing user dropdown');
   };
 
   const handleMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setShowUserDropdown(false);
+      console.log('Mouse leave timeout - hiding user dropdown');
     }, 300); // Đợi 300ms trước khi ẩn menu
   };
 
@@ -161,6 +163,28 @@ function MiddleHeader({
     console.log('showSearchResults:', showSearchResults);
     console.log('searchTerm:', searchTerm);
   }, [showSearchResults, searchTerm]);
+
+  // Theo dõi trạng thái của dropdown tài khoản
+  useEffect(() => {
+    console.log('showUserDropdown:', showUserDropdown);
+  }, [showUserDropdown]);
+
+  // Xử lý click bên ngoài để đóng dropdown tài khoản
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    }
+
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
 
   // Dọn dẹp timeout khi component bị unmount
   useEffect(() => {
@@ -267,6 +291,7 @@ function MiddleHeader({
                 className="flex items-center text-gray-700 cursor-pointer group"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
                 whileHover={{ scale: 1.03 }}
               >
                 <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-2 text-pink-600">
@@ -276,13 +301,16 @@ function MiddleHeader({
                   <span className="text-sm font-medium">{isLoggedIn ? (userProfile?.name || 'Tài khoản') : 'Đăng nhập'}</span>
                   <span className="text-xs text-gray-500">{isLoggedIn ? 'Quản lý' : 'Tài khoản'}</span>
                 </div>
+                <FiChevronDown className={`w-3.5 h-3.5 ml-1.5 opacity-70 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+              </motion.div>
 
-                {/* Dropdown menu */}
+              {/* Dropdown menu */}
+              <AnimatePresence>
                 {showUserDropdown && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
+                    exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                     className="absolute right-0 top-full mt-1 w-56 bg-white rounded-md shadow-lg z-50 py-1 border border-gray-100"
                     onMouseEnter={handleMouseEnter}
@@ -355,7 +383,7 @@ function MiddleHeader({
                     )}
                   </motion.div>
                 )}
-              </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* Wishlist */}
