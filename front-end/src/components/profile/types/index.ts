@@ -42,21 +42,23 @@ export interface User {
 
 // Type cho sản phẩm trong wishlist (Updated to match WishlistContext and backend response)
 export interface WishlistItem {
-    productId: string; // Use productId from backend response
-    variantId: string;
+    _id: string; // ID của sản phẩm trong wishlist
+    productId: string; // ID của sản phẩm
+    variantId: string | null; // ID của biến thể, null nếu không có biến thể
     name: string;
     slug: string;
     price: number;
     currentPrice: number;
-    image: string; // URL of the image
+    image: string; // URL của hình ảnh
     brand: {
         name: string;
         slug: string;
-        logo?: string; // Optional logo URL
+        logo?: string; // URL logo (tùy chọn)
     } | null;
     inStock: boolean;
-    variantOptions?: any; // Optional: Color, Size, etc. from variant
-    // _id can be added if needed, but productId/variantId are the identifiers
+    options?: { // Các tùy chọn của sản phẩm (kích thước, màu sắc, v.v.)
+        [key: string]: string;
+    };
 }
 
 

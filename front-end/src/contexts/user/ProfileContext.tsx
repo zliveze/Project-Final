@@ -329,11 +329,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const handleRemoveFromWishlist = async (productId: string, variantId?: string | null) => {
     try {
       setIsLoading(true);
-      await UserApiService.removeFromWishlist(productId);
+      await UserApiService.removeFromWishlist(productId, variantId || '');
 
       // Cập nhật danh sách wishlist trên giao diện
       setWishlistItems(prevItems =>
-        prevItems.filter(item => item._id !== productId)
+        prevItems.filter(item =>
+          !(item.productId === productId && item.variantId === variantId)
+        )
       );
 
       toast.success('Đã xóa sản phẩm khỏi danh sách yêu thích!');
@@ -347,6 +349,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleAddToCart = (productId: string, variantId?: string | null) => {
     // Giả lập thêm sản phẩm vào giỏ hàng - tích hợp với CartContext (nếu có)
+    console.log(`Thêm sản phẩm ${productId} ${variantId ? `với biến thể ${variantId}` : ''} vào giỏ hàng`);
     toast.success('Đã thêm sản phẩm vào giỏ hàng!');
   };
 

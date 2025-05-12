@@ -10,8 +10,12 @@ export const mockUser: User = {
     {
       _id: '1',
       addressLine: '123 Đường Lê Lợi',
-      city: 'TP. Hồ Chí Minh',
-      state: 'Quận 1',
+      wardName: 'Phường Bến Nghé',
+      wardCode: '26734',
+      districtName: 'Quận 1',
+      districtCode: '760',
+      provinceName: 'TP. Hồ Chí Minh',
+      provinceCode: '79',
       country: 'Việt Nam',
       postalCode: '70000',
       isDefault: true,
@@ -19,8 +23,12 @@ export const mockUser: User = {
     {
       _id: '2',
       addressLine: '456 Đường Nguyễn Huệ',
-      city: 'TP. Hồ Chí Minh',
-      state: 'Quận 3',
+      wardName: 'Phường Bến Thành',
+      wardCode: '26737',
+      districtName: 'Quận 1',
+      districtCode: '760',
+      provinceName: 'TP. Hồ Chí Minh',
+      provinceCode: '79',
       country: 'Việt Nam',
       postalCode: '70000',
       isDefault: false,
@@ -42,6 +50,7 @@ export const mockUser: User = {
 // Mock data cho wishlist items
 export const mockWishlistItems: WishlistItem[] = [
   {
+    _id: '1', // Thêm _id để phù hợp với API
     productId: '1',
     variantId: 'v1',
     name: 'Kem dưỡng ẩm Neutrogena',
@@ -55,13 +64,14 @@ export const mockWishlistItems: WishlistItem[] = [
       logo: 'https://example.com/brands/neutrogena.png'
     },
     inStock: true,
-    variantOptions: {
+    options: { // Đổi từ variantOptions thành options để phù hợp với API
       size: 'Full size',
     }
   },
   {
+    _id: '2',
     productId: '2',
-    variantId: 'v2',
+    variantId: null, // Sản phẩm không có biến thể
     name: 'Serum Vitamin C The Ordinary',
     slug: 'serum-vitamin-c-the-ordinary',
     price: 450000,
@@ -73,8 +83,10 @@ export const mockWishlistItems: WishlistItem[] = [
       logo: 'https://example.com/brands/the-ordinary.png'
     },
     inStock: true,
+    options: {} // Thêm options rỗng
   },
   {
+    _id: '3',
     productId: '3',
     variantId: 'v3',
     name: 'Son môi Dior Rouge',
@@ -88,7 +100,7 @@ export const mockWishlistItems: WishlistItem[] = [
       logo: 'https://example.com/brands/dior.png'
     },
     inStock: true,
-    variantOptions: {
+    options: { // Đổi từ variantOptions thành options
       shade: 'Ruby Red',
     }
   },
@@ -132,7 +144,7 @@ export const mockOrders: Order[] = [
       discountAmount: 50000,
     },
     shippingInfo: {
-      address: '123 Đường Lê Lợi, Quận 1, TP. Hồ Chí Minh',
+      address: '123 Đường Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
       contact: 'Nguyễn Văn A - 0987654321',
     },
     tracking: {
@@ -180,8 +192,10 @@ export const mockOrders: Order[] = [
     products: [
       {
         productId: '2',
+        variantId: null, // Sản phẩm không có biến thể
         name: 'Serum Vitamin C The Ordinary',
         image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+        options: {}, // Thêm options rỗng
         quantity: 2,
         price: 450000,
       },
@@ -189,7 +203,7 @@ export const mockOrders: Order[] = [
     totalPrice: 900000,
     finalPrice: 900000,
     shippingInfo: {
-      address: '456 Đường Nguyễn Huệ, Quận 3, TP. Hồ Chí Minh',
+      address: '456 Đường Nguyễn Huệ, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh',
       contact: 'Nguyễn Văn A - 0987654321',
     },
     tracking: {
@@ -271,6 +285,7 @@ export const mockReviews: Review[] = [
       'https://images.unsplash.com/photo-1556228720-195a672e8a03?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
     ],
     createdAt: '2023-05-20T10:15:00.000Z',
+    updatedAt: '2023-05-20T10:15:00.000Z', // Thêm updatedAt
     isVerifiedPurchase: true,
   },
   {
@@ -281,7 +296,9 @@ export const mockReviews: Review[] = [
     rating: 5,
     title: 'Son môi chuẩn màu, lên màu đẹp',
     comment: 'Son lên màu rất đẹp, chất son mịn, mướt, không gây khô môi. Màu Ruby Red rất sang trọng, phù hợp cả ngày lẫn đêm. Sẽ mua thêm các màu khác.',
+    images: [], // Thêm mảng images rỗng
     createdAt: '2023-05-25T15:30:00.000Z',
+    updatedAt: '2023-05-25T15:30:00.000Z', // Thêm updatedAt
     isVerifiedPurchase: true,
   }
 ];

@@ -5,15 +5,11 @@ import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { WishlistItem } from './types';
 
-// Mở rộng interface để tương thích với cả dữ liệu cũ và mới
 interface WishlistItemProps {
-  items: Array<WishlistItem & {
-    imageUrl?: string;
-    currentPrice?: number;
-  }>;
+  items: WishlistItem[];
   onRemoveFromWishlist?: (productId: string, variantId?: string | null) => void;
   onAddToCart?: (productId: string, variantId?: string | null) => void;
-  isLoading?: boolean; // Add isLoading prop
+  isLoading?: boolean;
 }
 
 const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = false }: WishlistItemProps) => { // Destructure and provide default
@@ -122,26 +118,25 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
                 {/* Hiển thị các tùy chọn nếu có */}
                 {item.options && Object.keys(item.options).length > 0 && (
                   <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-2">
-                    {item.options.size && (
-                      <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                        Kích thước: {item.options.size}
+                    {Object.entries(item.options).map(([key, value]) => (
+                      <span key={key} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs">
+                        {key === 'size' ? 'Kích thước' :
+                         key === 'shade' ? 'Màu' :
+                         key.charAt(0).toUpperCase() + key.slice(1)}: {value}
                       </span>
-                    )}
-                    {item.options.shade && (
-                      <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                        Màu: {item.options.shade}
-                      </span>
-                    )}
+                    ))}
                   </div>
                 )}
 
                 {/* Giá */}
                 <div className="mt-2 flex items-center justify-center sm:justify-start">
                   <span className="text-pink-600 font-semibold">
-                    {item.discountPrice ? formatPrice(item.discountPrice) : (item.currentPrice && item.currentPrice < item.price) ? formatPrice(item.currentPrice) : formatPrice(item.price)}
+                    {item.currentPrice && item.currentPrice < item.price
+                      ? formatPrice(item.currentPrice)
+                      : formatPrice(item.price)}
                   </span>
 
-                  {(item.discountPrice || (item.currentPrice && item.currentPrice < item.price)) && (
+                  {item.currentPrice && item.currentPrice < item.price && (
                     <span className="ml-2 text-gray-400 line-through text-sm">
                       {formatPrice(item.price)}
                     </span>
@@ -188,7 +183,7 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
             <p className="text-gray-600 mt-1">
               Tổng giá trị: <span className="font-semibold text-pink-600">
                 {formatPrice(items.reduce((total, item) =>
-                  total + (item.discountPrice || item.currentPrice || item.price), 0)
+                  total + ((item.currentPrice && item.currentPrice < item.price) ? item.currentPrice : item.price), 0)
                 )}
               </span>
             </p>
