@@ -2,6 +2,7 @@ import React from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import { Order } from './types';
+import Portal from '@/components/common/Portal';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -78,8 +79,9 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Portal>
+      <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}>
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white p-6 border-b flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">
             Chi tiết đơn hàng #{order.orderNumber}
@@ -276,8 +278,9 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 };
 
-export default OrderDetailModal; 
+export default OrderDetailModal;

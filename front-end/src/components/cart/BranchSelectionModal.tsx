@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiMapPin, FiCheck } from 'react-icons/fi';
 import { useBranches } from '@/hooks/useBranches';
+import Portal from '@/components/common/Portal';
 
 interface BranchInventory {
   branchId: string;
@@ -65,8 +66,9 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+    <Portal>
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}>
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Chọn chi nhánh</h3>
         </div>
@@ -132,8 +134,9 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
             Xác nhận
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </Portal>
   );
 };
 

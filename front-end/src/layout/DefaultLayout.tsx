@@ -136,16 +136,17 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
       <div className="fixed inset-0 z-0">
         <BackgroundAnimation />
       </div>
-      <div className="sticky top-0 z-50">
+      {/* Header không sử dụng sticky và z-index */}
+      <div className="w-full">
         <MainHeader />
       </div>
-      <div className="relative z-30">
+      <div className="relative">
          {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
       </div>
-      <main className="flex-grow relative z-20">
+      <main className="flex-grow relative">
          {children}
       </main>
-      <div className="relative z-10">
+      <div className="relative">
         <Footer />
       </div>
       <ToastContainer
@@ -158,7 +159,7 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        style={{ zIndex: 9999 }}
+        style={{ zIndex: 1000 }}
         toastStyle={{
           marginBottom: '60px',
           marginRight: '10px'

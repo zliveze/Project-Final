@@ -29,12 +29,12 @@ export default function MainHeader() {
   return (
     <header className="w-full bg-white relative">
       {/* Thông báo hệ thống */}
-      <div className="relative z-[52]">
+      <div className="relative">
         <NotificationSection />
       </div>
 
       {/* Logo, tìm kiếm, tài khoản, giỏ hàng */}
-      <div className="relative z-[51]">
+      <div className="relative">
         <MiddleHeader
           onMenuToggle={() => setMobileMenuOpen(!isMobileMenuOpen)}
           isLoggedIn={isLoggedIn}
@@ -45,7 +45,7 @@ export default function MainHeader() {
       </div>
 
       {/* Navigation chính */}
-      <div className="relative z-[50]">
+      <div className="relative">
         <BottomHeader
           categories={categories}
           featuredBrands={featuredBrands}
@@ -53,7 +53,7 @@ export default function MainHeader() {
       </div>
 
       {/* Menu mobile */}
-      <div className="relative z-[53]">
+      <div className="relative">
         <MobileSideMenu
           isOpen={isMobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
@@ -72,7 +72,7 @@ export default function MainHeader() {
 
       {/* Mobile search button */}
       <button
-        className="lg:hidden fixed bottom-6 right-6 w-12 h-12 rounded-full bg-pink-600 text-white shadow-lg flex items-center justify-center z-40"
+        className="lg:hidden fixed bottom-6 right-6 w-12 h-12 rounded-full bg-pink-600 text-white shadow-lg flex items-center justify-center"
         onClick={() => setIsMobileSearchOpen(true)}
         aria-label="Tìm kiếm"
       >

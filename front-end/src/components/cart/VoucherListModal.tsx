@@ -4,6 +4,7 @@ import { Voucher } from '@/hooks/useUserVoucher';
 import { formatDate } from '@/utils/dateUtils';
 import Image from 'next/image';
 import { FaPercent, FaTimes, FaSearch, FaCheck } from 'react-icons/fa';
+import Portal from '@/components/common/Portal';
 
 // Thêm interface mở rộng cho Voucher để bổ sung thuộc tính hasUserUsed
 interface VoucherWithUserStatus extends Voucher {
@@ -50,7 +51,7 @@ export function VoucherListModal({
   const isVoucherUsedByUser = (voucher: Voucher): boolean => {
     // Kiểm tra xem voucher có mảng usedByUsers không và user có ID không
     if (!voucher.usedByUsers || !user?._id) return false;
-    
+
     // Trong trường hợp mảng usedByUsers chứa các ObjectId từ MongoDB
     // Cần kiểm tra cả trường hợp ID đơn giản và trường hợp ID là object có chứa $oid
     return voucher.usedByUsers.some(userId => {
@@ -58,14 +59,14 @@ export function VoucherListModal({
       if (typeof userId === 'string') {
         return userId === user._id;
       }
-      
+
       // Trường hợp ID là object từ MongoDB với $oid
       // @ts-ignore - Bỏ qua kiểm tra kiểu dữ liệu cho trường hợp đặc biệt này
       if (userId && userId.$oid) {
         // @ts-ignore
         return userId.$oid === user._id;
       }
-      
+
       return false;
     });
   };
@@ -73,12 +74,12 @@ export function VoucherListModal({
   // Xử lý và phân loại voucher dựa trên trạng thái sử dụng
   const { actualAvailableVouchers, actualUnavailableVouchers } = useMemo(() => {
     if (!isOpen || !isMounted) {
-      return { 
-        actualAvailableVouchers: [] as VoucherWithUserStatus[], 
-        actualUnavailableVouchers: [] as VoucherWithUserStatus[] 
+      return {
+        actualAvailableVouchers: [] as VoucherWithUserStatus[],
+        actualUnavailableVouchers: [] as VoucherWithUserStatus[]
       };
     }
-    
+
     // Thêm trạng thái đã sử dụng vào tất cả voucher
     const availableWithStatus = availableVouchers.map(voucher => {
       const hasUsed = isVoucherUsedByUser(voucher);
@@ -87,22 +88,22 @@ export function VoucherListModal({
         hasUserUsed: hasUsed
       };
     }) as VoucherWithUserStatus[];
-    
+
     const unavailableWithStatus = unavailableVouchers.map(voucher => ({
       ...voucher,
       hasUserUsed: isVoucherUsedByUser(voucher)
     })) as VoucherWithUserStatus[];
-    
+
     // Phân loại: Chuyển voucher đã dùng sang danh sách không khả dụng
     const available = availableWithStatus.filter(voucher => !voucher.hasUserUsed);
     const unavailable = [
       ...unavailableWithStatus,
       ...availableWithStatus.filter(voucher => voucher.hasUserUsed)
     ];
-    
-    return { 
-      actualAvailableVouchers: available, 
-      actualUnavailableVouchers: unavailable 
+
+    return {
+      actualAvailableVouchers: available,
+      actualUnavailableVouchers: unavailable
     };
   }, [availableVouchers, unavailableVouchers, user, isOpen, isMounted]);
 
@@ -128,7 +129,7 @@ export function VoucherListModal({
   // Tìm voucher tốt nhất dựa trên giá trị giảm giá
   const bestVoucher = useMemo(() => {
     if (!isOpen || !isMounted || filteredAvailableVouchers.length === 0) return null;
-    
+
     return [...filteredAvailableVouchers].sort((a, b) => {
       const valueA = a.discountType === 'percentage' ? subtotal * (a.discountValue / 100) : a.discountValue;
       const valueB = b.discountType === 'percentage' ? subtotal * (b.discountValue / 100) : b.discountValue;
@@ -163,7 +164,7 @@ export function VoucherListModal({
   // Hiển thị lý do không khả dụng
   const getUnavailableReason = (voucher: VoucherWithUserStatus) => {
     if (voucher.hasUserUsed) return 'Bạn đã sử dụng voucher này rồi';
-    
+
     const now = new Date();
     const startDate = new Date(voucher.startDate);
     const endDate = new Date(voucher.endDate);
@@ -265,13 +266,15 @@ export function VoucherListModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <Portal>
+      <div className="fixed inset-0 flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'auto' }}>
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+          aria-hidden="true"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
 
       {/* Modal */}
       <div
@@ -341,8 +344,8 @@ export function VoucherListModal({
              filteredAvailableVouchers.length > 0 ? (
                <div>
                  {filteredAvailableVouchers.map(voucher => renderVoucher(
-                   voucher, 
-                   true, 
+                   voucher,
+                   true,
                    bestVoucher !== null && voucher._id === bestVoucher._id
                  ))}
                </div>
@@ -377,7 +380,8 @@ export function VoucherListModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 }
 

@@ -59,9 +59,9 @@ interface OrderHistoryProps {
   onBuyAgain?: (orderId: string) => void;
 }
 
-const OrderHistory = ({ 
-  orders, 
-  onViewOrderDetails, 
+const OrderHistory = ({
+  orders,
+  onViewOrderDetails,
   onDownloadInvoice,
   onCancelOrder,
   onReturnOrder,
@@ -230,7 +230,7 @@ const OrderHistory = ({
               </button>
             </div>
           </div>
-          
+
           <div className="p-4">
             <div className="flex flex-col sm:flex-row items-start">
               {/* Hiển thị ảnh sản phẩm đầu tiên */}
@@ -248,20 +248,20 @@ const OrderHistory = ({
                   </div>
                 )}
               </div>
-              
+
               {/* Thông tin đơn hàng */}
               <div className="sm:ml-4 flex-1">
                 <h3 className="text-sm font-medium text-gray-800 truncate">{order.products[0].name}</h3>
                 <p className="text-xs text-gray-500">
-                  {order.products.length > 1 
-                    ? `và ${order.products.length - 1} sản phẩm khác` 
+                  {order.products.length > 1
+                    ? `và ${order.products.length - 1} sản phẩm khác`
                     : 'Số lượng: ' + order.products[0].quantity}
                 </p>
                 <p className="mt-1 text-sm font-medium text-pink-600">
                   {formatPrice(order.finalPrice)}
                 </p>
               </div>
-              
+
               {/* Hành động với đơn hàng */}
               <div className="mt-2 sm:mt-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2 sm:ml-4">
                 {canCancelOrder(order.status) && (
@@ -272,7 +272,7 @@ const OrderHistory = ({
                     <FaTimes className="mr-1" /> Hủy đơn
                   </button>
                 )}
-                
+
                 {canReturnOrder(order.status) && (
                   <button
                     onClick={() => handleReturnOrder(order._id)}
@@ -281,7 +281,7 @@ const OrderHistory = ({
                     <FaUndo className="mr-1" /> Trả hàng
                   </button>
                 )}
-                
+
                 {order.status === 'delivered' && (
                   <button
                     onClick={() => handleBuyAgain(order._id)}
@@ -292,7 +292,7 @@ const OrderHistory = ({
                 )}
               </div>
             </div>
-            
+
             {/* Hiện thị trạng thái đơn hàng */}
             {order.tracking && order.tracking.status && order.tracking.status.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
@@ -313,22 +313,20 @@ const OrderHistory = ({
           </div>
         </div>
       ))}
-      
+
       {/* Hiện thị modal chi tiết đơn hàng nếu có */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <OrderDetailModal 
-            order={selectedOrder} 
-            onClose={handleCloseModal}
-            onBuyAgain={handleBuyAgain}
-            onDownloadInvoice={handleDownloadInvoice}
-            onCancelOrder={handleCancelOrder}
-            onReturnOrder={handleReturnOrder}
-          />
-        </div>
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={handleCloseModal}
+          onBuyAgain={handleBuyAgain}
+          onDownloadInvoice={handleDownloadInvoice}
+          onCancelOrder={handleCancelOrder}
+          onReturnOrder={handleReturnOrder}
+        />
       )}
     </div>
   );
 };
 
-export default OrderHistory; 
+export default OrderHistory;

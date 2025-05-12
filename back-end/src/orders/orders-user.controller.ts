@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, QueryOrderDto, CalculateShippingDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -31,6 +32,19 @@ import {
 @ApiBearerAuth()
 export class OrdersUserController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  /**
+   * Helper method to extract userId from order.userId which could be either an ObjectId or a populated User object
+   */
+  private getUserIdFromOrder(orderUserId: any): string {
+    if (typeof orderUserId === 'object' && orderUserId !== null) {
+      // Nếu userId là object (đã được populate từ User model)
+      return orderUserId._id ? orderUserId._id.toString() : '';
+    } else {
+      // Nếu userId là ObjectId
+      return (orderUserId as Types.ObjectId).toString();
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Tạo đơn hàng mới' })
@@ -64,10 +78,16 @@ export class OrdersUserController {
     @Param('id') id: string,
     @CurrentUser('userId') userId: string,
   ) {
+    console.log(`[OrdersUserController] findOne - Received id: ${id} userId: ${userId}`);
     const order = await this.ordersService.findOne(id);
 
-    // Kiểm tra xem đơn hàng có thuộc về người dùng hiện tại không
-    if (order.userId.toString() !== userId) {
+    // Lấy userId từ order
+    const orderUserId = this.getUserIdFromOrder(order.userId);
+    console.log(`[OrdersUserController] findOne - Type of order.userId: ${typeof order.userId}, Value: ${JSON.stringify(order.userId)}`);
+    console.log(`[OrdersUserController] findOne - Checking permission: orderUserId (${orderUserId}) vs current userId (${userId})`);
+
+    if (orderUserId !== userId) {
+      console.log(`[OrdersUserController] findOne - Permission denied for order ${id}. Order UserID: ${orderUserId}, Current UserID: ${userId}`);
       throw new BadRequestException('You do not have permission to view this order');
     }
 
@@ -85,8 +105,10 @@ export class OrdersUserController {
   ) {
     const order = await this.ordersService.findOne(id);
 
-    // Kiểm tra xem đơn hàng có thuộc về người dùng hiện tại không
-    if (order.userId.toString() !== userId) {
+    // Lấy userId từ order
+    const orderUserId = this.getUserIdFromOrder(order.userId);
+
+    if (orderUserId !== userId) {
       throw new BadRequestException('You do not have permission to view this order tracking');
     }
 
@@ -104,8 +126,10 @@ export class OrdersUserController {
   ) {
     const order = await this.ordersService.findOne(id);
 
-    // Kiểm tra xem đơn hàng có thuộc về người dùng hiện tại không
-    if (order.userId.toString() !== userId) {
+    // Lấy userId từ order
+    const orderUserId = this.getUserIdFromOrder(order.userId);
+
+    if (orderUserId !== userId) {
       throw new BadRequestException('You do not have permission to view this order tracking information');
     }
 
@@ -154,8 +178,10 @@ export class OrdersUserController {
 
     const order = await this.ordersService.findOne(id);
 
-    // Kiểm tra xem đơn hàng có thuộc về người dùng hiện tại không
-    if (order.userId.toString() !== userId) {
+    // Lấy userId từ order
+    const orderUserId = this.getUserIdFromOrder(order.userId);
+
+    if (orderUserId !== userId) {
       throw new BadRequestException('You do not have permission to cancel this order');
     }
 
