@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
+import { FaShoppingBag, FaExternalLinkAlt } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import { Order } from './types';
 import Portal from '@/components/common/Portal';
 import InvoiceDownloader from './InvoiceDownloader';
+import Link from 'next/link';
+import axiosInstance from '@/lib/axiosInstance';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -23,6 +26,41 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   onReturnOrder
 }) => {
   const router = useRouter();
+  const [productSlugs, setProductSlugs] = useState<{[key: string]: string}>({});
+  const [loadingSlugs, setLoadingSlugs] = useState<boolean>(false);
+
+  // Lấy slug của sản phẩm từ API
+  useEffect(() => {
+    const fetchProductSlugs = async () => {
+      try {
+        setLoadingSlugs(true);
+        const productIds = order.products.map(product => product.productId);
+
+        // Tạo một đối tượng để lưu trữ slug cho mỗi productId
+        const slugMap: {[key: string]: string} = {};
+
+        // Lấy thông tin slug cho từng sản phẩm
+        for (const productId of productIds) {
+          try {
+            const response = await axiosInstance.get(`/products/${productId}`);
+            if (response.data && response.data.slug) {
+              slugMap[productId] = response.data.slug;
+            }
+          } catch (error) {
+            console.error(`Không thể lấy thông tin sản phẩm ${productId}:`, error);
+          }
+        }
+
+        setProductSlugs(slugMap);
+      } catch (error) {
+        console.error('Lỗi khi lấy thông tin slug sản phẩm:', error);
+      } finally {
+        setLoadingSlugs(false);
+      }
+    };
+
+    fetchProductSlugs();
+  }, [order.products]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -139,7 +177,9 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                     />
                   </div>
                   <div className="ml-4 flex-1">
-                    <h4 className="font-medium text-gray-900">{product.name}</h4>
+                    <Link href={`/product/${productSlugs[product.productId] || product.productId}`}>
+                      <h4 className="font-medium text-gray-900 hover:text-pink-600 transition-colors">{product.name}</h4>
+                    </Link>
                     <div className="mt-1 flex flex-wrap text-sm text-gray-600">
                       {product.options && Object.entries(product.options).map(([key, value]) => (
                         <span key={key} className="mr-4">
@@ -150,6 +190,17 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                     </div>
                     <div className="mt-2 font-medium">
                       {formatCurrency(product.price * product.quantity)}
+                    </div>
+                    <div className="mt-2">
+                      <Link
+                        href={`/product/${productSlugs[product.productId] || product.productId}`}
+                        className="text-xs px-3 py-1 bg-pink-100 text-pink-600 rounded-full hover:bg-pink-200 transition-colors inline-flex items-center"
+                      >
+                        <FaExternalLinkAlt className="mr-1 text-xs" /> Xem sản phẩm
+                      </Link>
+                      {loadingSlugs && !productSlugs[product.productId] && (
+                        <span className="ml-2 text-xs text-gray-500">Đang tải...</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -236,15 +287,13 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
 
           {/* Nút hành động */}
           <div className="flex flex-wrap gap-2 justify-end mt-6 pt-4 border-t">
-            <button
-              onClick={() => {
-                onClose();
-                onBuyAgain(order._id);
-              }}
-              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:opacity-90 transition-opacity"
+            <Link
+              href="/shop"
+              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:opacity-90 transition-opacity flex items-center justify-center"
+              onClick={() => onClose()}
             >
-              Mua lại
-            </button>
+              <FaShoppingBag className="mr-2" /> Tiếp tục mua sắm
+            </Link>
             <InvoiceDownloader
               orderId={order._id}
               buttonText="Tải hóa đơn"

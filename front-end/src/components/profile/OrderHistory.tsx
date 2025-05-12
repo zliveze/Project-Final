@@ -274,10 +274,10 @@ const OrderHistory = ({
 
                 {order.status === 'delivered' && (
                   <button
-                    onClick={() => handleBuyAgain(order._id)}
+                    onClick={() => handleViewDetails(order._id)}
                     className="px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded hover:opacity-90 text-xs flex items-center justify-center"
                   >
-                    <FaShoppingCart className="mr-1" /> Mua lại
+                    <FaShoppingCart className="mr-1" /> Xem sản phẩm
                   </button>
                 )}
               </div>
