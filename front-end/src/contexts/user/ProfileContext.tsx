@@ -588,14 +588,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (updatedOrder) {
           // Cập nhật danh sách đơn hàng
-          setOrders(prevOrders =>
-            prevOrders.map(order =>
+          setOrders(prevOrders => {
+            if (!prevOrders || !Array.isArray(prevOrders)) {
+              return [];
+            }
+            return prevOrders.map(order =>
               order._id === orderId ? {
                 ...order,
                 status: 'cancelled'
               } : order
-            )
-          );
+            );
+          });
 
           // Cập nhật đơn hàng đang xem nếu cần
           if (selectedOrder && selectedOrder._id === orderId) {
@@ -628,14 +631,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const updatedOrder = await UserApiService.requestReturnOrder(orderId, reason);
 
       // Cập nhật danh sách đơn hàng
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
+      setOrders(prevOrders => {
+        if (!prevOrders || !Array.isArray(prevOrders)) {
+          return updatedOrder ? [updatedOrder] : [];
+        }
+        return prevOrders.map(order =>
           order._id === orderId ? updatedOrder : order
-        )
-      );
+        );
+      });
 
       // Cập nhật đơn hàng đang xem nếu cần
-      if (selectedOrder && selectedOrder._id === orderId) {
+      if (selectedOrder && selectedOrder._id === orderId && updatedOrder) {
         setSelectedOrder(updatedOrder);
       }
 
@@ -691,13 +697,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await UserApiService.markNotificationAsRead(notificationId);
 
       // Cập nhật trạng thái trên giao diện
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notification =>
+      setNotifications(prevNotifications => {
+        if (!prevNotifications || !Array.isArray(prevNotifications)) {
+          return [];
+        }
+        return prevNotifications.map(notification =>
           notification._id === notificationId
             ? { ...notification, isRead: true }
             : notification
-        )
-      );
+        );
+      });
     } catch (err) {
       console.error('Lỗi khi đánh dấu thông báo đã đọc:', err);
       // Không hiển thị toast lỗi để tránh làm phiền người dùng với thao tác nhỏ này
@@ -710,9 +719,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await UserApiService.markAllNotificationsAsRead();
 
       // Cập nhật trạng thái trên giao diện
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notification => ({ ...notification, isRead: true }))
-      );
+      setNotifications(prevNotifications => {
+        if (!prevNotifications || !Array.isArray(prevNotifications)) {
+          return [];
+        }
+        return prevNotifications.map(notification => ({ ...notification, isRead: true }));
+      });
 
       toast.success('Đã đánh dấu tất cả thông báo là đã đọc');
     } catch (err) {
@@ -729,9 +741,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await UserApiService.deleteNotification(notificationId);
 
       // Cập nhật danh sách thông báo
-      setNotifications(prevNotifications =>
-        prevNotifications.filter(notification => notification._id !== notificationId)
-      );
+      setNotifications(prevNotifications => {
+        if (!prevNotifications || !Array.isArray(prevNotifications)) {
+          return [];
+        }
+        return prevNotifications.filter(notification => notification._id !== notificationId);
+      });
 
       toast.success('Đã xóa thông báo');
     } catch (err) {
@@ -748,11 +763,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const updatedReview = await UserApiService.updateReview(reviewId, updatedData);
 
       // Cập nhật danh sách đánh giá
-      setReviews(prevReviews =>
-        prevReviews.map(review =>
+      setReviews(prevReviews => {
+        if (!prevReviews || !Array.isArray(prevReviews)) {
+          return updatedReview ? [updatedReview] : [];
+        }
+        return prevReviews.map(review =>
           review._id === reviewId ? updatedReview : review
-        )
-      );
+        );
+      });
 
       toast.success('Cập nhật đánh giá thành công!');
     } catch (err) {
@@ -769,9 +787,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await UserApiService.deleteReview(reviewId);
 
       // Cập nhật danh sách đánh giá
-      setReviews(prevReviews =>
-        prevReviews.filter(review => review._id !== reviewId)
-      );
+      setReviews(prevReviews => {
+        if (!prevReviews || !Array.isArray(prevReviews)) {
+          return [];
+        }
+        return prevReviews.filter(review => review._id !== reviewId);
+      });
 
       toast.success('Xóa đánh giá thành công!');
     } catch (err) {

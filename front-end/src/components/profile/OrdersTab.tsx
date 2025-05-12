@@ -82,10 +82,12 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
 
   // Cập nhật displayOrders khi orders từ context thay đổi
   useEffect(() => {
-    if (orders && orders.length > 0) {
+    if (orders && Array.isArray(orders) && orders.length > 0) {
       setDisplayOrders(convertOrders(orders));
-    } else {
+    } else if (profileOrders && Array.isArray(profileOrders)) {
       setDisplayOrders(profileOrders);
+    } else {
+      setDisplayOrders([]);
     }
   }, [orders, profileOrders]);
 
@@ -129,7 +131,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
       )}
 
       {/* Hiển thị số lượng đơn hàng tìm thấy */}
-      {!loading && displayOrders.length > 0 ? (
+      {!loading && displayOrders && Array.isArray(displayOrders) && displayOrders.length > 0 ? (
         <p className="text-sm text-gray-500 mb-4">Tìm thấy {displayOrders.length} đơn hàng</p>
       ) : !loading && (
         <div className="text-center py-8 bg-gray-50 rounded-lg mb-4">
@@ -146,7 +148,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
         </div>
       )}
 
-      {!loading && displayOrders.length > 0 && (
+      {!loading && displayOrders && Array.isArray(displayOrders) && displayOrders.length > 0 && (
         <OrderHistory
           orders={displayOrders}
           onViewOrderDetails={onViewOrderDetails}

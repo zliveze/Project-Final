@@ -4,6 +4,7 @@ import { OrdersService } from './orders.service';
 import { OrdersAdminController } from './orders-admin.controller';
 import { OrdersUserController } from './orders-user.controller';
 import { ShippingController } from './shipping.controller';
+import { WebhookController } from './webhook.controller'; // Import WebhookController
 import { Order, OrderSchema } from './schemas/order.schema';
 import { OrderTracking, OrderTrackingSchema } from './schemas/order-tracking.schema';
 import { SharedModule } from '../shared/shared.module';
@@ -24,7 +25,7 @@ import { VouchersModule } from '../vouchers/vouchers.module'; // Import Vouchers
     BranchesModule, // Add BranchesModule here
     VouchersModule, // Import VouchersModule
   ],
-  controllers: [OrdersAdminController, OrdersUserController, ShippingController],
+  controllers: [OrdersAdminController, OrdersUserController, ShippingController, WebhookController], // Add WebhookController
   providers: [OrdersService],
   exports: [
     OrdersService,

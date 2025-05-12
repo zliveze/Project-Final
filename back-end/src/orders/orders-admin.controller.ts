@@ -11,9 +11,10 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Put, // Thêm Put
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderDto, QueryOrderDto } from './dto';
+import { CreateOrderDto, UpdateOrderDto, QueryOrderDto, UpdateViettelPostStatusDto } from './dto'; // Thêm UpdateViettelPostStatusDto
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRoles } from '../common/decorators/admin-roles.decorator';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
@@ -33,6 +34,13 @@ import {
 @AdminRoles('admin', 'superadmin')
 export class OrdersAdminController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Lấy thống kê đơn hàng (Admin)' })
+  @ApiResponse({ status: 200, description: 'Trả về dữ liệu thống kê đơn hàng' })
+  async getOrderStats(@Query('period') period?: string) {
+    return this.ordersService.getOrderStatsForAdmin(period);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách đơn hàng (Admin)' })
@@ -149,5 +157,48 @@ export class OrdersAdminController {
   @ApiResponse({ status: 400, description: 'Chỉ có thể xóa đơn hàng đã hủy' })
   async remove(@Param('id') id: string) {
     return this.ordersService.remove(id);
+  }
+
+  @Put(':id/viettelpost-status')
+  @ApiOperation({ summary: 'Cập nhật trạng thái đơn hàng trên Viettel Post (Admin)' })
+  @ApiParam({ name: 'id', description: 'ID của đơn hàng trong hệ thống Yumin' })
+  @ApiBody({ type: UpdateViettelPostStatusDto, description: 'Thông tin cập nhật trạng thái Viettel Post. ORDER_NUMBER phải là mã vận đơn Viettel Post của đơn hàng này.' })
+  @ApiResponse({ status: 200, description: 'Trả về kết quả từ API Viettel Post' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy đơn hàng' })
+  @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ hoặc lỗi từ Viettel Post' })
+  async updateViettelPostStatus(
+    @Param('id') id: string,
+    @Body() updateVtpStatusDto: UpdateViettelPostStatusDto,
+  ) {
+    // Đảm bảo rằng ORDER_NUMBER trong DTO khớp với trackingCode của đơn hàng (nếu cần)
+    // Hoặc logic nghiệp vụ cho phép admin chỉ định một ORDER_NUMBER khác (ít khả năng)
+    // Trong trường hợp này, OrdersService sẽ kiểm tra sự khớp lệnh nếu cần.
+    return this.ordersService.updateViettelPostOrderStatus(id, updateVtpStatusDto);
+  }
+
+  @Post(':id/viettelpost-resend-webhook')
+  @ApiOperation({ summary: 'Yêu cầu Viettel Post gửi lại webhook cho đơn hàng (Admin)' })
+  @ApiParam({ name: 'id', description: 'ID của đơn hàng trong hệ thống Yumin' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Lý do yêu cầu gửi lại webhook (tùy chọn)',
+          example: 'Webhook trước đó bị lỗi xử lý',
+        },
+      },
+    },
+    required: false,
+  })
+  @ApiResponse({ status: 200, description: 'Trả về kết quả từ API Viettel Post (thường là thông báo thành công)' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy đơn hàng hoặc đơn hàng không có mã vận đơn' })
+  @ApiResponse({ status: 400, description: 'Lỗi từ Viettel Post' })
+  async requestResendViettelPostWebhook(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.ordersService.requestViettelPostResendWebhook(id, reason);
   }
 }

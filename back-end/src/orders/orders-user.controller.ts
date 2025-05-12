@@ -200,6 +200,51 @@ export class OrdersUserController {
     return this.ordersService.cancelOrder(id, reason);
   }
 
+  @Post(':id/return')
+  @ApiOperation({ summary: 'Yêu cầu trả hàng' })
+  @ApiParam({ name: 'id', description: 'ID của đơn hàng' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Lý do trả hàng',
+        },
+      },
+      required: ['reason'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Yêu cầu trả hàng đã được ghi nhận' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy đơn hàng' })
+  @ApiResponse({ status: 400, description: 'Không thể trả hàng ở trạng thái hiện tại' })
+  @HttpCode(HttpStatus.OK)
+  async returnOrder(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    if (!reason) {
+      throw new BadRequestException('Reason is required when returning an order');
+    }
+
+    const order = await this.ordersService.findOne(id);
+
+    // Lấy userId từ order
+    const orderUserId = this.getUserIdFromOrder(order.userId);
+
+    if (orderUserId !== userId) {
+      throw new BadRequestException('You do not have permission to return this order');
+    }
+
+    // Kiểm tra xem đơn hàng có thể trả không (chỉ đơn hàng đã giao mới có thể trả)
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Cannot return order with status ${order.status}. Only delivered orders can be returned.`);
+    }
+
+    return this.ordersService.returnOrder(id, reason, userId);
+  }
+
   @Post('calculate-shipping')
   @ApiOperation({ summary: 'Tính phí vận chuyển (API getPrice)' })
   @ApiBody({ type: CalculateShippingDto })

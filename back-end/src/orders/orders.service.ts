@@ -10,13 +10,15 @@ import {
   QueryOrderDto,
   PaginatedOrdersResponseDto,
   CalculateShippingDto,
-  ShippingFeeResponseDto
+  ShippingFeeResponseDto,
+  UpdateViettelPostStatusDto, // Import UpdateViettelPostStatusDto
 } from './dto';
 import { ViettelPostService } from '../shared/services/viettel-post.service';
 import { OrderTracking, OrderTrackingDocument } from './schemas/order-tracking.schema';
 import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../products/products.service';
 import { VouchersService } from '../vouchers/vouchers.service';
+import { ViettelPostWebhookDataDto } from './dto/viettelpost-webhook.dto'; // Import DTO
 
 @Injectable()
 export class OrdersService {
@@ -454,7 +456,7 @@ export class OrdersService {
               // Tìm sản phẩm trong database
               // this.logger.debug(`[SoldCount Update] Finding product with ID: ${productId}`); // DEBUG LOG - REMOVE
               const product = await this.productModel.findById(productId).exec();
-              
+
               if (!product) {
                 // this.logger.error(`[SoldCount Update] Product ${productId} not found in database.`); // DEBUG LOG - REMOVE (Kept in update method)
                 continue;
@@ -500,6 +502,7 @@ export class OrdersService {
    * Hủy đơn hàng
    */
   async cancelOrder(id: string, reason: string, updatedBy?: string): Promise<OrderDocument> {
+    this.logger.warn(`[CANCEL_ORDER_ENTRY] Attempting to cancel order ${id} with reason: "${reason}" by user: ${updatedBy || 'N/A'}`); // Thêm log WARN ở đây
     try {
       const order = await this.findOne(id);
 
@@ -536,6 +539,57 @@ export class OrdersService {
 
       if (!updatedOrder) {
         throw new NotFoundException(`Order with ID ${id} not found after cancel`);
+      }
+
+      // Đồng bộ trạng thái hủy sang Viettel Post nếu có mã vận đơn
+      if (updatedOrder.trackingCode) {
+        this.logger.log(`[SYNC_CANCEL_VTP] Order ${id} cancelled. Attempting to sync cancellation with ViettelPost (Tracking Code: ${updatedOrder.trackingCode})`);
+        try {
+          const vtpPayload: UpdateViettelPostStatusDto = {
+            TYPE: 4, // 4: Hủy đơn hàng
+            ORDER_NUMBER: updatedOrder.trackingCode,
+            NOTE: `Đơn hàng hủy bởi Yumin: ${reason}`,
+          };
+          this.logger.debug(`[SYNC_CANCEL_VTP] Payload to ViettelPost for order ${id}: ${JSON.stringify(vtpPayload)}`);
+          const vtpResult = await this.viettelPostService.updateOrderStatus(vtpPayload);
+          this.logger.log(`[SYNC_CANCEL_VTP] ViettelPost cancellation sync result for ${updatedOrder.trackingCode}: ${JSON.stringify(vtpResult)}`);
+
+          // Kiểm tra kết quả từ ViettelPost
+          if (vtpResult && vtpResult.status === 200 && vtpResult.error === false) {
+            this.logger.log(`[SYNC_CANCEL_VTP] Successfully synced cancellation to ViettelPost for order ${id}.`);
+            await this.orderModel.findByIdAndUpdate(id, {
+              'metadata.viettelPostCancelSync': {
+                status: 'success',
+                requestedAt: new Date(),
+                reason: reason,
+                result: vtpResult,
+              }
+            }).exec();
+          } else {
+            this.logger.warn(`[SYNC_CANCEL_VTP] ViettelPost returned a non-successful response for order ${id}: ${JSON.stringify(vtpResult)}`);
+            await this.orderModel.findByIdAndUpdate(id, {
+              'metadata.viettelPostCancelSync': {
+                status: 'failed_vtp_response',
+                requestedAt: new Date(),
+                reason: reason,
+                result: vtpResult, // Lưu lại kết quả không thành công
+              }
+            }).exec();
+          }
+        } catch (vtpError) {
+          this.logger.error(`[SYNC_CANCEL_VTP] Failed to sync cancellation status to ViettelPost for order ${id} (Tracking Code: ${updatedOrder.trackingCode}): ${vtpError.message}`, vtpError.stack);
+          await this.orderModel.findByIdAndUpdate(id, {
+            'metadata.viettelPostCancelSync': {
+              status: 'error_api_call',
+              requestedAt: new Date(),
+              reason: reason,
+              error: vtpError.message || 'Unknown ViettelPost API error',
+              errorDetails: vtpError.response?.data || vtpError.stack,
+            }
+          }).exec();
+        }
+      } else {
+        this.logger.log(`[SYNC_CANCEL_VTP] Order ${id} does not have a tracking code. Skipping ViettelPost sync.`);
       }
 
       return updatedOrder;
@@ -582,6 +636,79 @@ export class OrdersService {
       return updatedOrder as OrderDocument;
     } catch (error) {
       this.logger.error(`Error updating payment status: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Trả hàng đơn hàng
+   */
+  async returnOrder(id: string, reason: string, updatedBy?: string): Promise<OrderDocument> {
+    try {
+      const order = await this.findOne(id);
+
+      // Kiểm tra xem đơn hàng có thể trả không (chỉ đơn hàng đã giao mới có thể trả)
+      if (order.status !== OrderStatus.DELIVERED) {
+        throw new BadRequestException(`Cannot return order with status ${order.status}. Only delivered orders can be returned.`);
+      }
+
+      // Tạo yêu cầu chuyển hoàn qua Viettel Post nếu có mã vận đơn
+      if (order.trackingCode) {
+        try {
+          this.logger.debug(`Creating return request for order ${id} with tracking code ${order.trackingCode}`);
+
+          // Gọi API Viettel Post để tạo yêu cầu chuyển hoàn
+          const returnRequest = await this.viettelPostService.createReturnRequest(order.trackingCode, {
+            SERVICE_CODE: 'GCH',
+            SERVICE_NAME: 'GCH Chuyển hoàn',
+            REASON: reason
+          });
+
+          this.logger.debug(`Return request created successfully: ${JSON.stringify(returnRequest)}`);
+
+          // Lưu thông tin yêu cầu chuyển hoàn vào metadata của đơn hàng
+          await this.orderModel.findByIdAndUpdate(
+            id,
+            {
+              'metadata.returnRequest': returnRequest,
+            },
+            { new: false }
+          ).exec();
+        } catch (returnError) {
+          this.logger.error(`Error creating return request with Viettel Post: ${returnError.message}`, returnError.stack);
+          // Không throw lỗi ở đây, vẫn tiếp tục cập nhật trạng thái đơn hàng
+        }
+      }
+
+      // Cập nhật trạng thái đơn hàng
+      const updatedOrder = await this.orderModel
+        .findByIdAndUpdate(
+          id,
+          {
+            status: OrderStatus.RETURNED,
+            'metadata.returnReason': reason,
+            'metadata.returnedAt': new Date(),
+            'metadata.returnedBy': updatedBy,
+          },
+          { new: true }
+        )
+        .exec();
+
+      // Cập nhật lịch sử theo dõi
+      await this.updateOrderTracking(
+        id,
+        OrderStatus.RETURNED,
+        updatedBy,
+        `Đơn hàng đã được yêu cầu trả lại. Lý do: ${reason}`
+      );
+
+      if (!updatedOrder) {
+        throw new NotFoundException(`Order with ID ${id} not found after return`);
+      }
+
+      return updatedOrder;
+    } catch (error) {
+      this.logger.error(`Error returning order: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -1794,4 +1921,338 @@ export class OrdersService {
     return payload;
   }
 
+  /**
+   * Xử lý webhook cập nhật trạng thái từ Viettel Post
+   */
+  async handleViettelPostWebhook(data: ViettelPostWebhookDataDto): Promise<void> {
+    this.logger.log(`Handling ViettelPost webhook for tracking code: ${data.ORDER_NUMBER}`);
+    this.logger.debug(`Webhook data: ${JSON.stringify(data)}`);
+
+    // 1. Tìm đơn hàng bằng trackingCode (ORDER_NUMBER)
+    const order = await this.orderModel.findOne({ trackingCode: data.ORDER_NUMBER }).exec();
+
+    if (!order) {
+      this.logger.warn(`Order with tracking code ${data.ORDER_NUMBER} not found. Skipping webhook processing.`);
+      return; // Không tìm thấy đơn hàng, bỏ qua
+    }
+
+    // 2. Tìm hoặc tạo bản ghi OrderTracking
+    let orderTracking = await this.orderTrackingModel.findOne({ orderId: order._id }).exec();
+    if (!orderTracking) {
+      this.logger.warn(`OrderTracking not found for order ${order._id}. Creating a new one.`);
+      orderTracking = await this.orderTrackingModel.create({
+        orderId: order._id,
+        status: order.status, // Lấy trạng thái hiện tại của đơn hàng
+        trackingCode: data.ORDER_NUMBER,
+        carrier: { name: 'ViettelPost', trackingNumber: data.ORDER_NUMBER },
+        history: [], // Khởi tạo history rỗng
+      });
+    }
+
+    // 3. Parse ngày tháng trạng thái từ chuỗi dd/MM/yyyy HH:mm:ss
+    let statusTimestamp: Date;
+    try {
+      const parts = data.ORDER_STATUSDATE.split(/[\s/:]+/); // Tách ngày, tháng, năm, giờ, phút, giây
+      // Lưu ý: Tháng trong Date object là 0-indexed (0 = January, 11 = December)
+      statusTimestamp = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), parseInt(parts[3]), parseInt(parts[4]), parseInt(parts[5]));
+      if (isNaN(statusTimestamp.getTime())) {
+        throw new Error('Invalid date format');
+      }
+    } catch (e) {
+      this.logger.error(`Invalid ORDER_STATUSDATE format: ${data.ORDER_STATUSDATE}. Using current time.`);
+      statusTimestamp = new Date(); // Sử dụng thời gian hiện tại nếu định dạng lỗi
+    }
+
+    // 4. Kiểm tra trùng lặp trong lịch sử theo dõi
+    const existingHistoryEntry = orderTracking.history.find(
+      entry => entry.status === this.mapViettelPostStatusToInternal(data.ORDER_STATUS).internalStatus &&
+               entry.timestamp.getTime() === statusTimestamp.getTime() &&
+               entry.description === (data.NOTE || data.STATUS_NAME) // Kiểm tra cả description
+    );
+
+    if (existingHistoryEntry) {
+      this.logger.log(`Duplicate webhook event detected for order ${order._id}, status ${data.ORDER_STATUS} at ${data.ORDER_STATUSDATE}. Skipping.`);
+      return; // Bỏ qua nếu sự kiện đã tồn tại
+    }
+
+    // 5. Map trạng thái Viettel Post sang trạng thái nội bộ
+    const { internalStatus, isFinalStatus } = this.mapViettelPostStatusToInternal(data.ORDER_STATUS);
+
+    // 6. Kiểm tra nếu đơn hàng đã ở trạng thái kết thúc
+    const currentFinalStatuses = [OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.RETURNED];
+    if (currentFinalStatuses.includes(order.status)) {
+      this.logger.log(`Order ${order._id} is already in a final state (${order.status}). Skipping status update from webhook.`);
+      // Vẫn cập nhật lịch sử nếu trạng thái webhook chưa có
+    } else if (internalStatus && internalStatus !== order.status) {
+      // Chỉ cập nhật trạng thái Order nếu trạng thái mới khác trạng thái hiện tại và có ý nghĩa
+      this.logger.log(`Updating order ${order._id} status from ${order.status} to ${internalStatus}`);
+      order.status = internalStatus;
+      // Cập nhật thêm các trường khác nếu cần (ví dụ: paymentStatus khi giao thành công COD)
+      if (internalStatus === OrderStatus.DELIVERED && order.paymentMethod === PaymentMethod.COD) {
+        order.paymentStatus = PaymentStatus.PAID;
+        this.logger.log(`Updating payment status to PAID for COD order ${order._id}`);
+      }
+      await order.save();
+    }
+
+    // 7. Cập nhật lịch sử OrderTracking
+    const newHistoryEntry = {
+      status: internalStatus || order.status, // Sử dụng trạng thái đã map hoặc trạng thái hiện tại nếu không map được
+      description: data.NOTE || data.STATUS_NAME || `Cập nhật từ ViettelPost: ${data.ORDER_STATUS}`,
+      timestamp: statusTimestamp,
+      location: data.LOCALION_CURRENTLY || '', // Cung cấp giá trị mặc định nếu undefined
+      // updatedBy không bắt buộc nữa và không có sẵn từ webhook
+      metadata: { // Lưu thêm thông tin từ webhook
+        viettelPostStatus: data.ORDER_STATUS,
+        viettelPostStatusName: data.STATUS_NAME,
+        moneyCollection: data.MONEY_COLLECTION,
+        moneyFeeCod: data.MONEY_FEECOD,
+        moneyTotal: data.MONEY_TOTAL,
+      },
+    };
+
+    orderTracking.status = internalStatus || order.status; // Cập nhật trạng thái chính của tracking
+    orderTracking.history.push(newHistoryEntry);
+    // Sắp xếp lại lịch sử theo timestamp giảm dần (mới nhất lên đầu)
+    orderTracking.history.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    await orderTracking.save();
+    this.logger.log(`Updated order tracking history for order ${order._id}`);
+
+    // 8. Nếu là trạng thái kết thúc, có thể thực hiện thêm hành động (ví dụ: gửi thông báo)
+    if (isFinalStatus) {
+      this.logger.log(`Order ${order._id} reached final status: ${internalStatus}`);
+      // TODO: Implement post-final status actions (e.g., notifications)
+    }
+  }
+
+  /**
+   * Map trạng thái Viettel Post sang trạng thái nội bộ và kiểm tra trạng thái kết thúc
+   */
+  private mapViettelPostStatusToInternal(viettelPostStatus: number): { internalStatus: OrderStatus | null, isFinalStatus: boolean } {
+    // Danh sách trạng thái kết thúc của ViettelPost
+    const finalVtpStatuses = [501, 503, 504, 201, 107, -15]; // Thêm -15 nếu có
+    const isFinalStatus = finalVtpStatuses.includes(viettelPostStatus);
+
+    let internalStatus: OrderStatus | null = null;
+
+    // Mapping dựa trên tài liệu ViettelPost
+    if ([-100].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.PENDING;
+    } else if ([100, 102, 103, 104, -108, -109, -110].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.CONFIRMED; // Hoặc PENDING tùy logic
+    } else if ([105].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.PROCESSING; // Đã lấy hàng -> Đang xử lý
+    } else if ([200, 202, 300, 301, 302, 303, 400, 401, 402, 403].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.SHIPPING; // Đang vận chuyển
+    } else if ([500, 506, 570, 508, 509, 550].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.SHIPPING; // Đang giao hàng
+    } else if ([501].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.DELIVERED; // Phát thành công
+    } else if ([107, 201, 503].includes(viettelPostStatus)) {
+      internalStatus = OrderStatus.CANCELLED; // Đã hủy
+    } else if ([502, 504, 505, 515].includes(viettelPostStatus)) {
+      // Các trạng thái liên quan đến hoàn hàng có thể map sang RETURNED hoặc một trạng thái riêng
+      internalStatus = OrderStatus.RETURNED; // Hoặc tạo trạng thái RETURNING
+    }
+    // Các trạng thái khác có thể không cần map trực tiếp hoặc giữ nguyên trạng thái hiện tại
+
+    this.logger.debug(`Mapped ViettelPost status ${viettelPostStatus} to internal status ${internalStatus}. Is final: ${isFinalStatus}`);
+    return { internalStatus, isFinalStatus };
+  }
+
+  /**
+   * Cập nhật trạng thái đơn hàng trên Viettel Post
+   */
+  async updateViettelPostOrderStatus(orderId: string, updateVtpStatusDto: UpdateViettelPostStatusDto): Promise<any> {
+    this.logger.log(`Updating ViettelPost order status for order ID: ${orderId}, VTP Order Number: ${updateVtpStatusDto.ORDER_NUMBER}`);
+    this.logger.debug(`UpdateViettelPostStatusDto: ${JSON.stringify(updateVtpStatusDto)}`);
+
+    const order = await this.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (order.trackingCode !== updateVtpStatusDto.ORDER_NUMBER) {
+      this.logger.warn(`Tracking code mismatch for order ${orderId}. DB: ${order.trackingCode}, Request: ${updateVtpStatusDto.ORDER_NUMBER}`);
+      // Có thể throw lỗi hoặc cho phép nếu logic cho phép cập nhật bằng mã VTP khác
+      // throw new BadRequestException('Tracking code in request does not match order tracking code.');
+    }
+
+    try {
+      const result = await this.viettelPostService.updateOrderStatus(updateVtpStatusDto);
+      this.logger.log(`Successfully updated ViettelPost order status for ${updateVtpStatusDto.ORDER_NUMBER}. Result: ${JSON.stringify(result)}`);
+
+      // Sau khi cập nhật thành công trên ViettelPost, có thể cần cập nhật lại trạng thái nội bộ
+      // bằng cách gọi lại API lấy thông tin đơn hàng của ViettelPost hoặc xử lý dựa trên kết quả trả về.
+      // Ví dụ: nếu ViettelPost trả về trạng thái mới, cập nhật vào DB.
+      // Hoặc đơn giản là ghi log và để webhook (nếu có) xử lý cập nhật trạng thái DB.
+
+      // Tạm thời chỉ trả về kết quả từ ViettelPost
+      return result;
+    } catch (error) {
+      this.logger.error(`Error updating ViettelPost order status for ${updateVtpStatusDto.ORDER_NUMBER}: ${error.message}`, error.stack);
+      if (error.response && error.response.data) {
+        throw new BadRequestException(`ViettelPost API Error: ${JSON.stringify(error.response.data)}`);
+      }
+      throw new InternalServerErrorException('Failed to update ViettelPost order status.');
+    }
+  }
+
+  /**
+   * Yêu cầu Viettel Post gửi lại webhook cho một đơn hàng
+   */
+  async requestViettelPostResendWebhook(orderId: string, reason?: string): Promise<any> {
+    this.logger.log(`Requesting ViettelPost to resend webhook for order ID: ${orderId}`);
+
+    const order = await this.findOne(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (!order.trackingCode) {
+      throw new BadRequestException(`Order ${orderId} does not have a ViettelPost tracking code.`);
+    }
+
+    try {
+      const result = await this.viettelPostService.registerOrderHook(order.trackingCode, reason);
+      this.logger.log(`Successfully requested ViettelPost to resend webhook for tracking code ${order.trackingCode}. Result: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error requesting ViettelPost to resend webhook for ${order.trackingCode}: ${error.message}`, error.stack);
+      if (error.response && error.response.data) {
+        throw new BadRequestException(`ViettelPost API Error: ${JSON.stringify(error.response.data)}`);
+      }
+      throw new InternalServerErrorException('Failed to request ViettelPost to resend webhook.');
+    }
+  }
+
+  /**
+   * Lấy thống kê đơn hàng cho Admin
+   */
+  async getOrderStatsForAdmin(period: string = 'month'): Promise<any> {
+    this.logger.log(`Fetching order stats for admin, period: ${period}`);
+    try {
+      const now = new Date();
+      let startDate: Date;
+
+      switch (period) {
+        case 'week':
+          startDate = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1) - 7)); // Bắt đầu từ thứ 2 tuần trước
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth() -1 , 1); // Tháng trước
+          break;
+        case 'quarter':
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3 - 3, 1); // Quý trước
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear() -1, 0, 1); // Năm trước
+          break;
+        default: // Mặc định là tháng này nếu period không hợp lệ
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+      }
+      
+      let endDate = new Date(startDate);
+      if (period === 'week') endDate.setDate(startDate.getDate() + 6);
+      else if (period === 'month') endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      else if (period === 'quarter') endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 3, 0);
+      else if (period === 'year') endDate = new Date(startDate.getFullYear(), 11, 31);
+      endDate.setHours(23,59,59,999);
+
+
+      const queryConditions: any = {
+        createdAt: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+      
+      const ordersInPeriod = await this.orderModel.find(queryConditions).lean();
+
+      const totalOrders = ordersInPeriod.length;
+      const pendingOrders = ordersInPeriod.filter(o => o.status === OrderStatus.PENDING).length;
+      const processingOrders = ordersInPeriod.filter(o => [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPING].includes(o.status)).length;
+      const completedOrders = ordersInPeriod.filter(o => o.status === OrderStatus.DELIVERED).length;
+      const cancelledOrders = ordersInPeriod.filter(o => o.status === OrderStatus.CANCELLED).length;
+      
+      const totalRevenue = ordersInPeriod
+        .filter(o => o.status !== OrderStatus.CANCELLED)
+        .reduce((sum, o) => sum + o.finalPrice, 0);
+
+      // Thống kê hôm nay
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todayOrdersList = await this.orderModel.find({ createdAt: { $gte: todayStart, $lte: todayEnd } }).lean();
+      const todayOrders = todayOrdersList.length;
+      const todayRevenue = todayOrdersList
+        .filter(o => o.status !== OrderStatus.CANCELLED)
+        .reduce((sum, o) => sum + o.finalPrice, 0);
+      
+      // Thống kê theo tháng (ví dụ 6 tháng gần nhất)
+      interface MonthlyStat {
+        month: string;
+        orders: number;
+        revenue: number;
+      }
+      const monthlyStatsPromises: Promise<MonthlyStat>[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthStartDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEndDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        monthEndDate.setHours(23,59,59,999);
+
+        monthlyStatsPromises.push(
+          this.orderModel.aggregate([
+            { $match: { createdAt: { $gte: monthStartDate, $lte: monthEndDate } } },
+            {
+              $group: {
+                _id: { $month: '$createdAt' },
+                orders: { $sum: 1 },
+                revenue: { $sum: { $cond: [ { $ne: ['$status', OrderStatus.CANCELLED] }, '$finalPrice', 0 ] } }
+              }
+            },
+            { $sort: { '_id': 1 } }
+          ]).then(results => {
+            const monthIndex = results[0]?._id -1; // Month is 1-indexed from MongoDB
+            const monthName = monthIndex >= 0 && monthIndex < 12 ? 
+              ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'][monthIndex]
+              : `Tháng ${results[0]?._id}`;
+            return {
+              month: `${monthName} ${monthStartDate.getFullYear()}`,
+              orders: results[0]?.orders || 0,
+              revenue: results[0]?.revenue || 0,
+            };
+          })
+        );
+      }
+      const monthlyStats: MonthlyStat[] = await Promise.all(monthlyStatsPromises);
+
+
+      return {
+        totalOrders,
+        totalRevenue,
+        pendingOrders,
+        processingOrders,
+        completedOrders,
+        cancelledOrders,
+        todayOrders,
+        todayRevenue,
+        monthlyStats: monthlyStats.filter(stat => stat.orders > 0 || stat.revenue > 0), // Chỉ trả về tháng có dữ liệu
+        period: {
+          type: period,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        }
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching order stats for admin: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to fetch order statistics.');
+    }
+  }
 }

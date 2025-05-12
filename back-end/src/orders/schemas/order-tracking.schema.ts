@@ -23,8 +23,8 @@ export class TrackingHistoryItem {
   @Prop()
   location: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Admin' })
-  updatedBy: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Admin', required: false }) // Make updatedBy optional
+  updatedBy?: Types.ObjectId; // Make updatedBy optional
 }
 
 // Định nghĩa schema cho thông tin đơn vị vận chuyển

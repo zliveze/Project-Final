@@ -1,7 +1,24 @@
-import { useState, useEffect } from 'react';
-import { FiX, FiTrash2, FiEdit2, FiPrinter, FiTruck, FiPackage, FiInfo, FiRefreshCw } from 'react-icons/fi';
+import { useState, useEffect, ChangeEvent } from 'react'; // Thêm ChangeEvent
+import { FiX, FiTrash2, FiEdit2, FiPrinter, FiTruck, FiPackage, FiInfo, FiRefreshCw, FiSend, FiRepeat } from 'react-icons/fi'; // Thêm FiSend, FiRepeat
 import { toast } from 'react-hot-toast';
 import { useAdminOrder, Order, OrderItem, OrderTracking } from '@/contexts';
+// Import DTO hoặc định nghĩa kiểu cho payload cập nhật VTP
+// Giả sử chúng ta có một enum hoặc kiểu cho các loại cập nhật VTP
+enum ViettelPostUpdateOrderStatusType {
+  APPROVE_ORDER = 1,
+  APPROVE_RETURN = 2,
+  CONTINUE_DELIVERY = 3,
+  CANCEL_ORDER = 4,
+  RE_ORDER = 5,
+  DELETE_CANCELED_ORDER = 11,
+}
+
+interface UpdateViettelPostStatusPayload {
+  TYPE: ViettelPostUpdateOrderStatusType;
+  ORDER_NUMBER: string;
+  NOTE?: string;
+  DATE?: string;
+}
 
 interface OrderDetailModalProps {
   orderId: string;
@@ -24,6 +41,8 @@ export default function OrderDetailModal({
     createShipment,
     getShipmentInfo,
     updateOrderStatus,
+    updateViettelPostStatus, // Thêm hàm mới từ context
+    requestResendViettelPostWebhook, // Thêm hàm mới từ context
     loading: contextLoading,
     error: contextError
   } = useAdminOrder();
@@ -33,8 +52,15 @@ export default function OrderDetailModal({
   const [loading, setLoading] = useState(true);
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [shipmentLoading, setShipmentLoading] = useState(false);
+  const [vtpStatusUpdateLoading, setVtpStatusUpdateLoading] = useState(false);
+  const [resendWebhookLoading, setResendWebhookLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'tracking'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'tracking' | 'viettelpost'>('details'); // Thêm tab ViettelPost
+  const [vtpUpdateType, setVtpUpdateType] = useState<ViettelPostUpdateOrderStatusType>(ViettelPostUpdateOrderStatusType.APPROVE_ORDER);
+  const [vtpUpdateNote, setVtpUpdateNote] = useState('');
+  const [vtpUpdateDate, setVtpUpdateDate] = useState('');
+  const [resendWebhookReason, setResendWebhookReason] = useState('');
+
 
   useEffect(() => {
     if (isOpen && orderId) {
@@ -412,6 +438,16 @@ export default function OrderDetailModal({
                     >
                       Thông tin vận chuyển
                     </button>
+                    <button
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'viettelpost'
+                          ? 'border-pink-500 text-pink-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                      onClick={() => setActiveTab('viettelpost')}
+                    >
+                      ViettelPost Actions
+                    </button>
                   </nav>
                 </div>
 
@@ -614,8 +650,8 @@ export default function OrderDetailModal({
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {order.items.map((item, index) => (
-                              <tr key={index} className="hover:bg-gray-50">
+                            {order.items.map((item: OrderItem, index: number) => (
+                              <tr key={item.productId + '-' + index} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
                                     {item.image && (
@@ -630,10 +666,10 @@ export default function OrderDetailModal({
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {item.options && Object.entries(item.options).map(([key, value]) => (
-                                    <div key={key}>{key}: {value}</div>
+                                  {item.options && Object.entries(item.options).map(([key, value]: [string, any]) => (
+                                    <div key={key} className="text-xs">{key}: {String(value)}</div>
                                   ))}
-                                  {item.variantId && <div className="text-xs text-gray-400">Variant ID: {item.variantId}</div>}
+                                  {item.variantId && <div className="text-xs text-gray-400 mt-1">Variant ID: {item.variantId}</div>}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                                   {formatCurrency(item.price)}
@@ -810,7 +846,7 @@ export default function OrderDetailModal({
                               <div className="relative">
                                 <div className="absolute top-0 bottom-0 left-4 w-0.5 bg-gray-200"></div>
                                 <ul className="space-y-6">
-                                  {orderTracking.history.map((item, index) => (
+                                  {orderTracking.history.map((item: OrderTracking['history'][0], index: number) => (
                                     <li key={index} className="relative pl-10">
                                       <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-white border-2 border-pink-500 flex items-center justify-center">
                                         <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
@@ -837,6 +873,133 @@ export default function OrderDetailModal({
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Tab ViettelPost Actions */}
+                {activeTab === 'viettelpost' && order.trackingCode && (
+                  <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">Hành động ViettelPost</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Mã vận đơn ViettelPost: <span className="font-semibold">{order.trackingCode}</span>
+                    </p>
+
+                    {/* Cập nhật trạng thái VTP */}
+                    <div className="mb-6 p-4 border border-gray-200 rounded-md">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Cập nhật trạng thái trên ViettelPost</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="vtpUpdateType" className="block text-xs font-medium text-gray-700">Loại cập nhật</label>
+                          <select
+                            id="vtpUpdateType"
+                            value={vtpUpdateType}
+                            onChange={(e) => setVtpUpdateType(Number(e.target.value) as ViettelPostUpdateOrderStatusType)}
+                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                          >
+                            <option value={ViettelPostUpdateOrderStatusType.APPROVE_ORDER}>Duyệt đơn hàng</option>
+                            <option value={ViettelPostUpdateOrderStatusType.APPROVE_RETURN}>Duyệt chuyển hoàn</option>
+                            <option value={ViettelPostUpdateOrderStatusType.CONTINUE_DELIVERY}>Phát tiếp</option>
+                            <option value={ViettelPostUpdateOrderStatusType.CANCEL_ORDER}>Hủy đơn hàng</option>
+                            <option value={ViettelPostUpdateOrderStatusType.RE_ORDER}>Lấy lại đơn hàng (Gửi lại)</option>
+                            <option value={ViettelPostUpdateOrderStatusType.DELETE_CANCELED_ORDER}>Xóa đơn đã hủy</option>
+                          </select>
+                        </div>
+                        {vtpUpdateType === ViettelPostUpdateOrderStatusType.RE_ORDER && (
+                           <div>
+                            <label htmlFor="vtpUpdateDate" className="block text-xs font-medium text-gray-700">Ngày gửi lại (dd/MM/yyyy HH:mm:ss)</label>
+                            <input
+                              type="text"
+                              id="vtpUpdateDate"
+                              value={vtpUpdateDate}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => setVtpUpdateDate(e.target.value)}
+                              placeholder="dd/MM/yyyy HH:mm:ss"
+                              className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2"
+                            />
+                          </div>
+                        )}
+                        <div className="sm:col-span-2">
+                          <label htmlFor="vtpUpdateNote" className="block text-xs font-medium text-gray-700">Ghi chú</label>
+                          <textarea
+                            id="vtpUpdateNote"
+                            rows={2}
+                            value={vtpUpdateNote}
+                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setVtpUpdateNote(e.target.value)}
+                            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center"
+                        onClick={async () => {
+                          if (!order.trackingCode) {
+                            toast.error("Đơn hàng chưa có mã vận đơn ViettelPost.");
+                            return;
+                          }
+                          const payload: UpdateViettelPostStatusPayload = {
+                            TYPE: vtpUpdateType,
+                            ORDER_NUMBER: order.trackingCode,
+                            NOTE: vtpUpdateNote || undefined,
+                            DATE: vtpUpdateType === ViettelPostUpdateOrderStatusType.RE_ORDER ? vtpUpdateDate || undefined : undefined,
+                          };
+                          setVtpStatusUpdateLoading(true);
+                          await updateViettelPostStatus(order._id, payload);
+                          setVtpStatusUpdateLoading(false);
+                        }}
+                        disabled={vtpStatusUpdateLoading}
+                      >
+                        {vtpStatusUpdateLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <FiSend className="h-4 w-4 mr-2" />
+                        )}
+                        Gửi cập nhật VTP
+                      </button>
+                    </div>
+
+                    {/* Yêu cầu gửi lại Webhook */}
+                    <div className="mt-6 p-4 border border-gray-200 rounded-md">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Yêu cầu gửi lại Webhook</h5>
+                       <div>
+                          <label htmlFor="resendWebhookReason" className="block text-xs font-medium text-gray-700">Lý do (tùy chọn)</label>
+                          <input
+                            type="text"
+                            id="resendWebhookReason"
+                            value={resendWebhookReason}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setResendWebhookReason(e.target.value)}
+                            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2"
+                          />
+                        </div>
+                      <button
+                        className="mt-3 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 flex items-center"
+                        onClick={async () => {
+                          setResendWebhookLoading(true);
+                          await requestResendViettelPostWebhook(order._id, resendWebhookReason || undefined);
+                          setResendWebhookLoading(false);
+                        }}
+                        disabled={resendWebhookLoading}
+                      >
+                        {resendWebhookLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <FiRepeat className="h-4 w-4 mr-2" />
+                        )}
+                        Yêu cầu gửi lại Webhook
+                      </button>
+                    </div>
+                  </div>
+                )}
+                 {activeTab === 'viettelpost' && !order.trackingCode && (
+                    <div className="mt-2 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <FiInfo className="h-5 w-5 text-yellow-500" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    Đơn hàng này chưa có mã vận đơn ViettelPost. Vui lòng tạo vận đơn trước.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 )}
               </div>
             ) : (
