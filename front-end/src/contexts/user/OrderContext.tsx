@@ -93,7 +93,7 @@ export interface OrderContextType {
   fetchOrderDetail: (id: string) => Promise<Order | null>;
   fetchOrderTracking: (id: string) => Promise<OrderTracking | null>;
   cancelOrder: (id: string, reason: string) => Promise<Order | null>;
-  downloadInvoice: (id: string) => Promise<Blob | null>;
+  downloadInvoice: (id: string) => Promise<any>;
   buyAgain: (id: string) => Promise<boolean>;
   setOrderStatusFilter: (status: string) => void;
   setSearchOrderQuery: (query: string) => void;
@@ -298,7 +298,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [currentOrder, user, isAuthenticated]);
 
   // Tải hóa đơn
-  const downloadInvoice = useCallback(async (id: string): Promise<Blob | null> => {
+  const downloadInvoice = useCallback(async (id: string): Promise<any> => {
     if (!user || !isAuthenticated) return null;
 
     try {
@@ -313,10 +313,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       console.log('Downloading invoice for order ID:', id);
 
-      // Sử dụng axiosInstance với responseType blob
-      const response = await axiosInstance.get(`/orders/${id}/invoice`, {
-        responseType: 'blob'
-      });
+      // Sử dụng axiosInstance với responseType json
+      const response = await axiosInstance.get(`/orders/${id}/invoice`);
 
       return response.data;
     } catch (error) {

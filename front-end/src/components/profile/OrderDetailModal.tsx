@@ -3,6 +3,7 @@ import { FaTimes } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import { Order } from './types';
 import Portal from '@/components/common/Portal';
+import InvoiceDownloader from './InvoiceDownloader';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -244,16 +245,11 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             >
               Mua lại
             </button>
-            <button
-              onClick={() => {
-                console.log('OrderDetailModal - Download invoice for order ID:', order._id);
-                onClose();
-                onDownloadInvoice(order._id);
-              }}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-            >
-              Tải hóa đơn
-            </button>
+            <InvoiceDownloader
+              orderId={order._id}
+              buttonText="Tải hóa đơn"
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors flex items-center justify-center"
+            />
             {order.status === 'pending' && onCancelOrder && (
               <button
                 onClick={() => {

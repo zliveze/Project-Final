@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { FaShoppingBag, FaEye, FaFileDownload, FaTimes, FaUndo, FaShoppingCart } from 'react-icons/fa';
+import { FaShoppingBag, FaEye, FaTimes, FaUndo, FaShoppingCart } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import OrderDetailModal from './OrderDetailModal';
+import InvoiceDownloader from './InvoiceDownloader';
 
 interface OrderProduct {
   productId: string;
@@ -142,21 +143,7 @@ const OrderHistory = ({
     setSelectedOrder(null);
   };
 
-  const handleDownloadInvoice = (orderId: string) => {
-    if (!orderId || orderId === 'user' || orderId === 'undefined') {
-      console.error('Invalid order ID in OrderHistory:', orderId);
-      toast.error('ID đơn hàng không hợp lệ');
-      return;
-    }
-
-    console.log('OrderHistory - Download invoice for order ID:', orderId);
-
-    if (onDownloadInvoice) {
-      onDownloadInvoice(orderId);
-    } else {
-      toast.info('Tính năng tải hóa đơn đang được phát triển');
-    }
-  };
+  // Không cần hàm handleDownloadInvoice nữa vì đã sử dụng component InvoiceDownloader
 
   const handleCancelOrder = (orderId: string) => {
     if (onCancelOrder) {
@@ -230,12 +217,7 @@ const OrderHistory = ({
               >
                 <FaEye className="mr-1" /> Xem chi tiết
               </button>
-              <button
-                onClick={() => handleDownloadInvoice(order._id)}
-                className="flex items-center text-purple-600 hover:text-purple-800 text-sm"
-              >
-                <FaFileDownload className="mr-1" /> Hóa đơn
-              </button>
+              <InvoiceDownloader orderId={order._id} />
             </div>
           </div>
 
@@ -328,7 +310,7 @@ const OrderHistory = ({
           order={selectedOrder}
           onClose={handleCloseModal}
           onBuyAgain={handleBuyAgain}
-          onDownloadInvoice={handleDownloadInvoice}
+          onDownloadInvoice={() => {}}
           onCancelOrder={handleCancelOrder}
           onReturnOrder={handleReturnOrder}
         />

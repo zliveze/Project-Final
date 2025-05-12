@@ -356,72 +356,78 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const handleViewOrderDetails = async (orderId: string) => {
     try {
       setIsLoading(true);
+      console.log('Viewing order details for ID:', orderId);
 
-      // Nếu đã có trong state thì không cần gọi API
-      const existingOrder = orders.find(order => order._id === orderId);
-      if (existingOrder) {
-        setSelectedOrder(existingOrder);
+      // Kiểm tra xem orders có tồn tại không
+      if (orders && Array.isArray(orders)) {
+        // Nếu đã có trong state thì không cần gọi API
+        const existingOrder = orders.find(order => order._id === orderId);
+        if (existingOrder) {
+          setSelectedOrder(existingOrder);
+          setShowOrderModal(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Nếu không tìm thấy trong state, sử dụng OrderContext để lấy chi tiết đơn hàng
+      const orderDetail = await fetchOrderDetail(orderId);
+
+      if (orderDetail) {
+        // Chuyển đổi từ OrderContext.Order sang ProfileContext.Order
+        const convertedOrder: Order = {
+          _id: orderDetail._id,
+          orderNumber: orderDetail.orderNumber,
+          createdAt: orderDetail.createdAt,
+          status: orderDetail.status,
+          products: orderDetail.items.map(item => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            name: item.name,
+            image: item.image || '',
+            options: item.options,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          totalPrice: orderDetail.totalPrice,
+          finalPrice: orderDetail.finalPrice,
+          voucher: orderDetail.voucher ? {
+            voucherId: orderDetail.voucher.voucherId,
+            discountAmount: orderDetail.voucher.discountAmount
+          } : undefined,
+          shippingInfo: {
+            address: `${orderDetail.shippingAddress.addressLine1}, ${orderDetail.shippingAddress.ward}, ${orderDetail.shippingAddress.district}, ${orderDetail.shippingAddress.province}`,
+            contact: `${orderDetail.shippingAddress.fullName} - ${orderDetail.shippingAddress.phone}`
+          }
+        };
+
+        // Lấy thông tin tracking nếu có
+        try {
+          const tracking = await fetchOrderTracking(orderId);
+          if (tracking) {
+            convertedOrder.tracking = {
+              status: tracking.history.map(hist => ({
+                state: hist.status,
+                description: hist.description || '',
+                timestamp: hist.timestamp
+              })),
+              shippingCarrier: tracking.carrier ? {
+                name: tracking.carrier.name,
+                trackingNumber: tracking.carrier.trackingNumber,
+                trackingUrl: tracking.carrier.trackingUrl || ''
+              } : undefined,
+              estimatedDelivery: tracking.estimatedDelivery,
+              actualDelivery: tracking.actualDelivery
+            };
+          }
+        } catch (trackingError) {
+          console.warn('Không thể lấy thông tin tracking:', trackingError);
+        }
+
+        setSelectedOrder(convertedOrder);
         setShowOrderModal(true);
       } else {
-        // Sử dụng OrderContext để lấy chi tiết đơn hàng
-        const orderDetail = await fetchOrderDetail(orderId);
-
-        if (orderDetail) {
-          // Chuyển đổi từ OrderContext.Order sang ProfileContext.Order
-          const convertedOrder: Order = {
-            _id: orderDetail._id,
-            orderNumber: orderDetail.orderNumber,
-            createdAt: orderDetail.createdAt,
-            status: orderDetail.status,
-            products: orderDetail.items.map(item => ({
-              productId: item.productId,
-              variantId: item.variantId,
-              name: item.name,
-              image: item.image || '',
-              options: item.options,
-              quantity: item.quantity,
-              price: item.price
-            })),
-            totalPrice: orderDetail.totalPrice,
-            finalPrice: orderDetail.finalPrice,
-            voucher: orderDetail.voucher ? {
-              voucherId: orderDetail.voucher.voucherId,
-              discountAmount: orderDetail.voucher.discountAmount
-            } : undefined,
-            shippingInfo: {
-              address: `${orderDetail.shippingAddress.addressLine1}, ${orderDetail.shippingAddress.ward}, ${orderDetail.shippingAddress.district}, ${orderDetail.shippingAddress.province}`,
-              contact: `${orderDetail.shippingAddress.fullName} - ${orderDetail.shippingAddress.phone}`
-            }
-          };
-
-          // Lấy thông tin tracking nếu có
-          try {
-            const tracking = await fetchOrderTracking(orderId);
-            if (tracking) {
-              convertedOrder.tracking = {
-                status: tracking.history.map(hist => ({
-                  state: hist.status,
-                  description: hist.description || '',
-                  timestamp: hist.timestamp
-                })),
-                shippingCarrier: tracking.carrier ? {
-                  name: tracking.carrier.name,
-                  trackingNumber: tracking.carrier.trackingNumber,
-                  trackingUrl: tracking.carrier.trackingUrl || ''
-                } : undefined,
-                estimatedDelivery: tracking.estimatedDelivery,
-                actualDelivery: tracking.actualDelivery
-              };
-            }
-          } catch (trackingError) {
-            console.warn('Không thể lấy thông tin tracking:', trackingError);
-          }
-
-          setSelectedOrder(convertedOrder);
-          setShowOrderModal(true);
-        } else {
-          toast.error('Không thể lấy thông tin đơn hàng');
-        }
+        toast.error('Không thể lấy thông tin đơn hàng');
       }
     } catch (err) {
       console.error('Lỗi khi lấy chi tiết đơn hàng:', err);
@@ -443,23 +449,123 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw new Error('ID đơn hàng không hợp lệ');
       }
 
-      // Sử dụng OrderContext để tải hóa đơn
-      const blob = await downloadInvoice(orderId);
+      // Sử dụng OrderContext để tải dữ liệu hóa đơn
+      const response = await downloadInvoice(orderId);
 
-      if (blob) {
-        // Tạo đường dẫn URL từ blob và tạo link download
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `invoice_${orderId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
+      if (response) {
+        try {
+          // Import jsPDF
+          const { jsPDF } = await import('jspdf');
 
-        // Xóa đường dẫn tạm
-        link.parentNode?.removeChild(link);
-        window.URL.revokeObjectURL(url);
+          // Tạo một document PDF mới
+          const doc = new jsPDF();
 
-        toast.success('Tải xuống hóa đơn thành công!');
+          // Lấy dữ liệu từ response (giả định response là JSON)
+          let invoiceData;
+
+          if (response instanceof Blob) {
+            // Nếu response là Blob, đọc nội dung JSON từ Blob
+            const text = await response.text();
+            invoiceData = JSON.parse(text);
+          } else {
+            // Nếu response đã là object
+            invoiceData = response;
+          }
+
+          // Thiết lập font và kích thước
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(20);
+
+          // Tiêu đề
+          doc.text('HÓA ĐƠN YUMIN COSMETICS', 105, 20, { align: 'center' });
+
+          // Thông tin đơn hàng
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(12);
+          doc.text(`Mã đơn hàng: ${invoiceData.orderNumber}`, 20, 40);
+          doc.text(`Ngày: ${invoiceData.date}`, 20, 50);
+
+          // Thông tin khách hàng
+          doc.text('Thông tin khách hàng:', 20, 70);
+          doc.text(`Tên: ${invoiceData.customerName}`, 30, 80);
+          doc.text(`Địa chỉ: ${invoiceData.customerAddress}`, 30, 90);
+          doc.text(`Điện thoại: ${invoiceData.customerPhone}`, 30, 100);
+
+          // Bảng sản phẩm
+          doc.setFontSize(12);
+          doc.text('Danh sách sản phẩm:', 20, 120);
+
+          // Header của bảng
+          doc.setFont('helvetica', 'bold');
+          doc.text('Sản phẩm', 20, 130);
+          doc.text('SL', 130, 130);
+          doc.text('Đơn giá', 150, 130);
+          doc.text('Thành tiền', 180, 130);
+
+          // Nội dung bảng
+          doc.setFont('helvetica', 'normal');
+          let y = 140;
+
+          invoiceData.items.forEach((item: { name: string; quantity: number; price: number; total: number }) => {
+            // Kiểm tra nếu y quá lớn, tạo trang mới
+            if (y > 270) {
+              doc.addPage();
+              y = 20;
+
+              // Thêm header cho trang mới
+              doc.setFont('helvetica', 'bold');
+              doc.text('Sản phẩm', 20, y);
+              doc.text('SL', 130, y);
+              doc.text('Đơn giá', 150, y);
+              doc.text('Thành tiền', 180, y);
+              doc.setFont('helvetica', 'normal');
+              y += 10;
+            }
+
+            // Cắt tên sản phẩm nếu quá dài
+            const productName = item.name.length > 40 ? item.name.substring(0, 37) + '...' : item.name;
+
+            doc.text(productName, 20, y);
+            doc.text(item.quantity.toString(), 130, y);
+            doc.text(item.price.toLocaleString('vi-VN') + 'đ', 150, y);
+            doc.text(item.total.toLocaleString('vi-VN') + 'đ', 180, y);
+
+            y += 10;
+          });
+
+          // Tổng cộng
+          y += 10;
+          doc.text('Tạm tính:', 130, y);
+          doc.text(invoiceData.subtotal.toLocaleString('vi-VN') + 'đ', 180, y);
+
+          y += 10;
+          doc.text('Phí vận chuyển:', 130, y);
+          doc.text(invoiceData.shippingFee.toLocaleString('vi-VN') + 'đ', 180, y);
+
+          if (invoiceData.discount > 0) {
+            y += 10;
+            doc.text('Giảm giá:', 130, y);
+            doc.text('-' + invoiceData.discount.toLocaleString('vi-VN') + 'đ', 180, y);
+          }
+
+          y += 10;
+          doc.setFont('helvetica', 'bold');
+          doc.text('Tổng cộng:', 130, y);
+          doc.text(invoiceData.total.toLocaleString('vi-VN') + 'đ', 180, y);
+
+          // Chân trang
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(10);
+          doc.text('Cảm ơn quý khách đã mua hàng tại Yumin Cosmetics!', 105, 280, { align: 'center' });
+
+          // Lưu file PDF
+          doc.save(`invoice_${invoiceData.orderNumber}.pdf`);
+
+          toast.success('Tải xuống hóa đơn thành công!');
+        } catch (pdfError) {
+          console.error('Lỗi khi tạo file PDF:', pdfError);
+          toast.error('Không thể tạo file PDF. Vui lòng thử lại sau.');
+        }
       } else {
         toast.error('Không thể tải hóa đơn');
       }

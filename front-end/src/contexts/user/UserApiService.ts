@@ -568,7 +568,7 @@ export const UserApiService = {
   },
 
   // Tải hóa đơn
-  async downloadInvoice(orderId: string): Promise<Blob> {
+  async downloadInvoice(orderId: string): Promise<any> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
 
@@ -589,7 +589,7 @@ export const UserApiService = {
       throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
     }
 
-    return await response.blob();
+    return await response.json();
   },
 
   // Mua lại sản phẩm từ đơn hàng
