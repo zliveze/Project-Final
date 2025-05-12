@@ -123,7 +123,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     console.error('API Error in OrderContext:', error);
     const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
-    
+
     // Chỉ hiển thị toast nếu lỗi không phải là lỗi 401 đã được interceptor xử lý
     if (errorMessage !== 'Phiên đăng nhập đã hết hạn.') {
       toast.error(errorMessage);
@@ -146,7 +146,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
-      
+
       if (status && status !== 'all') {
         queryParams.append('status', status);
       }
@@ -186,11 +186,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const queryParams = new URLSearchParams();
       queryParams.append('page', '1');
       queryParams.append('limit', '10');
-      
+
       if (orderStatusFilter && orderStatusFilter !== 'all') {
         queryParams.append('status', orderStatusFilter);
       }
-      
+
       if (searchOrderQuery) {
         queryParams.append('search', searchOrderQuery);
       }
@@ -304,6 +304,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       setLoading(true);
       setError(null);
+
+      // Kiểm tra ID đơn hàng
+      if (!id || id === 'user' || id === 'undefined') {
+        console.error('Invalid order ID:', id);
+        throw new Error('ID đơn hàng không hợp lệ');
+      }
+
+      console.log('Downloading invoice for order ID:', id);
 
       // Sử dụng axiosInstance với responseType blob
       const response = await axiosInstance.get(`/orders/${id}/invoice`, {

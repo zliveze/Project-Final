@@ -10,7 +10,11 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Res,
+  NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Types } from 'mongoose';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, QueryOrderDto, CalculateShippingDto } from './dto';
@@ -214,5 +218,70 @@ export class OrdersUserController {
   @HttpCode(HttpStatus.OK)
   async calculateShippingFeeAll(@Body() calculateShippingDto: CalculateShippingDto) {
     return this.ordersService.calculateShippingFeeAll(calculateShippingDto);
+  }
+
+  @Get(':id/invoice')
+  @ApiOperation({ summary: 'Tải xuống hóa đơn đơn hàng' })
+  @ApiParam({ name: 'id', description: 'ID của đơn hàng' })
+  @ApiResponse({ status: 200, description: 'Trả về file PDF hóa đơn' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy đơn hàng' })
+  async downloadInvoice(
+    @Param('id') id: string,
+    @CurrentUser('userId') userId: string,
+    @Res() res: Response,
+  ) {
+    console.log(`[OrdersUserController] downloadInvoice - Received id: ${id} userId: ${userId}`);
+
+    try {
+      // Kiểm tra đơn hàng tồn tại và thuộc về người dùng hiện tại
+      const order = await this.ordersService.findOne(id);
+
+      // Lấy userId từ order
+      const orderUserId = this.getUserIdFromOrder(order.userId);
+
+      if (orderUserId !== userId) {
+        throw new BadRequestException('You do not have permission to download this invoice');
+      }
+
+      // Tạo dữ liệu hóa đơn đơn giản
+      const invoiceData = {
+        orderNumber: order.orderNumber,
+        date: new Date().toLocaleDateString('vi-VN'), // Sử dụng ngày hiện tại
+        customerName: order.shippingAddress.fullName,
+        customerAddress: `${order.shippingAddress.addressLine1}, ${order.shippingAddress.ward}, ${order.shippingAddress.district}, ${order.shippingAddress.province}`,
+        customerPhone: order.shippingAddress.phone,
+        items: order.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity
+        })),
+        subtotal: order.subtotal,
+        shippingFee: order.shippingFee || 0,
+        discount: order.voucher ? order.voucher.discountAmount : 0,
+        total: order.finalPrice
+      };
+
+      // Trả về dữ liệu JSON thay vì PDF (vì chưa có thư viện tạo PDF)
+      return res.json(invoiceData);
+
+      // TODO: Khi có thư viện PDF, sẽ tạo file PDF và trả về
+      // const pdfBuffer = await this.ordersService.generateInvoicePdf(order);
+      // res.set({
+      //   'Content-Type': 'application/pdf',
+      //   'Content-Disposition': `attachment; filename="invoice_${order.orderNumber}.pdf"`,
+      //   'Content-Length': pdfBuffer.length,
+      // });
+      // return res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error(`Error generating invoice: ${error.message}`);
+      throw new InternalServerErrorException('Could not generate invoice');
+    }
   }
 }

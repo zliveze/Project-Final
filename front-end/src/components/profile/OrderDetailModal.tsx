@@ -246,6 +246,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </button>
             <button
               onClick={() => {
+                console.log('OrderDetailModal - Download invoice for order ID:', order._id);
                 onClose();
                 onDownloadInvoice(order._id);
               }}

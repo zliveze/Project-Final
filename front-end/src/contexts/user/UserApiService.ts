@@ -106,16 +106,6 @@ export const UserApiService = {
         throw new Error('Định dạng dữ liệu không hợp lệ');
       }
 
-      try {
-        const data = await responseClone.json();
-        return data;
-      } catch (parseError) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Lỗi khi phân tích dữ liệu JSON:', parseError);
-        }
-        // Ném lỗi nếu không parse được JSON (lỗi server khác 401)
-        throw new Error('Định dạng dữ liệu không hợp lệ');
-      }
     } catch (error) {
       // Chỉ log lỗi không mong muốn khác (ví dụ: network error)
       if (process.env.NODE_ENV === 'development') {
@@ -453,11 +443,11 @@ export const UserApiService = {
       return { orders: [], total: 0 };
     }
 
-    console.log('Gọi API lấy orders với URL:', `${API_URL}/orders/user?status=${status}&page=${page}&limit=${limit}`);
+    console.log('Gọi API lấy orders với URL:', `${API_URL}/orders?status=${status}&page=${page}&limit=${limit}`);
 
     try {
       const response = await fetch(
-        `${API_URL}/orders/user?status=${status}&page=${page}&limit=${limit}`,
+        `${API_URL}/orders?status=${status}&page=${page}&limit=${limit}`,
         {
           method: 'GET',
           headers: {

@@ -143,6 +143,14 @@ const OrderHistory = ({
   };
 
   const handleDownloadInvoice = (orderId: string) => {
+    if (!orderId || orderId === 'user' || orderId === 'undefined') {
+      console.error('Invalid order ID in OrderHistory:', orderId);
+      toast.error('ID đơn hàng không hợp lệ');
+      return;
+    }
+
+    console.log('OrderHistory - Download invoice for order ID:', orderId);
+
     if (onDownloadInvoice) {
       onDownloadInvoice(orderId);
     } else {

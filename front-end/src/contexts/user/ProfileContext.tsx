@@ -436,6 +436,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       toast.info('Đang tải xuống hóa đơn...');
 
+      console.log('Downloading invoice for order ID:', orderId);
+
+      // Kiểm tra xem orderId có phải là ID hợp lệ không
+      if (!orderId || orderId === 'user' || orderId === 'undefined') {
+        throw new Error('ID đơn hàng không hợp lệ');
+      }
+
       // Sử dụng OrderContext để tải hóa đơn
       const blob = await downloadInvoice(orderId);
 
