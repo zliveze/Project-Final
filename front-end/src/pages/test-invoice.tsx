@@ -26,7 +26,7 @@ const TestInvoicePage: React.FC = () => {
 
       if (invoiceData) {
         // Tạo và tải xuống file PDF
-        downloadInvoicePDF(invoiceData, `invoice_${invoiceData.orderNumber}.pdf`);
+        await downloadInvoicePDF(invoiceData, `invoice_${invoiceData.orderNumber}.pdf`);
         toast.success('Tải xuống hóa đơn thành công!');
       } else {
         toast.error('Không thể tải hóa đơn');
@@ -43,7 +43,7 @@ const TestInvoicePage: React.FC = () => {
     <DefaultLayout>
       <div className="container mx-auto py-8 px-4">
         <h1 className="text-2xl font-bold mb-6">Kiểm tra chức năng tải hóa đơn</h1>
-        
+
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="mb-4">
             <label htmlFor="orderId" className="block text-sm font-medium text-gray-700 mb-1">
@@ -58,7 +58,7 @@ const TestInvoicePage: React.FC = () => {
               placeholder="Nhập ID đơn hàng"
             />
           </div>
-          
+
           <button
             onClick={handleDownload}
             disabled={isLoading}

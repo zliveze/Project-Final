@@ -34,7 +34,7 @@ const InvoiceDownloader: React.FC<InvoiceDownloaderProps> = ({
 
       if (invoiceData) {
         // Tạo và tải xuống file PDF
-        downloadInvoicePDF(invoiceData, `invoice_${invoiceData.orderNumber}.pdf`);
+        await downloadInvoicePDF(invoiceData, `invoice_${invoiceData.orderNumber}.pdf`);
         toast.success('Tải xuống hóa đơn thành công!');
       } else {
         toast.error('Không thể tải hóa đơn');
