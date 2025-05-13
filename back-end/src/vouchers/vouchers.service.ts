@@ -386,4 +386,19 @@ export class VouchersService {
     
     return vouchers;
   }
+
+  async findPublicActiveVouchers(): Promise<Voucher[]> {
+    const now = new Date();
+    const filter = {
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+      $expr: { $lt: ['$usedCount', '$usageLimit'] },
+    };
+    // Chỉ chọn các trường cần thiết để tránh lộ thông tin không cần thiết
+    return this.voucherModel.find(filter)
+      .select('code description discountType discountValue minimumOrderValue startDate endDate') // Điều chỉnh các trường nếu cần
+      .sort({ createdAt: -1 }) // Hoặc sắp xếp theo tiêu chí khác, ví dụ: endDate
+      .exec();
+  }
 }

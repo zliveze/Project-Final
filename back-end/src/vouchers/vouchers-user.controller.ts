@@ -135,6 +135,13 @@ export class VouchersUserController {
     return voucher;
   }
 
+  @Get('public-active')
+  @ApiOperation({ summary: 'Get list of publicly available active vouchers' })
+  @ApiResponse({ status: 200, description: 'List of public active vouchers.', type: [Voucher] })
+  async findPublicActiveVouchers(): Promise<Voucher[]> {
+    return this.vouchersService.findPublicActiveVouchers();
+  }
+
   // Note: Applying a voucher to a cart/order would typically be handled
   // within the Cart or Order service/controller, calling VouchersService
   // to validate the voucher code first.

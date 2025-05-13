@@ -20,8 +20,7 @@ import {
 
 @ApiTags('Shipping')
 @Controller('shipping')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+// Gỡ bỏ @UseGuards(JwtAuthGuard) và @ApiBearerAuth() để cho phép truy cập công khai
 export class ShippingController {
   private readonly logger = new Logger(ShippingController.name);
 
