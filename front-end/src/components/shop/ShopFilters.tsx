@@ -42,73 +42,15 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Define sections with mapping to new filter keys
   // Use useMemo to prevent re-calculating sections on every render unless dependencies change
-  const sections = useMemo<FilterSection[]>(() => [
-    {
-      title: 'Danh mục',
-      filterKey: 'categoryId', // Map to categoryId
-      icon: <FaFilter />,
-      isOpen: true,
-      type: 'checkbox',
-      options: categories ? categories.map((cat: any) => ({
-        id: cat.id || cat._id || `cat-${cat.name}`,
-        label: cat.name
-      })) : []
-    },
-    {
-      title: 'Thương hiệu',
-      filterKey: 'brandId', // Map to brandId
-      icon: <FaHeart />,
-      isOpen: true,
-      type: 'checkbox',
-      options: brands ? brands.map((brand: any) => ({
-        id: brand._id || brand.id || `brand-${brand.name}`,
-        label: brand.name
-      })) : []
-    },
-    {
-      title: 'Khoảng giá',
-      filterKey: 'price', // Special key for price range
-      icon: <FaPercent />,
-      isOpen: true,
-      type: 'range',
-      min: 0,
-      max: 5000000, // Adjust max price if needed
-      step: 10000
-    },
-    {
-      title: 'Loại da',
-      filterKey: 'skinTypes', // Map to skinTypes (string)
-      icon: <GiMilkCarton />,
-      isOpen: true,
-      type: 'checkbox',
-      // Map string[] to { id: string; label: string }[]
-      options: skinTypeOptions.map(type => ({ id: type, label: type }))
-    },
-    {
-      title: 'Vấn đề da',
-      filterKey: 'concerns', // Map to concerns (string)
-      icon: <TbBottle />,
-      isOpen: true,
-      type: 'checkbox',
-      // Map string[] to { id: string; label: string }[]
-      options: concernOptions.map(concern => ({ id: concern, label: concern }))
-    },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [categories, brands, skinTypeOptions, concernOptions]); // Added skinTypeOptions and concernOptions to dependencies
+  // const sections = useMemo<FilterSection[]>(() => [ // Bỏ useMemo ở đây, sẽ quản lý bằng useEffect
+  // ...
+  // ], [categories, brands, skinTypeOptions, concernOptions]);
 
-  const [sectionsState, setSectionsState] = useState<FilterSection[]>(sections); // Local state for open/close
+  const [sectionsState, setSectionsState] = useState<FilterSection[]>([]); // Khởi tạo rỗng, sẽ được cập nhật bởi useEffect
 
   // Update local sections state when base sections change (e.g., data loaded)
   useEffect(() => {
-    console.log('Categories loaded:', categories.length);
-    console.log('Brands loaded:', brands.length);
-    console.log('Skin types loaded:', skinTypeOptions.length);
-    console.log('DETAILED SKIN TYPES:', JSON.stringify(skinTypeOptions));
-    console.log('Concerns loaded:', concernOptions.length);
-    console.log('DETAILED CONCERNS:', JSON.stringify(concernOptions));
-    console.log('Current filters:', filters);
-
-    // Fetch skin types and concerns if they're not loaded yet
+    // Fetch options if not already loaded
     if (skinTypeOptions.length === 0) {
       fetchSkinTypeOptions();
     }
@@ -116,44 +58,76 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       fetchConcernOptions();
     }
 
-    if (categories.length > 0 || brands.length > 0) {
-      // Cập nhật chỉ khi có dữ liệu danh mục hoặc thương hiệu
-      const newSections: FilterSection[] = [
-        {
-          title: 'Danh mục',
-          filterKey: 'categoryId' as const,
-          icon: <FaFilter />,
-          isOpen: true,
-          type: 'checkbox' as const,
-          options: categories.map((cat: any) => ({
-            id: cat.id || cat._id || `cat-${cat.name}`,
-            label: cat.name
-          }))
-        },
-        {
-          title: 'Thương hiệu',
-          filterKey: 'brandId' as const,
-          icon: <FaHeart />,
-          isOpen: true,
-          type: 'checkbox' as const,
-          options: brands.map((brand: any) => ({
-            id: brand._id || brand.id || `brand-${brand.name}`,
-            label: brand.name
-          }))
-        },
-        // Giữ nguyên các mục khác từ sections ban đầu
-        ...sections.slice(2)
-      ];
+    // Rebuild all sections whenever relevant data changes
+    const updatedFullSections: FilterSection[] = [
+      {
+        title: 'Danh mục',
+        filterKey: 'categoryId' as const,
+        icon: <FaFilter />,
+        isOpen: sectionsState.find(s => s.title === 'Danh mục')?.isOpen ?? true,
+        type: 'checkbox' as const,
+        options: categories.map((cat: any) => ({
+          id: cat._id || cat.id, // Ưu tiên _id
+          label: cat.name
+        }))
+      },
+      {
+        title: 'Thương hiệu',
+        filterKey: 'brandId' as const,
+        icon: <FaHeart />,
+        isOpen: sectionsState.find(s => s.title === 'Thương hiệu')?.isOpen ?? true,
+        type: 'checkbox' as const,
+        options: brands.map((brand: any) => ({
+          id: brand._id || brand.id, // Ưu tiên _id
+          label: brand.name
+        }))
+      },
+      {
+        title: 'Khoảng giá',
+        filterKey: 'price' as const,
+        icon: <FaPercent />,
+        isOpen: sectionsState.find(s => s.title === 'Khoảng giá')?.isOpen ?? true,
+        type: 'range' as const,
+        min: 0,
+        max: 5000000,
+        step: 10000
+      },
+      {
+        title: 'Loại da',
+        filterKey: 'skinTypes' as const,
+        icon: <GiMilkCarton />,
+        isOpen: sectionsState.find(s => s.title === 'Loại da')?.isOpen ?? true,
+        type: 'checkbox' as const,
+        options: skinTypeOptions.map(type => ({ id: type, label: type }))
+      },
+      {
+        title: 'Vấn đề da',
+        filterKey: 'concerns' as const,
+        icon: <TbBottle />,
+        isOpen: sectionsState.find(s => s.title === 'Vấn đề da')?.isOpen ?? true,
+        type: 'checkbox' as const,
+        options: concernOptions.map(concern => ({ id: concern, label: concern }))
+      },
+    ];
+    
+    // Chỉ cập nhật nếu có sự thay đổi thực sự về cấu trúc hoặc số lượng options
+    // để tránh vòng lặp render không cần thiết nếu chỉ isOpen thay đổi.
+    // Tuy nhiên, việc kiểm tra sâu này có thể phức tạp.
+    // Một cách đơn giản hơn là chỉ set nếu độ dài hoặc các options thay đổi.
+    // Hoặc, nếu sectionsState được dùng làm dependency, cần cẩn thận.
+    // Hiện tại, chúng ta không dùng sectionsState làm dependency trực tiếp cho useEffect này.
+    setSectionsState(updatedFullSections);
 
-      // Cập nhật sectionsState với trạng thái mở đóng từ state trước
-      setSectionsState(prev => {
-        return newSections.map((sec, index) => ({
-          ...sec,
-          isOpen: prev[index]?.isOpen ?? sec.isOpen
-        }));
-      });
-    }
-  }, [categories, brands, sections, skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions]);
+  }, [
+    categories, 
+    brands, 
+    skinTypeOptions, 
+    concernOptions, 
+    fetchSkinTypeOptions, 
+    fetchConcernOptions
+    // Không thêm sectionsState vào đây để tránh vòng lặp, vì chúng ta đang set nó.
+    // Trạng thái isOpen được đọc từ sectionsState cũ khi xây dựng updatedFullSections.
+  ]);
 
 
   // Mức giá phổ biến
@@ -577,14 +551,15 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                                   e.preventDefault(); // Ngăn chặn hành vi mặc định của label
 
                                   // Đảm bảo click vào label sẽ kích hoạt cùng sự kiện với checkbox
-                                  const isChecked =
-                                    section.filterKey === 'categoryId' ? filters.categoryId !== option.id :
-                                    section.filterKey === 'brandId' ? filters.brandId !== option.id :
-                                    section.filterKey === 'skinTypes' ? !(filters.skinTypes?.split(',') || []).includes(option.id) :
-                                    section.filterKey === 'concerns' ? !(filters.concerns?.split(',') || []).includes(option.id) :
-                                    true;
-
-                                  handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, isChecked);
+                                  // Lấy trạng thái hiện tại của checkbox
+                                  const currentActualIsChecked =
+                                    section.filterKey === 'categoryId' ? filters.categoryId === option.id :
+                                    section.filterKey === 'brandId' ? filters.brandId === option.id :
+                                    section.filterKey === 'skinTypes' ? (filters.skinTypes?.split(',') || []).includes(option.id) :
+                                    section.filterKey === 'concerns' ? (filters.concerns?.split(',') || []).includes(option.id) :
+                                    false;
+                                  // Gọi handleCheckboxChange với trạng thái ngược lại
+                                  handleCheckboxChange(section.filterKey as keyof ShopProductFilters, option.id, !currentActualIsChecked);
                                 }}
                               >
                                 {option.label}

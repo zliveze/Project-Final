@@ -1,170 +1,96 @@
-import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { FiArrowRight } from 'react-icons/fi'
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
+import { FiArrowRight, FiLoader } from 'react-icons/fi';
+import axiosInstance from '../../lib/axios'; // Sửa đường dẫn import
 
-// Cấu trúc dữ liệu danh mục theo model Categories
+// Cấu trúc dữ liệu danh mục theo API response
 interface Category {
-  id: number;
+  _id: string; // Thay đổi từ id: number
   name: string;
   description: string;
   slug: string;
-  parentId?: number; // Danh mục cha (nếu có)
-  level: number; // Cấp độ của danh mục
-  image: {
+  parentId?: string; // Thay đổi từ number
+  level: number;
+  image?: { // Image có thể không tồn tại
     url: string;
     alt: string;
+    publicId?: string;
   };
-  status: string; // ["active", "inactive"]
+  status: 'active' | 'inactive'; // Kiểu cụ thể hơn
   featured: boolean;
-  order: number; // Thứ tự hiển thị
-  backgroundColor?: string; // Màu nền (thêm vào để giữ tính năng hiện tại)
-  icon?: string; // Icon (thêm vào để giữ tính năng hiện tại)
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+  childrenCount?: number;
 }
 
-// Dữ liệu danh mục
-const categories: Category[] = [
-  {
-    id: 1,
-    name: "Trang Điểm Môi",
-    description: "Các sản phẩm trang điểm cho môi: son, son dưỡng, son bóng,...",
-    slug: "trang-diem-moi",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Trang Điểm Môi"
-    },
-    status: "active",
-    featured: true,
-    order: 1,
-    backgroundColor: "from-pink-200 to-pink-100",
-    icon: "💄"
-  },
-  {
-    id: 2,
-    name: "Mặt Nạ",
-    description: "Các loại mặt nạ dưỡng da: mặt nạ giấy, mặt nạ đất sét, mặt nạ ngủ,...",
-    slug: "mat-na",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Mặt Nạ"
-    },
-    status: "active",
-    featured: true,
-    order: 2,
-    backgroundColor: "from-green-200 to-green-100",
-    icon: "🧖‍♀️"
-  },
-  {
-    id: 3,
-    name: "Trang Điểm Mặt",
-    description: "Các sản phẩm trang điểm cho mặt: kem nền, phấn phủ, che khuyết điểm,...",
-    slug: "trang-diem-mat",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Trang Điểm Mặt"
-    },
-    status: "active",
-    featured: true,
-    order: 3,
-    backgroundColor: "from-orange-200 to-orange-100",
-    icon: "🧴"
-  },
-  {
-    id: 4,
-    name: "Sữa Rửa Mặt",
-    description: "Các loại sữa rửa mặt cho các loại da khác nhau",
-    slug: "sua-rua-mat",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Sữa Rửa Mặt"
-    },
-    status: "active",
-    featured: true,
-    order: 4,
-    backgroundColor: "from-blue-200 to-blue-100",
-    icon: "🫧"
-  },
-  {
-    id: 5,
-    name: "Trang Điểm Mắt",
-    description: "Các sản phẩm trang điểm cho mắt: mascara, phấn mắt, kẻ mắt,...",
-    slug: "trang-diem-mat",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Trang Điểm Mắt"
-    },
-    status: "active",
-    featured: true,
-    order: 5,
-    backgroundColor: "from-purple-200 to-purple-100",
-    icon: "👁️"
-  },
-  {
-    id: 6,
-    name: "Kem Chống Nắng",
-    description: "Các loại kem chống nắng cho da mặt và toàn thân",
-    slug: "kem-chong-nang",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Kem Chống Nắng"
-    },
-    status: "active",
-    featured: true,
-    order: 6,
-    backgroundColor: "from-yellow-200 to-yellow-100",
-    icon: "☀️"
-  },
-  {
-    id: 7,
-    name: "Nước Tẩy Trang",
-    description: "Các loại nước tẩy trang cho các loại da khác nhau",
-    slug: "nuoc-tay-trang",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Nước Tẩy Trang"
-    },
-    status: "active",
-    featured: true,
-    order: 7,
-    backgroundColor: "from-indigo-200 to-indigo-100",
-    icon: "💦"
-  },
-  {
-    id: 8,
-    name: "Serum & Tinh Chất",
-    description: "Các loại serum và tinh chất đặc trị cho da",
-    slug: "serum-tinh-chat",
-    level: 1,
-    image: {
-      url: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-      alt: "Serum & Tinh Chất"
-    },
-    status: "active",
-    featured: true,
-    order: 8,
-    backgroundColor: "from-rose-200 to-rose-100",
-    icon: "💧"
-  }
+// Interface cho API response (nếu API trả về dạng object có items)
+interface CategoriesApiResponse {
+  items: Category[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+// Mảng màu nền ngẫu nhiên để thay thế backgroundColor
+const backgroundGradients = [
+  "from-pink-200 to-pink-100",
+  "from-green-200 to-green-100",
+  "from-orange-200 to-orange-100",
+  "from-blue-200 to-blue-100",
+  "from-purple-200 to-purple-100",
+  "from-yellow-200 to-yellow-100",
+  "from-indigo-200 to-indigo-100",
+  "from-rose-200 to-rose-100",
+  "from-teal-200 to-teal-100",
+  "from-cyan-200 to-cyan-100",
 ];
 
-// Lọc các danh mục nổi bật và đang hoạt động
-const featuredCategories = categories.filter(category => category.featured && category.status === "active");
-// Sắp xếp theo thứ tự hiển thị
-const sortedCategories = [...featuredCategories].sort((a, b) => a.order - b.order);
+// Mảng icon ngẫu nhiên để thay thế icon
+const categoryIcons = ["💄", "🧖‍♀️", "🧴", "🫧", "👁️", "☀️", "💦", "💧", "🌿", "✨"];
+
 
 export default function CategorySection() {
   const [isClient, setIsClient] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsClient(true);
+
+    const fetchCategories = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axiosInstance.get<CategoriesApiResponse>('/categories', {
+          params: {
+            status: 'active',
+            featured: true,
+            level: 1,
+            limit: 8,
+            sort: 'order,asc', // Sắp xếp theo order tăng dần
+          },
+        });
+        if (response.data && response.data.items) {
+          setCategories(response.data.items);
+        } else {
+          setCategories([]); // Nếu không có items, đặt là mảng rỗng
+          // console.warn("API did not return items for categories.");
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải danh mục:", err);
+        setError("Không thể tải danh mục. Vui lòng thử lại sau.");
+        setCategories([]); // Đặt là mảng rỗng khi có lỗi
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   // Animation variants
@@ -275,30 +201,74 @@ export default function CategorySection() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
         >
-          {sortedCategories.map((category) => (
+          {loading && (
+            // Hiển thị skeleton loader hoặc thông báo loading
+            Array.from({ length: 8 }).map((_, index) => (
+              <motion.div
+                key={`skeleton-${index}`}
+                className="bg-gray-200 rounded-xl p-5 h-64 animate-pulse flex flex-col items-center justify-center"
+                variants={itemVariants}
+              >
+                <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
+                <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+                <div className="h-3 bg-gray-300 rounded w-full mx-auto mb-1"></div>
+                <div className="h-3 bg-gray-300 rounded w-5/6 mx-auto mb-3"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto mt-auto"></div>
+              </motion.div>
+            ))
+          )}
+
+          {!loading && error && (
+            <div className="col-span-full text-center text-red-500 py-10">
+              <p>{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && categories.length === 0 && (
+            <div className="col-span-full text-center text-gray-500 py-10">
+              <p>Không có danh mục nào để hiển thị.</p>
+            </div>
+          )}
+
+          {!loading && !error && categories.map((category, index) => (
             <motion.div 
-              key={category.id}
+              key={category._id}
               variants={itemVariants}
               whileHover="hover"
             >
               <Link 
-                href={`/categories/${category.slug}`}
+                href={`/shop?categoryId=${category._id}`}
                 className="block h-full"
               >
-                <div className={`bg-gradient-to-br ${category.backgroundColor} rounded-xl p-5 flex flex-col items-center text-center h-full relative overflow-hidden group transition-all duration-300`}>
+                <div className={`bg-gradient-to-br ${backgroundGradients[index % backgroundGradients.length]} rounded-xl p-5 flex flex-col items-center text-center h-full relative overflow-hidden group transition-all duration-300`}>
                   {/* Shine effect overlay on hover */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none">
                     <div className="absolute inset-0 bg-white opacity-10"></div>
                     <div className="absolute -inset-full top-0 block h-full w-1/2 transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine"></div>
                   </div>
                   
-                  <motion.div 
-                    className="w-20 h-20 flex items-center justify-center mb-4 text-4xl relative"
-                    variants={iconVariants}
-                  >
-                    <div className="absolute inset-0 bg-white bg-opacity-70 rounded-full filter blur-md"></div>
-                    <span className="relative z-10">{category.icon}</span>
-                  </motion.div>
+                  {category.image && category.image.url ? (
+                    <motion.div 
+                      className="w-20 h-20 flex items-center justify-center mb-4 relative"
+                      variants={iconVariants}
+                    >
+                       <Image
+                        src={category.image.url}
+                        alt={category.image.alt || category.name}
+                        width={80}
+                        height={80}
+                        className="object-contain rounded-full"
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      className="w-20 h-20 flex items-center justify-center mb-4 text-4xl relative"
+                      variants={iconVariants}
+                    >
+                      <div className="absolute inset-0 bg-white bg-opacity-70 rounded-full filter blur-md"></div>
+                      <span className="relative z-10">{categoryIcons[index % categoryIcons.length]}</span>
+                    </motion.div>
+                  )}
                   
                   <div className="mt-2 flex-grow">
                     <h3 className="font-medium text-base md:text-lg text-gray-800 mb-2">{category.name}</h3>

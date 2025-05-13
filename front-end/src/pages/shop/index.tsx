@@ -84,64 +84,75 @@ export default function Shop() {
 
   // Khai báo hàm xử lý URL parameters ở mức component để có thể sử dụng ở nhiều nơi
   const handleUrlParams = useCallback(() => {
-    // Lấy URL parameters từ chuỗi truy vấn
     const searchParams = new URLSearchParams(window.location.search);
-    const newFilters: Partial<ShopProductFilters> = {};
+    const newFiltersFromUrl: Partial<ShopProductFilters> = {};
 
-    // Lấy các tham số cơ bản
-    const eventId = searchParams.get('eventId');
-    const campaignId = searchParams.get('campaignId');
-    const search = searchParams.get('search');
+    // Danh sách các key filter có thể có trên URL và trong ShopProductFilters
+    const possibleFilterKeys: (keyof ShopProductFilters)[] = [
+      'search', 'brandId', 'categoryId', 'eventId', 'campaignId',
+      'status', 'minPrice', 'maxPrice', 'tags', 'skinTypes',
+      'concerns', 'isBestSeller', 'isNew', 'isOnSale', 'hasGifts',
+      'sortBy', 'sortOrder'
+    ];
 
-    // Xử lý tham số tìm kiếm
-    if (search && search !== 'undefined') {
-      newFilters.search = search;
-      console.log('Đã tìm thấy tham số tìm kiếm từ URL:', search);
-    } else {
-      // Nếu không có tham số search trong URL, đặt search filter thành undefined
-      // Điều này giúp tránh việc gọi API liên tục khi xóa từ khóa tìm kiếm
-      newFilters.search = undefined;
-    }
-
-    // Chỉ áp dụng một loại filter: hoặc eventId hoặc campaignId, không áp dụng cả hai
-    if (campaignId && campaignId !== 'undefined') {
-      // Nếu có campaignId, chỉ áp dụng campaignId
-      newFilters.campaignId = campaignId;
-      // Đảm bảo eventId không được áp dụng
-      newFilters.eventId = undefined;
-    } else if (eventId && eventId !== 'undefined') {
-      // Nếu không có campaignId nhưng có eventId, áp dụng eventId
-      newFilters.eventId = eventId;
-      // Đảm bảo campaignId không được áp dụng
-      newFilters.campaignId = undefined;
-    }
-
-    // Chỉ áp dụng filters nếu có thay đổi và có ít nhất một filter
-    if (Object.keys(newFilters).length > 0) {
-      const needsUpdate = Object.entries(newFilters).some(([key, value]) => {
-        // Kiểm tra nếu giá trị mới khác với giá trị hiện tại
-        const currentValue = filters[key as keyof ShopProductFilters];
-
-        // Xử lý đặc biệt cho trường hợp search
-        if (key === 'search') {
-          // Nếu cả hai đều undefined hoặc empty string, coi như không có thay đổi
-          if ((!value || value === '') && (!currentValue || currentValue === '')) {
-            return false;
+    possibleFilterKeys.forEach(key => {
+      const value = searchParams.get(key);
+      if (value !== null && value !== 'undefined' && String(value).trim() !== '') {
+        // Chuyển đổi kiểu dữ liệu nếu cần
+        if (key === 'minPrice' || key === 'maxPrice') {
+          newFiltersFromUrl[key] = Number(value);
+        } else if (key === 'isBestSeller' || key === 'isNew' || key === 'isOnSale' || key === 'hasGifts') {
+          newFiltersFromUrl[key] = value === 'true';
+        } else if (key === 'sortOrder') {
+          if (value === 'asc' || value === 'desc') {
+            newFiltersFromUrl[key] = value;
+          } else {
+            // Nếu giá trị không hợp lệ, không gán hoặc gán undefined
+            newFiltersFromUrl[key] = undefined; 
           }
+        } else {
+          newFiltersFromUrl[key] = value;
         }
+      } else {
+        // Nếu tham số không có trên URL, đặt là undefined để có thể xóa khỏi state
+        newFiltersFromUrl[key] = undefined;
+      }
+    });
+    
+    // Logic đặc biệt: Nếu có campaignId hoặc eventId, chúng có thể cần được ưu tiên hoặc loại trừ lẫn nhau
+    // Ví dụ: nếu có campaignId, eventId có thể bị bỏ qua.
+    if (newFiltersFromUrl.campaignId) {
+        newFiltersFromUrl.eventId = undefined; // Campaign ưu tiên
+    }
+    // (Logic tương tự có thể áp dụng nếu eventId ưu tiên hơn campaignId, hoặc nếu chúng có thể tồn tại song song)
 
-        return currentValue !== value;
-      });
+    // So sánh newFiltersFromUrl với filters hiện tại trong context
+    let hasChanged = false;
+    // Kiểm tra các key có trong newFiltersFromUrl hoặc trong filters hiện tại
+    const allKeysToCheck = Array.from(new Set([...Object.keys(newFiltersFromUrl), ...Object.keys(filters)])) as (keyof ShopProductFilters)[];
 
-      if (needsUpdate) {
-        // Log để debug
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Cập nhật filters từ URL:', newFilters);
-        }
-        setFilters(newFilters, false); // false = không bỏ qua fetch
+    for (const key of allKeysToCheck) {
+      const oldValue = filters[key];
+      const newValue = newFiltersFromUrl[key];
+
+      // Xử lý trường hợp search: nếu cả hai đều là empty/undefined thì không coi là thay đổi
+      if (key === 'search' && (oldValue === undefined || oldValue === '') && (newValue === undefined || newValue === '')) {
+        continue;
+      }
+      if (String(oldValue ?? '') !== String(newValue ?? '')) { // So sánh giá trị dạng string để xử lý undefined/null/empty string
+        hasChanged = true;
+        break;
       }
     }
-  }, [filters, setFilters]);
+
+    if (hasChanged) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('URL params changed or initial load. Updating filters from URL:', newFiltersFromUrl);
+      }
+      // false = không bỏ qua fetch, để context tự quyết định fetch dựa trên logic debounce/cache của nó
+      setFilters(newFiltersFromUrl, false); 
+    }
+  }, [filters, setFilters]); 
 
   // Khai báo handleRouteChange ở mức component để có thể sử dụng ở nhiều nơi
   const handleRouteChange = useCallback(() => handleUrlParams(), [handleUrlParams]);
@@ -172,8 +183,29 @@ export default function Shop() {
   }, [filters]);
 
   // Hàm xử lý thay đổi bộ lọc
-  const handleFilterChange = (newFilters: Partial<ShopProductFilters>) => {
-    setFilters(newFilters);
+  const handleFilterChange = (newFiltersFromShopFilters: Partial<ShopProductFilters>) => {
+    const currentRouterQuery = { ...router.query };
+    const combinedQuery: Record<string, any> = { ...currentRouterQuery };
+
+    Object.entries(newFiltersFromShopFilters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        combinedQuery[key] = String(value);
+      } else {
+        delete combinedQuery[key];
+      }
+    });
+
+    // Xóa page query param khi filter thay đổi để bắt đầu từ trang 1
+    delete combinedQuery.page;
+
+    router.push({
+      pathname: router.pathname,
+      query: combinedQuery,
+    }, undefined, { shallow: true });
+    
+    // Không gọi setFilters trực tiếp ở đây nữa,
+    // useEffect sẽ lắng nghe routeChangeComplete và gọi handleUrlParams,
+    // handleUrlParams sẽ gọi setFilters từ context.
   };
 
   // Hàm xử lý thay đổi trang (sử dụng changePage từ context)

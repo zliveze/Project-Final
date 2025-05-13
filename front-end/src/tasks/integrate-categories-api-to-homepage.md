@@ -1,0 +1,41 @@
+# Tích hợp API Danh mục vào Trang chủ
+
+- [x] **Phân tích Backend**: Đã hoàn thành.
+- [x] **Tạo file nhiệm vụ**: Đã hoàn thành.
+- [x] **Chỉnh sửa `front-end\src\components\home\CategorySection.tsx`**:
+    - [x] Import `axiosInstance` từ `../../lib/axios`.
+    - [x] Cập nhật `Category` interface:
+        - Đổi `id: number` thành `_id: string`.
+        - Bỏ `backgroundColor` và `icon` (sử dụng mảng màu/icon dự phòng).
+        - Kiểm tra và thêm các trường khác nếu cần thiết từ API (đã bao gồm `createdAt`, `updatedAt`, `childrenCount`, `image.publicId`).
+    - [x] Tạo `useState` để lưu trữ `categories` (kiểu `Category[]`), `loading` (boolean) và `error` (string | null).
+    - [x] Tạo `useEffect` để gọi API khi component được mount:
+        - Endpoint: `/categories` (đã sửa, base URL được xử lý bởi `axiosInstance`).
+        - Params: `status=active`, `featured=true`, `level=1`, `limit=8`, `sort=order,asc`.
+        - Xử lý `loading` state.
+        - Lưu dữ liệu vào state `categories`.
+        - Xử lý lỗi nếu có và lưu vào state `error`.
+    - [x] Cập nhật phần render để sử dụng dữ liệu từ state `categories`.
+    - [x] Đảm bảo hiển thị hình ảnh từ `category.image.url` và `alt` từ `category.image.alt`, có fallback nếu không có ảnh.
+    - [x] Thêm skeleton loader khi `loading` là true.
+    - [x] Thêm thông báo lỗi khi `error` có giá trị.
+    - [x] Thêm thông báo khi không có danh mục nào.
+- [x] **Kiểm tra và Hoàn thiện**:
+    - [x] Kiểm tra hiển thị trên giao diện.
+    - [x] Kiểm tra console log để phát hiện lỗi.
+- [x] **Cập nhật file nhiệm vụ**: Đánh dấu các mục đã hoàn thành.
+- [x] **Sửa lỗi link danh mục**:
+    - [x] Cập nhật `href` trong `CategorySection.tsx` để trỏ đến `/shop?categoryId={category._id}`.
+- [x] **Sửa lỗi áp dụng filter categoryId trên trang shop**:
+    - [x] Cập nhật `handleUrlParams` trong `pages/shop/index.tsx` để đọc và áp dụng `categoryId` từ URL.
+- [x] **Sửa lỗi filter danh mục trong ShopFilters.tsx**:
+    - [x] Đảm bảo `option.id` cho danh mục trong `ShopFilters.tsx` ưu tiên sử dụng `_id`.
+    - [x] Sửa logic `onClick` của `label` cho checkbox danh mục để toggle trạng thái chính xác.
+    - [x] Xem xét lại/bỏ qua kiểm tra `isValidObjectId` trong `handleCheckboxChange` nếu `option.id` đã là `_id`.
+- [x] **Sửa lỗi mất filter khi chọn trong ShopFilters.tsx**:
+    - [x] Cập nhật `handleFilterChange` trong `pages/shop/index.tsx` để cập nhật URL khi filter thay đổi, cho phép `handleUrlParams` đồng bộ hóa state từ URL.
+- [x] **Sửa lỗi không hiển thị filter Loại da/Vấn đề da trong ShopFilters.tsx**:
+    - [x] Cập nhật `useEffect` trong `ShopFilters.tsx` để xây dựng lại toàn bộ `sectionsState` khi `skinTypeOptions` hoặc `concernOptions` thay đổi, đảm bảo các mục này luôn được hiển thị.
+- [x] **Đảm bảo các filter (category, brand, v.v.) hoạt động song song trên trang Shop**:
+    - [x] Sửa `handleUrlParams` trong `pages/shop/index.tsx` để đọc tất cả các tham số filter từ URL và áp dụng chúng đồng thời, thay vì có thể ghi đè lẫn nhau.
+    - [x] Sửa lỗi TypeScript liên quan đến `sortOrder` trong `handleUrlParams`.
