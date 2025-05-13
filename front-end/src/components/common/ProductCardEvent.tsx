@@ -41,7 +41,7 @@ const ProductCardEvent = React.memo(({
           priority={false}
         />
         <div className="absolute top-0 left-0 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[11px] px-2 py-1 rounded-br-lg font-medium">
-          ONLINE TỪ 12H - 24H | {remainingTime}
+         Online 24/7 {remainingTime}
         </div>
         {discount && (
           <div className="absolute top-2 right-2 bg-pink-500 text-white text-xs w-10 h-10 rounded-full flex items-center justify-center font-bold">
