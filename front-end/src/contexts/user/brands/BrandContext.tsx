@@ -41,7 +41,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const BRAND_API = {
   ALL: `${API_URL}/brands`,
   ACTIVE: `${API_URL}/brands/active`,
-  FEATURED: `${API_URL}/brands/active?featured=true`
+  FEATURED: `${API_URL}/brands/featured`
 };
 
 // Provider component
@@ -158,4 +158,4 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   );
 };
 
-export default BrandContext; 
+export default BrandContext;

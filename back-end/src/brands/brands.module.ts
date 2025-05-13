@@ -5,6 +5,7 @@ import { BrandsAdminController } from './brands-admin.controller';
 import { BrandsUserController } from './brands-user.controller';
 import { Brand, BrandSchema } from './schemas/brand.schema';
 import { CloudinaryModule } from '../cloudinary';
+import { ProductsModule } from '../products/products.module'; // Import ProductsModule
 
 @Module({
   imports: [
@@ -12,9 +13,10 @@ import { CloudinaryModule } from '../cloudinary';
       { name: Brand.name, schema: BrandSchema },
     ]),
     CloudinaryModule,
+    ProductsModule, // Add ProductsModule here
   ],
   controllers: [BrandsAdminController, BrandsUserController],
   providers: [BrandsService],
   exports: [BrandsService],
 })
-export class BrandsModule {} 
+export class BrandsModule {}

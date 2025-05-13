@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
 import { Brand, BrandDocument } from './schemas/brand.schema';
+import { Product, ProductDocument } from '../products/schemas/product.schema'; // Corrected import path
 import { 
   CreateBrandDto, 
   UpdateBrandDto, 
@@ -17,6 +18,7 @@ export class BrandsService {
 
   constructor(
     @InjectModel(Brand.name) private brandModel: Model<BrandDocument>,
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>, // Inject ProductModel
     private readonly cloudinaryService: CloudinaryService
   ) {}
 
@@ -126,19 +128,45 @@ export class BrandsService {
   }
 
   async findAllFeatured(): Promise<BrandResponseDto[]> {
-    // Lấy tất cả brand nổi bật và đang hoạt động
-    const brands = await this.brandModel.find({
-      status: 'active',
-      featured: true
-    })
-    .sort({ name: 1 })
-    .lean()
-    .exec();
-    
-    // Chuyển đổi dữ liệu để phù hợp với BrandResponseDto
-    return brands.map(brand => ({
-      ...brand,
-      _id: (brand._id as Types.ObjectId).toString()
+    this.logger.log('Lấy danh sách 6 thương hiệu nổi bật có nhiều sản phẩm nhất');
+    const topBrands = await this.brandModel.aggregate([
+        { $match: { status: 'active', featured: true } },
+        {
+            $lookup: {
+                from: 'products', // Tên collection của products
+                localField: '_id',
+                foreignField: 'brandId',
+                as: 'products',
+            },
+        },
+        {
+            $addFields: {
+                productCount: { $size: '$products' },
+            },
+        },
+        { $sort: { productCount: -1, name: 1 } }, // Sắp xếp phụ theo tên nếu productCount bằng nhau
+        { $limit: 6 },
+        {
+            $project: { // Chỉ giữ lại các trường của Brand schema, loại bỏ 'products'
+                name: 1,
+                slug: 1,
+                description: 1,
+                logo: 1,
+                origin: 1,
+                website: 1,
+                socialMedia: 1,
+                status: 1,
+                featured: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                // productCount: 1, // Không thêm productCount vào response vì DTO không có
+            },
+        },
+    ]);
+
+    return topBrands.map(brand => ({
+        ...brand,
+        _id: (brand._id as Types.ObjectId).toString(),
     })) as BrandResponseDto[];
   }
 
@@ -245,4 +273,4 @@ export class BrandsService {
       featured,
     };
   }
-} 
+}
