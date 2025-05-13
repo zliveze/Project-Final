@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { FiSave, FiX, FiAlertCircle } from 'react-icons/fi';
+import { FiSave, FiX, FiAlertCircle, FiTrash2 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { useAdminOrder } from '@/contexts';
 
@@ -50,12 +50,21 @@ interface OrderEditFormProps {
 
 export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEditFormProps) {
   const router = useRouter();
-  const { fetchOrderDetail, updateOrderStatus, loading: contextLoading, error: contextError } = useAdminOrder();
+  const {
+    fetchOrderDetail,
+    updateOrderStatus,
+    cancelOrder,
+    updateViettelPostStatus,
+    loading: contextLoading,
+    error: contextError
+  } = useAdminOrder();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [formData, setFormData] = useState({
     status: '',
     paymentStatus: '',
@@ -188,6 +197,90 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         id: `update-order-error-${orderId}`
       });
       setError(`Có lỗi xảy ra khi cập nhật đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Hiển thị modal xác nhận hủy đơn hàng
+  const handleShowCancelModal = () => {
+    setShowCancelModal(true);
+  };
+
+  // Xử lý hủy đơn hàng
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      toast.error('Vui lòng nhập lý do hủy đơn hàng');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      console.log(`[DEBUG] Bắt đầu hủy đơn hàng ${orderId} với lý do: ${cancelReason}`);
+
+      // Gọi API hủy đơn hàng
+      const cancelledOrder = await cancelOrder(orderId, cancelReason);
+      console.log(`[DEBUG] Kết quả hủy đơn hàng:`, cancelledOrder);
+
+      if (cancelledOrder) {
+        // Nếu đơn hàng có mã vận đơn, gửi yêu cầu hủy đến Viettelpost
+        if (cancelledOrder.trackingCode) {
+          console.log(`[DEBUG] Đơn hàng có mã vận đơn ${cancelledOrder.trackingCode}, gửi yêu cầu hủy đến Viettelpost`);
+
+          const viettelPostData = {
+            TYPE: 4, // Mã hủy đơn hàng
+            ORDER_NUMBER: cancelledOrder.trackingCode,
+            NOTE: `Đơn hàng hủy bởi admin: ${cancelReason}`
+          };
+
+          console.log(`[DEBUG] Dữ liệu gửi đến Viettelpost:`, viettelPostData);
+
+          try {
+            const vtpResult = await updateViettelPostStatus(orderId, viettelPostData);
+            console.log(`[DEBUG] Kết quả từ Viettelpost:`, vtpResult);
+
+            // Kiểm tra xem đơn hàng đã hủy trước đó chưa
+            if (vtpResult && vtpResult.status === 'already_cancelled') {
+              console.log(`[DEBUG] Đơn hàng đã được hủy trước đó trên Viettelpost`);
+              toast.success(vtpResult.message || 'Đơn hàng đã được hủy trước đó trên Viettelpost', {
+                id: `cancel-order-vtp-already-cancelled-${orderId}`
+              });
+            } else {
+              toast.success('Đã hủy đơn hàng và cập nhật trạng thái trên Viettelpost thành công!', {
+                id: `cancel-order-vtp-success-${orderId}`
+              });
+            }
+          } catch (vtpError: any) {
+            console.error('[DEBUG] Lỗi khi cập nhật trạng thái Viettelpost:', vtpError);
+
+            // Đơn hàng đã được hủy trong hệ thống nội bộ, nên vẫn hiển thị thông báo thành công
+            toast.success('Đã hủy đơn hàng trong hệ thống nội bộ thành công!', {
+              id: `cancel-order-success-${orderId}`
+            });
+
+            // Hiển thị thông báo cảnh báo về lỗi Viettelpost
+            toast.error(`Không thể cập nhật trạng thái trên Viettelpost: ${vtpError.message || 'Vui lòng thử lại sau'}`, {
+              id: `cancel-order-vtp-error-${orderId}`,
+              duration: 5000
+            });
+          }
+        } else {
+          console.log(`[DEBUG] Đơn hàng không có mã vận đơn, chỉ cập nhật trạng thái nội bộ`);
+          toast.success('Đã hủy đơn hàng thành công!', {
+            id: `cancel-order-success-${orderId}`
+          });
+        }
+
+        // Đóng modal và làm mới dữ liệu
+        setShowCancelModal(false);
+        setCancelReason('');
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error('[DEBUG] Lỗi khi hủy đơn hàng:', error);
+      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+        id: `cancel-order-error-${orderId}`
+      });
     } finally {
       setSubmitting(false);
     }
@@ -586,33 +679,109 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
           </div>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 border-t border-gray-200 pt-6">
+        <div className="flex items-center justify-between space-x-3 border-t border-gray-200 pt-6">
           <button
             type="button"
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
-            disabled={submitting}
+            onClick={handleShowCancelModal}
+            className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            disabled={submitting || order?.status === 'cancelled' || order?.status === 'delivered' || order?.status === 'returned'}
           >
-            Hủy
+            <FiTrash2 className="mr-2 h-4 w-4" />
+            Hủy đơn hàng
           </button>
-          <button
-            type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
-            disabled={submitting}
-          >
-            {submitting ? (
-              <>
-                <span className="mr-2">Đang cập nhật...</span>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              </>
-            ) : (
-              <>
-                <FiSave className="mr-2 h-4 w-4" />
-                Lưu thay đổi
-              </>
-            )}
-          </button>
+
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+              disabled={submitting}
+            >
+              Đóng
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span className="mr-2">Đang cập nhật...</span>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </>
+              ) : (
+                <>
+                  <FiSave className="mr-2 h-4 w-4" />
+                  Lưu thay đổi
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Modal xác nhận hủy đơn hàng */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+              </div>
+
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <FiAlertCircle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">Xác nhận hủy đơn hàng</h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.
+                        </p>
+                        <div className="mt-4">
+                          <label htmlFor="cancelReason" className="block text-sm font-medium text-gray-700">
+                            Lý do hủy đơn hàng <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            id="cancelReason"
+                            name="cancelReason"
+                            rows={3}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            placeholder="Vui lòng nhập lý do hủy đơn hàng"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={handleCancelOrder}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Đang xử lý...' : 'Xác nhận hủy'}
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => setShowCancelModal(false)}
+                    disabled={submitting}
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

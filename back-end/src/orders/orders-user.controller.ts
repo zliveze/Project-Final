@@ -13,6 +13,7 @@ import {
   Res,
   NotFoundException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { Types } from 'mongoose';
@@ -35,6 +36,8 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class OrdersUserController {
+  private readonly logger = new Logger(OrdersUserController.name);
+
   constructor(private readonly ordersService: OrdersService) {}
 
   /**
@@ -224,25 +227,43 @@ export class OrdersUserController {
     @Body('reason') reason: string,
     @CurrentUser('userId') userId: string,
   ) {
-    if (!reason) {
-      throw new BadRequestException('Reason is required when returning an order');
+    try {
+      if (!reason) {
+        throw new BadRequestException('Reason is required when returning an order');
+      }
+
+      const order = await this.ordersService.findOne(id);
+
+      // Lấy userId từ order
+      const orderUserId = this.getUserIdFromOrder(order.userId);
+
+      if (orderUserId !== userId) {
+        throw new BadRequestException('You do not have permission to return this order');
+      }
+
+      // Kiểm tra xem đơn hàng có thể trả không (chỉ đơn hàng đã giao mới có thể trả)
+      if (order.status !== OrderStatus.DELIVERED) {
+        throw new BadRequestException(`Cannot return order with status ${order.status}. Only delivered orders can be returned.`);
+      }
+
+      // Gọi service để xử lý trả hàng
+      const returnedOrder = await this.ordersService.returnOrder(id, reason, userId);
+
+      // Trả về thông tin đơn hàng đã cập nhật
+      return {
+        success: true,
+        message: 'Yêu cầu trả hàng đã được ghi nhận',
+        order: returnedOrder
+      };
+    } catch (error) {
+      this.logger.error(`Error returning order ${id}: ${error.message}`, error.stack);
+
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(`Có lỗi xảy ra khi xử lý yêu cầu trả hàng: ${error.message}`);
     }
-
-    const order = await this.ordersService.findOne(id);
-
-    // Lấy userId từ order
-    const orderUserId = this.getUserIdFromOrder(order.userId);
-
-    if (orderUserId !== userId) {
-      throw new BadRequestException('You do not have permission to return this order');
-    }
-
-    // Kiểm tra xem đơn hàng có thể trả không (chỉ đơn hàng đã giao mới có thể trả)
-    if (order.status !== OrderStatus.DELIVERED) {
-      throw new BadRequestException(`Cannot return order with status ${order.status}. Only delivered orders can be returned.`);
-    }
-
-    return this.ordersService.returnOrder(id, reason, userId);
   }
 
   @Post('calculate-shipping')

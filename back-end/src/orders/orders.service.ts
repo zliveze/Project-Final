@@ -657,7 +657,7 @@ export class OrdersService {
         try {
           this.logger.debug(`Creating return request for order ${id} with tracking code ${order.trackingCode}`);
 
-          // Gọi API Viettel Post để tạo yêu cầu chuyển hoàn
+          // Gọi API Viettel Post để tạo yêu cầu chuyển hoàn (TYPE = 2: Duyệt chuyển hoàn)
           const returnRequest = await this.viettelPostService.createReturnRequest(order.trackingCode, {
             SERVICE_CODE: 'GCH',
             SERVICE_NAME: 'GCH Chuyển hoàn',
@@ -671,12 +671,25 @@ export class OrdersService {
             id,
             {
               'metadata.returnRequest': returnRequest,
+              'metadata.viettelPostStatus': 'returned',
+              'metadata.viettelPostStatusCode': '2', // Mã duyệt chuyển hoàn
+              'metadata.viettelPostStatusUpdatedAt': new Date(),
             },
             { new: false }
           ).exec();
         } catch (returnError) {
           this.logger.error(`Error creating return request with Viettel Post: ${returnError.message}`, returnError.stack);
           // Không throw lỗi ở đây, vẫn tiếp tục cập nhật trạng thái đơn hàng
+
+          // Lưu thông tin lỗi vào metadata của đơn hàng
+          await this.orderModel.findByIdAndUpdate(
+            id,
+            {
+              'metadata.returnRequestError': returnError.message,
+              'metadata.returnRequestErrorAt': new Date(),
+            },
+            { new: false }
+          ).exec();
         }
       }
 
@@ -2083,15 +2096,31 @@ export class OrdersService {
       const result = await this.viettelPostService.updateOrderStatus(updateVtpStatusDto);
       this.logger.log(`Successfully updated ViettelPost order status for ${updateVtpStatusDto.ORDER_NUMBER}. Result: ${JSON.stringify(result)}`);
 
-      // Sau khi cập nhật thành công trên ViettelPost, có thể cần cập nhật lại trạng thái nội bộ
-      // bằng cách gọi lại API lấy thông tin đơn hàng của ViettelPost hoặc xử lý dựa trên kết quả trả về.
-      // Ví dụ: nếu ViettelPost trả về trạng thái mới, cập nhật vào DB.
-      // Hoặc đơn giản là ghi log và để webhook (nếu có) xử lý cập nhật trạng thái DB.
+      // Kiểm tra xem kết quả có phải là đơn hàng đã hủy không
+      if (result && result.status === 'already_cancelled') {
+        this.logger.warn(`Order ${orderId} with tracking code ${updateVtpStatusDto.ORDER_NUMBER} is already cancelled on ViettelPost`);
 
-      // Tạm thời chỉ trả về kết quả từ ViettelPost
+        // Cập nhật metadata để ghi nhận việc đơn hàng đã hủy trên Viettelpost
+        await this.orderModel.findByIdAndUpdate(
+          orderId,
+          {
+            'metadata.viettelPostCancelSync': {
+              status: 'already_cancelled',
+              requestedAt: new Date(),
+              note: result.message || 'Đơn hàng đã được hủy trước đó trên Viettelpost.', // Sử dụng message từ kết quả
+              originalResponse: result.originalResponse
+            }
+          },
+          { new: false }
+        ).exec();
+      }
+
+      // Trả về kết quả từ ViettelPost
       return result;
     } catch (error) {
       this.logger.error(`Error updating ViettelPost order status for ${updateVtpStatusDto.ORDER_NUMBER}: ${error.message}`, error.stack);
+
+      // Xử lý các lỗi khác
       if (error.response && error.response.data) {
         throw new BadRequestException(`ViettelPost API Error: ${JSON.stringify(error.response.data)}`);
       }
@@ -2155,7 +2184,7 @@ export class OrdersService {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
       }
-      
+
       let endDate = new Date(startDate);
       if (period === 'week') endDate.setDate(startDate.getDate() + 6);
       else if (period === 'month') endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
@@ -2170,7 +2199,7 @@ export class OrdersService {
           $lte: endDate,
         },
       };
-      
+
       const ordersInPeriod = await this.orderModel.find(queryConditions).lean();
 
       const totalOrders = ordersInPeriod.length;
@@ -2178,7 +2207,7 @@ export class OrdersService {
       const processingOrders = ordersInPeriod.filter(o => [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPING].includes(o.status)).length;
       const completedOrders = ordersInPeriod.filter(o => o.status === OrderStatus.DELIVERED).length;
       const cancelledOrders = ordersInPeriod.filter(o => o.status === OrderStatus.CANCELLED).length;
-      
+
       const totalRevenue = ordersInPeriod
         .filter(o => o.status !== OrderStatus.CANCELLED)
         .reduce((sum, o) => sum + o.finalPrice, 0);
@@ -2194,7 +2223,7 @@ export class OrdersService {
       const todayRevenue = todayOrdersList
         .filter(o => o.status !== OrderStatus.CANCELLED)
         .reduce((sum, o) => sum + o.finalPrice, 0);
-      
+
       // Thống kê theo tháng (ví dụ 6 tháng gần nhất)
       interface MonthlyStat {
         month: string;
@@ -2220,7 +2249,7 @@ export class OrdersService {
             { $sort: { '_id': 1 } }
           ]).then(results => {
             const monthIndex = results[0]?._id -1; // Month is 1-indexed from MongoDB
-            const monthName = monthIndex >= 0 && monthIndex < 12 ? 
+            const monthName = monthIndex >= 0 && monthIndex < 12 ?
               ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'][monthIndex]
               : `Tháng ${results[0]?._id}`;
             return {

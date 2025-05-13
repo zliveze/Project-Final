@@ -601,6 +601,17 @@ export class ViettelPostService {
 
   /**
    * Tạo yêu cầu chuyển hoàn đơn hàng
+   *
+   * Sử dụng TYPE = 2 (Duyệt chuyển hoàn) theo tài liệu API Viettel Post
+   * https://partner.viettelpost.vn/v2/order/UpdateOrder
+   *
+   * Các loại trạng thái:
+   * 1. Duyệt đơn hàng
+   * 2. Duyệt chuyển hoàn
+   * 3. Phát tiếp
+   * 4. Hủy đơn hàng
+   * 5. Lấy lại đơn hàng (Gửi lại)
+   * 11. Xóa đơn hàng đã hủy
    */
   async createReturnRequest(orderNumber: string, options: { SERVICE_CODE: string, SERVICE_NAME: string, REASON: string }): Promise<any> {
     try {
@@ -609,43 +620,14 @@ export class ViettelPostService {
         await this.initializeToken();
       }
 
-      const url = `${this.apiUrl}/order/UpdateOrder`;
-
-      // Chuẩn hóa payload cho yêu cầu chuyển hoàn
-      const payload = {
+      // Sử dụng phương thức updateOrderStatus với TYPE = 2 (Duyệt chuyển hoàn)
+      return await this.updateOrderStatus({
         TYPE: 2, // Mã duyệt chuyển hoàn theo tài liệu API
         ORDER_NUMBER: orderNumber,
         NOTE: options.REASON || 'Yêu cầu trả hàng từ khách hàng'
-      };
-
-      this.logger.debug(`Creating return request for order: ${orderNumber} with service: ${options.SERVICE_CODE}`);
-
-      const response = await firstValueFrom(
-        this.httpService.post(url, payload, { headers: this.getHeaders() }),
-      );
-
-      if (response.data && response.data.status === 200) {
-        this.logger.debug(`Return request created successfully for order: ${orderNumber}`);
-        return response.data.data;
-      } else {
-        this.logger.error(`ViettelPost API error when creating return request: ${JSON.stringify(response.data)}`);
-        throw new Error(`ViettelPost API Error: ${response.data?.message || 'Unknown error'}`);
-      }
+      });
     } catch (error) {
-      const axiosError = error as AxiosError;
-      this.logger.error(`Error creating return request: ${axiosError.message}`, axiosError.stack);
-
-      // Nếu lỗi là do token hết hạn, thử đăng nhập lại và gọi lại API
-      if (axiosError.response?.status === 401) {
-        this.logger.debug('Token expired, trying to login again...');
-        await this.login();
-        return this.createReturnRequest(orderNumber, options); // Gọi lại API sau khi đăng nhập
-      }
-
-      if (axiosError.response) {
-        this.logger.error(`ViettelPost error response: ${JSON.stringify(axiosError.response.data)}`);
-        throw new Error(`ViettelPost API Request Failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}`);
-      }
+      this.logger.error(`Error creating return request: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -668,7 +650,7 @@ export class ViettelPostService {
       const url = `${this.apiUrl}/order/UpdateOrder`;
       this.logger.debug(`[VTP_SERVICE_UPDATE_STATUS] Updating ViettelPost order status for: ${payload.ORDER_NUMBER}. URL: ${url}`);
       this.logger.debug(`[VTP_SERVICE_UPDATE_STATUS] Update payload: ${JSON.stringify(payload)}`);
-      let response;
+      let response: any;
       try {
         response = await firstValueFrom(
           this.httpService.post(url, payload, { headers: this.getHeaders() }),
@@ -684,11 +666,27 @@ export class ViettelPostService {
       }
 
 
-      if (response.data && response.data.status === 200 && response.data.error === false) {
+      // Kiểm tra xem đơn hàng đã hủy chưa (status 203 và error true từ ViettelPost)
+      if (response.data && response.data.status === 203 && response.data.error === true) {
+        // Xử lý trường hợp đơn hàng đã hủy trước đó
+        this.logger.warn(`[VTP_SERVICE_UPDATE_STATUS] Order ${payload.ORDER_NUMBER} is already cancelled on ViettelPost (status 203, error true): ${JSON.stringify(response.data)}`);
+
+        // Trả về đối tượng đặc biệt thay vì ném lỗi
+        return {
+          status: 'already_cancelled', // Internal status to indicate this specific scenario
+          message: response.data.message || 'Đơn hàng đã được hủy trước đó trên Viettelpost.',
+          originalResponse: response.data,
+          success: true // From the perspective of our system, this is not an operational failure.
+        };
+      }
+      // Kiểm tra trường hợp thành công (status 200 và error false từ ViettelPost)
+      else if (response.data && response.data.status === 200 && response.data.error === false) {
         this.logger.log(`[VTP_SERVICE_UPDATE_STATUS] Successfully updated ViettelPost order status for ${payload.ORDER_NUMBER}. Response data: ${JSON.stringify(response.data)}`);
         // Trả về toàn bộ response.data để OrdersService có thể kiểm tra chi tiết
         return response.data;
-      } else {
+      }
+      // Xử lý các trường hợp lỗi khác
+      else {
         this.logger.error(`[VTP_SERVICE_UPDATE_STATUS] ViettelPost API returned a non-successful status or error for order ${payload.ORDER_NUMBER}: ${JSON.stringify(response.data)}`);
         // Ném lỗi với thông tin từ ViettelPost để OrdersService có thể bắt và xử lý
         throw new Error(`ViettelPost API Error for order ${payload.ORDER_NUMBER}: ${response.data?.message || 'Unknown error from ViettelPost'}. Full response: ${JSON.stringify(response.data)}`);

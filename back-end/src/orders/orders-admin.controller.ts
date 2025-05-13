@@ -104,12 +104,20 @@ export class OrdersAdminController {
     @Body('status') status: OrderStatus,
     @Body('reason') reason?: string,
   ) {
+    console.log(`[DEBUG_CONTROLLER] Nhận yêu cầu cập nhật trạng thái đơn hàng ${id} thành ${status}${reason ? `, lý do: ${reason}` : ''}`);
+
     if (status === OrderStatus.CANCELLED) {
       if (!reason) {
+        console.log(`[DEBUG_CONTROLLER] Thiếu lý do khi hủy đơn hàng ${id}`);
         throw new BadRequestException('Reason is required when cancelling an order');
       }
-      return this.ordersService.cancelOrder(id, reason);
+      console.log(`[DEBUG_CONTROLLER] Gọi service cancelOrder cho đơn hàng ${id} với lý do: ${reason}`);
+      const result = await this.ordersService.cancelOrder(id, reason);
+      console.log(`[DEBUG_CONTROLLER] Kết quả hủy đơn hàng ${id}: ${result ? 'Thành công' : 'Thất bại'}`);
+      return result;
     }
+
+    console.log(`[DEBUG_CONTROLLER] Gọi service updateStatus cho đơn hàng ${id} với trạng thái: ${status}`);
     return this.ordersService.updateStatus(id, status);
   }
 
@@ -170,10 +178,20 @@ export class OrdersAdminController {
     @Param('id') id: string,
     @Body() updateVtpStatusDto: UpdateViettelPostStatusDto,
   ) {
-    // Đảm bảo rằng ORDER_NUMBER trong DTO khớp với trackingCode của đơn hàng (nếu cần)
-    // Hoặc logic nghiệp vụ cho phép admin chỉ định một ORDER_NUMBER khác (ít khả năng)
-    // Trong trường hợp này, OrdersService sẽ kiểm tra sự khớp lệnh nếu cần.
-    return this.ordersService.updateViettelPostOrderStatus(id, updateVtpStatusDto);
+    console.log(`[DEBUG_CONTROLLER_VTP] Nhận yêu cầu cập nhật trạng thái Viettelpost cho đơn hàng ${id}`);
+    console.log(`[DEBUG_CONTROLLER_VTP] Dữ liệu gửi đến Viettelpost:`, JSON.stringify(updateVtpStatusDto));
+
+    try {
+      // Đảm bảo rằng ORDER_NUMBER trong DTO khớp với trackingCode của đơn hàng (nếu cần)
+      // Hoặc logic nghiệp vụ cho phép admin chỉ định một ORDER_NUMBER khác (ít khả năng)
+      // Trong trường hợp này, OrdersService sẽ kiểm tra sự khớp lệnh nếu cần.
+      const result = await this.ordersService.updateViettelPostOrderStatus(id, updateVtpStatusDto);
+      console.log(`[DEBUG_CONTROLLER_VTP] Kết quả cập nhật trạng thái Viettelpost cho đơn hàng ${id}:`, JSON.stringify(result));
+      return result;
+    } catch (error) {
+      console.error(`[DEBUG_CONTROLLER_VTP] Lỗi khi cập nhật trạng thái Viettelpost cho đơn hàng ${id}:`, error.message);
+      throw error;
+    }
   }
 
   @Post(':id/viettelpost-resend-webhook')
