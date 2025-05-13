@@ -53,17 +53,35 @@ const EventForm: React.FC<EventFormProps> = ({
   // Khởi tạo form với dữ liệu có sẵn (nếu có)
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({
-        ...prev,
-        ...initialData,
-        // Đảm bảo startDate và endDate là đối tượng Date
-        startDate: initialData.startDate ? new Date(initialData.startDate) : prev.startDate,
-        endDate: initialData.endDate ? new Date(initialData.endDate) : prev.endDate,
-        // Đảm bảo mảng products là một mảng mới và luôn cập nhật khi có thay đổi
-        products: initialData.products ? [...initialData.products] : []
-      }));
+      // Trường hợp 1: ID sự kiện thay đổi (load sự kiện khác để edit, hoặc chuyển từ add sang edit)
+      // Hoặc trường hợp 2: Chế độ thêm mới (initialData._id không có) VÀ form hiện tại rỗng (người dùng chưa nhập gì)
+      // thì reset toàn bộ form với initialData.
+      if (
+        (initialData._id && initialData._id !== formData._id) ||
+        (!initialData._id && !formData.title && !formData.description && formData.products.length === 0)
+      ) {
+        setFormData({
+          ...initialData,
+          title: initialData.title || '',
+          description: initialData.description || '',
+          tags: initialData.tags ? [...initialData.tags] : [],
+          startDate: initialData.startDate ? new Date(initialData.startDate) : new Date(),
+          endDate: initialData.endDate ? new Date(initialData.endDate) : new Date(new Date().setDate(new Date().getDate() + 7)),
+          products: initialData.products ? [...initialData.products] : []
+        });
+      } else {
+        // Trường hợp 3: Cùng một sự kiện đang được chỉnh sửa, hoặc đang nhập liệu cho sự kiện mới.
+        // Chỉ cập nhật products nếu nó thay đổi, giữ nguyên các trường khác người dùng đã nhập.
+        // So sánh sâu mảng products để tránh cập nhật không cần thiết
+        if (JSON.stringify(initialData.products) !== JSON.stringify(formData.products)) {
+          setFormData(prev => ({
+            ...prev,
+            products: initialData.products ? [...initialData.products] : []
+          }));
+        }
+      }
     }
-  }, [initialData]);
+  }, [initialData, formData._id, formData.title, formData.description, formData.products]);
 
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
