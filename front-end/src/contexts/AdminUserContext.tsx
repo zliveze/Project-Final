@@ -15,20 +15,20 @@ const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'tru
 const safeLog = (message: string, data?: any, level: 'info' | 'warn' | 'error' = 'info') => {
   // Chỉ log khi được bật trong môi trường development hoặc cấu hình rõ ràng
   if (!enableDetailedLogs) return;
-  
+
   // Lọc bỏ một số message không cần thiết
-  if (message.includes('Calling API URL') || 
+  if (message.includes('Calling API URL') ||
       message.includes('API Response status') ||
       message.includes('Processed user data')) {
     return;
   }
-  
+
   const prefix = '[AdminUserContext]';
-  
+
   if (data) {
     // Loại bỏ thông tin nhạy cảm khi log
     const sanitizedData = typeof data === 'object' ? sanitizeData(data) : data;
-    
+
     switch (level) {
       case 'warn':
         console.warn(`${prefix} ${message}`, sanitizedData);
@@ -60,33 +60,33 @@ const safeLog = (message: string, data?: any, level: 'info' | 'warn' | 'error' =
  */
 const sanitizeData = (data: any): any => {
   if (!data) return data;
-  
+
   // Clone để không làm thay đổi dữ liệu gốc
   if (Array.isArray(data)) {
     return data.map(item => sanitizeData(item));
   }
-  
+
   if (typeof data === 'object') {
     const sanitized = { ...data };
-    
+
     // Loại bỏ token và thông tin nhạy cảm
     const sensitiveFields = ['token', 'accessToken', 'refreshToken', 'password', 'Authorization', 'jwt'];
-    
+
     sensitiveFields.forEach(field => {
       if (field.toLowerCase() in sanitized) sanitized[field.toLowerCase()] = '[REDACTED]';
       if (field in sanitized) sanitized[field] = '[REDACTED]';
     });
-    
+
     // Xử lý đệ quy các đối tượng con
     Object.keys(sanitized).forEach(key => {
       if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
         sanitized[key] = sanitizeData(sanitized[key]);
       }
     });
-    
+
     return sanitized;
   }
-  
+
   return data;
 };
 
@@ -99,6 +99,13 @@ export interface User {
   role: string;
   status: string;
   createdAt: string;
+}
+
+export interface OrderSummary {
+  _id: string;
+  date: string;
+  status: string;
+  totalAmount: number;
 }
 
 export interface DetailedUser {
@@ -114,6 +121,11 @@ export interface DetailedUser {
   addresses: any[];
   wishlist: string[];
   avatar?: string;
+  orders?: OrderSummary[];
+  customerLevel?: string;
+  monthlyOrders?: number;
+  totalOrders?: number;
+  lastOrderDate?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho cache trang
@@ -146,9 +158,10 @@ export interface AdminUserContextType {
   error: string | null;
   totalPages: number;
   currentPage: number;
-  
+
   fetchUsers: (page?: number, limit?: number, search?: string, status?: string, role?: string, startDate?: string, endDate?: string, forceReload?: boolean) => Promise<void>;
   getUserDetail: (id: string) => Promise<DetailedUser | null>;
+  getUserOrders: (userId: string) => Promise<OrderSummary[]>;
   updateUser: (id: string, userData: any) => Promise<User | null>;
   deleteUser: (id: string) => Promise<boolean>;
   resetPassword: (id: string, newPassword: string) => Promise<boolean>;
@@ -194,7 +207,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
   const api = useCallback(() => {
     const token = localStorage.getItem('adminToken');
     const isLoginPage = typeof window !== 'undefined' && window.location.pathname.includes('/admin/auth/login');
-    
+
     return axios.create({
       baseURL: '', // Đã có URL đầy đủ trong mỗi hàm
       headers: {
@@ -214,10 +227,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
   useEffect(() => {
     const isLoginPage = typeof window !== 'undefined' && window.location.pathname.includes('/admin/auth/login');
     const isDashboard = typeof window !== 'undefined' && window.location.pathname === '/admin/dashboard';
-    
+
     if (accessToken && !isLoginPage) {
       safeLog('Access token changed, checking if API call is needed');
-      
+
       // Nếu đang ở trang dashboard, chỉ lấy thống kê mà không lấy danh sách người dùng đầy đủ
       if (isDashboard) {
         // Gọi API thống kê riêng thay vì lấy toàn bộ danh sách user
@@ -243,25 +256,25 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       safeLog('Calling stats API');
-      
+
       if (!localStorage.getItem('adminToken')) {
         safeLog('Token không tồn tại trong localStorage', null, 'error');
         toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
         return null;
       }
-      
+
       // Thay đổi URL từ '/api/admin/users/stats' thành URL trực tiếp đến backend
       const response = await api().get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/users/stats`);
       safeLog('Stats API Response status', response.status);
-      
+
       const { data } = response;
-      
+
       // Xử lý dữ liệu thống kê
       if (data) {
         safeLog('User stats data received', data);
-        
+
         // Cập nhật tất cả các trường thống kê
         setStats({
           totalUsers: data.totalUsers || 0,
@@ -275,7 +288,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
           blockedGrowth: data.blockedGrowth || 0
         });
       }
-      
+
       setLoading(false);
       return data;
     } catch (error) {
@@ -288,26 +301,52 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Hàm kiểm tra cache trang có hợp lệ không
   const isPageCacheValid = useCallback((cacheKey: string) => {
     if (!pageCache[cacheKey]) return false;
-    
+
     const now = Date.now();
     const cacheTimestamp = pageCache[cacheKey].timestamp;
-    
+
     // Cache hợp lệ nếu chưa hết hạn
     return (now - cacheTimestamp) < CACHE_TTL;
   }, [pageCache, CACHE_TTL]);
-  
+
   // Tạo cache key dựa vào tham số trang
   const createCacheKey = useCallback((
-    page: number, 
-    limit: number, 
-    search?: string, 
-    status: string = 'all', 
+    page: number,
+    limit: number,
+    search?: string,
+    status: string = 'all',
     role: string = 'all',
     startDate?: string,
     endDate?: string
   ) => {
     return `${page}_${limit}_${search || ''}_${status}_${role}_${startDate || ''}_${endDate || ''}`;
   }, []);
+
+  // Lấy danh sách đơn hàng của người dùng
+  const getUserOrders = useCallback(async (userId: string): Promise<OrderSummary[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Gọi API để lấy danh sách đơn hàng của user
+      const response = await api().get(`/api/admin/orders?userId=${userId}&limit=100`);
+
+      // Chuyển đổi dữ liệu từ API thành định dạng OrderSummary
+      const orders: OrderSummary[] = response.data.data.map((order: any) => ({
+        _id: order._id,
+        date: new Date(order.createdAt).toLocaleDateString('vi-VN'),
+        status: order.status,
+        totalAmount: order.finalPrice || order.totalPrice
+      }));
+
+      return orders;
+    } catch (error) {
+      handleError(error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
 
   // Lấy chi tiết người dùng
   const getUserDetail = useCallback(async (id: string): Promise<DetailedUser | null> => {
@@ -318,76 +357,108 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       safeLog(`Bỏ qua gọi API getUserDetail với id không hợp lệ: ${id}`, null, 'warn');
       return null;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
+      // Lấy thông tin chi tiết người dùng
       const response = await api().get(`/api/admin/users/${id}`);
-      setUserDetail(response.data);
-      
-      return response.data;
+      const userData = response.data;
+
+      try {
+        // Lấy danh sách đơn hàng của người dùng
+        const orders = await getUserOrders(id);
+
+        // Tính toán thông tin bổ sung về đơn hàng
+        const totalOrders = orders.length;
+        const lastOrderDate = orders.length > 0 ?
+          orders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date :
+          undefined;
+
+        // Tính số đơn hàng trong tháng hiện tại
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        const monthlyOrders = orders.filter(order => {
+          const orderDate = new Date(order.date);
+          return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
+        }).length;
+
+        // Cập nhật userData với thông tin đơn hàng
+        userData.orders = orders;
+        userData.totalOrders = totalOrders;
+        userData.lastOrderDate = lastOrderDate;
+        userData.monthlyOrders = monthlyOrders;
+      } catch (orderError) {
+        console.error('Lỗi khi lấy đơn hàng của người dùng:', orderError);
+        // Vẫn tiếp tục với thông tin người dùng, không có đơn hàng
+        userData.orders = [];
+      }
+
+      setUserDetail(userData);
+      return userData;
     } catch (err) {
       handleError(err);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, getUserOrders]);
 
   // Cập nhật thông tin người dùng
   const updateUser = useCallback(async (id: string, userData: any): Promise<User | null> => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('Đang gửi request cập nhật user:', {
         id,
         userData
       });
 
       const response = await api().patch(`/api/admin/users/${id}`, userData);
-      
+
       console.log('Phản hồi từ server:', response.data);
 
       if (!response.data) {
         throw new Error('Không nhận được dữ liệu từ server');
       }
-      
+
       // Cập nhật state users nếu người dùng đã được chỉnh sửa trong danh sách
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === id 
-            ? { 
-                ...user, 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === id
+            ? {
+                ...user,
                 name: response.data.name,
                 email: response.data.email,
                 phone: response.data.phone,
                 role: response.data.role,
                 status: response.data.status
-              } 
+              }
             : user
         )
       );
-      
+
       // Cập nhật cache
       setPageCache(prevCache => {
         const newCache = { ...prevCache };
-        
+
         // Duyệt qua tất cả các trang trong cache
         Object.keys(newCache).forEach(cacheKey => {
           const pageData = newCache[cacheKey];
           // Cập nhật user trong cache
-          const updatedUsers = pageData.users.map(user => 
-            user.id === id 
-              ? { 
-                  ...user, 
+          const updatedUsers = pageData.users.map(user =>
+            user.id === id
+              ? {
+                  ...user,
                   name: response.data.name,
                   email: response.data.email,
                   phone: response.data.phone,
                   role: response.data.role,
                   status: response.data.status
-                } 
+                }
               : user
           );
           // Cập nhật cache
@@ -396,10 +467,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             users: updatedUsers
           };
         });
-        
+
         return newCache;
       });
-      
+
       toast.success('Cập nhật thông tin người dùng thành công!');
       return response.data;
     } catch (err) {
@@ -416,22 +487,22 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       await api().delete(`/api/admin/users/${id}`);
-      
+
       // Cập nhật state users để loại bỏ người dùng đã xóa
       setUsers(prevUsers => prevUsers.filter(user => user.id !== id));
-      
+
       // Cập nhật stats
       setStats(prevStats => ({
         ...prevStats,
         totalUsers: prevStats.totalUsers - 1
       }));
-      
+
       // Cập nhật cache để loại bỏ người dùng đã xóa khỏi tất cả các trang đã cache
       setPageCache(prevCache => {
         const newCache = { ...prevCache };
-        
+
         // Duyệt qua tất cả các trang trong cache
         Object.keys(newCache).forEach(cacheKey => {
           const pageData = newCache[cacheKey];
@@ -444,10 +515,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             totalItems: pageData.totalItems - 1
           };
         });
-        
+
         return newCache;
       });
-      
+
       toast.success('Xóa người dùng thành công!');
       return true;
     } catch (err) {
@@ -463,9 +534,9 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       await api().post(`/api/admin/users/reset-password/${id}`, { newPassword });
-      
+
       toast.success('Đặt lại mật khẩu thành công!');
       return true;
     } catch (err) {
@@ -481,29 +552,29 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api().patch(`/api/admin/users/status/${id}`, { status });
-      
+
       // Cập nhật state users
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === id 
-            ? { ...user, status: response.data.status } 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === id
+            ? { ...user, status: response.data.status }
             : user
         )
       );
-      
+
       // Cập nhật cache
       setPageCache(prevCache => {
         const newCache = { ...prevCache };
-        
+
         // Duyệt qua tất cả các trang trong cache
         Object.keys(newCache).forEach(cacheKey => {
           const pageData = newCache[cacheKey];
           // Cập nhật trạng thái user trong cache
-          const updatedUsers = pageData.users.map(user => 
-            user.id === id 
-              ? { ...user, status: response.data.status } 
+          const updatedUsers = pageData.users.map(user =>
+            user.id === id
+              ? { ...user, status: response.data.status }
               : user
           );
           // Cập nhật cache
@@ -512,10 +583,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             users: updatedUsers
           };
         });
-        
+
         return newCache;
       });
-      
+
       toast.success('Cập nhật trạng thái người dùng thành công!');
       return response.data;
     } catch (err) {
@@ -531,29 +602,29 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api().patch(`/api/admin/users/role/${id}`, { role });
-      
+
       // Cập nhật state users
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === id 
-            ? { ...user, role: response.data.role } 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === id
+            ? { ...user, role: response.data.role }
             : user
         )
       );
-      
+
       // Cập nhật cache
       setPageCache(prevCache => {
         const newCache = { ...prevCache };
-        
+
         // Duyệt qua tất cả các trang trong cache
         Object.keys(newCache).forEach(cacheKey => {
           const pageData = newCache[cacheKey];
           // Cập nhật vai trò user trong cache
-          const updatedUsers = pageData.users.map(user => 
-            user.id === id 
-              ? { ...user, role: response.data.role } 
+          const updatedUsers = pageData.users.map(user =>
+            user.id === id
+              ? { ...user, role: response.data.role }
               : user
           );
           // Cập nhật cache
@@ -562,10 +633,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             users: updatedUsers
           };
         });
-        
+
         return newCache;
       });
-      
+
       toast.success('Cập nhật vai trò người dùng thành công!');
       return response.data;
     } catch (err) {
@@ -581,29 +652,29 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api().patch(`/api/admin/users/customer-level/${id}`, { customerLevel });
-      
+
       // Cập nhật state users
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === id 
-            ? { ...user, customerLevel: response.data.customerLevel } 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === id
+            ? { ...user, customerLevel: response.data.customerLevel }
             : user
         )
       );
-      
+
       // Cập nhật cache
       setPageCache(prevCache => {
         const newCache = { ...prevCache };
-        
+
         // Duyệt qua tất cả các trang trong cache
         Object.keys(newCache).forEach(cacheKey => {
           const pageData = newCache[cacheKey];
           // Cập nhật cấp độ khách hàng trong cache
-          const updatedUsers = pageData.users.map(user => 
-            user.id === id 
-              ? { ...user, customerLevel: response.data.customerLevel } 
+          const updatedUsers = pageData.users.map(user =>
+            user.id === id
+              ? { ...user, customerLevel: response.data.customerLevel }
               : user
           );
           // Cập nhật cache
@@ -612,10 +683,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             users: updatedUsers
           };
         });
-        
+
         return newCache;
       });
-      
+
       toast.success('Cập nhật cấp độ khách hàng thành công!');
       return response.data;
     } catch (err) {
@@ -631,9 +702,9 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api().post(`/api/admin/users/create`, userData);
-      
+
       // Thêm người dùng mới vào state
       setUsers(prevUsers => [...prevUsers, {
         id: response.data._id,
@@ -644,17 +715,17 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         status: response.data.status,
         createdAt: response.data.createdAt,
       }]);
-      
+
       // Cập nhật thống kê
       setStats(prevStats => ({
         ...prevStats,
         totalUsers: prevStats.totalUsers + 1,
         activeUsers: response.data.status === 'active' ? prevStats.activeUsers + 1 : prevStats.activeUsers,
       }));
-      
+
       // Làm mới cache (xóa cache để buộc load lại dữ liệu)
       setPageCache({});
-      
+
       toast.success('Tạo người dùng mới thành công!');
       return response.data;
     } catch (err) {
@@ -667,10 +738,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Lấy danh sách người dùng với bộ lọc và phân trang
   const fetchUsers = useCallback(async (
-    page: number = 1, 
-    limit: number = 10, 
-    search?: string, 
-    status: string = 'all', 
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    status: string = 'all',
     role: string = 'all',
     startDate?: string,
     endDate?: string,
@@ -685,7 +756,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         safeLog('Đang ở trang login, bỏ qua gọi API fetchUsers');
         return null;
       }
-      
+
       if (isDashboard) {
         safeLog('Đang ở trang dashboard, chỉ gọi API fetchUserStats thay vì fetchUsers đầy đủ');
         return fetchUserStats();
@@ -693,34 +764,34 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       // Xử lý search term trước khi tạo cache key
       const cleanedSearch = search ? search.trim() : '';
-      
+
       // Tạo key cho cache dựa vào tham số
       const cacheKey = createCacheKey(page, limit, cleanedSearch, status, role, startDate, endDate);
       safeLog(`Kiểm tra cache cho key: ${cacheKey}`);
-      
+
       // Đặt loading = true
       setLoading(true);
       setError(null);
-      
+
       // Kiểm tra cache và sử dụng nếu hợp lệ VÀ không yêu cầu forceReload
       if (!forceReload && isPageCacheValid(cacheKey)) {
         safeLog(`Đã tìm thấy dữ liệu hợp lệ trong cache cho trang ${page}`);
         const cachedData = pageCache[cacheKey];
-        
+
         // Đảm bảo đặt loading = false ngay lập tức khi sử dụng cache
         setLoading(false);
-        
+
         // Thêm debug log để theo dõi quá trình sử dụng cache
-        safeLog(`Sử dụng cache cho trang ${page}, dữ liệu có ${cachedData.users.length} người dùng`, 
+        safeLog(`Sử dụng cache cho trang ${page}, dữ liệu có ${cachedData.users.length} người dùng`,
           { usersCount: cachedData.users.length, timestamp: new Date() });
-        
+
         // Cập nhật states với dữ liệu từ cache
         setUsers(cachedData.users);
         setCurrentPage(cachedData.currentPage);
         setTotalPages(cachedData.totalItems ? Math.ceil(cachedData.totalItems / limit) : totalPages);
-        
+
         safeLog(`Đã cập nhật UI từ cache cho trang ${page} với ${cachedData.users.length} users`);
-        
+
         // Sau khi lấy từ cache, tiến hành tải trước các trang kế tiếp
         // Tách preload thành setTimeout để không chặn main thread
         setTimeout(() => {
@@ -729,7 +800,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
             preloadAdjacentPages(page, limit, cleanedSearch, status, role, startDate, endDate);
           }
         }, 0);
-        
+
         return {
           users: cachedData.users,
           totalItems: cachedData.totalItems,
@@ -740,43 +811,43 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       // Nếu không có trong cache hoặc forceReload=true, tiến hành gọi API
       safeLog(`${forceReload ? 'Force reload được yêu cầu' : 'Không tìm thấy cache hợp lệ'} cho trang ${page}, đang gọi API...`);
-      
+
       // Xây dựng query params để gọi API
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
-      
+
       if (cleanedSearch) {
         // Không cần mã hóa ở đây, vì URLSearchParams sẽ tự động mã hóa
         queryParams.append('search', cleanedSearch);
         safeLog(`Tìm kiếm với từ khóa: "${cleanedSearch}"`);
       }
-      
+
       if (status !== 'all') queryParams.append('status', status);
       if (role !== 'all') queryParams.append('role', role);
-      
+
       if (startDate) queryParams.append('startDate', startDate);
       if (endDate) queryParams.append('endDate', endDate);
-      
+
       const url = `/api/admin/users?${queryParams.toString()}`;
       safeLog('Calling API URL', url);
-      
+
       if (!localStorage.getItem('adminToken')) {
         safeLog('Token không tồn tại trong localStorage', null, 'error');
         toast.error('Không tìm thấy token xác thực, vui lòng đăng nhập lại');
         setLoading(false);
         return null;
       }
-      
+
       const response = await api().get(url);
       safeLog('API Response status', response.status);
-      
+
       const { data } = response;
-      
+
       // Xử lý dữ liệu phản hồi
       if (data) {
         safeLog('Processed user data', { totalItems: data.totalUsers, currentPage: data.currentPage, totalPages: data.totalPages });
-        
+
         // Cập nhật cache với dữ liệu mới
         setPageCache(prevCache => ({
           ...prevCache,
@@ -795,17 +866,17 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
           inactiveUsers: data.inactiveUsers || 0,
           blockedUsers: data.blockedUsers || 0,
           monthlyCounts: data.monthlyCounts || [],
-          totalGrowth: data.totalGrowth || 0, 
+          totalGrowth: data.totalGrowth || 0,
           activeGrowth: data.activeGrowth || 0,
           inactiveGrowth: data.inactiveGrowth || 0,
           blockedGrowth: data.blockedGrowth || 0
         });
         setTotalPages(data.totalPages || 1);
         setCurrentPage(data.currentPage || 1);
-        
+
         // Cuối cùng mới đặt loading = false để không flickering
         setLoading(false);
-        
+
         // Tiến hành tải trước các trang kế tiếp và trước đó
         // Trước khi gọi preload, kiểm tra xem có đang preload hay không
         if (!Object.values(isPreloading).some(Boolean)) {
@@ -813,7 +884,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
           preloadAdjacentPages(page, limit, cleanedSearch, status, role, startDate, endDate);
         }
       }
-      
+
       return data;
     } catch (error) {
       const errorMessage = handleError(error);
@@ -821,23 +892,23 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       return null;
     }
   }, [api, createCacheKey, fetchUserStats, isPageCacheValid, pageCache, totalPages, isPreloading]);
-  
+
   // Hàm tải trước các trang kế tiếp và các trang trước đó để cải thiện UX
   const preloadAdjacentPages = useCallback(async (
-    currentPage: number, 
-    limit: number, 
-    search?: string, 
-    status: string = 'all', 
+    currentPage: number,
+    limit: number,
+    search?: string,
+    status: string = 'all',
     role: string = 'all',
     startDate?: string,
     endDate?: string
   ) => {
     // Xử lý search term giống như trong fetchUsers
     const cleanedSearch = search ? search.trim() : '';
-    
+
     // Danh sách các trang cần tải
     const pagesToPreload = [];
-    
+
     // Tải các trang kế tiếp
     for (let i = 1; i <= PRELOAD_PAGES; i++) {
       const nextPage = currentPage + i;
@@ -845,7 +916,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         pagesToPreload.push(nextPage);
       }
     }
-    
+
     // Tải các trang trước đó (với độ ưu tiên thấp hơn)
     for (let i = 1; i <= PRELOAD_PAGES/2; i++) {
       const prevPage = currentPage - i;
@@ -853,18 +924,18 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         pagesToPreload.push(prevPage);
       }
     }
-    
+
     // Đảm bảo rằng mỗi trang preload không gây ảnh hưởng đến UI state
     // Sử dụng một hàm riêng để tải dữ liệu mà không cập nhật UI state
     const preloadPage = async (page: number, retryCount = 0, searchTerm: string = '') => {
       // Tạo key cho cache sử dụng cleanedSearch
       const pageKey = createCacheKey(page, limit, searchTerm, status, role, startDate, endDate);
-      
+
       // Bỏ qua nếu trang đã được cache hoặc đang được preload
       if (isPageCacheValid(pageKey) || isPreloading[pageKey]) {
         return;
       }
-      
+
       // Đánh dấu trang này đang được preload
       setIsPreloading((prev) => ({
         ...prev,
@@ -873,27 +944,27 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       try {
         safeLog(`Preloading page ${page} with URL: /api/admin/users?page=${page}&limit=${limit}${searchTerm ? `&search=${searchTerm}` : ''}${status !== 'all' ? `&status=${status}` : ''}${role !== 'all' ? `&role=${role}` : ''}${startDate ? `&startDate=${startDate}` : ''}${endDate ? `&endDate=${endDate}` : ''}`);
-        
+
         // Gọi API để tải trang, nhưng không cập nhật UI
         const queryParams = new URLSearchParams();
         queryParams.append('page', page.toString());
         queryParams.append('limit', limit.toString());
-        
+
         if (searchTerm) queryParams.append('search', searchTerm);
         if (status !== 'all') queryParams.append('status', status);
         if (role !== 'all') queryParams.append('role', role);
-        
+
         if (startDate) queryParams.append('startDate', startDate);
         if (endDate) queryParams.append('endDate', endDate);
-        
+
         const url = `/api/admin/users?${queryParams.toString()}`;
-        
+
         // Gọi API nhưng không hiển thị loading hoặc thông báo lỗi
         safeLog(`Preloading page ${page} with URL: ${url}`);
-        
+
         const response = await api().get(url);
         const { data } = response;
-        
+
         // Cache kết quả nếu thành công
         if (data?.users) {
           setPageCache(prevCache => ({
@@ -905,13 +976,13 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
               currentPage: data.currentPage || 1
             }
           }));
-          
+
           safeLog(`Successfully preloaded page ${page} with ${data.users.length} users`);
         }
       } catch (error) {
         // Thử lại nếu chưa đạt số lần thử tối đa
         safeLog(`Failed to preload page ${page}, retryCount: ${retryCount}`, error, 'warn');
-        
+
         if (retryCount < MAX_PRELOAD_RETRIES) {
           // Chờ 1 giây trước khi thử lại (truyền lại searchTerm)
           setTimeout(() => {
@@ -927,7 +998,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         });
       }
     };
-    
+
     // Thực thi preload mỗi trang theo thứ tự để tránh quá tải
     for (const page of pagesToPreload) {
       setTimeout(() => {
@@ -949,6 +1020,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         currentPage,
         fetchUsers,
         getUserDetail,
+        getUserOrders,
         updateUser,
         deleteUser,
         resetPassword,
