@@ -25,30 +25,21 @@ export class WishlistController {
     @Req() req: AuthenticatedRequest,
     @Body() addToWishlistDto: AddToWishlistDto,
   ): Promise<UserDocument> { // Return UserDocument or a simpler success message/object
-    console.log('WishlistController.addToWishlist called with:', addToWishlistDto);
-
     // Validate inputs
     if (!addToWishlistDto.productId) {
-      console.error('productId is missing in request body');
       throw new BadRequestException('productId is required');
     }
 
     // variantId is now optional for products without variants
-
     const userId = req.user.userId;
     if (!userId) {
         throw new BadRequestException('Không tìm thấy thông tin người dùng trong yêu cầu.');
     }
 
-    console.log('Calling wishlistService.addToWishlist with:', { userId, productId: addToWishlistDto.productId, variantId: addToWishlistDto.variantId });
-
     try {
       // Correctly passing 3 arguments
-      const result = await this.wishlistService.addToWishlist(userId, addToWishlistDto.productId, addToWishlistDto.variantId);
-      console.log('Wishlist item added successfully');
-      return result;
+      return await this.wishlistService.addToWishlist(userId, addToWishlistDto.productId, addToWishlistDto.variantId);
     } catch (error) {
-      console.error('Error in WishlistController.addToWishlist:', error);
       throw error;
     }
   }

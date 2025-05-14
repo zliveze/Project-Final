@@ -71,22 +71,9 @@ export class UsersService {
   ): Promise<{ users: UserDocument[]; totalUsers: number; activeUsers: number; inactiveUsers: number; blockedUsers: number }> {
     const query: any = { isDeleted: false };
 
-    console.log('findAllWithFilters params:', {
-      search,
-      status,
-      role,
-      startDate: startDate?.toISOString(),
-      endDate: endDate?.toISOString(),
-      page,
-      limit
-    });
-
     if (search) {
       const sanitizedSearch = search.trim();
-      console.log('Search with sanitized term:', sanitizedSearch);
-
       const searchTerms = sanitizedSearch.split(/\s+/).filter(term => term.length > 0);
-      console.log('Search terms after splitting:', searchTerms);
 
       const fieldConditions = ['name', 'email', 'phone'].map(field => {
         if (searchTerms.length > 1) {
@@ -102,8 +89,6 @@ export class UsersService {
       });
 
       query.$or = fieldConditions;
-
-      console.log('Search conditions:', JSON.stringify(fieldConditions, null, 2));
     }
 
     if (status && status !== 'all') {
@@ -129,18 +114,14 @@ export class UsersService {
         const startDateObj = new Date(startDate);
         startDateObj.setHours(0, 0, 0, 0);
         query.createdAt.$gte = startDateObj;
-        console.log('Filtering users created from:', startDateObj.toISOString());
       }
 
       if (endDate) {
         const endDateObj = new Date(endDate);
         endDateObj.setHours(23, 59, 59, 999);
         query.createdAt.$lte = endDateObj;
-        console.log('Filtering users created until:', endDateObj.toISOString());
       }
     }
-
-    console.log('MongoDB query:', JSON.stringify(query, null, 2));
 
     const cacheKey = `count_${JSON.stringify(query)}`;
 
@@ -200,15 +181,6 @@ export class UsersService {
       .lean()
       .exec();
 
-    console.log(`Found ${users.length} users matching the criteria`);
-    if (users.length > 0) {
-      console.log('Sample results:', users.slice(0, 2).map(u => ({
-        name: u.name,
-        email: u.email,
-        phone: u.phone
-      })));
-    }
-
     return {
       users,
       totalUsers,
@@ -237,8 +209,6 @@ export class UsersService {
   }
 
   async findOneDetailed(id: string): Promise<UserDocument> {
-    console.log(`[UsersService] Finding user with ID: ${id}`);
-  
     try {
       // Lấy thông tin người dùng với wishlist
       const user = await this.userModel.findById(id)
@@ -254,30 +224,21 @@ export class UsersService {
         throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
       }
 
-      // Thêm log để kiểm tra dữ liệu wishlist trước khi xử lý
-      console.log('[UsersService] Wishlist length trước khi lọc:', user.wishlist?.length || 0);
-      if (user.wishlist && user.wishlist.length > 0) {
-        console.log('[UsersService] First wishlist item trước khi lọc:', user.wishlist[0]);
-      }
-
       // Lọc bỏ các mục wishlist không hợp lệ
       if (user.wishlist && user.wishlist.length > 0) {
         const validWishlistItems = user.wishlist.filter(item => {
           // Kiểm tra xem item có đúng định dạng không
           if (!item || typeof item !== 'object') {
-            console.log('[UsersService] Loại bỏ wishlist item không phải object:', item);
             return false;
           }
-          
+
           // Kiểm tra xem productId có tồn tại và hợp lệ không
           if (!item.productId) {
-            console.log('[UsersService] Loại bỏ wishlist item có productId null:', item);
             return false;
           }
 
           // Kiểm tra xem item có định dạng mảng ký tự không (trường hợp lỗi)
           if ('0' in item && typeof item[0] === 'string') {
-            console.log('[UsersService] Loại bỏ wishlist item có định dạng mảng ký tự:', item);
             return false;
           }
 
@@ -286,20 +247,18 @@ export class UsersService {
 
         // Cập nhật lại wishlist sau khi lọc
         user.wishlist = validWishlistItems;
-        console.log('[UsersService] Wishlist length sau khi lọc:', user.wishlist.length);
-        
+
         // Lưu lại danh sách wishlist đã lọc vào database
         try {
           await this.userModel.findByIdAndUpdate(id, { wishlist: validWishlistItems });
-          console.log('[UsersService] Đã cập nhật lại wishlist trong database');
         } catch (error) {
-          console.error('[UsersService] Lỗi khi cập nhật wishlist:', error);
+          this.logger.error(`Lỗi khi cập nhật wishlist: ${error.message}`);
         }
       }
 
       return user;
     } catch (error) {
-      console.error(`[UsersService] Error in findOneDetailed:`, error);
+      this.logger.error(`Error in findOneDetailed: ${error.message}`);
       throw error;
     }
   }
@@ -438,58 +397,43 @@ export class UsersService {
 
   // Updated addToWishlist to handle { productId, variantId } with optional variantId
   async addToWishlist(userId: string, productId: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
-    console.log('UsersService.addToWishlist called with:', { userId, productId: typeof productId === 'string' ? productId : productId.toString(), variantId });
-
     // Validate inputs
     if (!userId) {
-      console.error('userId is required');
-      throw new Error('userId is required');
+      throw new BadRequestException('userId is required');
     }
 
     if (!productId) {
-      console.error('productId is required');
-      throw new Error('productId is required');
+      throw new BadRequestException('productId is required');
     }
 
     // variantId can be empty string for products without variants
-
-    console.log('Finding user with ID:', userId);
     const user = await this.findOne(userId);
-    console.log('User found:', { id: user._id, name: user.name });
 
-    let productObjectId;
+    let productObjectId: Types.ObjectId;
     try {
       productObjectId = typeof productId === 'string' ? new Types.ObjectId(productId) : productId;
-      console.log('Converted productId to ObjectId:', productObjectId);
     } catch (error) {
-      console.error('Error converting productId to ObjectId:', error);
-      throw new Error(`Invalid productId format: ${productId}`);
+      throw new BadRequestException(`Invalid productId format: ${productId}`);
     }
 
     // Initialize or clean up wishlist
     if (!user.wishlist) {
-      console.log('Initializing empty wishlist array');
       user.wishlist = [];
     } else {
       // Clean up wishlist by filtering out invalid items
-      console.log('Original wishlist:', JSON.stringify(user.wishlist));
-
       const validWishlistItems = user.wishlist.filter(item => {
         // Check if item is a valid object with required properties
         if (!item || typeof item !== 'object') {
-          console.log('Removing invalid wishlist item (not an object):', item);
           return false;
         }
 
         // Check if item has valid productId
         if (!item.productId || !(item.productId instanceof Types.ObjectId)) {
-          console.log('Removing invalid wishlist item (invalid productId):', item);
           return false;
         }
 
         // Check if item has valid variantId
         if (!item.variantId || typeof item.variantId !== 'string') {
-          console.log('Removing invalid wishlist item (invalid variantId):', item);
           return false;
         }
 
@@ -497,51 +441,29 @@ export class UsersService {
       });
 
       if (user.wishlist.length !== validWishlistItems.length) {
-        console.log(`Cleaned up wishlist: removed ${user.wishlist.length - validWishlistItems.length} invalid items`);
         user.wishlist = validWishlistItems;
         user.markModified('wishlist');
       }
     }
 
-    console.log('Current wishlist after cleanup:', JSON.stringify(user.wishlist));
-
     // Check if the specific product variant is already in the wishlist
-    // Use a safer approach to handle potential undefined values
-    console.log('Checking if item already exists in wishlist');
     const existingItemIndex = user.wishlist.findIndex(item => {
       // Check if item and item.productId exist before using equals
-      if (!item) {
-        console.log('Found null/undefined item in wishlist');
-        return false;
-      }
-
-      if (!item.productId) {
-        console.log('Found item with null/undefined productId in wishlist');
+      if (!item || !item.productId) {
         return false;
       }
 
       // Compare productId and variantId
       const productIdMatch = item.productId.equals(productObjectId);
       const variantIdMatch = item.variantId === variantId;
-      console.log('Comparing wishlist item:', {
-        itemProductId: item.productId.toString(),
-        targetProductId: productObjectId.toString(),
-        productIdMatch,
-        itemVariantId: item.variantId,
-        targetVariantId: variantId,
-        variantIdMatch
-      });
 
       return productIdMatch && variantIdMatch;
     });
 
-    console.log('Existing item index:', existingItemIndex);
-
     if (existingItemIndex === -1) {
       // Ensure productId is properly set
       if (!productObjectId) {
-        console.error('productObjectId is required');
-        throw new Error('productId is required');
+        throw new BadRequestException('productId is required');
       }
       // variantId can be empty string for products without variants
 
@@ -552,27 +474,20 @@ export class UsersService {
         variantId: variantId || ''
       };
 
-      console.log('Adding new item to wishlist:', newWishlistItem);
-
       // Add the new wishlist item
       user.wishlist.push(newWishlistItem);
 
-      console.log('Updated wishlist:', user.wishlist);
-
       user.markModified('wishlist'); // Mark as modified since it's an array of objects
-      console.log('Saving user document');
       try {
         const savedUser = await user.save();
-        console.log('User saved successfully');
         return savedUser;
       } catch (error) {
-        console.error('Error saving user:', error);
+        this.logger.error(`Error saving user: ${error.message}`);
         throw error;
       }
     }
 
     // If already exists, return the user without changes
-    console.log('Item already exists in wishlist, returning user without changes');
     return user;
   }
 

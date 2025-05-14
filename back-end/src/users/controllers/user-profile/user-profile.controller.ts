@@ -23,7 +23,6 @@ export class UserProfileController {
   @Get()
   @ApiOperation({ summary: 'Lấy thông tin profile người dùng' })
   async getProfile(@Req() req): Promise<UserDocument> {
-    this.logger.log(`Đang lấy profile cho người dùng ID: ${req.user.userId}`);
     return this.profileService.getProfile(req.user.userId);
   }
 
@@ -34,7 +33,6 @@ export class UserProfileController {
     @Req() req,
     @Body() updateProfileDto: UpdateProfileDto,
   ): Promise<UserDocument> {
-    this.logger.log(`Đang cập nhật profile cho người dùng ID: ${req.user.userId}`);
     return this.profileService.updateProfile(req.user.userId, updateProfileDto);
   }
 

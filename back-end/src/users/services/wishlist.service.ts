@@ -46,7 +46,6 @@ export class WishlistService {
 
         if (!product) {
             // Handle cases where a product might have been deleted but still exists in wishlist
-            console.warn(`Product with ID ${item.productId} not found for wishlist item.`);
             return null; // Or return a placeholder object
         }
 
@@ -54,8 +53,6 @@ export class WishlistService {
         const variant = product.variants.find((v: any) => v.variantId === item.variantId);
 
         if (!variant) {
-            console.warn(`Variant with ID ${item.variantId} not found in product ${product._id}.`);
-            // Decide how to handle: skip, use base product info, etc.
             // Using base product info for now, but might need adjustment
              return {
                 productId: product._id,
@@ -111,16 +108,12 @@ export class WishlistService {
 
   // Calls the updated method in UsersService
   async addToWishlist(userId: string | Types.ObjectId, productIdInput: string | Types.ObjectId, variantId?: string): Promise<UserDocument> {
-    console.log('WishlistService.addToWishlist called with:', { userId, productIdInput, variantId });
-
     // Validate inputs
     if (!userId) {
-      console.error('userId is required');
       throw new BadRequestException('userId is required');
     }
 
     if (!productIdInput) {
-      console.error('productIdInput is required');
       throw new BadRequestException('productIdInput is required');
     }
 
@@ -131,56 +124,40 @@ export class WishlistService {
     let productId;
     try {
       productId = typeof productIdInput === 'string' ? new Types.ObjectId(productIdInput) : productIdInput;
-      console.log('Converted productId:', productId);
     } catch (error) {
-      console.error('Error converting productId to ObjectId:', error);
       throw new BadRequestException(`Invalid productId format: ${productIdInput}`);
     }
 
     // Add validation if needed (e.g., check if product and variant exist)
-    console.log('Finding product with ID:', productId);
     const product = await this.productModel.findById(productId).exec();
     if (!product) {
-        console.error(`Product with ID ${productId.toString()} not found`);
         throw new NotFoundException(`Sản phẩm với ID ${productId.toString()} không tồn tại.`);
     }
-    console.log('Product found:', { id: product._id, name: product.name });
 
     // For products without variants, skip variant check
-    if (variantIdToUse === '') {
-      console.log('Product without variants, skipping variant check');
-    } else {
+    if (variantIdToUse !== '') {
       // Check if variant exists in the product - handle both ObjectId and string variantIds
       // First try to find by direct comparison (for string variantIds like 'new-1744355640713')
-      console.log('Checking if variant exists in product variants:', { variantId: variantIdToUse, productVariants: product.variants.map(v => ({ variantId: v.variantId.toString() })) });
       let variantExists = product.variants.some(v => {
         // Handle both string and ObjectId variantIds
         const variantIdStr = v.variantId.toString();
         const match = variantIdStr === variantIdToUse || variantIdStr === `new-${variantIdToUse}`;
-        if (match) {
-          console.log('Variant match found:', { variantIdStr, variantId: variantIdToUse });
-        }
         return match;
       });
 
       // If not found, check if it's a valid ObjectId and try to find by ObjectId comparison
       if (!variantExists) {
-        console.error(`Variant with ID ${variantIdToUse} not found in product ${productId.toString()}`);
         throw new NotFoundException(`Biến thể với ID ${variantIdToUse} không tồn tại trong sản phẩm ${productId.toString()}.`);
       }
     }
 
     // Ensure userId is passed as string if needed by the underlying service method signature
     const userIdString = typeof userId === 'string' ? userId : userId.toString();
-    console.log('Calling usersService.addToWishlist with:', { userIdString, productId: productId.toString(), variantId: variantIdToUse });
 
     try {
       // Pass the variantIdToUse to the service
-      const result = await this.usersService.addToWishlist(userIdString, productId, variantIdToUse);
-      console.log('Wishlist item added successfully');
-      return result;
+      return await this.usersService.addToWishlist(userIdString, productId, variantIdToUse);
     } catch (error) {
-      console.error('Error in WishlistService.addToWishlist:', error);
       throw error;
     }
   }
