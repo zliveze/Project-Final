@@ -237,15 +237,71 @@ export class UsersService {
   }
 
   async findOneDetailed(id: string): Promise<UserDocument> {
-    const user = await this.userModel.findById(id)
-      .select('-password -refreshToken -resetPasswordToken -resetPasswordExpires -verificationToken -verificationExpires')
-      .exec();
+    console.log(`[UsersService] Finding user with ID: ${id}`);
+  
+    try {
+      // Lấy thông tin người dùng với wishlist
+      const user = await this.userModel.findById(id)
+        .select('-password -refreshToken -resetPasswordToken -resetPasswordExpires -verificationToken -verificationExpires')
+        .populate({
+          path: 'wishlist.productId',
+          model: 'Product',
+          select: 'name images price status variants',
+        })
+        .exec();
 
-    if (!user || user.isDeleted) {
-      throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
+      if (!user || user.isDeleted) {
+        throw new NotFoundException(`Không tìm thấy người dùng với ID ${id}`);
+      }
+
+      // Thêm log để kiểm tra dữ liệu wishlist trước khi xử lý
+      console.log('[UsersService] Wishlist length trước khi lọc:', user.wishlist?.length || 0);
+      if (user.wishlist && user.wishlist.length > 0) {
+        console.log('[UsersService] First wishlist item trước khi lọc:', user.wishlist[0]);
+      }
+
+      // Lọc bỏ các mục wishlist không hợp lệ
+      if (user.wishlist && user.wishlist.length > 0) {
+        const validWishlistItems = user.wishlist.filter(item => {
+          // Kiểm tra xem item có đúng định dạng không
+          if (!item || typeof item !== 'object') {
+            console.log('[UsersService] Loại bỏ wishlist item không phải object:', item);
+            return false;
+          }
+          
+          // Kiểm tra xem productId có tồn tại và hợp lệ không
+          if (!item.productId) {
+            console.log('[UsersService] Loại bỏ wishlist item có productId null:', item);
+            return false;
+          }
+
+          // Kiểm tra xem item có định dạng mảng ký tự không (trường hợp lỗi)
+          if ('0' in item && typeof item[0] === 'string') {
+            console.log('[UsersService] Loại bỏ wishlist item có định dạng mảng ký tự:', item);
+            return false;
+          }
+
+          return true;
+        });
+
+        // Cập nhật lại wishlist sau khi lọc
+        user.wishlist = validWishlistItems;
+        console.log('[UsersService] Wishlist length sau khi lọc:', user.wishlist.length);
+        
+        // Lưu lại danh sách wishlist đã lọc vào database
+        try {
+          await this.userModel.findByIdAndUpdate(id, { wishlist: validWishlistItems });
+          console.log('[UsersService] Đã cập nhật lại wishlist trong database');
+        } catch (error) {
+          console.error('[UsersService] Lỗi khi cập nhật wishlist:', error);
+        }
+      }
+
+      return user;
+    } catch (error) {
+      console.error(`[UsersService] Error in findOneDetailed:`, error);
+      throw error;
     }
-
-    return user;
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {

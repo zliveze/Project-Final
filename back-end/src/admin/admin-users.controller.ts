@@ -15,6 +15,7 @@ import {
   UnauthorizedException,
   InternalServerErrorException
 } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -251,9 +252,8 @@ export class AdminUsersController {
   }
   
   // Helper method để lưu dữ liệu vào cache
-  private setCacheData(key: string, data: any, ttl: number): void {
+  private setCacheData(key: string, data: any, ttl: number = 300000): void {
     try {
-      // Sử dụng global object để lưu trữ cache
       if (!global['_userStatsCache']) {
         global['_userStatsCache'] = {};
       }
@@ -268,30 +268,108 @@ export class AdminUsersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Lấy thông tin chi tiết người dùng theo ID' })
+  @ApiParam({ name: 'id', description: 'ID của người dùng' })
+  @ApiResponse({ status: 200, description: 'Thành công' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy người dùng' })
   async findOne(@Param('id') id: string) {
-    // Thêm kiểm tra ở đây để phòng ngừa trường hợp routing vẫn lỗi
-    if (id === 'stats') {
-       throw new BadRequestException('Invalid request: ID cannot be "stats"');
-    }
-    const user = await this.usersService.findOneDetailed(id);
-    const userObj = user.toObject();
-    
-    // Chuyển đổi định dạng dữ liệu
-    return {
-      _id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      phone: user.phone || '',
-      role: user.role,
-      status: user.isBanned ? 'blocked' : (user.isActive ? 'active' : 'inactive'),
-      isVerified: user.isVerified,
-      customerLevel: user.customerLevel || 'Khách hàng mới',
-      createdAt: userObj.createdAt,
-      updatedAt: userObj.updatedAt,
-      addresses: user.addresses,
-      wishlist: user.wishlist,
-      avatar: user.avatar || ''
-    };
+    try {
+      console.log('[AdminUsersController] Getting user details for ID:', id);
+      const user = await this.usersService.findOneDetailed(id);
+      
+      // Chuyển đổi đối tượng Mongoose thành đối tượng JavaScript thuần túy
+      const userObj = user.toObject();
+      
+      // Log để kiểm tra dữ liệu wishlist
+      console.log('[AdminUsersController] Raw wishlist data:', userObj.wishlist);
+      console.log('[AdminUsersController] Wishlist length:', userObj.wishlist?.length || 0);
+      
+      let wishlist = [];
+      // Xử lý dữ liệu wishlist để đảm bảo nó có định dạng đúng
+      if (userObj.wishlist && userObj.wishlist.length > 0) {
+        wishlist = userObj.wishlist.map(item => {
+          if (item.productId && typeof item.productId === 'object') {
+            // Xử lý trường hợp sản phẩm có dữ liệu đầy đủ
+            const productImages: string[] = [];
+            
+            // Kiểm tra và xử lý trường images theo đúng schema
+            if (item.productId.images && Array.isArray(item.productId.images)) {
+              // Nếu images là mảng các đối tượng có url
+              item.productId.images.forEach((img: any) => {
+                if (typeof img === 'object' && img.url) {
+                  productImages.push(img.url);
+                } else if (typeof img === 'string') {
+                  productImages.push(img);
+                }
+              });
+            }
+            
+            return {
+              productId: {
+                _id: item.productId._id,
+                name: item.productId.name,
+                images: productImages,
+                price: item.productId.price || 0,
+                status: item.productId.status || 'discontinued',
+                variants: item.productId.variants || []
+              },
+              variantId: item.variantId || ''
+            };
+          } else if (item.productId) {
+            // Xử lý trường hợp productId chỉ là ID
+            return {
+              productId: {
+                _id: item.productId,
+                name: `Sản phẩm #${typeof item.productId === 'string' ? item.productId.substr(-6) : 'unknown'}`,
+                images: [],
+                price: 0,
+                status: 'discontinued',
+                variants: []
+              },
+              variantId: item.variantId || ''
+            };
+          } else {
+            // Xử lý trường hợp không có productId
+            return {
+              productId: {
+                _id: 'unknown',
+                name: 'Sản phẩm #unknown',
+                images: [],
+                price: 0,
+                status: 'discontinued',
+                variants: []
+              },
+              variantId: item.variantId || ''
+            };
+          }
+        });
+      }
+      
+      userObj.wishlist = wishlist;
+      // Log để kiểm tra dữ liệu
+      console.log('[AdminUsersController] Wishlist data after processing:', 
+        JSON.stringify(wishlist.slice(0, 2), null, 2));
+      
+      // Chuyển đổi định dạng dữ liệu
+      return {
+        _id: userObj._id.toString(),
+        name: userObj.name,
+        email: userObj.email,
+        phone: userObj.phone || '',
+        role: userObj.role,
+        status: userObj.isBanned ? 'blocked' : (userObj.isActive ? 'active' : 'inactive'),
+        isVerified: userObj.isVerified,
+        customerLevel: userObj.customerLevel || 'Khách hàng mới',
+        createdAt: userObj.createdAt,
+        updatedAt: userObj.updatedAt,
+        addresses: userObj.addresses,
+        wishlist: wishlist,
+        avatar: userObj.avatar || ''
+      };
+    } catch (error) {
+      console.error(`[AdminUsersController] Error in findOne:`, error);
+      throw error;
+    }  
   }
 
   @Patch(':id')

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FiUser, FiMapPin, FiShoppingBag, FiX, FiEdit, 
   FiMail, FiPhone, FiCalendar, FiCheck, FiClock,
@@ -359,16 +359,138 @@ const UserOrderTab: React.FC<{ orders: OrderSummary[] | undefined }> = ({ orders
 };
 
 const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist = [] }) => {
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'in_stock':
+        return 'Còn hàng';
+      case 'out_of_stock':
+        return 'Hết hàng';
+      case 'discontinued':
+        return 'Ngừng kinh doanh';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'in_stock':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'out_of_stock':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'discontinued':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  // Kiểm tra xem dữ liệu wishlist có hợp lệ không
+  const isValidWishlist = Array.isArray(wishlist) && wishlist.length > 0;
+  
+  // Log chi tiết để debug
+  console.log('%c === WISHLIST DEBUG INFO ===', 'background: #ff0000; color: white; font-size: 16px; font-weight: bold;');
+  console.log('Wishlist raw data:', wishlist);
+  console.log('Wishlist type:', typeof wishlist);
+  console.log('Is Array?', Array.isArray(wishlist));
+  console.log('Length:', wishlist?.length || 0);
+  
+  // Chuẩn hóa dữ liệu wishlist để hiển thị đúng
+  const normalizedWishlist = useMemo(() => {
+    if (!isValidWishlist) return [];
+    
+    return wishlist.map(item => {
+      // Nếu item là object với các thuộc tính cơ bản
+      if (typeof item === 'object' && item !== null) {
+        // Nếu item có _id, name, images... trực tiếp (không có productId)
+        if ('_id' in item && 'name' in item) {
+          return {
+            productId: {
+              _id: item._id,
+              name: item.name,
+              images: item.images || [],
+              price: item.price || 0,
+              status: item.status || 'discontinued'
+            },
+            variantId: ''
+          };
+        }
+        
+        // Nếu item có productId là object
+        if (item.productId && typeof item.productId === 'object') {
+          return {
+            productId: {
+              _id: item.productId._id || '',
+              name: item.productId.name || `Sản phẩm #${typeof item.productId._id === 'string' ? item.productId._id.substr(-6) : ''}`,
+              images: item.productId.images || [],
+              price: item.productId.price || 0,
+              status: item.productId.status || 'discontinued'
+            },
+            variantId: item.variantId || ''
+          };
+        }
+        
+        // Nếu productId là string hoặc không tồn tại
+        const productId = typeof item.productId === 'string' ? item.productId : 
+                         (item.productId?._id || 'unknown');
+        
+        return {
+          productId: {
+            _id: productId,
+            name: `Sản phẩm #${typeof productId === 'string' ? productId.substr(-6) : ''}`,
+            images: [],
+            price: 0,
+            status: 'discontinued'
+          },
+          variantId: item.variantId || ''
+        };
+      }
+      
+      // Nếu item là string (chỉ là ID)
+      if (typeof item === 'string') {
+        return {
+          productId: {
+            _id: item,
+            name: `Sản phẩm #${item.substr(-6)}`,
+            images: [],
+            price: 0,
+            status: 'discontinued'
+          },
+          variantId: ''
+        };
+      }
+      
+      // Mặc định nếu không xử lý được
+      return {
+        productId: {
+          _id: 'unknown',
+          name: 'Sản phẩm không xác định',
+          images: [],
+          price: 0,
+          status: 'discontinued'
+        },
+        variantId: ''
+      };
+    });
+  }, [wishlist, isValidWishlist]);
+  
+  // Log dữ liệu đã chuẩn hóa
+  console.log('Normalized wishlist:', normalizedWishlist);
+
   return (
     <div className="py-4 animate-fadeIn">
       <div className="flex items-center mb-4">
         <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-3">
           <FiHeart className="text-pink-500" />
         </div>
-        <h3 className="text-lg font-medium text-gray-800">Danh sách yêu thích ({wishlist.length})</h3>
+        <h3 className="text-lg font-medium text-gray-800">Danh sách yêu thích ({normalizedWishlist.length})</h3>
       </div>
       
-      {wishlist.length === 0 ? (
+      {normalizedWishlist.length === 0 ? (
         <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
           <FiHeart className="mx-auto mb-3 text-gray-400" size={32} />
           <p className="text-gray-500 mb-1">Người dùng chưa có sản phẩm yêu thích nào</p>
@@ -376,17 +498,40 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {wishlist.map((item, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gray-100 rounded-md mr-3"></div>
-                <div>
-                  <p className="font-medium text-gray-800">Sản phẩm {index + 1}</p>
-                  <p className="text-sm text-gray-500">ID: {item.productId}</p>
+          {normalizedWishlist.map((item, index) => {
+            const product = item.productId;
+            
+            return (
+              <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                <div className="relative h-40 mb-3 bg-gray-100 rounded-md overflow-hidden">
+                  {product.images && product.images.length > 0 ? (
+                    <img 
+                      src={product.images[0]} 
+                      alt={product.name} 
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400">
+                      <FiPackage size={24} />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-gray-800 line-clamp-2">{product.name}</h3>
+                  <div className="flex justify-between items-center">
+                    <p className="text-pink-600 font-semibold">{formatPrice(product.price || 0)}</p>
+                    <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(product.status || 'discontinued')}`}>
+                      {getStatusText(product.status || 'discontinued')}
+                    </span>
+                  </div>
+                  {item.variantId && (
+                    <p className="text-xs text-gray-500">Biến thể: {item.variantId}</p>
+                  )}
+                  <p className="text-xs text-gray-500">ID: {product._id}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -496,6 +641,24 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [modalVisible, setModalVisible] = useState(false);
+  
+  // Log chi tiết về dữ liệu người dùng khi component được render
+  useEffect(() => {
+    if (user) {
+      console.log('%c === USER DETAIL DATA ===', 'background: #4CAF50; color: white; font-size: 16px; font-weight: bold;');
+      console.log('User data:', user);
+      console.log('User wishlist exists?', 'wishlist' in user);
+      console.log('User wishlist type:', typeof user.wishlist);
+      console.log('User wishlist:', user.wishlist);
+      
+      if (Array.isArray(user.wishlist)) {
+        console.log('Wishlist length:', user.wishlist.length);
+        if (user.wishlist.length > 0) {
+          console.log('First wishlist item:', user.wishlist[0]);
+        }
+      }
+    }
+  }, [user]);
   
   useEffect(() => {
     if (isOpen) {
