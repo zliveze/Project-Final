@@ -5,6 +5,7 @@ import { AppProviders } from "../contexts";
 import { Toaster } from 'react-hot-toast'
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext'
 import { AdminUserProvider } from '@/contexts/AdminUserContext'
+import { AdminUserReviewProvider } from '@/contexts/AdminUserReviewContext'
 import { useRouter } from 'next/router'
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect } from 'react';
@@ -24,8 +25,18 @@ const AdminWrapper = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const isAdminPage = router.pathname.startsWith('/admin');
   const isAdminLoginPage = router.pathname === '/admin/auth/login';
+  const isAdminUserPage = router.pathname.startsWith('/admin/users');
 
   if (isAdminPage && !isAdminLoginPage) {
+    if (isAdminUserPage) {
+      return (
+        <AdminUserProvider>
+          <AdminUserReviewProvider>
+            {children}
+          </AdminUserReviewProvider>
+        </AdminUserProvider>
+      );
+    }
     return <AdminUserProvider>{children}</AdminUserProvider>;
   }
 

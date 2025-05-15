@@ -7,6 +7,7 @@ import { UserOrderProvider } from './UserOrderContext';
 import { UserPaymentProvider } from './UserPaymentContext';
 import { OrderProvider } from './OrderContext';
 import { HeaderProvider } from '@/contexts/HeaderContext';
+import { UserReviewProvider } from '@/contexts/user/UserReviewContext';
 
 interface UserContextProviderProps {
   children: ReactNode;
@@ -26,9 +27,11 @@ export const UserContextProvider: React.FC<UserContextProviderProps> = ({ childr
             <UserOrderProvider>
               <UserPaymentProvider>
                 <OrderProvider>
-                  <HeaderProvider>
-                    {children}
-                  </HeaderProvider>
+                  <UserReviewProvider>
+                    <HeaderProvider>
+                      {children}
+                    </HeaderProvider>
+                  </UserReviewProvider>
                 </OrderProvider>
               </UserPaymentProvider>
             </UserOrderProvider>

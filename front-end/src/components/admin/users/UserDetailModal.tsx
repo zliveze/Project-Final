@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  FiUser, FiMapPin, FiShoppingBag, FiX, FiEdit, 
+import {
+  FiUser, FiMapPin, FiShoppingBag, FiX, FiEdit,
   FiMail, FiPhone, FiCalendar, FiCheck, FiClock,
   FiDollarSign, FiPackage, FiTruck, FiAlertTriangle,
   FiHeart, FiStar
 } from 'react-icons/fi';
+import UserReviewTab from './UserReviewTab';
+import { AdminUserReviewProvider } from '@/contexts/AdminUserReviewContext';
 
 interface Address {
   addressId: string;
@@ -151,11 +153,11 @@ const UserInfoTab: React.FC<{ user: UserDetailModalProps['user'] }> = ({ user })
               </div>
               <div className="flex-1">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  user.status === 'active' ? 'bg-green-100 text-green-800' : 
-                  user.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' : 
+                  user.status === 'active' ? 'bg-green-100 text-green-800' :
+                  user.status === 'inactive' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-red-100 text-red-800'
                 }`}>
-                  {user.status === 'active' ? 'Đang hoạt động' : 
+                  {user.status === 'active' ? 'Đang hoạt động' :
                   user.status === 'inactive' ? 'Chưa kích hoạt' : 'Đã khóa'}
                 </span>
               </div>
@@ -167,14 +169,14 @@ const UserInfoTab: React.FC<{ user: UserDetailModalProps['user'] }> = ({ user })
               </div>
               <div className="flex-1">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                  user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
                   'bg-blue-100 text-blue-800'
                 }`}>
                   {user.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
                 </span>
               </div>
             </div>
-            
+
             {user.googleId && (
               <div className="flex items-start mt-3">
                 <div className="w-24 flex-shrink-0">
@@ -190,7 +192,7 @@ const UserInfoTab: React.FC<{ user: UserDetailModalProps['user'] }> = ({ user })
           </div>
         </div>
       </div>
-      
+
       <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
         <div className="flex items-center">
           <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-3">
@@ -229,8 +231,8 @@ const UserAddressTab: React.FC<{ addresses: Address[] | undefined }> = ({ addres
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {addresses.map((address) => (
-            <div 
-              key={address.addressId} 
+            <div
+              key={address.addressId}
               className={`border rounded-lg p-4 transition-all hover:shadow-md ${
                 address.isDefault ? 'border-pink-300 bg-pink-50' : 'border-gray-200 hover:border-pink-200'
               }`}
@@ -391,18 +393,18 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
 
   // Kiểm tra xem dữ liệu wishlist có hợp lệ không
   const isValidWishlist = Array.isArray(wishlist) && wishlist.length > 0;
-  
+
   // Log chi tiết để debug
   console.log('%c === WISHLIST DEBUG INFO ===', 'background: #ff0000; color: white; font-size: 16px; font-weight: bold;');
   console.log('Wishlist raw data:', wishlist);
   console.log('Wishlist type:', typeof wishlist);
   console.log('Is Array?', Array.isArray(wishlist));
   console.log('Length:', wishlist?.length || 0);
-  
+
   // Chuẩn hóa dữ liệu wishlist để hiển thị đúng
   const normalizedWishlist = useMemo(() => {
     if (!isValidWishlist) return [];
-    
+
     return wishlist.map(item => {
       // Nếu item là object với các thuộc tính cơ bản
       if (typeof item === 'object' && item !== null) {
@@ -419,7 +421,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
             variantId: ''
           };
         }
-        
+
         // Nếu item có productId là object
         if (item.productId && typeof item.productId === 'object') {
           return {
@@ -433,11 +435,11 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
             variantId: item.variantId || ''
           };
         }
-        
+
         // Nếu productId là string hoặc không tồn tại
-        const productId = typeof item.productId === 'string' ? item.productId : 
+        const productId = typeof item.productId === 'string' ? item.productId :
                          (item.productId?._id || 'unknown');
-        
+
         return {
           productId: {
             _id: productId,
@@ -449,7 +451,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
           variantId: item.variantId || ''
         };
       }
-      
+
       // Nếu item là string (chỉ là ID)
       if (typeof item === 'string') {
         return {
@@ -463,7 +465,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
           variantId: ''
         };
       }
-      
+
       // Mặc định nếu không xử lý được
       return {
         productId: {
@@ -477,7 +479,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
       };
     });
   }, [wishlist, isValidWishlist]);
-  
+
   // Log dữ liệu đã chuẩn hóa
   console.log('Normalized wishlist:', normalizedWishlist);
 
@@ -489,7 +491,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
         </div>
         <h3 className="text-lg font-medium text-gray-800">Danh sách yêu thích ({normalizedWishlist.length})</h3>
       </div>
-      
+
       {normalizedWishlist.length === 0 ? (
         <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
           <FiHeart className="mx-auto mb-3 text-gray-400" size={32} />
@@ -500,14 +502,14 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {normalizedWishlist.map((item, index) => {
             const product = item.productId;
-            
+
             return (
               <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                 <div className="relative h-40 mb-3 bg-gray-100 rounded-md overflow-hidden">
                   {product.images && product.images.length > 0 ? (
-                    <img 
-                      src={product.images[0]} 
-                      alt={product.name} 
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -538,24 +540,7 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
   );
 };
 
-const UserReviewsTab: React.FC = () => {
-  return (
-    <div className="py-4 animate-fadeIn">
-      <div className="flex items-center mb-4">
-        <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-3">
-          <FiStar className="text-pink-500" />
-        </div>
-        <h3 className="text-lg font-medium text-gray-800">Đánh giá sản phẩm</h3>
-      </div>
-      
-      <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-        <FiStar className="mx-auto mb-3 text-gray-400" size={32} />
-        <p className="text-gray-500 mb-1">Người dùng chưa có đánh giá nào</p>
-        <p className="text-sm text-gray-400">Các đánh giá sẽ hiển thị ở đây</p>
-      </div>
-    </div>
-  );
-};
+// UserReviewsTab đã được thay thế bằng component UserReviewTab riêng biệt
 
 const TabNavigation: React.FC<{
   activeTab: string;
@@ -568,7 +553,7 @@ const TabNavigation: React.FC<{
     { id: 'wishlist', label: 'Yêu thích', icon: <FiHeart className="mr-2" /> },
     { id: 'reviews', label: 'Đánh giá', icon: <FiStar className="mr-2" /> },
   ];
-  
+
   return (
     <div className="border-b border-gray-200">
       <div className="flex space-x-1 overflow-x-auto scrollbar-hide">
@@ -576,9 +561,9 @@ const TabNavigation: React.FC<{
           <button
             key={tab.id}
             className={`
-              flex items-center whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors 
-              ${activeTab === tab.id 
-                ? 'border-pink-500 text-pink-600' 
+              flex items-center whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              ${activeTab === tab.id
+                ? 'border-pink-500 text-pink-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
             onClick={() => onTabChange(tab.id)}
@@ -641,7 +626,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   // Log chi tiết về dữ liệu người dùng khi component được render
   useEffect(() => {
     if (user) {
@@ -650,7 +635,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       console.log('User wishlist exists?', 'wishlist' in user);
       console.log('User wishlist type:', typeof user.wishlist);
       console.log('User wishlist:', user.wishlist);
-      
+
       if (Array.isArray(user.wishlist)) {
         console.log('Wishlist length:', user.wishlist.length);
         if (user.wishlist.length > 0) {
@@ -659,7 +644,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       }
     }
   }, [user]);
-  
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -688,7 +673,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           &#8203;
         </span>
 
-        <div 
+        <div
           className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
@@ -713,7 +698,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             {activeTab === 'addresses' && <UserAddressTab addresses={user.addresses} />}
             {activeTab === 'orders' && <UserOrderTab orders={user.orders} />}
             {activeTab === 'wishlist' && <UserWishlistTab wishlist={user.wishlist} />}
-            {activeTab === 'reviews' && <UserReviewsTab />}
+            {activeTab === 'reviews' && (
+              <AdminUserReviewProvider>
+                <UserReviewTab userId={user._id} />
+              </AdminUserReviewProvider>
+            )}
           </div>
 
           <ModalFooter onClose={onClose} onEdit={handleEdit} />
@@ -723,4 +712,4 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   );
 };
 
-export default UserDetailModal; 
+export default UserDetailModal;

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { FiUpload, FiX, FiAlertCircle } from 'react-icons/fi';
+import React, { useState, useRef } from 'react';
+import { FiUpload, FiX, FiAlertCircle, FiLoader } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
+import { useUserReview } from '@/contexts/user/UserReviewContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ReviewFormProps {
   productId: string;
@@ -14,19 +16,24 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   onCancel,
   onSubmitSuccess,
 }) => {
+  const { createReview, loading } = useUserReview();
+  const { isAuthenticated } = useAuth();
+
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Xử lý khi chọn ảnh
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const filesArray = Array.from(e.target.files);
-    
+
     // Giới hạn số lượng ảnh tối đa là 5
     if (images.length + filesArray.length > 5) {
       toast.error('Bạn chỉ có thể tải lên tối đa 5 ảnh', {
@@ -35,7 +42,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       });
       return;
     }
-    
+
     // Kiểm tra kích thước file (tối đa 5MB mỗi ảnh)
     const validFiles = filesArray.filter(file => file.size <= 5 * 1024 * 1024);
     if (validFiles.length !== filesArray.length) {
@@ -44,10 +51,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         autoClose: 3000,
       });
     }
-    
+
     // Tạo URL preview cho ảnh
     const newImagePreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-    
+
     setImages([...images, ...validFiles]);
     setImagePreviewUrls([...imagePreviewUrls, ...newImagePreviewUrls]);
   };
@@ -55,106 +62,74 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   // Xử lý khi xóa ảnh
   const handleRemoveImage = (index: number) => {
     if (index < 0 || index >= images.length) return;
-    
+
     const newImages = [...images];
     const newImagePreviewUrls = [...imagePreviewUrls];
-    
+
     // Giải phóng URL object để tránh rò rỉ bộ nhớ
     URL.revokeObjectURL(newImagePreviewUrls[index]);
-    
+
     newImages.splice(index, 1);
     newImagePreviewUrls.splice(index, 1);
-    
+
     setImages(newImages);
     setImagePreviewUrls(newImagePreviewUrls);
-  };
-
-  // Kiểm tra đăng nhập
-  const checkAuthentication = () => {
-    // Kiểm tra bằng cookie hoặc local storage
-    const token = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('token='))
-      ?.split('=')[1];
-      
-    return !!token;
   };
 
   // Xử lý khi gửi đánh giá
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+    setUploadProgress(0);
+
     if (content.trim().length < 10) {
       setError('Nội dung đánh giá phải có ít nhất 10 ký tự');
       return;
     }
-    
+
     // Kiểm tra đăng nhập trước khi thực hiện
-    const isLoggedIn = checkAuthentication();
-    
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       setError('Bạn cần đăng nhập để gửi đánh giá');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Định nghĩa API_URL
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      
-      // Lấy token từ cookie
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('token='))
-        ?.split('=')[1];
-      
-      if (!token) {
-        throw new Error('Không tìm thấy token xác thực');
-      }
-      
       // Chuẩn bị dữ liệu đánh giá
       const formData = new FormData();
       formData.append('productId', productId);
       formData.append('rating', rating.toString());
       formData.append('content', content);
-      
+
       // Thêm các ảnh vào formData nếu có
-      images.forEach((image) => {
-        formData.append('reviewImages', image);
-      });
-      
-      // Gửi đánh giá
-      const response = await fetch(`${API_URL}/reviews`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        toast.success('Đánh giá của bạn đã được gửi thành công', {
-          position: "bottom-right",
-          autoClose: 3000,
+      if (images.length > 0) {
+        // Thêm các file hình ảnh vào formData
+        images.forEach((image, index) => {
+          formData.append('reviewImages', image);
         });
-        
+      }
+
+      // Log formData để debug
+      console.log('FormData entries:');
+      for (const pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      // Gửi đánh giá sử dụng context với progress tracking
+      const success = await createReview(formData, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      if (success) {
         // Giải phóng tất cả URL objects
         imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
-        
+
         onSubmitSuccess();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Có lỗi xảy ra khi gửi đánh giá');
       }
     } catch (error) {
       console.error('Error submitting review:', error);
       setError(error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi đánh giá');
-      toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi đánh giá', {
-        position: "bottom-right",
-        autoClose: 3000,
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -163,15 +138,15 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200">
       <h3 className="text-lg font-medium text-gray-800 mb-4">Viết đánh giá của bạn</h3>
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
           <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
           <p>{error}</p>
         </div>
       )}
-      
-      <form onSubmit={handleSubmit}>
+
+      <form ref={formRef} onSubmit={handleSubmit} encType="multipart/form-data">
         {/* Đánh giá sao */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -205,7 +180,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             </span>
           </div>
         </div>
-        
+
         {/* Nội dung đánh giá */}
         <div className="mb-6">
           <label htmlFor="review-content" className="block text-sm font-medium text-gray-700 mb-2">
@@ -224,13 +199,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             Tối thiểu 10 ký tự. Hiện tại: {content.length} ký tự
           </p>
         </div>
-        
+
         {/* Tải lên ảnh */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Thêm hình ảnh (tùy chọn)
           </label>
-          
+
           <div className="flex flex-wrap gap-3">
             {/* Hiển thị ảnh đã chọn */}
             {imagePreviewUrls.map((url, index) => (
@@ -250,7 +225,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                 </button>
               </div>
             ))}
-            
+
             {/* Nút tải lên ảnh */}
             {images.length < 5 && (
               <label className="h-24 w-24 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
@@ -262,16 +237,33 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
                   multiple
                   onChange={handleImageChange}
                   className="hidden"
+                  name="reviewImages"
                 />
               </label>
             )}
           </div>
-          
+
           <p className="mt-1 text-xs text-gray-500">
             Tối đa 5 ảnh, mỗi ảnh không quá 5MB
           </p>
         </div>
-        
+
+        {/* Hiển thị tiến trình upload */}
+        {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+          <div className="mb-4">
+            <div className="flex items-center">
+              <FiLoader className="animate-spin mr-2 text-pink-500" />
+              <span className="text-sm text-gray-600">Đang tải lên ảnh: {uploadProgress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+              <div
+                className="bg-pink-500 h-2.5 rounded-full"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         {/* Nút gửi và hủy */}
         <div className="flex justify-end space-x-3">
           <button
@@ -284,10 +276,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-[#306E51] text-white rounded-md hover:bg-[#265a42] disabled:bg-gray-400"
-            disabled={isSubmitting || content.trim().length < 10}
+            className="px-4 py-2 bg-[#d53f8c] text-white rounded-md hover:bg-[#b83280] disabled:bg-gray-400"
+            disabled={isSubmitting || loading || content.trim().length < 10}
           >
-            {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+            {isSubmitting || loading ? 'Đang gửi...' : 'Gửi đánh giá'}
           </button>
         </div>
       </form>
@@ -295,4 +287,4 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   );
 };
 
-export default ReviewForm; 
+export default ReviewForm;

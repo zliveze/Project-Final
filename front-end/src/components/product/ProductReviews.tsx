@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser } from 'react-icons/fi';
+import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader } from 'react-icons/fi';
 import ReviewForm from './ReviewForm';
+import { useUserReview } from '@/contexts/user/UserReviewContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ReviewImage {
   url: string;
@@ -40,30 +42,95 @@ interface Review {
 
 interface ProductReviewsProps {
   productId: string;
-  reviews: Review[];
-  averageRating: number;
-  reviewCount: number;
-  isAuthenticated: boolean;
-  hasPurchased: boolean;
-  hasReviewed: boolean;
+  reviews?: Review[];
+  averageRating?: number;
+  reviewCount?: number;
+  isAuthenticated?: boolean;
+  hasPurchased?: boolean;
+  hasReviewed?: boolean;
 }
 
 const ProductReviews: React.FC<ProductReviewsProps> = ({
   productId,
-  reviews = [],
-  averageRating = 0,
-  reviewCount = 0,
-  isAuthenticated = false,
-  hasPurchased = false,
-  hasReviewed = false,
+  reviews: initialReviews = [],
+  averageRating: initialAverageRating = 0,
+  reviewCount: initialReviewCount = 0,
+  isAuthenticated: initialIsAuthenticated = false,
+  hasPurchased: initialHasPurchased = false,
+  hasReviewed: initialHasReviewed = false,
 }) => {
+  const { isAuthenticated } = useAuth();
+  const {
+    fetchProductReviews,
+    getReviewStats,
+    checkCanReview,
+    likeReview,
+    loading
+  } = useUserReview();
+
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [expandedReviews, setExpandedReviews] = useState<string[]>([]);
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
 
+  const [productReviews, setProductReviews] = useState<Review[]>(initialReviews);
+  const [reviewStats, setReviewStats] = useState({
+    average: initialAverageRating,
+    distribution: {} as Record<string, number>,
+    total: initialReviewCount
+  });
+  const [canReviewState, setCanReviewState] = useState({
+    canReview: false,
+    hasPurchased: initialHasPurchased,
+    hasReviewed: initialHasReviewed
+  });
+
+  // Tải đánh giá sản phẩm khi component được mount
+  useEffect(() => {
+    const loadReviewData = async () => {
+      try {
+        // Lấy đánh giá sản phẩm
+        try {
+          const reviews = await fetchProductReviews(productId);
+          setProductReviews(reviews);
+        } catch (error) {
+          console.error('Lỗi khi lấy đánh giá sản phẩm:', error);
+          // Giữ nguyên danh sách đánh giá ban đầu nếu có lỗi
+        }
+
+        // Lấy thống kê đánh giá
+        try {
+          const stats = await getReviewStats(productId);
+          setReviewStats({
+            average: stats.average,
+            distribution: stats.distribution,
+            total: Object.values(stats.distribution).reduce((sum, count) => sum + count, 0)
+          });
+        } catch (error) {
+          console.error('Lỗi khi lấy thống kê đánh giá:', error);
+          // Giữ nguyên thống kê ban đầu nếu có lỗi
+        }
+
+        // Kiểm tra khả năng đánh giá
+        if (isAuthenticated) {
+          try {
+            const canReviewData = await checkCanReview(productId);
+            setCanReviewState(canReviewData);
+          } catch (error) {
+            console.error('Lỗi khi kiểm tra khả năng đánh giá:', error);
+            // Giữ nguyên giá trị mặc định nếu có lỗi
+          }
+        }
+      } catch (error) {
+        console.error('Lỗi khi tải dữ liệu đánh giá:', error);
+      }
+    };
+
+    loadReviewData();
+  }, [productId, fetchProductReviews, getReviewStats, checkCanReview, isAuthenticated]);
+
   // Đảm bảo reviews là một mảng
-  const safeReviews = Array.isArray(reviews) ? reviews : [];
+  const safeReviews = Array.isArray(productReviews) ? productReviews : [];
 
   // Lọc đánh giá theo số sao
   const filteredReviews = filterRating
@@ -72,8 +139,8 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
   // Đếm số lượng đánh giá theo số sao
   const ratingCounts = [5, 4, 3, 2, 1].map((rating) => {
-    const count = safeReviews.filter((review) => review.rating === rating).length;
-    const percentage = reviewCount > 0 ? Math.round((count / reviewCount) * 100) : 0;
+    const count = reviewStats.distribution[rating.toString()] || 0;
+    const percentage = reviewStats.total > 0 ? Math.round((count / reviewStats.total) * 100) : 0;
     return { rating, count, percentage };
   });
 
@@ -92,29 +159,44 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   };
 
   // Xử lý thích đánh giá
-  const handleLikeReview = (reviewId: string) => {
+  const handleLikeReview = async (reviewId: string) => {
     if (!isAuthenticated) {
       alert('Vui lòng đăng nhập để thích đánh giá');
       return;
     }
-    // Xử lý thích đánh giá ở đây (sẽ được kết nối API)
+
+    const success = await likeReview(reviewId);
+    if (success) {
+      // Cập nhật UI nếu thành công (đã được xử lý trong context)
+    }
   };
 
   // Render avatar cho user
-  const renderUserAvatar = (user: ReviewUser) => {
+  const renderUserAvatar = (user?: ReviewUser) => {
+    // Kiểm tra nếu user không tồn tại hoặc undefined
+    if (!user) {
+      return (
+        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+          <FiUser className="text-gray-600" />
+        </div>
+      );
+    }
+
+    // Kiểm tra nếu user có avatar
     if (user.avatar) {
       return (
         <div className="relative h-10 w-10 rounded-full overflow-hidden">
           <Image
             src={user.avatar}
-            alt={user.name}
+            alt={user.name || 'User'}
             fill
             className="object-cover"
           />
         </div>
       );
     }
-    
+
+    // Trường hợp user không có avatar
     return (
       <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
         <span className="text-gray-600 font-medium">
@@ -137,74 +219,101 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     <div className="mt-16" id="reviews">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Đánh giá từ khách hàng</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Tổng quan đánh giá */}
-        <div className="bg-gray-50 p-6 rounded-lg">
-          <div className="text-center mb-4">
-            <div className="text-5xl font-bold text-gray-800">{averageRating.toFixed(1)}</div>
-            <div className="flex justify-center my-2">
-              {[...Array(5)].map((_, i) => (
-                <svg
-                  key={i}
-                  className={`w-5 h-5 ${
-                    i < Math.floor(averageRating) ? 'text-yellow-400' : 'text-gray-300'
-                  }`}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
-            </div>
-            <div className="text-sm text-gray-600">{reviewCount} đánh giá</div>
-          </div>
-
-          {/* Phân bố đánh giá */}
-          <div className="space-y-2">
-            {ratingCounts.map(({ rating, count, percentage }) => (
-              <div key={rating} className="flex items-center">
-                <button
-                  onClick={() => setFilterRating(filterRating === rating ? null : rating)}
-                  className={`flex items-center space-x-2 ${
-                    filterRating === rating ? 'font-medium text-[#d53f8c]' : 'text-gray-600'
-                  }`}
-                >
-                  <span>{rating}</span>
-                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <FiLoader className="h-8 w-8 text-pink-500 animate-spin mb-4" />
+          <p className="text-gray-500">Đang tải đánh giá...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Tổng quan đánh giá */}
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <div className="text-center mb-4">
+              <div className="text-5xl font-bold text-gray-800">{reviewStats.average.toFixed(1)}</div>
+              <div className="flex justify-center my-2">
+                {[...Array(5)].map((_, i) => (
+                  <svg
+                    key={i}
+                    className={`w-5 h-5 ${
+                      i < Math.floor(reviewStats.average) ? 'text-yellow-400' : 'text-gray-300'
+                    }`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                </button>
-                <div className="flex-1 mx-3">
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-yellow-400"
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-600 w-10 text-right">{count}</span>
+                ))}
               </div>
-            ))}
-          </div>
+              <div className="text-sm text-gray-600">{reviewStats.total} đánh giá</div>
+            </div>
 
-          {/* Nút viết đánh giá */}
-          {isAuthenticated && hasPurchased && !hasReviewed ? (
-            <button
-              onClick={() => setShowReviewForm(true)}
-              className="mt-6 w-full py-2 px-4 bg-gradient-to-r from-[#d53f8c] to-[#805ad5] text-white rounded-lg hover:from-[#b83280] hover:to-[#6b46c1] transition-colors"
-            >
-              Viết đánh giá
-            </button>
-          ) : isAuthenticated && !hasPurchased ? (
-            <div className="mt-6 text-sm text-gray-600 text-center">
-              Bạn cần mua sản phẩm này để có thể đánh giá
+            {/* Phân bố đánh giá */}
+            <div className="space-y-2">
+              {ratingCounts.map(({ rating, count, percentage }) => (
+                <div key={rating} className="flex items-center">
+                  <button
+                    onClick={() => setFilterRating(filterRating === rating ? null : rating)}
+                    className={`flex items-center space-x-2 ${
+                      filterRating === rating ? 'font-medium text-[#d53f8c]' : 'text-gray-600'
+                    }`}
+                  >
+                    <span>{rating}</span>
+                    <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </button>
+                  <div className="flex-1 mx-3">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-yellow-400"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-600 w-10 text-right">{count}</span>
+                </div>
+              ))}
             </div>
-          ) : !isAuthenticated ? (
-            <div className="mt-6 text-sm text-gray-600 text-center">
-              Vui lòng <Link href="/auth/login" className="text-[#d53f8c] hover:underline">đăng nhập</Link> để đánh giá
-            </div>
-          ) : null}
-        </div>
+
+            {/* Nút viết đánh giá */}
+            {isAuthenticated ? (
+              <div>
+                {/* Hiển thị trạng thái debug - chỉ hiển thị trong môi trường development */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mb-2 p-2 bg-gray-100 text-xs text-gray-700 rounded">
+                    <div>Trạng thái đánh giá:</div>
+                    <div>- Đã mua: {canReviewState.hasPurchased ? 'Có' : 'Không'}</div>
+                    <div>- Đã đánh giá: {canReviewState.hasReviewed ? 'Có' : 'Không'}</div>
+                    <div>- Có thể đánh giá: {canReviewState.canReview ? 'Có' : 'Không'}</div>
+                  </div>
+                )}
+
+                {/* Luôn hiển thị nút đánh giá cho người dùng đã đăng nhập */}
+                <button
+                  onClick={() => setShowReviewForm(true)}
+                  className="mt-2 w-full py-2 px-4 bg-gradient-to-r from-[#d53f8c] to-[#805ad5] text-white rounded-lg hover:from-[#b83280] hover:to-[#6b46c1] transition-colors"
+                >
+                  Viết đánh giá
+                </button>
+
+                {/* Hiển thị thông báo dưới nút nếu cần */}
+                {!canReviewState.hasPurchased && (
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    <span className="italic">Lưu ý: Bạn chỉ có thể đánh giá sản phẩm đã mua</span>
+                  </div>
+                )}
+                {canReviewState.hasReviewed && (
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    <span className="italic">Lưu ý: Bạn đã đánh giá sản phẩm này</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-6 text-sm text-gray-600 text-center">
+                Vui lòng <Link href="/auth/login" className="text-[#d53f8c] hover:underline">đăng nhập</Link> để đánh giá
+              </div>
+            )}
+          </div>
 
         {/* Danh sách đánh giá */}
         <div className="md:col-span-2">
@@ -243,8 +352,22 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                 onCancel={() => setShowReviewForm(false)}
                 onSubmitSuccess={() => {
                   setShowReviewForm(false);
-                  // Refresh đánh giá sau khi gửi thành công
-                  window.location.reload();
+                  // Tải lại đánh giá sau khi gửi thành công
+                  fetchProductReviews(productId).then(reviews => {
+                    setProductReviews(reviews);
+                    // Cập nhật trạng thái đánh giá
+                    checkCanReview(productId).then(canReviewData => {
+                      setCanReviewState(canReviewData);
+                    });
+                    // Cập nhật thống kê đánh giá
+                    getReviewStats(productId).then(stats => {
+                      setReviewStats({
+                        average: stats.average,
+                        distribution: stats.distribution,
+                        total: Object.values(stats.distribution).reduce((sum, count) => sum + count, 0)
+                      });
+                    });
+                  });
                 }}
               />
             </div>
@@ -255,7 +378,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
             <div className="space-y-6">
               {filteredReviews.map((review) => {
                 if (!review) return null;
-                
+
                 const isExpanded = expandedReviews.includes(review._id);
                 const hasLongContent = review.content && review.content.length > 300;
 
@@ -267,7 +390,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-gray-800">{review.user.name}</h4>
+                          <h4 className="font-medium text-gray-800">{review.user?.name || 'Người dùng ẩn danh'}</h4>
                           <span className="text-sm text-gray-500">
                             {formatDate(review.createdAt)}
                           </span>
@@ -377,8 +500,9 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
 
-export default ProductReviews; 
+export default ProductReviews;

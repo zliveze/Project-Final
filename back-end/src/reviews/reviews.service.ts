@@ -1,19 +1,29 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Review, ReviewDocument } from './schemas/review.schema';
+import { CreateReviewDto, UpdateReviewDto, QueryReviewDto } from './dto';
+import { OrderStatus } from '../orders/schemas/order.schema';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import * as fs from 'fs';
+import { promisify } from 'util';
 
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger(ReviewsService.name);
+
   constructor(
     @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel('Order') private readonly orderModel: Model<any>,
+    @InjectModel('Product') private readonly productModel: Model<any>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // Tìm tất cả đánh giá của một người dùng cụ thể
   async findAllByUser(userId: string): Promise<ReviewDocument[]> {
-    return this.reviewModel.find({ 
+    return this.reviewModel.find({
       userId: new Types.ObjectId(userId),
-      isDeleted: false 
+      isDeleted: false
     })
     .select('productId productName productImage rating content images likes status createdAt')
     .sort({ createdAt: -1 })
@@ -23,15 +33,15 @@ export class ReviewsService {
 
   // Tìm tất cả đánh giá của một sản phẩm cụ thể
   async findAllByProduct(productId: string, status: string = 'approved'): Promise<ReviewDocument[]> {
-    const query: any = { 
+    const query: any = {
       productId: new Types.ObjectId(productId),
-      isDeleted: false 
+      isDeleted: false
     };
-    
+
     if (status) {
       query.status = status;
     }
-    
+
     return this.reviewModel.find(query)
       .select('userId productName rating content images likes status createdAt verified')
       .sort({ createdAt: -1 })
@@ -41,29 +51,29 @@ export class ReviewsService {
 
   // Tìm tất cả đánh giá với phân trang
   async findAll(
-    page: number = 1, 
-    limit: number = 10, 
+    page: number = 1,
+    limit: number = 10,
     status?: string,
     rating?: number,
     userId?: string
   ): Promise<{ reviews: ReviewDocument[], totalItems: number, totalPages: number }> {
     const query: any = { isDeleted: false };
-    
+
     if (status && status !== 'all') {
       query.status = status;
     }
-    
+
     if (rating && rating > 0) {
       query.rating = rating;
     }
-    
+
     if (userId) {
       query.userId = new Types.ObjectId(userId);
     }
-    
+
     const totalItems = await this.reviewModel.countDocuments(query);
     const totalPages = Math.ceil(totalItems / limit);
-    
+
     const reviews = await this.reviewModel
       .find(query)
       .skip((page - 1) * limit)
@@ -72,7 +82,7 @@ export class ReviewsService {
       .sort({ createdAt: -1 })
       .lean()
       .exec();
-    
+
     return { reviews, totalItems, totalPages };
   }
 
@@ -85,48 +95,332 @@ export class ReviewsService {
     return review;
   }
 
+  // Kiểm tra xem người dùng đã mua sản phẩm với trạng thái hoàn thành chưa
+  async checkUserPurchasedProduct(userId: string, productId: string): Promise<boolean> {
+    try {
+      this.logger.debug(`Kiểm tra người dùng ${userId} đã mua sản phẩm ${productId} chưa`);
+
+      // Chuyển đổi userId sang ObjectId
+      const userObjectId = new Types.ObjectId(userId);
+
+      // Tìm đơn hàng đã hoàn thành của người dùng có chứa sản phẩm này
+      // Lưu ý: Không chuyển đổi productId sang ObjectId vì trong đơn hàng nó có thể là chuỗi
+      const completedOrders = await this.orderModel.find({
+        userId: userObjectId,
+        status: OrderStatus.DELIVERED,
+        $or: [
+          { 'items.productId': productId }, // Trường hợp productId là chuỗi
+          { 'items.productId': new Types.ObjectId(productId) } // Trường hợp productId là ObjectId
+        ]
+      }).lean().exec();
+
+      this.logger.debug(`Tìm thấy ${completedOrders.length} đơn hàng đã hoàn thành cho sản phẩm ${productId}`);
+
+      // Log chi tiết đơn hàng để debug
+      if (completedOrders.length > 0) {
+        this.logger.debug(`Chi tiết đơn hàng đầu tiên: ${JSON.stringify(completedOrders[0])}`);
+      }
+
+      return completedOrders.length > 0;
+    } catch (error) {
+      this.logger.error(`Lỗi khi kiểm tra mua hàng: ${error.message}`, error.stack);
+      return false;
+    }
+  }
+
+  // Kiểm tra xem người dùng đã đánh giá sản phẩm chưa
+  async checkUserReviewedProduct(userId: string, productId: string): Promise<boolean> {
+    try {
+      this.logger.debug(`Kiểm tra người dùng ${userId} đã đánh giá sản phẩm ${productId} chưa`);
+
+      // Chuyển đổi userId sang ObjectId
+      const userObjectId = new Types.ObjectId(userId);
+
+      // Tìm đánh giá hiện có
+      const existingReview = await this.reviewModel.findOne({
+        userId: userObjectId,
+        $or: [
+          { productId: productId }, // Trường hợp productId là chuỗi
+          { productId: new Types.ObjectId(productId) } // Trường hợp productId là ObjectId
+        ],
+        isDeleted: false
+      }).lean().exec();
+
+      this.logger.debug(`Kết quả kiểm tra đánh giá: ${!!existingReview}`);
+
+      return !!existingReview;
+    } catch (error) {
+      this.logger.error(`Lỗi khi kiểm tra đánh giá: ${error.message}`, error.stack);
+      return false;
+    }
+  }
+
+  // Upload ảnh đánh giá lên Cloudinary
+  async uploadReviewImages(files: Express.Multer.File[]): Promise<{ url: string; alt?: string; publicId?: string }[]> {
+    try {
+      if (!files || files.length === 0) {
+        return [];
+      }
+
+      const unlinkAsync = promisify(fs.unlink);
+      const uploadedImages: { url: string; alt?: string; publicId?: string }[] = [];
+
+      for (const file of files) {
+        try {
+          // Upload ảnh lên Cloudinary
+          const result = await this.cloudinaryService.uploadImageFile(file.path, {
+            folder: 'Yumin/reviews',
+            tags: ['review', 'user-content'],
+          });
+
+          // Thêm ảnh vào danh sách kết quả
+          uploadedImages.push({
+            url: result.secureUrl,
+            alt: `Review image ${uploadedImages.length + 1}`,
+            publicId: result.publicId
+          });
+
+          // Xóa file tạm sau khi upload
+          await unlinkAsync(file.path);
+        } catch (error) {
+          this.logger.error(`Lỗi khi upload ảnh: ${error.message}`, error.stack);
+          // Vẫn tiếp tục với các ảnh khác nếu có lỗi
+          try {
+            await unlinkAsync(file.path);
+          } catch (e) {
+            // Bỏ qua lỗi khi xóa file
+          }
+        }
+      }
+
+      return uploadedImages;
+    } catch (error) {
+      this.logger.error(`Lỗi khi upload ảnh đánh giá: ${error.message}`, error.stack);
+      throw new BadRequestException('Không thể upload ảnh đánh giá');
+    }
+  }
+
   // Tạo đánh giá mới
-  async create(createReviewDto: any): Promise<ReviewDocument> {
-    const newReview = new this.reviewModel(createReviewDto);
-    return newReview.save();
+  async create(createReviewDto: CreateReviewDto, files?: Express.Multer.File[]): Promise<ReviewDocument> {
+    try {
+      const { userId, productId } = createReviewDto;
+
+      this.logger.debug(`Tạo đánh giá mới: userId=${userId}, productId=${productId}`);
+
+      // Kiểm tra các trường bắt buộc
+      if (!userId) {
+        throw new BadRequestException('Thiếu thông tin userId');
+      }
+
+      if (!productId) {
+        throw new BadRequestException('Thiếu thông tin productId');
+      }
+
+      if (!createReviewDto.rating) {
+        throw new BadRequestException('Thiếu thông tin rating');
+      }
+
+      if (!createReviewDto.content) {
+        throw new BadRequestException('Thiếu thông tin content');
+      }
+
+      // Kiểm tra xem người dùng đã mua sản phẩm với trạng thái hoàn thành chưa
+      const hasPurchased = await this.checkUserPurchasedProduct(userId, productId);
+      if (!hasPurchased) {
+        throw new ForbiddenException('Bạn cần mua sản phẩm và nhận hàng thành công trước khi đánh giá');
+      }
+
+      // Kiểm tra xem người dùng đã đánh giá sản phẩm này chưa
+      const hasReviewed = await this.checkUserReviewedProduct(userId, productId);
+      if (hasReviewed) {
+        throw new BadRequestException('Bạn đã đánh giá sản phẩm này rồi');
+      }
+
+      // Lấy thông tin sản phẩm nếu chưa có
+      if (!createReviewDto.productName || !createReviewDto.productImage) {
+        try {
+          // Thử tìm sản phẩm bằng ObjectId
+          let product: any = null;
+          try {
+            product = await this.productModel.findById(new Types.ObjectId(productId)).lean().exec();
+          } catch (e) {
+            // Nếu không thể chuyển đổi sang ObjectId, thử tìm bằng chuỗi
+            this.logger.debug(`Không thể chuyển đổi ${productId} sang ObjectId, thử tìm bằng chuỗi`);
+            product = await this.productModel.findOne({ _id: productId }).lean().exec();
+          }
+
+          if (!product) {
+            throw new NotFoundException(`Không tìm thấy sản phẩm với ID ${productId}`);
+          }
+
+          // Kiểm tra xem product có phải là một mảng không
+          if (Array.isArray(product)) {
+            if (product.length > 0) {
+              const firstProduct = product[0] as any;
+              createReviewDto.productName = createReviewDto.productName || firstProduct.name || '';
+              createReviewDto.productImage = createReviewDto.productImage ||
+                (firstProduct.images && firstProduct.images.length > 0 ? firstProduct.images[0].url : '');
+            }
+          } else {
+            const productObj = product as any;
+            createReviewDto.productName = createReviewDto.productName || (productObj.name || '');
+            createReviewDto.productImage = createReviewDto.productImage ||
+              (productObj.images && productObj.images.length > 0 ? productObj.images[0].url : '');
+          }
+        } catch (error) {
+          this.logger.error(`Lỗi khi lấy thông tin sản phẩm: ${error.message}`, error.stack);
+          // Nếu không tìm thấy sản phẩm, vẫn cho phép đánh giá với thông tin tối thiểu
+          createReviewDto.productName = createReviewDto.productName || 'Sản phẩm không xác định';
+          createReviewDto.productImage = createReviewDto.productImage || '';
+        }
+      }
+
+      // Upload ảnh lên Cloudinary nếu có
+      if (files && files.length > 0) {
+        const uploadedImages = await this.uploadReviewImages(files);
+        createReviewDto.images = uploadedImages;
+      }
+
+      // Tạo đánh giá mới
+      const newReview = new this.reviewModel(createReviewDto);
+      const savedReview = await newReview.save();
+
+      // Cập nhật thông tin đánh giá trong sản phẩm
+      await this.updateProductReviewStats(productId);
+
+      return savedReview;
+    } catch (error) {
+      this.logger.error(`Lỗi khi tạo đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Cập nhật đánh giá
-  async update(id: string, updateReviewDto: any): Promise<ReviewDocument> {
-    const review = await this.findOne(id);
-    
-    // Không cho phép cập nhật reviewId và userId
-    delete updateReviewDto.reviewId;
-    delete updateReviewDto.userId;
-    
-    // Đánh dấu là đã chỉnh sửa
-    updateReviewDto.isEdited = true;
-    
-    // Áp dụng cập nhật
-    Object.assign(review, updateReviewDto);
-    return review.save();
+  async update(id: string, updateReviewDto: UpdateReviewDto, currentUserId?: string, files?: Express.Multer.File[]): Promise<ReviewDocument> {
+    try {
+      const review = await this.findOne(id);
+
+      // Kiểm tra quyền: nếu currentUserId được cung cấp, phải là chủ đánh giá
+      if (currentUserId && review.userId.toString() !== currentUserId) {
+        throw new ForbiddenException('Bạn không có quyền chỉnh sửa đánh giá này');
+      }
+
+      // Không cho phép cập nhật reviewId và userId
+      delete (updateReviewDto as any).reviewId;
+      delete (updateReviewDto as any).userId;
+      delete (updateReviewDto as any).productId;
+
+      // Đánh dấu là đã chỉnh sửa
+      const updatedData: any = { ...updateReviewDto, isEdited: true };
+
+      // Đặt lại trạng thái về pending nếu người dùng chỉnh sửa nội dung hoặc rating
+      if (updateReviewDto.content || updateReviewDto.rating) {
+        updatedData.status = 'pending';
+      }
+
+      // Upload ảnh mới lên Cloudinary nếu có
+      if (files && files.length > 0) {
+        const uploadedImages = await this.uploadReviewImages(files);
+
+        // Nếu đã có ảnh trước đó, thêm ảnh mới vào
+        if (review.images && review.images.length > 0) {
+          updatedData.images = [...review.images, ...uploadedImages];
+        } else {
+          updatedData.images = uploadedImages;
+        }
+      }
+
+      // Áp dụng cập nhật
+      Object.assign(review, updatedData);
+      const updatedReview = await review.save();
+
+      // Cập nhật thông tin đánh giá trong sản phẩm
+      await this.updateProductReviewStats(review.productId.toString());
+
+      return updatedReview;
+    } catch (error) {
+      this.logger.error(`Lỗi khi cập nhật đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Xóa mềm đánh giá
-  async softDelete(id: string): Promise<void> {
-    const review = await this.findOne(id);
-    review.isDeleted = true;
-    await review.save();
+  async softDelete(id: string, currentUserId?: string): Promise<void> {
+    try {
+      const review = await this.findOne(id);
+
+      // Kiểm tra quyền: nếu currentUserId được cung cấp, phải là chủ đánh giá
+      if (currentUserId && review.userId.toString() !== currentUserId) {
+        throw new ForbiddenException('Bạn không có quyền xóa đánh giá này');
+      }
+
+      review.isDeleted = true;
+      await review.save();
+
+      // Cập nhật thông tin đánh giá trong sản phẩm
+      await this.updateProductReviewStats(review.productId.toString());
+    } catch (error) {
+      this.logger.error(`Lỗi khi xóa mềm đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Xóa cứng đánh giá (chỉ dùng cho admin)
   async hardDelete(id: string): Promise<void> {
-    const result = await this.reviewModel.deleteOne({ _id: id }).exec();
-    if (result.deletedCount === 0) {
-      throw new NotFoundException(`Không tìm thấy đánh giá với ID ${id}`);
+    try {
+      const review = await this.findOne(id);
+      const productId = review.productId.toString();
+
+      const result = await this.reviewModel.deleteOne({ _id: id }).exec();
+      if (result.deletedCount === 0) {
+        throw new NotFoundException(`Không tìm thấy đánh giá với ID ${id}`);
+      }
+
+      // Cập nhật thông tin đánh giá trong sản phẩm
+      await this.updateProductReviewStats(productId);
+    } catch (error) {
+      this.logger.error(`Lỗi khi xóa cứng đánh giá: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
   // Cập nhật trạng thái đánh giá
   async updateStatus(id: string, status: 'pending' | 'approved' | 'rejected'): Promise<ReviewDocument> {
-    const review = await this.findOne(id);
-    review.status = status;
-    return review.save();
+    try {
+      const review = await this.findOne(id);
+      review.status = status;
+      const updatedReview = await review.save();
+
+      // Cập nhật thông tin đánh giá trong sản phẩm
+      await this.updateProductReviewStats(review.productId.toString());
+
+      return updatedReview;
+    } catch (error) {
+      this.logger.error(`Lỗi khi cập nhật trạng thái đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Cập nhật thống kê đánh giá trong sản phẩm
+  async updateProductReviewStats(productId: string): Promise<void> {
+    try {
+      // Tính toán điểm trung bình và số lượng đánh giá
+      const averageRating = await this.getAverageRating(productId);
+      const reviewCount = await this.reviewModel.countDocuments({
+        productId: new Types.ObjectId(productId),
+        status: 'approved',
+        isDeleted: false
+      });
+
+      // Cập nhật thông tin trong sản phẩm
+      await this.productModel.findByIdAndUpdate(productId, {
+        'reviews.averageRating': averageRating,
+        'reviews.reviewCount': reviewCount
+      });
+    } catch (error) {
+      this.logger.error(`Lỗi khi cập nhật thống kê đánh giá sản phẩm: ${error.message}`, error.stack);
+      // Không throw lỗi để tránh ảnh hưởng đến luồng chính
+    }
   }
 
   // Thích một đánh giá
@@ -144,7 +438,7 @@ export class ReviewsService {
     }
     return review.save();
   }
-  
+
   // Đếm số lượng đánh giá theo trạng thái
   async countByStatus(
     status?: string,
@@ -152,15 +446,15 @@ export class ReviewsService {
     userId?: string
   ): Promise<Record<string, number>> {
     const query: any = { isDeleted: false };
-    
+
     if (userId) {
       query.userId = new Types.ObjectId(userId);
     }
-    
+
     if (rating && rating > 0) {
       query.rating = rating;
     }
-    
+
     // Sử dụng aggregation để giảm số lượng truy vấn từ 4 xuống 1
     const result = await this.reviewModel.aggregate([
       { $match: query },
@@ -171,7 +465,7 @@ export class ReviewsService {
         }
       }
     ]).exec();
-    
+
     // Khởi tạo kết quả mặc định
     const counts = {
       total: 0,
@@ -179,19 +473,19 @@ export class ReviewsService {
       approved: 0,
       rejected: 0
     };
-    
+
     // Xử lý kết quả từ aggregation
     let total = 0;
     result.forEach(item => {
       const status = item._id;
       const count = item.count;
       total += count;
-      
+
       if (status === 'pending' || status === 'approved' || status === 'rejected') {
         counts[status] = count;
       }
     });
-    
+
     counts.total = total;
     return counts;
   }
@@ -199,46 +493,46 @@ export class ReviewsService {
   // Lấy điểm trung bình của đánh giá cho một sản phẩm
   async getAverageRating(productId: string): Promise<number> {
     const result = await this.reviewModel.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           productId: new Types.ObjectId(productId),
           status: 'approved',
           isDeleted: false
-        } 
+        }
       },
-      { 
-        $group: { 
-          _id: null, 
+      {
+        $group: {
+          _id: null,
           averageRating: { $avg: '$rating' },
           count: { $sum: 1 }
-        } 
+        }
       }
     ]).exec();
-    
+
     return result.length > 0 ? Math.round(result[0].averageRating * 10) / 10 : 0;
   }
-  
+
   // Lấy điểm đánh giá theo sao
   async getRatingDistribution(productId: string): Promise<Record<string, number>> {
     const result = await this.reviewModel.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           productId: new Types.ObjectId(productId),
           status: 'approved',
           isDeleted: false
-        } 
+        }
       },
-      { 
-        $group: { 
-          _id: '$rating', 
-          count: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: '$rating',
+          count: { $sum: 1 }
+        }
       },
       {
         $sort: { _id: 1 }
       }
     ]).exec();
-    
+
     // Khởi tạo đối tượng phân phối
     const distribution = {
       '1': 0,
@@ -247,12 +541,12 @@ export class ReviewsService {
       '4': 0,
       '5': 0
     };
-    
+
     // Điền vào kết quả từ aggregation
     result.forEach(item => {
       distribution[item._id.toString()] = item.count;
     });
-    
+
     return distribution;
   }
-} 
+}

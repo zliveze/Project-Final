@@ -7,7 +7,10 @@ export class ReviewImage {
   url: string;
 
   @Prop()
-  alt: string;
+  alt?: string;
+
+  @Prop()
+  publicId?: string;
 }
 
 // Mở rộng định nghĩa ReviewDocument để bao gồm _id và timestamps
@@ -19,10 +22,10 @@ export interface ReviewDocument extends Review, Document {
 
 @Schema({ timestamps: true })
 export class Review {
-  @Prop({ 
-    type: MongooseSchema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'User',
+    required: true
   })
   userId: Types.ObjectId;
 
@@ -62,16 +65,16 @@ export class Review {
 
   @Prop({ default: false })
   verified: boolean;
-  
+
   @Prop({ type: [String], default: [] })
   tags: string[];
-  
+
   @Prop({ default: false })
   isEdited: boolean;
-  
+
   @Prop({ default: false })
   isDeleted: boolean;
-  
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, any>;
 }
@@ -88,4 +91,4 @@ ReviewSchema.index({ isDeleted: 1 }); // Index cho lọc những review đã xó
 ReviewSchema.index({ productId: 1, status: 1 }); // Compound index cho truy vấn phổ biến
 ReviewSchema.index({ productId: 1, status: 1, isDeleted: 1 }); // Compound index toàn diện
 ReviewSchema.index({ userId: 1, isDeleted: 1 }); // Compound index cho truy vấn người dùng
-ReviewSchema.index({ productId: 1, rating: 1, status: 1 }); // Compound index cho phân tích rating 
+ReviewSchema.index({ productId: 1, rating: 1, status: 1 }); // Compound index cho phân tích rating
