@@ -60,6 +60,12 @@ export class Review {
   @Prop({ default: 0 })
   likes: number;
 
+  @Prop({
+    type: [{ type: MongooseSchema.Types.ObjectId, ref: 'User' }],
+    default: []
+  })
+  likedBy: Types.ObjectId[];
+
   @Prop({ enum: ['pending', 'approved', 'rejected'], default: 'pending' })
   status: string;
 

@@ -32,7 +32,7 @@ export class ReviewsService {
   }
 
   // Tìm tất cả đánh giá của một sản phẩm cụ thể
-  async findAllByProduct(productId: string, status: string = 'approved'): Promise<ReviewDocument[]> {
+  async findAllByProduct(productId: string, status: string = 'approved', currentUserId?: string): Promise<ReviewDocument[]> {
     const query: any = {
       productId: new Types.ObjectId(productId),
       isDeleted: false
@@ -42,11 +42,39 @@ export class ReviewsService {
       query.status = status;
     }
 
-    return this.reviewModel.find(query)
-      .select('userId productName rating content images likes status createdAt verified')
+    const reviews = await this.reviewModel.find(query)
+      .select('userId productName rating content images likes status createdAt verified likedBy')
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+
+    // Nếu có currentUserId, thêm trường isLiked cho mỗi đánh giá
+    if (currentUserId) {
+      const userObjectId = new Types.ObjectId(currentUserId);
+      return reviews.map(review => {
+        const isLiked = review.likedBy && Array.isArray(review.likedBy) &&
+          review.likedBy.some(id => id.toString() === userObjectId.toString());
+        return { ...review, isLiked };
+      });
+    }
+
+    return reviews;
+  }
+
+  // Lấy danh sách đánh giá đã like của người dùng
+  async findLikedByUser(userId: string): Promise<ReviewDocument[]> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    return this.reviewModel.find({
+      likedBy: userObjectId,
+      status: 'approved',
+      isDeleted: false
+    })
+    .select('userId productId productName productImage rating content images likes status createdAt verified')
+    .populate('userId', 'name avatar')
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
   }
 
   // Tìm tất cả đánh giá với phân trang
@@ -438,20 +466,37 @@ export class ReviewsService {
     }
   }
 
-  // Thích một đánh giá
-  async likeReview(id: string): Promise<ReviewDocument> {
-    const review = await this.findOne(id);
-    review.likes += 1;
-    return review.save();
-  }
+  // Toggle thích/bỏ thích một đánh giá
+  async toggleLikeReview(id: string, userId: string): Promise<ReviewDocument> {
+    try {
+      const review = await this.findOne(id);
+      const userObjectId = new Types.ObjectId(userId);
 
-  // Bỏ thích một đánh giá
-  async unlikeReview(id: string): Promise<ReviewDocument> {
-    const review = await this.findOne(id);
-    if (review.likes > 0) {
-      review.likes -= 1;
+      // Kiểm tra xem người dùng đã thích đánh giá này chưa
+      const userIndex = review.likedBy ? review.likedBy.findIndex(
+        id => id.toString() === userObjectId.toString()
+      ) : -1;
+
+      if (userIndex === -1) {
+        // Người dùng chưa thích đánh giá này => thêm vào danh sách likedBy và tăng số lượt thích
+        if (!review.likedBy) {
+          review.likedBy = [];
+        }
+        review.likedBy.push(userObjectId);
+        review.likes += 1;
+      } else {
+        // Người dùng đã thích đánh giá này => xóa khỏi danh sách likedBy và giảm số lượt thích
+        review.likedBy.splice(userIndex, 1);
+        if (review.likes > 0) {
+          review.likes -= 1;
+        }
+      }
+
+      return review.save();
+    } catch (error) {
+      this.logger.error(`Lỗi khi toggle like đánh giá: ${error.message}`, error.stack);
+      throw error;
     }
-    return review.save();
   }
 
   // Đếm số lượng đánh giá theo trạng thái

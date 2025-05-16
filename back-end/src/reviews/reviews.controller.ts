@@ -16,6 +16,7 @@ import {
   ForbiddenException,
   UseInterceptors,
   UploadedFiles,
+  Req,
 } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -89,8 +90,26 @@ export class ReviewsController {
   async findByProduct(
     @Param('productId') productId: string,
     @Query('status') status: string = 'approved',
+    @Req() req: any,
   ) {
-    return this.reviewsService.findAllByProduct(productId, status);
+    // Lấy userId từ token nếu có
+    const userId = req.user?.userId;
+    return this.reviewsService.findAllByProduct(productId, status, userId);
+  }
+
+  // Lấy danh sách đánh giá đã like của người dùng hiện tại
+  @UseGuards(JwtAuthGuard)
+  @Get('liked')
+  @ApiOperation({ summary: 'Lấy danh sách đánh giá đã like của người dùng' })
+  @ApiResponse({ status: 200, description: 'Trả về danh sách đánh giá đã like' })
+  @ApiBearerAuth()
+  async findLikedByUser(@CurrentUser('userId') userId: string) {
+    try {
+      return this.reviewsService.findLikedByUser(userId);
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy danh sách đánh giá đã like: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Lấy đánh giá theo ID - Di chuyển xuống dưới để tránh xung đột với /user/me và /user/:userId
@@ -302,34 +321,21 @@ export class ReviewsController {
     }
   }
 
-  // Thích một đánh giá
+  // Toggle thích/bỏ thích một đánh giá
   @UseGuards(JwtAuthGuard)
-  @Post(':id/like')
-  @ApiOperation({ summary: 'Thích một đánh giá' })
-  @ApiResponse({ status: 200, description: 'Đã thích đánh giá thành công' })
+  @Post(':id/toggle-like')
+  @ApiOperation({ summary: 'Toggle thích/bỏ thích một đánh giá' })
+  @ApiResponse({ status: 200, description: 'Đã toggle thích/bỏ thích đánh giá thành công' })
   @ApiResponse({ status: 404, description: 'Không tìm thấy đánh giá' })
   @ApiBearerAuth()
-  async likeReview(@Param('id') id: string) {
+  async toggleLikeReview(
+    @Param('id') id: string,
+    @CurrentUser('userId') userId: string
+  ) {
     try {
-      return this.reviewsService.likeReview(id);
+      return this.reviewsService.toggleLikeReview(id, userId);
     } catch (error) {
-      this.logger.error(`Lỗi khi thích đánh giá: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // Bỏ thích một đánh giá
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/unlike')
-  @ApiOperation({ summary: 'Bỏ thích một đánh giá' })
-  @ApiResponse({ status: 200, description: 'Đã bỏ thích đánh giá thành công' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy đánh giá' })
-  @ApiBearerAuth()
-  async unlikeReview(@Param('id') id: string) {
-    try {
-      return this.reviewsService.unlikeReview(id);
-    } catch (error) {
-      this.logger.error(`Lỗi khi bỏ thích đánh giá: ${error.message}`, error.stack);
+      this.logger.error(`Lỗi khi toggle thích/bỏ thích đánh giá: ${error.message}`, error.stack);
       throw error;
     }
   }
