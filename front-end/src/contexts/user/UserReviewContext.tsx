@@ -55,8 +55,8 @@ export interface UserReviewContextType {
   // Phương thức quản lý đánh giá
   fetchMyReviews: (page?: number, limit?: number, status?: string) => Promise<void>;
   fetchProductReviews: (productId: string, status?: string) => Promise<void>;
-  createReview: (reviewData: FormData) => Promise<boolean>;
-  updateReview: (reviewId: string, reviewData: any) => Promise<boolean>;
+  createReview: (reviewData: FormData, onProgress?: (progress: number) => void) => Promise<boolean>;
+  updateReview: (reviewId: string, reviewData: any, onProgress?: (progress: number) => void) => Promise<boolean>;
   deleteReview: (reviewId: string) => Promise<boolean>;
   checkCanReview: (productId: string) => Promise<{ canReview: boolean, hasPurchased: boolean, hasReviewed: boolean }>;
   getReviewStats: (productId: string) => Promise<{ average: number, distribution: Record<string, number> }>;
@@ -194,7 +194,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [api, isAuthenticated, user?._id]);
 
   // Tạo đánh giá mới
-  const createReview = useCallback(async (reviewData: FormData): Promise<boolean> => {
+  const createReview = useCallback(async (reviewData: FormData, onProgress?: (progress: number) => void): Promise<boolean> => {
     if (!isAuthenticated) {
       toast.error('Vui lòng đăng nhập để đánh giá sản phẩm');
       return false;
@@ -203,52 +203,32 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       setLoading(true);
 
-      // Chuyển đổi FormData thành đối tượng JSON
-      const formDataObj: Record<string, any> = {};
-      for (const [key, value] of reviewData.entries()) {
-        formDataObj[key] = value;
-      }
-
-      console.log('Dữ liệu gửi đi:', formDataObj);
-
       // Gọi trực tiếp đến backend thay vì qua Next.js API routes
-      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/reviews`;
+      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews`;
 
-      // Gửi dữ liệu dưới dạng JSON thay vì FormData
-      const response = await fetch(backendUrl, {
-        method: 'POST',
+      // Sử dụng axios để có thể theo dõi tiến trình upload
+      const response = await axios.post(backendUrl, reviewData, {
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
-        body: JSON.stringify({
-          productId: formDataObj.productId,
-          rating: parseInt(formDataObj.rating, 10),
-          content: formDataObj.content,
-          images: formDataObj.images ? JSON.parse(formDataObj.images) : []
-        })
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(percentCompleted);
+          }
+        }
       });
 
-      if (!response.ok) {
-        let errorMessage = 'Không thể tạo đánh giá';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
-          console.error('Lỗi khi phân tích phản hồi JSON:', parseError);
-          // Nếu không thể phân tích JSON, thử lấy text
-          const errorText = await response.text();
-          console.log('Phản hồi gốc:', errorText);
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+      if (response.status >= 200 && response.status < 300) {
+        toast.success('Đã gửi đánh giá thành công');
+        return true;
+      } else {
+        throw new Error(response.data?.message || 'Không thể tạo đánh giá');
       }
-
-      toast.success('Đã gửi đánh giá thành công');
-      return true;
     } catch (error: any) {
       console.error('Lỗi khi tạo đánh giá:', error);
-      toast.error(error.message || 'Không thể tạo đánh giá. Vui lòng thử lại sau.');
+      toast.error(error.response?.data?.message || error.message || 'Không thể tạo đánh giá. Vui lòng thử lại sau.');
       return false;
     } finally {
       setLoading(false);
@@ -256,13 +236,36 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [isAuthenticated]);
 
   // Cập nhật đánh giá
-  const updateReview = useCallback(async (reviewId: string, reviewData: any): Promise<boolean> => {
+  const updateReview = useCallback(async (reviewId: string, reviewData: any, onProgress?: (progress: number) => void): Promise<boolean> => {
     if (!isAuthenticated) return false;
 
     try {
       setLoading(true);
 
-      const response = await api().patch(`/reviews/${reviewId}`, reviewData);
+      // Kiểm tra xem reviewData có phải là FormData không
+      const isFormData = reviewData instanceof FormData;
+      let response;
+
+      if (isFormData) {
+        // Nếu là FormData, sử dụng axios với cấu hình upload và progress
+        const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`;
+
+        response = await axios.patch(backendUrl, reviewData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          onUploadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onProgress(percentCompleted);
+            }
+          }
+        });
+      } else {
+        // Nếu không phải FormData, sử dụng api() thông thường
+        response = await api().patch(`/reviews/${reviewId}`, reviewData);
+      }
 
       if (response.data) {
         // Cập nhật danh sách đánh giá

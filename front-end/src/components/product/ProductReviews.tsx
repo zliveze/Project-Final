@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiClock } from 'react-icons/fi';
+import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiClock, FiX, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +43,11 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   const [expandedReviews, setExpandedReviews] = useState<string[]>([]);
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
+
+  // State cho modal hiển thị ảnh
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [currentImages, setCurrentImages] = useState<ReviewImage[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const [userPendingReviews, setUserPendingReviews] = useState<ReviewType[]>([]);
 
@@ -242,7 +247,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       const success = await deleteReviewFromContext(reviewId);
       if (success) {
         setUserPendingReviews(prev => prev.filter(r => r._id !== reviewId));
-        
+
         const stats = await getReviewStats(productId);
          setReviewStats({
             average: stats.average || 0,
@@ -278,7 +283,50 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       return 'Không xác định';
     }
   };
-  
+
+  // Hàm xử lý cho modal hiển thị ảnh
+  const openImageModal = (images: ReviewImage[], initialIndex: number = 0) => {
+    setCurrentImages(images);
+    setCurrentImageIndex(initialIndex);
+    setIsImageModalOpen(true);
+    // Ngăn scroll khi mở modal
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeImageModal = () => {
+    setIsImageModalOpen(false);
+    // Cho phép scroll lại khi đóng modal
+    document.body.style.overflow = 'unset';
+  };
+
+  const nextImage = () => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % currentImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prevIndex) =>
+      prevIndex === 0 ? currentImages.length - 1 : prevIndex - 1
+    );
+  };
+
+  // Xử lý phím bấm cho modal hình ảnh
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isImageModalOpen) return;
+
+      if (e.key === 'Escape') {
+        closeImageModal();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      } else if (e.key === 'ArrowLeft') {
+        prevImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageModalOpen, currentImages.length]);
+
   const userReviewForThisProduct = useMemo(() => displayedReviews.find(r => r.user?._id === currentUserId), [displayedReviews, currentUserId]);
   const canEditThisReview = userReviewForThisProduct && (userReviewForThisProduct.status === 'approved' || userReviewForThisProduct.status === 'rejected' || userReviewForThisProduct.status === 'pending');
 
@@ -385,9 +433,13 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           {allReviewImages.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-800 mb-3">Hình ảnh từ khách hàng</h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {(showAllImages ? allReviewImages : allReviewImages.slice(0, 6)).map((image, index) => (
-                  <div key={index} className="relative h-20 w-20 rounded-md overflow-hidden">
+                  <div
+                    key={index}
+                    className="relative h-24 w-24 rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                    onClick={() => openImageModal(allReviewImages, index)}
+                  >
                     <Image
                       src={image.url}
                       alt={image.alt || 'Hình ảnh đánh giá'}
@@ -397,12 +449,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                   </div>
                 ))}
                 {!showAllImages && allReviewImages.length > 6 && (
-                  <button
+                  <div
                     onClick={() => setShowAllImages(true)}
-                    className="h-20 w-20 flex items-center justify-center bg-gray-100 rounded-md text-gray-600 hover:bg-gray-200"
+                    className="h-24 w-24 flex items-center justify-center bg-gray-100 rounded-md text-gray-600 hover:bg-gray-200 cursor-pointer shadow-sm"
                   >
-                    +{allReviewImages.length - 6}
-                  </button>
+                    <span className="text-lg font-medium">+{allReviewImages.length - 6}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -441,21 +493,21 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       } else {
                         setUserPendingReviews([]);
                       }
-                    } catch (e) { 
-                        console.error("Error fetching user's pending reviews post-submit:", e); 
+                    } catch (e) {
+                        console.error("Error fetching user's pending reviews post-submit:", e);
                         setUserPendingReviews([]);
                     }
                   } else {
                     setUserPendingReviews([]);
                   }
-                  
+
                   if(isAuthenticated){
                     const canReviewData = await checkCanReview(productId);
                     setCanReviewState(canReviewData);
                   } else {
                      setCanReviewState({ canReview: false, hasPurchased: false, hasReviewed: false });
                   }
-                  
+
                   const stats = await getReviewStats(productId);
                   setReviewStats({
                     average: stats.average || 0,
@@ -472,10 +524,10 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           {filteredReviews.length > 0 ? (
             <div className="space-y-6">
               {filteredReviews.map((review) => {
-                if (!review || !review._id) return null; 
+                if (!review || !review._id) return null;
 
                 const isExpanded = expandedReviews.includes(review._id);
-                const hasLongContent = review.content && review.content.length > 250; 
+                const hasLongContent = review.content && review.content.length > 250;
                 const isCurrentUserReview = review.user?._id === currentUserId;
                 const isPendingByCurrentUser = isCurrentUserReview && review.status === 'pending';
 
@@ -542,8 +594,17 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                     {review.images && review.images.length > 0 && (
                       <div className="mt-3 pl-14 flex flex-wrap gap-2">
                         {review.images.map((image, index) => (
-                          <div key={index} className="relative h-16 w-16 md:h-20 md:w-20 rounded-md overflow-hidden group">
-                            <Image src={image.url} alt={image.alt || `Ảnh đánh giá ${index + 1}`} fill className="object-cover" />
+                          <div
+                            key={index}
+                            className="relative h-16 w-16 md:h-20 md:w-20 rounded-md overflow-hidden group cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => openImageModal(review.images, index)}
+                          >
+                            <Image
+                              src={image.url}
+                              alt={image.alt || `Ảnh đánh giá ${index + 1}`}
+                              fill
+                              className="object-cover"
+                            />
                           </div>
                         ))}
                       </div>
@@ -598,6 +659,90 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           )}
         </div>
       </div>
+      )}
+
+      {/* Modal hiển thị ảnh đầy đủ */}
+      {isImageModalOpen && currentImages.length > 0 && (
+        <div className={`fixed inset-0 z-[1000] overflow-y-auto opacity-100 transition-opacity duration-300`}>
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Overlay */}
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={closeImageModal}>
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            {/* Trick để căn giữa modal */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              {/* Header với nút đóng */}
+              <div className="bg-white px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Hình ảnh {currentImageIndex + 1} / {currentImages.length}
+                </h3>
+                <button
+                  onClick={closeImageModal}
+                  className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 p-1"
+                >
+                  <span className="sr-only">Đóng</span>
+                  <FiX className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Ảnh hiện tại */}
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex justify-center">
+                  <div className="relative w-full max-h-[60vh] flex items-center justify-center">
+                    <img
+                      src={currentImages[currentImageIndex]?.url}
+                      alt={currentImages[currentImageIndex]?.alt || `Ảnh ${currentImageIndex + 1}`}
+                      className="max-w-full max-h-[60vh] object-contain"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Thumbnails */}
+              <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                <div className="flex overflow-x-auto space-x-2 py-2">
+                  {currentImages.map((image, index) => (
+                    <div
+                      key={index}
+                      className={`relative flex-shrink-0 h-16 w-16 rounded-md overflow-hidden cursor-pointer border-2 ${
+                        index === currentImageIndex ? 'border-pink-500' : 'border-transparent'
+                      }`}
+                      onClick={() => setCurrentImageIndex(index)}
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.alt || `Ảnh ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Điều hướng */}
+              <div className="bg-white px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse sm:justify-between border-t border-gray-200">
+                <div className="flex items-center">
+                  <button
+                    onClick={prevImage}
+                    className="mr-2 inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  >
+                    <FiArrowLeft className="mr-2" /> Trước
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  >
+                    Sau <FiArrowRight className="ml-2" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
