@@ -11,7 +11,7 @@ export interface ReviewImage {
 
 // Định nghĩa kiểu dữ liệu cho đánh giá
 export interface Review {
-  reviewId: string;
+  _id: string; // Sử dụng _id làm ID chính
   productId: string;
   variantId?: string;
   productName: string;
@@ -21,9 +21,10 @@ export interface Review {
   images: ReviewImage[];
   likes: number;
   status: 'pending' | 'approved' | 'rejected';
-  date: string;
+  date: string; // Nên là string ISO date từ backend, hoặc Date object
   verified: boolean;
   isEdited?: boolean;
+  userId?: string; // Thêm userId để có thể dùng nếu cần
 }
 
 // Định nghĩa kiểu dữ liệu cho context
@@ -51,7 +52,8 @@ const UserReviewContext = createContext<UserReviewContextType | undefined>(undef
 
 // Provider component
 export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated } = useAuth(); // Get isAuthenticated to re-fetch token on auth change
+  const [localStorageToken, setLocalStorageToken] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,16 +61,28 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
+  useEffect(() => {
+    // Client-side only: get token from localStorage
+    if (typeof window !== 'undefined') {
+      setLocalStorageToken(localStorage.getItem('accessToken'));
+    }
+  }, [isAuthenticated]); // Re-check token when authentication state changes
+
+
   // Cấu hình Axios với Auth token
+  const эффективныйApiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001') 
+                        ? process.env.NEXT_PUBLIC_API_URL 
+                        : 'http://localhost:3001/api';
+
   const api = useCallback(() => {
     return axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+      baseURL: эффективныйApiUrl,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': accessToken ? `Bearer ${accessToken}` : ''
+        'Authorization': localStorageToken ? `Bearer ${localStorageToken}` : ''
       }
     });
-  }, [accessToken]);
+  }, [localStorageToken]);
 
   // Lấy danh sách đánh giá của người dùng hiện tại
   const fetchMyReviews = useCallback(async (
@@ -137,7 +151,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': accessToken ? `Bearer ${accessToken}` : ''
+          'Authorization': localStorageToken ? `Bearer ${localStorageToken}` : ''
         },
         onUploadProgress: (progressEvent: any) => {
           if (onProgress && progressEvent.total) {
@@ -148,7 +162,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       };
 
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews`,
+        `${эффективныйApiUrl}/reviews`,
         reviewData,
         config
       );
@@ -166,7 +180,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [localStorageToken]); // Use localStorageToken
 
   // Cập nhật đánh giá
   const updateReview = useCallback(async (reviewId: string, reviewData: any, onProgress?: (progress: number) => void): Promise<boolean> => {
@@ -183,7 +197,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         const config = {
           headers: {
             'Content-Type': 'multipart/form-data',
-            'Authorization': accessToken ? `Bearer ${accessToken}` : ''
+            'Authorization': localStorageToken ? `Bearer ${localStorageToken}` : ''
           },
           onUploadProgress: (progressEvent: any) => {
             if (onProgress && progressEvent.total) {
@@ -194,7 +208,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         };
 
         response = await axios.patch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`,
+          `${эффективныйApiUrl}/reviews/${reviewId}`,
           reviewData,
           config
         );
@@ -207,7 +221,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         // Cập nhật danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.map(review =>
-            review.reviewId === reviewId
+            review._id === reviewId // Use _id for comparison
               ? { ...review, ...reviewData, status: 'pending' }
               : review
           )
@@ -225,7 +239,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, [api, accessToken]);
+  }, [api, localStorageToken]); // Use localStorageToken
 
   // Xóa đánh giá
   const deleteReview = useCallback(async (reviewId: string): Promise<boolean> => {
@@ -236,7 +250,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
 
       // Cập nhật danh sách đánh giá
       setReviews(prevReviews =>
-        prevReviews.filter(review => review.reviewId !== reviewId)
+        prevReviews.filter(review => review._id !== reviewId) // Use _id for comparison
       );
 
       toast.success('Đã xóa đánh giá thành công');
@@ -284,19 +298,24 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
 
   // Thích một đánh giá
   const likeReview = useCallback(async (reviewId: string): Promise<boolean> => {
+    console.log('[UserReviewContext] Attempting to like review with ID:', reviewId); // Log reviewId
+    if (!reviewId) {
+      console.error('[UserReviewContext] likeReview called with undefined or null reviewId');
+      return false;
+    }
     try {
       const response = await api().post(`/reviews/${reviewId}/like`);
 
       if (response.data) {
+        const updatedReviewFromApi = response.data; // Backend trả về review đã cập nhật
         // Cập nhật số lượt thích trong danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.map(review =>
-            review.reviewId === reviewId
-              ? { ...review, likes: (review.likes || 0) + 1 }
+            review._id === reviewId // So sánh bằng _id
+              ? { ...review, likes: updatedReviewFromApi.likes } // Cập nhật likes từ response
               : review
           )
         );
-
         return true;
       }
 

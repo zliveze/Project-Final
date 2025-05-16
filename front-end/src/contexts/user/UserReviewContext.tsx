@@ -26,6 +26,7 @@ export interface Review {
   updatedAt?: string;
   verified: boolean;
   isEdited?: boolean;
+  isLiked?: boolean; // Thêm trường để theo dõi xem người dùng đã thích đánh giá này chưa
   user?: {
     name: string;
     avatar?: string;
@@ -50,6 +51,8 @@ export interface UserReviewContextType {
   checkCanReview: (productId: string) => Promise<{ canReview: boolean, hasPurchased: boolean, hasReviewed: boolean }>;
   getReviewStats: (productId: string) => Promise<{ average: number, distribution: Record<string, number> }>;
   likeReview: (reviewId: string) => Promise<boolean>;
+  unlikeReview: (reviewId: string) => Promise<boolean>;
+  toggleLikeReview: (reviewId: string, isLiked: boolean) => Promise<boolean>;
 }
 
 // Tạo context
@@ -72,6 +75,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [likedReviews, setLikedReviews] = useState<Set<string>>(new Set());
 
   const { isAuthenticated, user } = useAuth();
 
@@ -136,6 +140,30 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       const response = await api().get(`/reviews/product/${productId}?status=${status}`);
 
       if (response.data) {
+        // Nếu người dùng đã đăng nhập, kiểm tra đánh giá đã thích
+        if (isAuthenticated && user?.id) {
+          try {
+            // Lấy danh sách đánh giá đã thích của người dùng
+            const likedResponse = await api().get('/reviews/liked');
+            if (likedResponse.data && Array.isArray(likedResponse.data)) {
+              // Lưu danh sách ID đánh giá đã thích
+              const likedIds = new Set(likedResponse.data.map((review: any) => review.reviewId));
+              setLikedReviews(likedIds);
+
+              // Đánh dấu đánh giá đã thích
+              const reviewsWithLikedStatus = response.data.map((review: Review) => ({
+                ...review,
+                isLiked: likedIds.has(review._id) || likedIds.has(review.reviewId)
+              }));
+
+              return reviewsWithLikedStatus || [];
+            }
+          } catch (likedError) {
+            console.error('Lỗi khi lấy danh sách đánh giá đã thích:', likedError);
+            // Nếu có lỗi, vẫn trả về đánh giá nhưng không có trạng thái đã thích
+          }
+        }
+
         return response.data || [];
       }
 
@@ -146,7 +174,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, isAuthenticated, user]);
 
   // Tạo đánh giá mới
   const createReview = useCallback(async (reviewData: FormData): Promise<boolean> => {
@@ -343,10 +371,17 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         setReviews(prevReviews =>
           prevReviews.map(review =>
             review._id === reviewId || review.reviewId === reviewId
-              ? { ...review, likes: review.likes + 1 }
+              ? { ...review, likes: review.likes + 1, isLiked: true }
               : review
           )
         );
+
+        // Thêm vào danh sách đánh giá đã thích
+        setLikedReviews(prev => {
+          const newSet = new Set(prev);
+          newSet.add(reviewId);
+          return newSet;
+        });
 
         return true;
       }
@@ -357,6 +392,52 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       return false;
     }
   }, [api, isAuthenticated]);
+
+  // Bỏ thích đánh giá
+  const unlikeReview = useCallback(async (reviewId: string): Promise<boolean> => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để bỏ thích đánh giá');
+      return false;
+    }
+
+    try {
+      const response = await api().post(`/reviews/${reviewId}/unlike`);
+
+      if (response.data) {
+        // Cập nhật số lượt thích trong danh sách đánh giá
+        setReviews(prevReviews =>
+          prevReviews.map(review =>
+            review._id === reviewId || review.reviewId === reviewId
+              ? { ...review, likes: Math.max(0, review.likes - 1), isLiked: false }
+              : review
+          )
+        );
+
+        // Xóa khỏi danh sách đánh giá đã thích
+        setLikedReviews(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(reviewId);
+          return newSet;
+        });
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Lỗi khi bỏ thích đánh giá:', error);
+      return false;
+    }
+  }, [api, isAuthenticated]);
+
+  // Toggle thích/bỏ thích đánh giá
+  const toggleLikeReview = useCallback(async (reviewId: string, isLiked: boolean): Promise<boolean> => {
+    if (isLiked) {
+      return await unlikeReview(reviewId);
+    } else {
+      return await likeReview(reviewId);
+    }
+  }, [likeReview, unlikeReview]);
 
   // Context value
   const value: UserReviewContextType = {
@@ -373,7 +454,9 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     deleteReview,
     checkCanReview,
     getReviewStats,
-    likeReview
+    likeReview,
+    unlikeReview,
+    toggleLikeReview
   };
 
   return (

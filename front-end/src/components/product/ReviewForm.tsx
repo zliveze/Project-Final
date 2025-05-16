@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FiUpload, FiX, FiAlertCircle, FiLoader } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
@@ -7,26 +7,62 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ReviewFormProps {
   productId: string;
+  reviewId?: string | null;
   onCancel: () => void;
   onSubmitSuccess: () => void;
 }
 
 const ReviewForm: React.FC<ReviewFormProps> = ({
   productId,
+  reviewId,
   onCancel,
   onSubmitSuccess,
 }) => {
-  const { createReview, loading } = useUserReview();
+  const { createReview, updateReview, loading } = useUserReview();
   const { isAuthenticated } = useAuth();
 
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isEditMode, setIsEditMode] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Tải dữ liệu đánh giá hiện có nếu đang ở chế độ chỉnh sửa
+  useEffect(() => {
+    const loadExistingReview = async () => {
+      if (reviewId) {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`);
+          if (response.ok) {
+            const reviewData = await response.json();
+            setRating(reviewData.rating || 5);
+            setContent(reviewData.content || '');
+
+            // Lưu trữ hình ảnh hiện có
+            if (reviewData.images && reviewData.images.length > 0) {
+              setExistingImages(reviewData.images);
+
+              // Tạo URL preview cho hình ảnh hiện có
+              const imageUrls = reviewData.images.map((img: any) => img.url);
+              setImagePreviewUrls(imageUrls);
+            }
+
+            setIsEditMode(true);
+          }
+        } catch (error) {
+          console.error('Lỗi khi tải đánh giá hiện có:', error);
+          setError('Không thể tải đánh giá hiện có. Vui lòng thử lại sau.');
+        }
+      }
+    };
+
+    loadExistingReview();
+  }, [reviewId]);
 
   // Xử lý khi chọn ảnh
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,19 +97,42 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   // Xử lý khi xóa ảnh
   const handleRemoveImage = (index: number) => {
-    if (index < 0 || index >= images.length) return;
+    // Kiểm tra xem đây có phải là ảnh mới tải lên hay ảnh hiện có
+    if (isEditMode && index < existingImages.length) {
+      // Xóa ảnh hiện có
+      const newExistingImages = [...existingImages];
+      const newImagePreviewUrls = [...imagePreviewUrls];
 
-    const newImages = [...images];
-    const newImagePreviewUrls = [...imagePreviewUrls];
+      newExistingImages.splice(index, 1);
+      newImagePreviewUrls.splice(index, 1);
 
-    // Giải phóng URL object để tránh rò rỉ bộ nhớ
-    URL.revokeObjectURL(newImagePreviewUrls[index]);
+      setExistingImages(newExistingImages);
+      setImagePreviewUrls(newImagePreviewUrls);
+    } else {
+      // Xóa ảnh mới tải lên
+      const adjustedIndex = isEditMode ? index - existingImages.length : index;
 
-    newImages.splice(index, 1);
-    newImagePreviewUrls.splice(index, 1);
+      if (adjustedIndex < 0 || adjustedIndex >= images.length) return;
 
-    setImages(newImages);
-    setImagePreviewUrls(newImagePreviewUrls);
+      const newImages = [...images];
+      const newImagePreviewUrls = [...imagePreviewUrls];
+
+      // Giải phóng URL object để tránh rò rỉ bộ nhớ
+      if (!isEditMode || index >= existingImages.length) {
+        URL.revokeObjectURL(newImagePreviewUrls[index]);
+      }
+
+      if (isEditMode) {
+        newImages.splice(adjustedIndex, 1);
+        newImagePreviewUrls.splice(index, 1);
+      } else {
+        newImages.splice(adjustedIndex, 1);
+        newImagePreviewUrls.splice(index, 1);
+      }
+
+      setImages(newImages);
+      setImagePreviewUrls(newImagePreviewUrls);
+    }
   };
 
   // Xử lý khi gửi đánh giá
@@ -98,14 +157,24 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     try {
       // Chuẩn bị dữ liệu đánh giá
       const formData = new FormData();
-      formData.append('productId', productId);
+
+      if (!isEditMode) {
+        // Tạo đánh giá mới
+        formData.append('productId', productId);
+      }
+
       formData.append('rating', rating.toString());
       formData.append('content', content);
 
-      // Thêm các ảnh vào formData nếu có
+      // Thêm thông tin về hình ảnh hiện có (nếu đang chỉnh sửa)
+      if (isEditMode && existingImages.length > 0) {
+        formData.append('existingImages', JSON.stringify(existingImages));
+      }
+
+      // Thêm các ảnh mới vào formData nếu có
       if (images.length > 0) {
         // Thêm các file hình ảnh vào formData
-        images.forEach((image, index) => {
+        images.forEach((image) => {
           formData.append('reviewImages', image);
         });
       }
@@ -116,14 +185,28 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         console.log(pair[0], pair[1]);
       }
 
-      // Gửi đánh giá sử dụng context với progress tracking
-      const success = await createReview(formData, (progress) => {
-        setUploadProgress(progress);
-      });
+      let success = false;
+
+      if (isEditMode && reviewId) {
+        // Cập nhật đánh giá hiện có
+        success = await updateReview(reviewId, formData, (progress) => {
+          setUploadProgress(progress);
+        });
+      } else {
+        // Tạo đánh giá mới
+        success = await createReview(formData, (progress) => {
+          setUploadProgress(progress);
+        });
+      }
 
       if (success) {
-        // Giải phóng tất cả URL objects
-        imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        // Giải phóng tất cả URL objects cho ảnh mới tải lên
+        if (!isEditMode) {
+          imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        } else {
+          // Chỉ giải phóng URL của ảnh mới tải lên, không phải ảnh hiện có
+          imagePreviewUrls.slice(existingImages.length).forEach(url => URL.revokeObjectURL(url));
+        }
 
         onSubmitSuccess();
       }
@@ -137,7 +220,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200">
-      <h3 className="text-lg font-medium text-gray-800 mb-4">Viết đánh giá của bạn</h3>
+      <h3 className="text-lg font-medium text-gray-800 mb-4">
+        {isEditMode ? 'Chỉnh sửa đánh giá của bạn' : 'Viết đánh giá của bạn'}
+      </h3>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
@@ -279,7 +364,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             className="px-4 py-2 bg-[#d53f8c] text-white rounded-md hover:bg-[#b83280] disabled:bg-gray-400"
             disabled={isSubmitting || loading || content.trim().length < 10}
           >
-            {isSubmitting || loading ? 'Đang gửi...' : 'Gửi đánh giá'}
+            {isSubmitting || loading ? 'Đang gửi...' : isEditMode ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
           </button>
         </div>
       </form>

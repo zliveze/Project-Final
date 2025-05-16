@@ -88,10 +88,25 @@ export class ReviewsService {
 
   // Lấy thông tin chi tiết một đánh giá
   async findOne(id: string): Promise<ReviewDocument> {
-    const review = await this.reviewModel.findById(id).exec();
-    if (!review || review.isDeleted) {
+    this.logger.debug(`[ReviewsService] findOne called with id: ${id}`);
+    let review: ReviewDocument | null = null;
+    try {
+      review = await this.reviewModel.findById(id).exec();
+      this.logger.debug(`[ReviewsService] findById result for id ${id}: ${review ? review._id.toString() : 'null'}`);
+    } catch (error) {
+      this.logger.error(`[ReviewsService] Error in findById for id ${id}:`, error);
+      throw error; // Re-throw error if findById itself fails
+    }
+
+    if (!review) {
+      this.logger.warn(`[ReviewsService] Review not found for id: ${id}`);
       throw new NotFoundException(`Không tìm thấy đánh giá với ID ${id}`);
     }
+    if (review.isDeleted) {
+      this.logger.warn(`[ReviewsService] Review with id: ${id} is marked as deleted.`);
+      throw new NotFoundException(`Đánh giá với ID ${id} đã bị xóa.`);
+    }
+    this.logger.debug(`[ReviewsService] Review found and not deleted for id: ${id}`);
     return review;
   }
 
