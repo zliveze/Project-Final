@@ -29,9 +29,18 @@ export interface Review {
   isLiked?: boolean; // Thêm trường để theo dõi xem người dùng đã thích đánh giá này chưa
   likedBy?: string[]; // Danh sách ID người dùng đã thích đánh giá
   user?: {
+    _id: string;
     name: string;
-    avatar?: string;
   };
+  replies?: ReviewReply[]; // Thêm replies ở đây nếu cần thiết cho ProductReviews
+}
+
+// Định nghĩa ReviewReply nếu nó sẽ được dùng trong ReviewType
+export interface ReviewReply { // Export nếu cần dùng ở nơi khác
+  userId: string; // Hoặc một user object đầy đủ hơn
+  content: string;
+  createdAt: string;
+  // Thêm các trường khác nếu có, ví dụ: user name, avatar của người reply
 }
 
 // Định nghĩa kiểu dữ liệu cho context
@@ -45,7 +54,7 @@ export interface UserReviewContextType {
 
   // Phương thức quản lý đánh giá
   fetchMyReviews: (page?: number, limit?: number, status?: string) => Promise<void>;
-  fetchProductReviews: (productId: string, status?: string) => Promise<Review[]>;
+  fetchProductReviews: (productId: string, status?: string) => Promise<void>;
   createReview: (reviewData: FormData) => Promise<boolean>;
   updateReview: (reviewId: string, reviewData: any) => Promise<boolean>;
   deleteReview: (reviewId: string) => Promise<boolean>;
@@ -132,48 +141,57 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const fetchProductReviews = useCallback(async (
     productId: string,
     status: string = 'approved'
-  ): Promise<Review[]> => {
+  ): Promise<void> => {
     try {
       setLoading(true);
+      setError(null);
 
       const response = await api().get(`/reviews/product/${productId}?status=${status}`);
+      let productApiReviews: Review[] = [];
 
-      if (response.data) {
-        // Nếu người dùng đã đăng nhập, kiểm tra đánh giá đã thích
-        if (isAuthenticated && user?.id) {
+      if (response.data && Array.isArray(response.data)) {
+        productApiReviews = response.data;
+
+        if (isAuthenticated && user?._id) {
           try {
-            // Lấy danh sách đánh giá đã thích của người dùng
             const likedResponse = await api().get('/reviews/liked');
             if (likedResponse.data && Array.isArray(likedResponse.data)) {
-              // Lưu danh sách ID đánh giá đã thích
-              const likedIds = new Set(likedResponse.data.map((review: any) => review.reviewId));
-              setLikedReviews(likedIds);
-
-              // Đánh dấu đánh giá đã thích
-              const reviewsWithLikedStatus = response.data.map((review: Review) => ({
+              const likedIds = new Set(likedResponse.data.map((likedItem: any) => likedItem.reviewId || likedItem._id || likedItem));
+              productApiReviews = productApiReviews.map((review: Review) => ({
                 ...review,
-                isLiked: likedIds.has(review._id) || likedIds.has(review.reviewId)
+                isLiked: likedIds.has(review._id)
               }));
-
-              return reviewsWithLikedStatus || [];
+            } else {
+              productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
             }
           } catch (likedError) {
-            console.error('Lỗi khi lấy danh sách đánh giá đã thích:', likedError);
-            // Nếu có lỗi, vẫn trả về đánh giá nhưng không có trạng thái đã thích
+            console.error('Lỗi khi lấy danh sách đánh giá đã thích trong fetchProductReviews:', likedError);
+            productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
           }
+        } else {
+          productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
         }
-
-        return response.data || [];
+        setReviews(productApiReviews);
+        setTotalItems(productApiReviews.length);
+        setTotalPages(1);
+        setCurrentPage(1);
+      } else {
+        setReviews([]);
+        setTotalItems(0);
+        setTotalPages(0);
+        setCurrentPage(1);
       }
-
-      return [];
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi lấy đánh giá sản phẩm:', error);
-      return [];
+      setError(error.response?.data?.message || 'Không thể lấy đánh giá sản phẩm.');
+      setReviews([]);
+      setTotalItems(0);
+      setTotalPages(0);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }
-  }, [api, isAuthenticated, user]);
+  }, [api, isAuthenticated, user?._id]);
 
   // Tạo đánh giá mới
   const createReview = useCallback(async (reviewData: FormData): Promise<boolean> => {
@@ -250,8 +268,8 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         // Cập nhật danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.map(review =>
-            review._id === reviewId || review.reviewId === reviewId
-              ? { ...review, ...reviewData, status: 'pending' }
+            review._id === reviewId // Chỉ dùng _id
+              ? { ...review, ...reviewData, status: 'pending' } // Giữ lại status: 'pending' nếu đó là logic mong muốn sau khi update
               : review
           )
         );
@@ -283,7 +301,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         // Cập nhật danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.filter(review =>
-            review._id !== reviewId && review.reviewId !== reviewId
+            review._id !== reviewId // Chỉ dùng _id
           )
         );
 
@@ -363,40 +381,49 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     }
 
     try {
-      // Gọi API toggle-like
+      // Gọi API toggle-like, đảm bảo reviewId là _id
       const response = await api().post(`/reviews/${reviewId}/toggle-like`);
 
       if (response.data) {
-        // Cập nhật số lượt thích trong danh sách đánh giá
+        // Cập nhật số lượt thích và trạng thái isLiked trong danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.map(review =>
-            review._id === reviewId || review.reviewId === reviewId
+            review._id === reviewId // Sử dụng _id để so sánh
               ? {
                   ...review,
-                  likes: isLiked ? Math.max(0, review.likes - 1) : review.likes + 1,
-                  isLiked: !isLiked
+                  // API nên trả về số lượt thích mới và trạng thái isLiked mới
+                  likes: response.data.likes !== undefined ? response.data.likes : (isLiked ? Math.max(0, review.likes - 1) : review.likes + 1),
+                  isLiked: response.data.isLiked !== undefined ? response.data.isLiked : !isLiked
                 }
               : review
           )
         );
 
-        // Cập nhật danh sách đánh giá đã thích
+        // Cập nhật danh sách đánh giá đã thích (likedReviews set)
         setLikedReviews(prev => {
           const newSet = new Set(prev);
-          if (isLiked) {
-            newSet.delete(reviewId);
+          // Backend nên trả về trạng thái isLiked mới
+          // Nếu API trả về isLiked = true, nghĩa là người dùng vừa thích => thêm vào set
+          // Nếu API trả về isLiked = false, nghĩa là người dùng vừa bỏ thích => xóa khỏi set
+          if (response.data.isLiked === true) {
+            newSet.add(reviewId); // reviewId ở đây là _id
           } else {
-            newSet.add(reviewId);
+            newSet.delete(reviewId); // reviewId ở đây là _id
           }
           return newSet;
         });
 
+        // Sử dụng trạng thái isLiked *trước khi* toggle để xác định thông báo
+        // Nếu isLiked (trạng thái cũ) là false, nghĩa là người dùng vừa thực hiện hành động LIKE, trạng thái mới là true
+        // Nếu isLiked (trạng thái cũ) là true, nghĩa là người dùng vừa thực hiện hành động UNLIKE, trạng thái mới là false
+        toast.success(!isLiked ? 'Đã thích đánh giá' : 'Đã bỏ thích đánh giá');
         return true;
       }
 
       return false;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi toggle thích/bỏ thích đánh giá:', error);
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
       return false;
     }
   }, [api, isAuthenticated]);

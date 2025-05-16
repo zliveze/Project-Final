@@ -21,14 +21,22 @@ export class ReviewsService {
 
   // Tìm tất cả đánh giá của một người dùng cụ thể
   async findAllByUser(userId: string): Promise<ReviewDocument[]> {
-    return this.reviewModel.find({
+    const reviewsData = await this.reviewModel.find({
       userId: new Types.ObjectId(userId),
       isDeleted: false
     })
-    .select('productId productName productImage rating content images likes status createdAt')
+    .populate('userId', '_id name')
     .sort({ createdAt: -1 })
     .lean()
     .exec();
+
+    return reviewsData.map(r => {
+      const reviewObj = { ...r } as any;
+      if (reviewObj.userId && typeof reviewObj.userId === 'object') {
+        reviewObj.user = reviewObj.userId;
+      }
+      return reviewObj;
+    }) as ReviewDocument[];
   }
 
   // Tìm tất cả đánh giá của một sản phẩm cụ thể
@@ -42,23 +50,30 @@ export class ReviewsService {
       query.status = status;
     }
 
-    const reviews = await this.reviewModel.find(query)
-      .select('userId productName rating content images likes status createdAt verified likedBy')
+    const reviewsData = await this.reviewModel.find(query)
+      .populate('userId', '_id name')
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
-    // Nếu có currentUserId, thêm trường isLiked cho mỗi đánh giá
+    const reviewsWithUserField = reviewsData.map(r => {
+      const reviewObj = { ...r } as any;
+      if (reviewObj.userId && typeof reviewObj.userId === 'object') {
+        reviewObj.user = reviewObj.userId;
+      }
+      return reviewObj;
+    });
+
     if (currentUserId) {
       const userObjectId = new Types.ObjectId(currentUserId);
-      return reviews.map(review => {
+      return reviewsWithUserField.map(review => {
         const isLiked = review.likedBy && Array.isArray(review.likedBy) &&
           review.likedBy.some(id => id.toString() === userObjectId.toString());
         return { ...review, isLiked };
-      });
+      }) as ReviewDocument[];
     }
 
-    return reviews;
+    return reviewsWithUserField as ReviewDocument[];
   }
 
   // Lấy danh sách đánh giá đã like của người dùng
@@ -71,7 +86,7 @@ export class ReviewsService {
       isDeleted: false
     })
     .select('userId productId productName productImage rating content images likes status createdAt verified')
-    .populate('userId', 'name avatar')
+    .populate('userId', '_id name')
     .sort({ createdAt: -1 })
     .lean()
     .exec();
@@ -102,16 +117,24 @@ export class ReviewsService {
     const totalItems = await this.reviewModel.countDocuments(query);
     const totalPages = Math.ceil(totalItems / limit);
 
-    const reviews = await this.reviewModel
+    const reviewsData = await this.reviewModel
       .find(query)
+      .populate('userId', '_id name')
       .skip((page - 1) * limit)
       .limit(limit)
-      .select('userId productId productName productImage rating content images likes status createdAt verified')
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+      
+    const reviewsWithUserField = reviewsData.map(r => {
+      const reviewObj = { ...r } as any;
+      if (reviewObj.userId && typeof reviewObj.userId === 'object') {
+        reviewObj.user = reviewObj.userId;
+      }
+      return reviewObj;
+    });
 
-    return { reviews, totalItems, totalPages };
+    return { reviews: reviewsWithUserField as ReviewDocument[], totalItems, totalPages };
   }
 
   // Lấy thông tin chi tiết một đánh giá
