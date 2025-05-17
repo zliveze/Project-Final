@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FiUpload, FiX, FiAlertCircle, FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
+import { io } from 'socket.io-client';
 import { useUserReview } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -68,18 +69,19 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
   // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ WebSocket
   useEffect(() => {
-    // Đăng ký lắng nghe sự kiện từ UserReviewContext
-    const handleReviewStatusChange = (review: any) => {
-      if (review && review._id === reviewId) {
-        setReviewStatus(review.status);
+    // Tạo hàm xử lý sự kiện client-review-status-changed
+    const handleReviewStatusChange = (data: any) => {
+      console.log('ReviewForm: Received client-review-status-changed event:', data);
+      if (data && data.reviewId === reviewId) {
+        setReviewStatus(data.status);
 
         // Hiển thị thông báo
-        if (review.status === 'approved') {
+        if (data.status === 'approved') {
           toast.success('Đánh giá của bạn đã được phê duyệt!', {
             position: "bottom-right",
             autoClose: 5000,
           });
-        } else if (review.status === 'rejected') {
+        } else if (data.status === 'rejected') {
           toast.error('Đánh giá của bạn đã bị từ chối.', {
             position: "bottom-right",
             autoClose: 5000,
@@ -88,9 +90,14 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
       }
     };
 
+    // Đăng ký lắng nghe sự kiện từ socket
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+    socket.on('client-review-status-changed', handleReviewStatusChange);
+
     // Cleanup function
     return () => {
-      // Không cần cleanup vì chúng ta không đăng ký sự kiện trực tiếp ở đây
+      socket.off('client-review-status-changed', handleReviewStatusChange);
+      socket.disconnect();
     };
   }, [reviewId]);
 

@@ -97,14 +97,31 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
           if (data.status && data.reviewId) {
             // Cập nhật trạng thái đánh giá trong danh sách
-            fetchProductReviews(productId, 'approved');
-
-            // Hiển thị thông báo
             if (data.status === 'approved') {
+              // Nếu đánh giá được phê duyệt, cập nhật danh sách đánh giá đã phê duyệt
+              fetchProductReviews(productId, 'approved');
+
+              // Hiển thị thông báo
               toast.success('Một đánh giá mới đã được phê duyệt!', {
                 position: "bottom-right",
                 duration: 3000
               });
+            } else if (data.status === 'rejected') {
+              // Nếu đánh giá bị từ chối, cập nhật danh sách đánh giá pending của người dùng hiện tại
+              if (currentUserId) {
+                setUserPendingReviews(prevPendingReviews =>
+                  prevPendingReviews.filter(review => review._id !== data.reviewId)
+                );
+
+                // Hiển thị thông báo nếu đánh giá bị từ chối thuộc về người dùng hiện tại
+                const rejectedReview = userPendingReviews.find(review => review._id === data.reviewId);
+                if (rejectedReview && rejectedReview.user?._id === currentUserId) {
+                  toast.error('Đánh giá của bạn đã bị từ chối.', {
+                    position: "bottom-right",
+                    duration: 3000
+                  });
+                }
+              }
             }
           }
         });
@@ -116,6 +133,39 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           if (data.reviewId) {
             // Cập nhật danh sách đánh giá
             fetchProductReviews(productId, 'approved');
+
+            // Cập nhật danh sách đánh giá pending của người dùng hiện tại
+            if (currentUserId) {
+              setUserPendingReviews(prevPendingReviews =>
+                prevPendingReviews.filter(review => review._id !== data.reviewId)
+              );
+            }
+          }
+        });
+
+        // Lắng nghe sự kiện client-review-status-changed từ UserReviewContext
+        newSocket.on('client-review-status-changed', (data: any) => {
+          console.log(`ProductReviews: Received client-review-status-changed event`, data);
+
+          if (data.reviewId && data.status) {
+            // Cập nhật trạng thái đánh giá trong danh sách userPendingReviews
+            if (currentUserId && data.status === 'rejected') {
+              setUserPendingReviews(prevPendingReviews => {
+                return prevPendingReviews.map(review => {
+                  if (review._id === data.reviewId) {
+                    return { ...review, status: data.status };
+                  }
+                  return review;
+                });
+              });
+
+              // Sau khi cập nhật trạng thái, lọc ra các đánh giá bị từ chối
+              setTimeout(() => {
+                setUserPendingReviews(prevPendingReviews =>
+                  prevPendingReviews.filter(review => review.status !== 'rejected')
+                );
+              }, 1000); // Đợi 1 giây để người dùng thấy trạng thái thay đổi trước khi loại bỏ
+            }
           }
         });
       });
@@ -134,6 +184,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         if (newSocket) {
           newSocket.off(`product-${productId}-review-updated`);
           newSocket.off(`product-${productId}-review-deleted`);
+          newSocket.off('client-review-status-changed');
           newSocket.off('connect');
           newSocket.off('disconnect');
           newSocket.off('connect_error');
@@ -246,15 +297,25 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   useEffect(() => {
     if (currentUserId && Array.isArray(contextProductReviews)) {
       setUserPendingReviews(prevPendingReviews => {
+        // Lọc ra các đánh giá pending hiện tại mà không bị từ chối hoặc đã được duyệt
         const updatedPendingReviews = prevPendingReviews.filter(pendingReview => {
           // Tìm xem đánh giá pending này có trong contextProductReviews không
           const reviewInContext = contextProductReviews.find(r => r._id === pendingReview._id);
+
           // Nếu tìm thấy và trạng thái của nó không còn là 'pending' nữa (đã được duyệt/từ chối)
           // thì loại nó khỏi userPendingReviews
           if (reviewInContext && reviewInContext.status !== 'pending') {
+            console.log(`Removing review ${pendingReview._id} from userPendingReviews because its status is now ${reviewInContext.status}`);
             return false;
           }
-          // Giữ lại nếu không tìm thấy trong context hoặc vẫn là 'pending' trong context (trường hợp hiếm)
+
+          // Kiểm tra nếu đánh giá này đã bị từ chối (có thể không có trong contextProductReviews)
+          if (pendingReview.status === 'rejected') {
+            console.log(`Removing rejected review ${pendingReview._id} from userPendingReviews`);
+            return false;
+          }
+
+          // Giữ lại nếu không tìm thấy trong context hoặc vẫn là 'pending' trong context
           return true;
         });
 
@@ -267,9 +328,11 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
             reviewFromContext.status === 'pending' &&
             !updatedPendingReviews.some(pr => pr._id === reviewFromContext._id)
           ) {
+            console.log(`Adding pending review ${reviewFromContext._id} to userPendingReviews`);
             updatedPendingReviews.push(reviewFromContext);
           }
         });
+
         return updatedPendingReviews;
       });
     }

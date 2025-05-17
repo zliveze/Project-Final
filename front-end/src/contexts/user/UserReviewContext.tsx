@@ -110,16 +110,36 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       newSocket.on('reviewStatusUpdated', (updatedReviewFromServer: Review) => {
         console.log('UserReviewContext: Received reviewStatusUpdated event:', updatedReviewFromServer);
 
+        // Xác định loại thông báo dựa trên trạng thái mới
         let toastMessage = `Trạng thái đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được cập nhật.`;
+        let toastType: 'success' | 'error' | 'default' = 'default';
+
         if (updatedReviewFromServer.status === 'approved') {
           toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được phê duyệt.`;
+          toastType = 'success';
         } else if (updatedReviewFromServer.status === 'rejected') {
           toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã bị từ chối.`;
+          toastType = 'error';
         }
-        toast.success(toastMessage);
 
-        setReviews(prevReviews =>
-          prevReviews.map(currentClientReview => {
+        // Hiển thị thông báo phù hợp với trạng thái
+        if (toastType === 'success') {
+          toast.success(toastMessage);
+        } else if (toastType === 'error') {
+          toast.error(toastMessage);
+        } else {
+          toast(toastMessage);
+        }
+
+        // Cập nhật danh sách đánh giá
+        setReviews(prevReviews => {
+          // Nếu đánh giá bị từ chối, loại bỏ khỏi danh sách
+          if (updatedReviewFromServer.status === 'rejected') {
+            return prevReviews.filter(review => review._id !== updatedReviewFromServer._id);
+          }
+
+          // Nếu không, cập nhật đánh giá trong danh sách
+          return prevReviews.map(currentClientReview => {
             if (currentClientReview._id === updatedReviewFromServer._id) {
               // Cập nhật đánh giá với dữ liệu từ server,
               // nhưng giữ lại trạng thái 'isLiked' từ client nếu server không cung cấp
@@ -132,8 +152,17 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
               };
             }
             return currentClientReview;
-          })
-        );
+          });
+        });
+
+        // Thông báo cho các component khác về sự thay đổi trạng thái đánh giá
+        // Điều này giúp các component như ReviewForm có thể cập nhật UI của chúng
+        if (socket) {
+          socket.emit('client-review-status-changed', {
+            reviewId: updatedReviewFromServer._id,
+            status: updatedReviewFromServer.status
+          });
+        }
       });
 
       // Lắng nghe sự kiện đánh giá bị xóa (ví dụ: do admin xóa)
