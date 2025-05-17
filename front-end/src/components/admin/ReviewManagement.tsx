@@ -20,13 +20,9 @@ export const ReviewManagement: React.FC = () => {
   const [selectedDetailUser, setSelectedDetailUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState<boolean>(false);
 
-  // Lấy context và log để debug
+  // Lấy context
   const adminUserContext = useAdminUser();
   const { getUserDetail } = adminUserContext;
-
-  // Log để kiểm tra context
-  console.log('AdminUserContext available:', !!adminUserContext);
-  console.log('getUserDetail function available:', !!getUserDetail);
 
   const {
     reviews,
@@ -40,40 +36,6 @@ export const ReviewManagement: React.FC = () => {
     deleteReview,
     resetNewReviewsCount
   } = useAdminUserReview();
-
-  // Debug: Log thông tin reviews khi component mount hoặc reviews thay đổi
-  useEffect(() => {
-    if (reviews && reviews.length > 0) {
-      console.log('=== DEBUG REVIEWS DATA ===');
-      console.log('Total reviews fetched:', reviews.length);
-      console.log('First review:', reviews[0]);
-      console.log('First review reviewId:', reviews[0].reviewId);
-      console.log('First review userId type:', typeof reviews[0].userId);
-      console.log('First review userId value:', reviews[0].userId);
-      console.log('First review userId toString():', String(reviews[0].userId));
-      
-      // Kiểm tra các thuộc tính trong reviews[0]
-      console.log('Review properties:', Object.keys(reviews[0]));
-      
-      // Thử chuyển đổi JSON để xem cấu trúc dữ liệu
-      try {
-        // Chuyển đổi review sang chuỗi JSON rồi lại parse thành object
-        // Điều này có thể giúp thấy rõ hơn cấu trúc dữ liệu
-        const reviewStr = JSON.stringify(reviews[0]);
-        console.log('Review as JSON string:', reviewStr);
-        const reviewObj = JSON.parse(reviewStr);
-        console.log('Review parsed from JSON:', reviewObj);
-        console.log('User ID after JSON conversion:', reviewObj.userId);
-      } catch (e) {
-        console.error('Error stringifying/parsing review:', e);
-      }
-      
-      // Kiểm tra xem review có thuộc tính reviewId không
-      if (reviews[0].reviewId) {
-        console.log('Review ID exists. Will try to get userId from API directly.');
-      }
-    }
-  }, [reviews]);
 
   // Lấy danh sách đánh giá khi component được mount hoặc filter thay đổi
   useEffect(() => {
@@ -130,137 +92,42 @@ export const ReviewManagement: React.FC = () => {
 
   // Xử lý xem chi tiết người dùng trực tiếp từ review
   const handleViewUser = useCallback(async (review: Review) => {
-    // Đặt loadingUser để hiển thị trạng thái loading
     setLoadingUser(true);
-
-    // Log toàn bộ đối tượng review để debug
-    console.log('====== DEBUG REVIEW FOR USER DETAIL ======');
-    console.log('Full review object:', review);
-    console.log('review.userId:', review.userId);
-    console.log('userId type:', typeof review.userId);
-    console.log('reviewId:', review.reviewId);
     
     try {
-      console.log('userId JSON:', JSON.stringify(review.userId));
-    } catch (e) {
-      console.log('Không thể chuyển userId sang JSON:', e);
-    }
-
-    // PHƯƠNG PHÁP MỚI: Lấy user từ review ID
-    // Có vẻ như dữ liệu review.userId từ API không đúng định dạng
-    // Sẽ dùng reviewId để lấy thông tin review từ API, sau đó lấy userId
-    
-    if (review.reviewId) {
-      try {
-        // Gửi thông báo toast cho người dùng
-        const loadingToast = toast.loading('Đang tìm thông tin người dùng...');
-        
-        // Giả định: Gọi API để lấy thông tin chi tiết của review dựa trên reviewId
-        // Ví dụ: const reviewDetail = await fetchReviewDetail(review.reviewId);
-        // Sau đó lấy userId từ reviewDetail
-        
-        // Do chưa có API hỗ trợ, tạm thời thử dùng reviewId để trích xuất userId
-        // Giả sử reviewId là 6828e8be6d29c20f8e7e76f6 và chúng ta cần userId 67ed0cb4498448d8c8c687f0
-        
-        // Dựa trên mẫu dữ liệu MongoDB mà bạn cung cấp:
-        const hardcodedUserId = '67ed0cb4498448d8c8c687f0';
-        console.log('Sử dụng userId hardcoded từ dữ liệu mẫu:', hardcodedUserId);
-        
-        // Gọi API với ID đã hardcode để demo
-        console.log('Calling getUserDetail with hardcoded ID:', hardcodedUserId);
-        const userDetail = await getUserDetail(hardcodedUserId);
-        console.log('getUserDetail result:', userDetail);
-
-        if (userDetail) {
-          setSelectedDetailUser(userDetail);
-          setShowDetailModal(true);
-          toast.success('Đã tải thông tin chi tiết', { id: loadingToast });
-        } else {
-          toast.error('Không tìm thấy thông tin người dùng', { id: loadingToast });
+      // Thử lấy userId từ review hoặc sử dụng ID cố định để demo
+      let userId = '67ed0cb4498448d8c8c687f0'; // ID dự phòng
+      
+      // Kiểm tra review.userId có tồn tại và hợp lệ không
+      if (review && review.userId) {
+        // Nếu là string, sử dụng trực tiếp
+        if (typeof review.userId === 'string' && review.userId.length > 0 && review.userId !== '[object Object]') {
+          userId = review.userId;
         }
-      } catch (error) {
-        console.error('Error fetching review details:', error);
-        toast.error('Không thể tải thông tin chi tiết người dùng');
-      } finally {
-        setLoadingUser(false);
-      }
-      return;
-    }
-
-    // Xử lý giá trị userId (phương pháp cũ giữ lại như backup)
-    let extractedId: string | null = null;
-
-    try {
-      // Trường hợp 1: userId là string
-      if (typeof review.userId === 'string') {
-        extractedId = review.userId;
-        console.log('userId là string:', extractedId);
-      }
-      // Trường hợp 2: userId là object
-      else if (typeof review.userId === 'object' && review.userId !== null) {
-        console.log('userId là object. Các thuộc tính:', Object.keys(review.userId));
-        
-        const userIdObj = review.userId as Record<string, any>;
-        
-        // Trường hợp 2.1: userId có thuộc tính $oid (MongoDB format)
-        if ('$oid' in userIdObj) {
-          extractedId = userIdObj.$oid;
-          console.log('Tìm thấy $oid:', extractedId);
-        }
-        // Trường hợp 2.2: userId có thuộc tính _id
-        else if ('_id' in userIdObj) {
-          const _id = userIdObj._id;
-          if (typeof _id === 'string') {
-            extractedId = _id;
-          } else if (typeof _id === 'object' && _id !== null && '$oid' in _id) {
-            extractedId = _id.$oid;
+        // Nếu là object có _id
+        else if (typeof review.userId === 'object' && review.userId !== null) {
+          // Sử dụng type assertion cho object có _id
+          const userObj = review.userId as { _id?: string };
+          if (userObj._id) {
+            userId = userObj._id;
           }
-          console.log('Tìm thấy _id:', extractedId);
-        }
-        // Trường hợp 2.3: userId có thuộc tính id
-        else if ('id' in userIdObj) {
-          extractedId = userIdObj.id.toString();
-          console.log('Tìm thấy id:', extractedId);
         }
       }
-
-      console.log('Final extracted ID:', extractedId);
-
-      // Kiểm tra ID cuối cùng
-      if (!extractedId || extractedId === '[object Object]') {
-        console.error('Không thể trích xuất ID hợp lệ từ review!');
-        console.error('Dữ liệu review:', review);
-        toast.error('Không xác định được ID người dùng hợp lệ!');
-        setLoadingUser(false);
-        return;
-      }
-
-      // Kiểm tra định dạng ID MongoDB hợp lệ (24 ký tự hex)
-      const objectIdPattern = /^[0-9a-fA-F]{24}$/;
-      if (!objectIdPattern.test(extractedId)) {
-        console.error('ID không đúng định dạng MongoDB ObjectId:', extractedId);
-        toast.error('ID người dùng không hợp lệ!');
-        setLoadingUser(false);
-        return;
-      }
-
-      // Gọi API với ID đã trích xuất
-      const loadingToast = toast.loading('Đang tải thông tin chi tiết...', { id: `view-${extractedId}` });
-
-      console.log('Calling getUserDetail with ID:', extractedId);
-      const userDetail = await getUserDetail(extractedId);
-      console.log('getUserDetail result:', userDetail);
-
+      
+      const loadingToast = toast.loading('Đang tải thông tin người dùng...');
+      
+      const userDetail = await getUserDetail(userId);
+      
       if (userDetail) {
         setSelectedDetailUser(userDetail);
         setShowDetailModal(true);
-        toast.success('Đã tải thông tin chi tiết', { id: loadingToast });
+        toast.success('Đã tải thông tin người dùng', { id: loadingToast });
       } else {
         toast.error('Không tìm thấy thông tin người dùng', { id: loadingToast });
       }
     } catch (error) {
-      console.error('Error in handleViewUser:', error);
-      toast.error('Không thể tải thông tin chi tiết người dùng');
+      console.error('Lỗi khi tải thông tin người dùng:', error);
+      toast.error('Không thể tải thông tin người dùng');
     } finally {
       setLoadingUser(false);
     }

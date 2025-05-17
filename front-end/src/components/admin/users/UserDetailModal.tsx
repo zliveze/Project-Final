@@ -394,13 +394,6 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
   // Kiểm tra xem dữ liệu wishlist có hợp lệ không
   const isValidWishlist = Array.isArray(wishlist) && wishlist.length > 0;
 
-  // Log chi tiết để debug
-  console.log('%c === WISHLIST DEBUG INFO ===', 'background: #ff0000; color: white; font-size: 16px; font-weight: bold;');
-  console.log('Wishlist raw data:', wishlist);
-  console.log('Wishlist type:', typeof wishlist);
-  console.log('Is Array?', Array.isArray(wishlist));
-  console.log('Length:', wishlist?.length || 0);
-
   // Chuẩn hóa dữ liệu wishlist để hiển thị đúng
   const normalizedWishlist = useMemo(() => {
     if (!isValidWishlist) return [];
@@ -479,9 +472,6 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
       };
     });
   }, [wishlist, isValidWishlist]);
-
-  // Log dữ liệu đã chuẩn hóa
-  console.log('Normalized wishlist:', normalizedWishlist);
 
   return (
     <div className="py-4 animate-fadeIn">
@@ -641,24 +631,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [modalVisible, setModalVisible] = useState(false);
-
-  // Log chi tiết về dữ liệu người dùng khi component được render
-  useEffect(() => {
-    if (user) {
-      console.log('%c === USER DETAIL DATA ===', 'background: #4CAF50; color: white; font-size: 16px; font-weight: bold;');
-      console.log('User data:', user);
-      console.log('User wishlist exists?', 'wishlist' in user);
-      console.log('User wishlist type:', typeof user.wishlist);
-      console.log('User wishlist:', user.wishlist);
-
-      if (Array.isArray(user.wishlist)) {
-        console.log('Wishlist length:', user.wishlist.length);
-        if (user.wishlist.length > 0) {
-          console.log('First wishlist item:', user.wishlist[0]);
-        }
-      }
-    }
-  }, [user]);
 
   useEffect(() => {
     if (isOpen) {

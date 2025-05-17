@@ -374,47 +374,10 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       setLoading(true);
       setError(null);
 
-      console.log('%c === FETCHING USER DETAIL ===', 'background: #ff9800; color: white; font-size: 16px; font-weight: bold;');
-      console.log(`Fetching user detail for ID: ${id}`);
-
       // Lấy thông tin chi tiết người dùng
       const response = await api().get(`/api/admin/users/${id}`);
       
-      console.log('API Response:', response);
-      console.log('Response status:', response.status);
-      console.log('Response data:', response.data);
-      
       const userData = response.data;
-
-      // Kiểm tra dữ liệu wishlist
-      console.log('%c === WISHLIST DATA FROM API ===', 'background: #e91e63; color: white; font-size: 16px; font-weight: bold;');
-      console.log('Wishlist exists in response?', 'wishlist' in userData);
-      console.log('Wishlist type:', typeof userData.wishlist);
-      console.log('Wishlist is array?', Array.isArray(userData.wishlist));
-      console.log('Wishlist raw data:', userData.wishlist);
-      
-      if (Array.isArray(userData.wishlist) && userData.wishlist.length > 0) {
-        console.log('First wishlist item:', userData.wishlist[0]);
-        console.log('First item type:', typeof userData.wishlist[0]);
-        
-        if (typeof userData.wishlist[0] === 'object') {
-          console.log('First item keys:', Object.keys(userData.wishlist[0]));
-          console.log('productId exists?', 'productId' in userData.wishlist[0]);
-          
-          const productId = userData.wishlist[0].productId;
-          console.log('productId type:', typeof productId);
-          console.log('productId value:', productId);
-          
-          if (typeof productId === 'object' && productId !== null) {
-            console.log('productId is object with keys:', Object.keys(productId));
-          } else if (typeof productId === 'string') {
-            console.log('productId is string (not populated):', productId);
-            console.log('WARNING: Backend API is not properly populating product details!');
-          }
-        }
-      } else {
-        console.log('Wishlist is empty or not an array');
-      }
 
       try {
         // Lấy danh sách đơn hàng của người dùng
@@ -445,10 +408,6 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         // Vẫn tiếp tục với thông tin người dùng, không có đơn hàng
         userData.orders = [];
       }
-
-      // Log dữ liệu trước khi cập nhật state
-      console.log('%c === FINAL USER DATA BEFORE UPDATE ===', 'background: #4caf50; color: white; font-size: 16px; font-weight: bold;');
-      console.log('Final user data:', userData);
       
       setUserDetail(userData);
       return userData;
