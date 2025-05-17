@@ -133,12 +133,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
 
         // Cập nhật danh sách đánh giá
         setReviews(prevReviews => {
-          // Nếu đánh giá bị từ chối, loại bỏ khỏi danh sách
-          if (updatedReviewFromServer.status === 'rejected') {
-            return prevReviews.filter(review => review._id !== updatedReviewFromServer._id);
-          }
-
-          // Nếu không, cập nhật đánh giá trong danh sách
+          // Cập nhật đánh giá trong danh sách, bao gồm cả đánh giá bị từ chối
           return prevReviews.map(currentClientReview => {
             if (currentClientReview._id === updatedReviewFromServer._id) {
               // Cập nhật đánh giá với dữ liệu từ server,
@@ -209,9 +204,12 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   // Tạo instance axios với cấu hình chung
   const api = useCallback(() => {
     const token = localStorage.getItem('accessToken');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
+      ? process.env.NEXT_PUBLIC_API_URL
+      : 'http://localhost:3001/api';
 
     return axios.create({
-      baseURL: '/api',
+      baseURL: apiUrl,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -265,31 +263,72 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       setLoading(true);
       setError(null);
 
+      // Lấy đánh giá đã được phê duyệt từ API
       const response = await api().get(`/reviews/product/${productId}?status=${status}`);
       let productApiReviews: Review[] = [];
 
       if (response.data && Array.isArray(response.data)) {
         productApiReviews = response.data;
 
+        // Nếu người dùng đã đăng nhập, lấy thêm đánh giá của họ (bao gồm cả đánh giá bị từ chối)
         if (isAuthenticated && user?._id) {
           try {
+            // Lấy danh sách đánh giá đã thích
             const likedResponse = await api().get('/reviews/liked');
-            if (likedResponse.data && Array.isArray(likedResponse.data)) {
-              const likedIds = new Set(likedResponse.data.map((likedItem: any) => likedItem.reviewId || likedItem._id || likedItem));
+            const likedIds = new Set(
+              likedResponse.data && Array.isArray(likedResponse.data)
+                ? likedResponse.data.map((likedItem: any) => likedItem.reviewId || likedItem._id || likedItem)
+                : []
+            );
+
+            // Lấy tất cả đánh giá của người dùng hiện tại cho sản phẩm này
+            const params = new URLSearchParams();
+            params.append('page', '1');
+            params.append('limit', '50');
+            // Không lọc theo status để lấy tất cả đánh giá của người dùng
+
+            const userReviewsResponse = await api().get(`/reviews/user/me?${params.toString()}`);
+            if (userReviewsResponse.data && userReviewsResponse.data.reviews && Array.isArray(userReviewsResponse.data.reviews)) {
+              const userReviews = userReviewsResponse.data.reviews.filter(
+                (review: Review) => review.productId === productId
+              );
+
+              // Kết hợp đánh giá đã phê duyệt và đánh giá của người dùng
+              const reviewMap = new Map<string, Review>();
+
+              // Thêm đánh giá đã phê duyệt vào Map
+              productApiReviews.forEach(review => {
+                reviewMap.set(review._id, {
+                  ...review,
+                  isLiked: likedIds.has(review._id)
+                });
+              });
+
+              // Thêm đánh giá của người dùng vào Map (sẽ ghi đè nếu đã có)
+              userReviews.forEach((review: Review) => {
+                reviewMap.set(review._id, {
+                  ...review,
+                  isLiked: likedIds.has(review._id)
+                });
+              });
+
+              // Chuyển Map thành mảng
+              productApiReviews = Array.from(reviewMap.values());
+            } else {
+              // Nếu không có đánh giá của người dùng, chỉ cập nhật trạng thái isLiked
               productApiReviews = productApiReviews.map((review: Review) => ({
                 ...review,
                 isLiked: likedIds.has(review._id)
               }));
-            } else {
-              productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
             }
-          } catch (likedError) {
-            console.error('Lỗi khi lấy danh sách đánh giá đã thích trong fetchProductReviews:', likedError);
+          } catch (error) {
+            console.error('Lỗi khi lấy đánh giá của người dùng trong fetchProductReviews:', error);
             productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
           }
         } else {
           productApiReviews = productApiReviews.map(review => ({ ...review, isLiked: false }));
         }
+
         setReviews(productApiReviews);
         setTotalItems(productApiReviews.length);
         setTotalPages(1);

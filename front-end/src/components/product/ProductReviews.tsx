@@ -149,22 +149,29 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
           if (data.reviewId && data.status) {
             // Cập nhật trạng thái đánh giá trong danh sách userPendingReviews
-            if (currentUserId && data.status === 'rejected') {
+            if (currentUserId) {
               setUserPendingReviews(prevPendingReviews => {
                 return prevPendingReviews.map(review => {
                   if (review._id === data.reviewId) {
+                    // Cập nhật trạng thái đánh giá, nhưng giữ lại đánh giá trong danh sách
                     return { ...review, status: data.status };
                   }
                   return review;
                 });
               });
 
-              // Sau khi cập nhật trạng thái, lọc ra các đánh giá bị từ chối
-              setTimeout(() => {
-                setUserPendingReviews(prevPendingReviews =>
-                  prevPendingReviews.filter(review => review.status !== 'rejected')
-                );
-              }, 1000); // Đợi 1 giây để người dùng thấy trạng thái thay đổi trước khi loại bỏ
+              // Hiển thị thông báo phù hợp
+              if (data.status === 'rejected') {
+                toast.error('Đánh giá của bạn đã bị từ chối. Bạn có thể chỉnh sửa và gửi lại.', {
+                  position: "bottom-right",
+                  duration: 5000
+                });
+              } else if (data.status === 'approved') {
+                toast.success('Đánh giá của bạn đã được phê duyệt!', {
+                  position: "bottom-right",
+                  duration: 3000
+                });
+              }
             }
           }
         });
@@ -246,7 +253,8 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
             const params = new URLSearchParams();
             params.append('page', '1');
             params.append('limit', '50');
-            params.append('status', 'pending');
+            // Lấy cả đánh giá đang chờ duyệt và đánh giá bị từ chối
+            // Không cần lọc theo status, sẽ lấy tất cả đánh giá của người dùng
 
             const myPendingReviewsResponse = await localApiClient().get<{ reviews: ReviewType[], totalItems: number }>(
               `/reviews/user/me?${params.toString()}`
@@ -297,43 +305,36 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   useEffect(() => {
     if (currentUserId && Array.isArray(contextProductReviews)) {
       setUserPendingReviews(prevPendingReviews => {
-        // Lọc ra các đánh giá pending hiện tại mà không bị từ chối hoặc đã được duyệt
-        const updatedPendingReviews = prevPendingReviews.filter(pendingReview => {
-          // Tìm xem đánh giá pending này có trong contextProductReviews không
-          const reviewInContext = contextProductReviews.find(r => r._id === pendingReview._id);
+        // Tạo một Map để theo dõi các đánh giá hiện có theo ID
+        const reviewMap = new Map();
 
-          // Nếu tìm thấy và trạng thái của nó không còn là 'pending' nữa (đã được duyệt/từ chối)
-          // thì loại nó khỏi userPendingReviews
-          if (reviewInContext && reviewInContext.status !== 'pending') {
-            console.log(`Removing review ${pendingReview._id} from userPendingReviews because its status is now ${reviewInContext.status}`);
-            return false;
-          }
-
-          // Kiểm tra nếu đánh giá này đã bị từ chối (có thể không có trong contextProductReviews)
-          if (pendingReview.status === 'rejected') {
-            console.log(`Removing rejected review ${pendingReview._id} from userPendingReviews`);
-            return false;
-          }
-
-          // Giữ lại nếu không tìm thấy trong context hoặc vẫn là 'pending' trong context
-          return true;
+        // Thêm tất cả đánh giá hiện có vào Map
+        prevPendingReviews.forEach(review => {
+          reviewMap.set(review._id, review);
         });
 
-        // Thêm các đánh giá 'pending' của người dùng hiện tại từ contextProductReviews
-        // vào userPendingReviews nếu chúng chưa có. Điều này xử lý trường hợp đánh giá
-        // được tạo ở một nơi khác và cập nhật qua WebSocket.
+        // Cập nhật Map với đánh giá từ context
         contextProductReviews.forEach(reviewFromContext => {
-          if (
-            reviewFromContext.user?._id === currentUserId &&
-            reviewFromContext.status === 'pending' &&
-            !updatedPendingReviews.some(pr => pr._id === reviewFromContext._id)
-          ) {
-            console.log(`Adding pending review ${reviewFromContext._id} to userPendingReviews`);
-            updatedPendingReviews.push(reviewFromContext);
+          if (reviewFromContext.user?._id === currentUserId) {
+            // Nếu đánh giá đã tồn tại trong Map, cập nhật trạng thái của nó
+            if (reviewMap.has(reviewFromContext._id)) {
+              const existingReview = reviewMap.get(reviewFromContext._id);
+              reviewMap.set(reviewFromContext._id, {
+                ...existingReview,
+                status: reviewFromContext.status
+              });
+              console.log(`Updating review ${reviewFromContext._id} status to ${reviewFromContext.status}`);
+            }
+            // Nếu đánh giá chưa tồn tại trong Map, thêm nó vào
+            else {
+              reviewMap.set(reviewFromContext._id, reviewFromContext);
+              console.log(`Adding review ${reviewFromContext._id} to userPendingReviews`);
+            }
           }
         });
 
-        return updatedPendingReviews;
+        // Chuyển đổi Map thành mảng
+        return Array.from(reviewMap.values());
       });
     }
   }, [contextProductReviews, currentUserId]);
@@ -377,9 +378,18 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   }, [contextProductReviews, userPendingReviews, currentUserId, mapReviewData]);
 
 
-  const filteredReviews = filterRating
-    ? displayedReviews.filter((review) => review.rating === filterRating)
-    : displayedReviews;
+  // Lọc đánh giá theo rating và hiển thị đánh giá đã được phê duyệt hoặc đánh giá của người dùng hiện tại
+  const filteredReviews = displayedReviews.filter((review) => {
+    // Lọc theo rating nếu có
+    const matchesRating = !filterRating || review.rating === filterRating;
+
+    // Hiển thị đánh giá đã được phê duyệt hoặc đánh giá của người dùng hiện tại (bất kể trạng thái)
+    const shouldShow =
+      review.status === 'approved' ||
+      (currentUserId && review.user?._id === currentUserId);
+
+    return matchesRating && shouldShow;
+  });
 
   const ratingCounts = [5, 4, 3, 2, 1].map((ratingStar) => {
     const count = reviewStats.distribution[ratingStar.toString()] || 0;
@@ -498,7 +508,8 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   }, [isImageModalOpen, currentImages.length]);
 
   const userReviewForThisProduct = useMemo(() => displayedReviews.find(r => r.user?._id === currentUserId), [displayedReviews, currentUserId]);
-  const canEditThisReview = userReviewForThisProduct && (userReviewForThisProduct.status === 'approved' || userReviewForThisProduct.status === 'rejected' || userReviewForThisProduct.status === 'pending');
+  // Người dùng có thể chỉnh sửa đánh giá của họ bất kể trạng thái là gì
+  const canEditThisReview = userReviewForThisProduct !== undefined;
 
   const writeButtonText = userReviewForThisProduct ? 'Chỉnh sửa đánh giá của bạn' : 'Viết đánh giá';
   const canDisplayWriteButton = isAuthenticated && (canReviewState.canReview || (canReviewState.hasReviewed && userReviewForThisProduct));
@@ -591,6 +602,11 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                         Đánh giá của bạn đang chờ phê duyệt.
                     </div>
                 )}
+                {userReviewForThisProduct && userReviewForThisProduct.status === 'rejected' && (
+                    <div className="mt-2 text-xs text-red-600 text-center italic">
+                        Đánh giá của bạn đã bị từ chối. Bạn có thể chỉnh sửa và gửi lại.
+                    </div>
+                )}
               </div>
             ) : (
               <div className="mt-6 text-sm text-gray-600 text-center">
@@ -651,7 +667,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       const params = new URLSearchParams();
                       params.append('page', '1');
                       params.append('limit', '50');
-                      params.append('status', 'pending');
+                      // Lấy tất cả đánh giá của người dùng, bao gồm cả đánh giá bị từ chối
                       const myPendingReviewsResponse = await localApiClient().get<{ reviews: ReviewType[] }>(
                         `/reviews/user/me?${params.toString()}`
                       );
@@ -705,7 +721,8 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                   <div
                     key={review._id}
                     className={`border-b border-gray-200 pb-6 last:border-b-0
-                                ${isPendingByCurrentUser ? 'opacity-70 bg-yellow-50 p-4 rounded-lg shadow-sm' : ''}`}
+                                ${isPendingByCurrentUser ? 'opacity-70 bg-yellow-50 p-4 rounded-lg shadow-sm' : ''}
+                                ${isCurrentUserReview && review.status === 'rejected' ? 'opacity-70 bg-red-50 p-4 rounded-lg shadow-sm' : ''}`}
                   >
                     <div className="flex items-start">
                       <div className="flex-shrink-0 mr-4">
@@ -742,11 +759,20 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                                 Chờ duyệt
                               </span>
                             )}
+                            {review.status === 'rejected' && isCurrentUserReview && (
+                              <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                Bị từ chối
+                              </span>
+                            )}
                         </div>
                       </div>
                     </div>
 
-                    <div className={`mt-3 pl-14 ${isPendingByCurrentUser ? 'text-gray-600' : 'text-gray-700'}`}>
+                    <div className={`mt-3 pl-14 ${
+                      isPendingByCurrentUser || (isCurrentUserReview && review.status === 'rejected')
+                        ? 'text-gray-600'
+                        : 'text-gray-700'
+                    }`}>
                       <div className={`${hasLongContent && !isExpanded ? 'line-clamp-4' : ''}`}>
                         {review.content}
                       </div>
@@ -798,14 +824,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
                       {isCurrentUserReview && (
                         <>
-                          {(review.status === 'pending' || review.status === 'approved' || review.status === 'rejected') && (
-                            <button
-                              onClick={() => handleEditReview(review)}
-                              className="flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              <FiEdit className="mr-1" /> Sửa
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleEditReview(review)}
+                            className="flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            <FiEdit className="mr-1" /> Sửa
+                          </button>
                           <button
                             onClick={() => handleDeleteReview(review._id)}
                             className="flex items-center text-sm text-red-600 hover:text-red-800 hover:underline"

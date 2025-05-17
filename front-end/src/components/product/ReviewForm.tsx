@@ -282,7 +282,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
           {reviewStatus === 'pending' && <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />}
           <p>
             {reviewStatus === 'approved' && 'Đánh giá của bạn đã được phê duyệt.'}
-            {reviewStatus === 'rejected' && 'Đánh giá của bạn đã bị từ chối.'}
+            {reviewStatus === 'rejected' && 'Đánh giá của bạn đã bị từ chối. Bạn có thể chỉnh sửa và gửi lại.'}
             {reviewStatus === 'pending' && 'Đánh giá của bạn đang chờ phê duyệt.'}
           </p>
         </div>
