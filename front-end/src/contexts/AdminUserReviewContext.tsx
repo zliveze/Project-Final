@@ -64,6 +64,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [newReviewsCount, setNewReviewsCount] = useState<number>(0);
+  const [currentlyViewedUserForReviewsId, setCurrentlyViewedUserForReviewsId] = useState<string | null>(null);
 
   // Cấu hình Axios với Auth token
   const api = useCallback(() => {
@@ -118,6 +119,26 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   }, [api]);
 
+  // Lấy đánh giá của một người dùng cụ thể
+  const fetchUserReviews = useCallback(async (userId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      setCurrentlyViewedUserForReviewsId(userId); // Cập nhật userId đang xem
+
+      const response = await api().get(`/admin/reviews/user/${userId}`);
+
+      if (response.data) {
+        setUserReviews(response.data.reviews || []);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy đánh giá của người dùng:', error);
+      setError('Không thể lấy đánh giá của người dùng. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+    }
+  }, [api]); // Thêm api vào dependencies nếu chưa có, nhưng không thêm currentlyViewedUserForReviewsId để tránh vòng lặp
+
   // Khởi tạo WebSocket connection
   useEffect(() => {
     if (accessToken) {
@@ -156,51 +177,89 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         });
 
         // Cập nhật danh sách đánh giá nếu đang ở trang đánh giá
-        fetchReviews(currentPage);
+        // Luôn fetch trang đầu tiên của các đánh giá đang chờ để đảm bảo review mới nhất được hiển thị
+        fetchReviews(1, undefined, 'pending');
+        
+        // Nếu đánh giá mới thuộc về người dùng đang được xem, làm mới danh sách đánh giá của họ
+        if (data.userId && data.userId === currentlyViewedUserForReviewsId) {
+          fetchUserReviews(data.userId);
+        }
       });
 
       // Lắng nghe sự kiện cập nhật trạng thái đánh giá
       newSocket.on('reviewStatusUpdated', (data: any) => {
         console.log('AdminUserReviewContext: Received reviewStatusUpdated event', data);
-
         if (data.status && data.reviewId) {
-          // Cập nhật trạng thái đánh giá trong danh sách
-          setReviews(prevReviews =>
-            prevReviews.map(review =>
-              review.reviewId === data.reviewId
-                ? { ...review, status: data.status }
-                : review
-            )
-          );
+          let affectedUserId: string | undefined = undefined;
 
-          // Cập nhật danh sách đánh giá của người dùng
-          setUserReviews(prevReviews =>
-            prevReviews.map(review =>
-              review.reviewId === data.reviewId
-                ? { ...review, status: data.status }
-                : review
-            )
-          );
+          // Cập nhật trạng thái đánh giá trong danh sách reviews chung
+          setReviews(prevReviews => {
+            const updatedReviews = prevReviews.map(review => {
+              if (review.reviewId === data.reviewId) {
+                affectedUserId = review.userId; // Lấy userId từ review bị ảnh hưởng
+                return { ...review, status: data.status };
+              }
+              return review;
+            });
+            return updatedReviews;
+          });
+
+          // Cập nhật trạng thái đánh giá trong danh sách userReviews (nếu user đó đang được xem)
+          setUserReviews(prevUserReviews => {
+            const updatedUserReviews = prevUserReviews.map(review => {
+              if (review.reviewId === data.reviewId) {
+                affectedUserId = review.userId; // Đảm bảo affectedUserId được set
+                return { ...review, status: data.status };
+              }
+              return review;
+            });
+            // Chỉ cập nhật nếu reviewId có trong danh sách userReviews hiện tại
+            if (prevUserReviews.some(r => r.reviewId === data.reviewId)) {
+              return updatedUserReviews;
+            }
+            return prevUserReviews;
+          });
+          
+          // Fetch lại danh sách chung để cập nhật phân trang và bộ lọc
+          fetchReviews(currentPage, undefined, reviews.find(r => r.reviewId === data.reviewId)?.status || undefined);
+
+
+          // Nếu review được cập nhật thuộc về user đang xem, fetch lại review của user đó
+          if (affectedUserId && affectedUserId === currentlyViewedUserForReviewsId) {
+            fetchUserReviews(affectedUserId);
+          }
         }
       });
 
       // Lắng nghe sự kiện xóa đánh giá
       newSocket.on('reviewDeleted', (data: any) => {
         console.log('AdminUserReviewContext: Received reviewDeleted event', data);
-
         if (data.reviewId) {
-          // Cập nhật danh sách đánh giá
+          let deletedReviewUserId: string | undefined = undefined;
+
+          // Tìm userId của review sắp bị xóa từ danh sách reviews hiện tại
+          const reviewToDelete = reviews.find(review => review.reviewId === data.reviewId);
+          if (reviewToDelete) {
+            deletedReviewUserId = reviewToDelete.userId;
+          }
+
+          // Cập nhật danh sách reviews chung
           setReviews(prevReviews =>
             prevReviews.filter(review => review.reviewId !== data.reviewId)
           );
 
-          // Cập nhật danh sách đánh giá của người dùng
-          setUserReviews(prevReviews =>
-            prevReviews.filter(review => review.reviewId !== data.reviewId)
+          // Cập nhật danh sách userReviews (nếu user đó đang được xem)
+          setUserReviews(prevUserReviews =>
+            prevUserReviews.filter(review => review.reviewId !== data.reviewId)
           );
-
-          // Tải lại danh sách đánh giá để đảm bảo dữ liệu đồng bộ
+          
+          // Fetch lại danh sách chung để cập nhật phân trang
           fetchReviews(currentPage);
+
+          // Nếu review bị xóa thuộc về user đang xem, fetch lại review của user đó
+          if (deletedReviewUserId && deletedReviewUserId === currentlyViewedUserForReviewsId) {
+            fetchUserReviews(deletedReviewUserId);
+          }
         }
       });
 
@@ -225,26 +284,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         setSocket(null);
       };
     }
-  }, [accessToken, currentPage, fetchReviews]);
-
-  // Lấy đánh giá của một người dùng cụ thể
-  const fetchUserReviews = useCallback(async (userId: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await api().get(`/admin/reviews/user/${userId}`);
-
-      if (response.data) {
-        setUserReviews(response.data.reviews || []);
-      }
-    } catch (error) {
-      console.error('Lỗi khi lấy đánh giá của người dùng:', error);
-      setError('Không thể lấy đánh giá của người dùng. Vui lòng thử lại sau.');
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
+  }, [accessToken, api, fetchUserReviews, currentlyViewedUserForReviewsId, fetchReviews, currentPage]);
 
   // Phê duyệt đánh giá
   const approveReview = useCallback(async (reviewId: string): Promise<boolean> => {
