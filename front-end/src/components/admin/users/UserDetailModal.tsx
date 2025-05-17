@@ -6,7 +6,7 @@ import {
   FiHeart, FiStar
 } from 'react-icons/fi';
 import UserReviewTab from './UserReviewTab';
-import { AdminUserReviewProvider } from '@/contexts/AdminUserReviewContext';
+import { AdminUserReviewProvider, useAdminUserReview } from '@/contexts/AdminUserReviewContext';
 
 interface Address {
   addressId: string;
@@ -546,12 +546,19 @@ const TabNavigation: React.FC<{
   activeTab: string;
   onTabChange: (tab: string) => void;
 }> = ({ activeTab, onTabChange }) => {
+  const { newReviewsCount } = useAdminUserReview();
+
   const tabs = [
     { id: 'info', label: 'Thông tin', icon: <FiUser className="mr-2" /> },
     { id: 'addresses', label: 'Địa chỉ', icon: <FiMapPin className="mr-2" /> },
     { id: 'orders', label: 'Đơn hàng', icon: <FiShoppingBag className="mr-2" /> },
     { id: 'wishlist', label: 'Yêu thích', icon: <FiHeart className="mr-2" /> },
-    { id: 'reviews', label: 'Đánh giá', icon: <FiStar className="mr-2" /> },
+    {
+      id: 'reviews',
+      label: 'Đánh giá',
+      icon: <FiStar className="mr-2" />,
+      badge: newReviewsCount > 0 ? newReviewsCount : undefined
+    },
   ];
 
   return (
@@ -570,6 +577,11 @@ const TabNavigation: React.FC<{
           >
             {tab.icon}
             {tab.label}
+            {tab.badge && (
+              <span className="ml-1.5 px-1.5 py-0.5 bg-pink-500 text-white text-xs rounded-full">
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>

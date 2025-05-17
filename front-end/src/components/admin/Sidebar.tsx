@@ -19,9 +19,11 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
+import { useAdminUserReview } from '../../contexts/AdminUserReviewContext';
 import { motion } from 'framer-motion';
 
-const menuItems = [
+// Tạo menuItems bên ngoài component để tránh tạo lại mỗi khi render
+const getMenuItems = (newReviewsCount: number) => [
   {
     name: 'Dashboard',
     href: '/admin/dashboard',
@@ -40,7 +42,8 @@ const menuItems = [
   {
     name: 'Người dùng',
     href: '/admin/users',
-    icon: FiUsers
+    icon: FiUsers,
+    badge: newReviewsCount > 0 ? newReviewsCount : undefined
   },
   {
     name: 'Danh mục',
@@ -87,6 +90,7 @@ export default function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAdminAuth();
+  const { newReviewsCount } = useAdminUserReview();
 
   const handleLogout = async () => {
     await logout();
@@ -121,7 +125,7 @@ export default function Sidebar() {
 
       <nav className="mt-6 flex-grow overflow-y-auto">
         <ul className="space-y-1 px-2">
-          {menuItems.map((item) => {
+          {getMenuItems(newReviewsCount).map((item) => {
             const isActive = router.pathname === item.href || router.pathname.startsWith(`${item.href}/`);
 
             return (
@@ -139,7 +143,19 @@ export default function Sidebar() {
                   } ${collapsed ? 'justify-center' : ''}`}
                   title={collapsed ? item.name : ''}
                 >
-                  <item.icon className={`h-5 w-5 ${isActive ? 'text-pink-500' : 'text-gray-400'}`} />
+                  <div className="relative">
+                    <item.icon className={`h-5 w-5 ${isActive ? 'text-pink-500' : 'text-gray-400'}`} />
+                    {item.badge && !collapsed && (
+                      <span className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.badge && collapsed && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
                   {!collapsed && (
                     <span className="ml-3 font-medium">{item.name}</span>
                   )}

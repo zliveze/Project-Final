@@ -5,6 +5,7 @@ import { Review, ReviewDocument } from './schemas/review.schema';
 import { CreateReviewDto, UpdateReviewDto, QueryReviewDto } from './dto';
 import { OrderStatus } from '../orders/schemas/order.schema';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { WebsocketService } from '../websocket/websocket.service';
 import * as fs from 'fs';
 import { promisify } from 'util';
 
@@ -17,6 +18,7 @@ export class ReviewsService {
     @InjectModel('Order') private readonly orderModel: Model<any>,
     @InjectModel('Product') private readonly productModel: Model<any>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly websocketService: WebsocketService,
   ) {}
 
   // Tìm tất cả đánh giá của một người dùng cụ thể
@@ -125,7 +127,7 @@ export class ReviewsService {
       .sort({ createdAt: -1 })
       .lean()
       .exec();
-      
+
     const reviewsWithUserField = reviewsData.map(r => {
       const reviewObj = { ...r } as any;
       if (reviewObj.userId && typeof reviewObj.userId === 'object') {
@@ -354,6 +356,28 @@ export class ReviewsService {
       // Cập nhật thông tin đánh giá trong sản phẩm
       await this.updateProductReviewStats(productId);
 
+      // Gửi thông báo WebSocket về việc tạo đánh giá mới
+      this.websocketService.emitNewReviewCreated(
+        savedReview._id.toString(),
+        userId,
+        productId,
+        {
+          _id: savedReview._id,
+          productId: savedReview.productId,
+          productName: savedReview.productName,
+          productImage: savedReview.productImage,
+          rating: savedReview.rating,
+          content: savedReview.content,
+          images: savedReview.images,
+          likes: savedReview.likes,
+          status: savedReview.status,
+          createdAt: savedReview.createdAt,
+          updatedAt: savedReview.updatedAt,
+          verified: savedReview.verified,
+          userId: savedReview.userId
+        }
+      );
+
       return savedReview;
     } catch (error) {
       this.logger.error(`Lỗi khi tạo đánh giá: ${error.message}`, error.stack);
@@ -425,6 +449,13 @@ export class ReviewsService {
 
       // Cập nhật thông tin đánh giá trong sản phẩm
       await this.updateProductReviewStats(review.productId.toString());
+
+      // Gửi thông báo WebSocket về việc xóa đánh giá
+      this.websocketService.emitReviewDeleted(
+        id,
+        review.userId.toString(),
+        review.productId.toString()
+      );
     } catch (error) {
       this.logger.error(`Lỗi khi xóa mềm đánh giá: ${error.message}`, error.stack);
       throw error;
@@ -436,6 +467,7 @@ export class ReviewsService {
     try {
       const review = await this.findOne(id);
       const productId = review.productId.toString();
+      const userId = review.userId.toString();
 
       const result = await this.reviewModel.deleteOne({ _id: id }).exec();
       if (result.deletedCount === 0) {
@@ -444,6 +476,13 @@ export class ReviewsService {
 
       // Cập nhật thông tin đánh giá trong sản phẩm
       await this.updateProductReviewStats(productId);
+
+      // Gửi thông báo WebSocket về việc xóa đánh giá
+      this.websocketService.emitReviewDeleted(
+        id,
+        userId,
+        productId
+      );
     } catch (error) {
       this.logger.error(`Lỗi khi xóa cứng đánh giá: ${error.message}`, error.stack);
       throw error;
@@ -459,6 +498,28 @@ export class ReviewsService {
 
       // Cập nhật thông tin đánh giá trong sản phẩm
       await this.updateProductReviewStats(review.productId.toString());
+
+      // Gửi thông báo WebSocket về việc cập nhật trạng thái đánh giá
+      this.websocketService.emitReviewStatusUpdated(
+        review._id.toString(),
+        review.userId.toString(),
+        review.productId.toString(),
+        status,
+        {
+          _id: review._id,
+          productId: review.productId,
+          productName: review.productName,
+          productImage: review.productImage,
+          rating: review.rating,
+          content: review.content,
+          images: review.images,
+          likes: review.likes,
+          status: status,
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt,
+          verified: review.verified
+        }
+      );
 
       return updatedReview;
     } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiUpload, FiX, FiAlertCircle, FiLoader } from 'react-icons/fi';
+import { FiUpload, FiX, FiAlertCircle, FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { useUserReview } from '@/contexts/user/UserReviewContext';
@@ -30,6 +30,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Tải dữ liệu đánh giá hiện có nếu đang ở chế độ chỉnh sửa
@@ -42,6 +43,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
             const reviewData = await response.json();
             setRating(reviewData.rating || 5);
             setContent(reviewData.content || '');
+            setReviewStatus(reviewData.status || 'pending');
 
             // Lưu trữ hình ảnh hiện có
             if (reviewData.images && reviewData.images.length > 0) {
@@ -62,6 +64,34 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     };
 
     loadExistingReview();
+  }, [reviewId]);
+
+  // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ WebSocket
+  useEffect(() => {
+    // Đăng ký lắng nghe sự kiện từ UserReviewContext
+    const handleReviewStatusChange = (review: any) => {
+      if (review && review._id === reviewId) {
+        setReviewStatus(review.status);
+
+        // Hiển thị thông báo
+        if (review.status === 'approved') {
+          toast.success('Đánh giá của bạn đã được phê duyệt!', {
+            position: "bottom-right",
+            autoClose: 5000,
+          });
+        } else if (review.status === 'rejected') {
+          toast.error('Đánh giá của bạn đã bị từ chối.', {
+            position: "bottom-right",
+            autoClose: 5000,
+          });
+        }
+      }
+    };
+
+    // Cleanup function
+    return () => {
+      // Không cần cleanup vì chúng ta không đăng ký sự kiện trực tiếp ở đây
+    };
   }, [reviewId]);
 
   // Xử lý khi chọn ảnh
@@ -228,6 +258,26 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
         <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
           <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
           <p>{error}</p>
+        </div>
+      )}
+
+      {/* Hiển thị trạng thái đánh giá */}
+      {reviewStatus && (
+        <div className={`mb-4 p-3 rounded-md flex items-start ${
+          reviewStatus === 'approved'
+            ? 'bg-green-50 text-green-700'
+            : reviewStatus === 'rejected'
+              ? 'bg-red-50 text-red-700'
+              : 'bg-yellow-50 text-yellow-700'
+        }`}>
+          {reviewStatus === 'approved' && <FiCheckCircle className="mt-0.5 mr-2 flex-shrink-0" />}
+          {reviewStatus === 'rejected' && <FiXCircle className="mt-0.5 mr-2 flex-shrink-0" />}
+          {reviewStatus === 'pending' && <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />}
+          <p>
+            {reviewStatus === 'approved' && 'Đánh giá của bạn đã được phê duyệt.'}
+            {reviewStatus === 'rejected' && 'Đánh giá của bạn đã bị từ chối.'}
+            {reviewStatus === 'pending' && 'Đánh giá của bạn đang chờ phê duyệt.'}
+          </p>
         </div>
       )}
 

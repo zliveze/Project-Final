@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 
 // Định nghĩa kiểu dữ liệu cho hình ảnh đánh giá
@@ -84,8 +85,97 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [likedReviews, setLikedReviews] = useState<Set<string>>(new Set());
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   const { isAuthenticated, user } = useAuth();
+
+  // Khởi tạo và quản lý WebSocket connection
+  useEffect(() => {
+    if (isAuthenticated && user?._id) {
+      // URL của WebSocket server, thường là URL gốc của backend API
+      const WS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const newSocket = io(WS_URL, {
+        transports: ['websocket'], // Ưu tiên WebSocket
+        // query: { userId: user._id } // Có thể gửi userId qua query nếu backend hỗ trợ auto-join room
+      });
+      setSocket(newSocket);
+
+      newSocket.on('connect', () => {
+        console.log('UserReviewContext: WebSocket connected', newSocket.id);
+        // Gửi sự kiện để tham gia vào phòng (room) của user cụ thể
+        newSocket.emit('joinUserRoom', { userId: user._id });
+      });
+
+      // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ server
+      newSocket.on('reviewStatusUpdated', (updatedReviewFromServer: Review) => {
+        console.log('UserReviewContext: Received reviewStatusUpdated event:', updatedReviewFromServer);
+
+        let toastMessage = `Trạng thái đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được cập nhật.`;
+        if (updatedReviewFromServer.status === 'approved') {
+          toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được phê duyệt.`;
+        } else if (updatedReviewFromServer.status === 'rejected') {
+          toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã bị từ chối.`;
+        }
+        toast.success(toastMessage);
+
+        setReviews(prevReviews =>
+          prevReviews.map(currentClientReview => {
+            if (currentClientReview._id === updatedReviewFromServer._id) {
+              // Cập nhật đánh giá với dữ liệu từ server,
+              // nhưng giữ lại trạng thái 'isLiked' từ client nếu server không cung cấp
+              return {
+                ...currentClientReview, // Bắt đầu với trạng thái client hiện tại
+                ...updatedReviewFromServer, // Ghi đè với cập nhật từ server
+                isLiked: updatedReviewFromServer.isLiked !== undefined
+                  ? updatedReviewFromServer.isLiked
+                  : currentClientReview.isLiked,
+              };
+            }
+            return currentClientReview;
+          })
+        );
+      });
+
+      // Lắng nghe sự kiện đánh giá bị xóa (ví dụ: do admin xóa)
+      newSocket.on('reviewDeleted', (data: { reviewId: string }) => {
+        console.log('UserReviewContext: Received reviewDeleted event:', data);
+        if (data.reviewId) {
+          setReviews(prevReviews => prevReviews.filter(review => review._id !== data.reviewId));
+          toast('Một đánh giá đã được quản trị viên xóa.', {
+            duration: 4000,
+            icon: 'ℹ️'
+          });
+        }
+      });
+
+      newSocket.on('disconnect', (reason) => {
+        console.log('UserReviewContext: WebSocket disconnected', reason);
+      });
+
+      newSocket.on('connect_error', (err) => {
+        console.error('UserReviewContext: WebSocket connection error:', err.message, (err as any).data);
+      });
+
+      // Cleanup khi component unmount hoặc user thay đổi
+      return () => {
+        console.log('UserReviewContext: Cleaning up WebSocket connection');
+        newSocket.off('connect');
+        newSocket.off('reviewStatusUpdated');
+        newSocket.off('reviewDeleted');
+        newSocket.off('disconnect');
+        newSocket.off('connect_error');
+        newSocket.close();
+        setSocket(null);
+      };
+    } else {
+      // Nếu không authenticated, đóng socket nếu đang mở
+      if (socket) {
+        socket.close();
+        setSocket(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?._id]); // Chỉ chạy lại khi trạng thái đăng nhập hoặc user thay đổi
 
   // Tạo instance axios với cấu hình chung
   const api = useCallback(() => {
@@ -298,9 +388,16 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     try {
       setLoading(true);
 
-      const response = await api().delete(`/reviews/${reviewId}`);
+      // Gọi trực tiếp đến backend API
+      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`;
+      const response = await axios.delete(backendUrl, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
 
-      if (response.data) {
+      // if (response.data) { // axios.delete thường không có response.data nếu thành công với status 200 hoặc 204
+      if (response.status === 200 || response.status === 204) { // Kiểm tra status code
         // Cập nhật danh sách đánh giá
         setReviews(prevReviews =>
           prevReviews.filter(review =>

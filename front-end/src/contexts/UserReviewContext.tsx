@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 // Định nghĩa kiểu dữ liệu cho hình ảnh đánh giá
@@ -64,6 +65,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [likedReviews, setLikedReviews] = useState<string[]>([]);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     // Client-side only: get token from localStorage
@@ -71,6 +73,81 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       setLocalStorageToken(localStorage.getItem('accessToken'));
     }
   }, [isAuthenticated]); // Re-check token when authentication state changes
+
+  // Khởi tạo và quản lý WebSocket connection
+  useEffect(() => {
+    if (isAuthenticated && user?._id) {
+      // URL của WebSocket server, thường là URL gốc của backend API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
+
+      console.log('UserReviewContext: Connecting to WebSocket at', wsUrl);
+
+      const newSocket = io(wsUrl, {
+        transports: ['websocket', 'polling'],
+        query: {
+          userId: user._id,
+          role: 'user'
+        }
+      });
+
+      setSocket(newSocket);
+
+      newSocket.on('connect', () => {
+        console.log('UserReviewContext: WebSocket connected', newSocket.id);
+        // Tham gia vào phòng của user
+        newSocket.emit('joinUserRoom', { userId: user._id });
+      });
+
+      // Lắng nghe sự kiện cập nhật trạng thái đánh giá
+      newSocket.on('reviewStatusUpdated', (data: any) => {
+        console.log('UserReviewContext: Received reviewStatusUpdated event', data);
+
+        if (data.status && data.reviewId) {
+          // Cập nhật trạng thái đánh giá trong danh sách
+          setReviews(prevReviews =>
+            prevReviews.map(review =>
+              review._id === data.reviewId
+                ? { ...review, status: data.status }
+                : review
+            )
+          );
+
+          // Hiển thị thông báo
+          if (data.status === 'approved') {
+            toast.success('Đánh giá của bạn đã được phê duyệt!');
+          } else if (data.status === 'rejected') {
+            toast.error('Đánh giá của bạn đã bị từ chối.');
+          }
+        }
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('UserReviewContext: WebSocket disconnected');
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('UserReviewContext: WebSocket connection error', error);
+      });
+
+      // Cleanup khi component unmount hoặc user thay đổi
+      return () => {
+        console.log('UserReviewContext: Cleaning up WebSocket connection');
+        newSocket.off('connect');
+        newSocket.off('reviewStatusUpdated');
+        newSocket.off('disconnect');
+        newSocket.off('connect_error');
+        newSocket.close();
+        setSocket(null);
+      };
+    } else {
+      // Nếu không authenticated, đóng socket nếu đang mở
+      if (socket) {
+        socket.close();
+        setSocket(null);
+      }
+    }
+  }, [isAuthenticated, user]);
 
   // Lấy danh sách đánh giá đã thích khi người dùng đăng nhập
   useEffect(() => {

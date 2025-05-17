@@ -6,6 +6,7 @@ import { Review, ReviewSchema } from './schemas/review.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -28,6 +29,7 @@ if (!fs.existsSync(uploadDir)) {
       { name: 'Product', schema: ProductSchema },
     ]),
     CloudinaryModule,
+    WebsocketModule,
     MulterModule.register({
       storage: diskStorage({
         destination: uploadDir,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FiBell, FiUser, FiLogOut, FiSettings } from 'react-icons/fi';
+import { FiBell, FiUser, FiLogOut, FiSettings, FiStar } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
+import { useAdminUserReview } from '../../contexts/AdminUserReviewContext';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import Link from 'next/link';
@@ -10,6 +11,7 @@ export default function Header() {
   const [user, setUser] = useState<{ email: string; role: string; name: string } | null>(null);
   const [notifications, setNotifications] = useState<number>(0);
   const { logout } = useAdminAuth();
+  const { newReviewsCount, resetNewReviewsCount } = useAdminUserReview();
 
   useEffect(() => {
     // Lấy thông tin người dùng từ localStorage
@@ -40,10 +42,28 @@ export default function Header() {
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-        
+
         </div>
 
         <div className="flex items-center space-x-5">
+          {/* Thông báo đánh giá mới */}
+          <motion.div
+            className="relative"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Link href="/admin/users" className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors flex items-center">
+              <span className="sr-only">Đánh giá mới</span>
+              <FiStar className="h-5 w-5" />
+              {newReviewsCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                  {newReviewsCount}
+                </span>
+              )}
+            </Link>
+          </motion.div>
+
+          {/* Thông báo hệ thống */}
           <motion.div
             className="relative"
             whileHover={{ scale: 1.05 }}

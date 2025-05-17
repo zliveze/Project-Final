@@ -4,6 +4,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiClock, FiX, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
+import { io, Socket } from 'socket.io-client';
 import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,12 +65,84 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
   const currentUserId = currentUser?._id;
   const [localStorageToken, setLocalStorageToken] = useState<string | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setLocalStorageToken(localStorage.getItem('accessToken'));
     }
   }, [isAuthenticated]);
+
+  // Khởi tạo WebSocket connection để lắng nghe cập nhật đánh giá
+  useEffect(() => {
+    if (productId) {
+      // URL của WebSocket server, thường là URL gốc của backend API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
+
+      console.log('ProductReviews: Connecting to WebSocket at', wsUrl);
+
+      const newSocket = io(wsUrl, {
+        transports: ['websocket', 'polling']
+      });
+
+      setSocket(newSocket);
+
+      newSocket.on('connect', () => {
+        console.log('ProductReviews: WebSocket connected', newSocket.id);
+
+        // Lắng nghe sự kiện cập nhật đánh giá cho sản phẩm cụ thể này
+        newSocket.on(`product-${productId}-review-updated`, (data: any) => {
+          console.log(`ProductReviews: Received product-${productId}-review-updated event`, data);
+
+          if (data.status && data.reviewId) {
+            // Cập nhật trạng thái đánh giá trong danh sách
+            fetchProductReviews(productId, 'approved');
+
+            // Hiển thị thông báo
+            if (data.status === 'approved') {
+              toast.success('Một đánh giá mới đã được phê duyệt!', {
+                position: "bottom-right",
+                duration: 3000
+              });
+            }
+          }
+        });
+
+        // Lắng nghe sự kiện xóa đánh giá cho sản phẩm cụ thể này
+        newSocket.on(`product-${productId}-review-deleted`, (data: any) => {
+          console.log(`ProductReviews: Received product-${productId}-review-deleted event`, data);
+
+          if (data.reviewId) {
+            // Cập nhật danh sách đánh giá
+            fetchProductReviews(productId, 'approved');
+          }
+        });
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('ProductReviews: WebSocket disconnected');
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('ProductReviews: WebSocket connection error', error);
+      });
+
+      // Cleanup khi component unmount hoặc productId thay đổi
+      return () => {
+        console.log('ProductReviews: Cleaning up WebSocket connection');
+        if (newSocket) {
+          newSocket.off(`product-${productId}-review-updated`);
+          newSocket.off(`product-${productId}-review-deleted`);
+          newSocket.off('connect');
+          newSocket.off('disconnect');
+          newSocket.off('connect_error');
+          newSocket.close();
+        }
+        setSocket(null);
+      };
+    }
+  }, [productId, fetchProductReviews]);
 
   const эффективныйApiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
                         ? process.env.NEXT_PUBLIC_API_URL
@@ -167,6 +240,40 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
     loadInitialData();
   }, [productId, isAuthenticated, currentUserId, fetchProductReviews, getReviewStats, checkCanReview, localApiClient, mapReviewData, localStorageToken]);
+
+  // Lắng nghe sự thay đổi từ contextProductReviews (đã bao gồm cập nhật từ WebSocket)
+  // để cập nhật lại userPendingReviews cho chính xác.
+  useEffect(() => {
+    if (currentUserId && Array.isArray(contextProductReviews)) {
+      setUserPendingReviews(prevPendingReviews => {
+        const updatedPendingReviews = prevPendingReviews.filter(pendingReview => {
+          // Tìm xem đánh giá pending này có trong contextProductReviews không
+          const reviewInContext = contextProductReviews.find(r => r._id === pendingReview._id);
+          // Nếu tìm thấy và trạng thái của nó không còn là 'pending' nữa (đã được duyệt/từ chối)
+          // thì loại nó khỏi userPendingReviews
+          if (reviewInContext && reviewInContext.status !== 'pending') {
+            return false;
+          }
+          // Giữ lại nếu không tìm thấy trong context hoặc vẫn là 'pending' trong context (trường hợp hiếm)
+          return true;
+        });
+
+        // Thêm các đánh giá 'pending' của người dùng hiện tại từ contextProductReviews
+        // vào userPendingReviews nếu chúng chưa có. Điều này xử lý trường hợp đánh giá
+        // được tạo ở một nơi khác và cập nhật qua WebSocket.
+        contextProductReviews.forEach(reviewFromContext => {
+          if (
+            reviewFromContext.user?._id === currentUserId &&
+            reviewFromContext.status === 'pending' &&
+            !updatedPendingReviews.some(pr => pr._id === reviewFromContext._id)
+          ) {
+            updatedPendingReviews.push(reviewFromContext);
+          }
+        });
+        return updatedPendingReviews;
+      });
+    }
+  }, [contextProductReviews, currentUserId]);
 
 
   const displayedReviews = useMemo(() => {

@@ -9,7 +9,7 @@ interface UserReviewTabProps {
 }
 
 const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
-  const { userReviews, loading, fetchUserReviews, approveReview, rejectReview, deleteReview } = useAdminUserReview();
+  const { userReviews, loading, fetchUserReviews, approveReview, rejectReview, deleteReview, resetNewReviewsCount } = useAdminUserReview();
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [showImageModal, setShowImageModal] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string>('');
@@ -19,8 +19,10 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
   useEffect(() => {
     if (userId) {
       fetchUserReviews(userId);
+      // Reset số lượng đánh giá mới khi mở tab đánh giá
+      resetNewReviewsCount();
     }
-  }, [userId, fetchUserReviews]);
+  }, [userId, fetchUserReviews, resetNewReviewsCount]);
 
   // Lọc đánh giá theo trạng thái và rating
   const filteredReviews = userReviews.filter(review => {
@@ -188,14 +190,14 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
                   {renderStatus(review.status)}
                 </div>
               </div>
-              
+
               <p className="text-gray-600 text-sm mb-2 line-clamp-2">{review.content}</p>
-              
+
               {review.images && review.images.length > 0 && (
                 <div className="flex space-x-2 mb-2">
                   {review.images.slice(0, 3).map((image, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="relative w-12 h-12 cursor-pointer"
                       onClick={() => handleViewImage(image.url)}
                     >
@@ -214,7 +216,7 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
                   )}
                 </div>
               )}
-              
+
               <div className="flex justify-end space-x-2 mt-2">
                 <button
                   onClick={() => handleViewDetail(review)}
@@ -293,19 +295,19 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
                   <div className="mt-1">{renderStatus(selectedReview.status)}</div>
                 </div>
               </div>
-              
+
               <div className="mb-4">
                 <h5 className="font-medium text-gray-700 mb-1">Nội dung đánh giá:</h5>
                 <p className="text-gray-600 whitespace-pre-line">{selectedReview.content}</p>
               </div>
-              
+
               {selectedReview.images && selectedReview.images.length > 0 && (
                 <div className="mb-4">
                   <h5 className="font-medium text-gray-700 mb-2">Hình ảnh:</h5>
                   <div className="grid grid-cols-4 gap-2">
                     {selectedReview.images.map((image, index) => (
-                      <div 
-                        key={index} 
+                      <div
+                        key={index}
                         className="relative w-full h-24 cursor-pointer"
                         onClick={() => handleViewImage(image.url)}
                       >
@@ -320,7 +322,7 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex justify-end space-x-2 mt-4">
                 {selectedReview.status === 'pending' && (
                   <>

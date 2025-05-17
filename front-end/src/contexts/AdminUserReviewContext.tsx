@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { io, Socket } from 'socket.io-client';
 import { useAdminAuth } from './AdminAuthContext';
 
 // Định nghĩa kiểu dữ liệu cho hình ảnh đánh giá
@@ -36,7 +37,8 @@ export interface AdminUserReviewContextType {
   totalItems: number;
   totalPages: number;
   currentPage: number;
-  
+  newReviewsCount: number;
+
   // Phương thức quản lý đánh giá
   fetchReviews: (page?: number, limit?: number, status?: string, userId?: string) => Promise<void>;
   fetchUserReviews: (userId: string) => Promise<void>;
@@ -44,6 +46,7 @@ export interface AdminUserReviewContextType {
   rejectReview: (reviewId: string) => Promise<boolean>;
   deleteReview: (reviewId: string) => Promise<boolean>;
   getReviewStats: () => Promise<Record<string, number>>;
+  resetNewReviewsCount: () => void;
 }
 
 // Tạo context
@@ -59,11 +62,13 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [newReviewsCount, setNewReviewsCount] = useState<number>(0);
 
   // Cấu hình Axios với Auth token
   const api = useCallback(() => {
     const token = localStorage.getItem('adminToken');
-    
+
     return axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
       headers: {
@@ -83,22 +88,22 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      
+
       // Xây dựng query params
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('limit', limit.toString());
-      
+
       if (status && status !== 'all') {
         params.append('status', status);
       }
-      
+
       if (userId) {
         params.append('userId', userId);
       }
-      
+
       const response = await api().get(`/admin/reviews?${params.toString()}`);
-      
+
       if (response.data) {
         setReviews(response.data.reviews || []);
         setTotalItems(response.data.totalItems || 0);
@@ -113,14 +118,123 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   }, [api]);
 
+  // Khởi tạo WebSocket connection
+  useEffect(() => {
+    if (accessToken) {
+      // URL của WebSocket server, thường là URL gốc của backend API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
+
+      console.log('AdminUserReviewContext: Connecting to WebSocket at', wsUrl);
+
+      const newSocket = io(wsUrl, {
+        transports: ['websocket', 'polling'],
+        query: {
+          role: 'admin'
+        }
+      });
+
+      setSocket(newSocket);
+
+      newSocket.on('connect', () => {
+        console.log('AdminUserReviewContext: WebSocket connected', newSocket.id);
+        // Tham gia vào phòng admin
+        newSocket.emit('joinUserRoom', { userId: 'admin-room' });
+      });
+
+      // Lắng nghe sự kiện có đánh giá mới được tạo
+      newSocket.on('newReviewCreated', (data: any) => {
+        console.log('AdminUserReviewContext: Received newReviewCreated event', data);
+
+        // Tăng số lượng đánh giá mới
+        setNewReviewsCount(prev => prev + 1);
+
+        // Hiển thị thông báo
+        toast.success('Có đánh giá mới cần phê duyệt!', {
+          position: "bottom-right",
+          duration: 5000
+        });
+
+        // Cập nhật danh sách đánh giá nếu đang ở trang đánh giá
+        fetchReviews(currentPage);
+      });
+
+      // Lắng nghe sự kiện cập nhật trạng thái đánh giá
+      newSocket.on('reviewStatusUpdated', (data: any) => {
+        console.log('AdminUserReviewContext: Received reviewStatusUpdated event', data);
+
+        if (data.status && data.reviewId) {
+          // Cập nhật trạng thái đánh giá trong danh sách
+          setReviews(prevReviews =>
+            prevReviews.map(review =>
+              review.reviewId === data.reviewId
+                ? { ...review, status: data.status }
+                : review
+            )
+          );
+
+          // Cập nhật danh sách đánh giá của người dùng
+          setUserReviews(prevReviews =>
+            prevReviews.map(review =>
+              review.reviewId === data.reviewId
+                ? { ...review, status: data.status }
+                : review
+            )
+          );
+        }
+      });
+
+      // Lắng nghe sự kiện xóa đánh giá
+      newSocket.on('reviewDeleted', (data: any) => {
+        console.log('AdminUserReviewContext: Received reviewDeleted event', data);
+
+        if (data.reviewId) {
+          // Cập nhật danh sách đánh giá
+          setReviews(prevReviews =>
+            prevReviews.filter(review => review.reviewId !== data.reviewId)
+          );
+
+          // Cập nhật danh sách đánh giá của người dùng
+          setUserReviews(prevReviews =>
+            prevReviews.filter(review => review.reviewId !== data.reviewId)
+          );
+
+          // Tải lại danh sách đánh giá để đảm bảo dữ liệu đồng bộ
+          fetchReviews(currentPage);
+        }
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('AdminUserReviewContext: WebSocket disconnected');
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('AdminUserReviewContext: WebSocket connection error', error);
+      });
+
+      // Cleanup khi component unmount
+      return () => {
+        console.log('AdminUserReviewContext: Cleaning up WebSocket connection');
+        newSocket.off('newReviewCreated');
+        newSocket.off('reviewStatusUpdated');
+        newSocket.off('reviewDeleted');
+        newSocket.off('connect');
+        newSocket.off('disconnect');
+        newSocket.off('connect_error');
+        newSocket.close();
+        setSocket(null);
+      };
+    }
+  }, [accessToken, currentPage, fetchReviews]);
+
   // Lấy đánh giá của một người dùng cụ thể
   const fetchUserReviews = useCallback(async (userId: string) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api().get(`/admin/reviews/user/${userId}`);
-      
+
       if (response.data) {
         setUserReviews(response.data.reviews || []);
       }
@@ -136,34 +250,34 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const approveReview = useCallback(async (reviewId: string): Promise<boolean> => {
     try {
       setLoading(true);
-      
+
       const response = await api().patch(`/admin/reviews/${reviewId}/status`, {
         status: 'approved'
       });
-      
+
       if (response.data) {
         // Cập nhật danh sách đánh giá
-        setReviews(prevReviews => 
-          prevReviews.map(review => 
-            review.reviewId === reviewId 
-              ? { ...review, status: 'approved' } 
+        setReviews(prevReviews =>
+          prevReviews.map(review =>
+            review.reviewId === reviewId
+              ? { ...review, status: 'approved' }
               : review
           )
         );
-        
+
         // Cập nhật danh sách đánh giá của người dùng
-        setUserReviews(prevReviews => 
-          prevReviews.map(review => 
-            review.reviewId === reviewId 
-              ? { ...review, status: 'approved' } 
+        setUserReviews(prevReviews =>
+          prevReviews.map(review =>
+            review.reviewId === reviewId
+              ? { ...review, status: 'approved' }
               : review
           )
         );
-        
+
         toast.success('Đã phê duyệt đánh giá thành công');
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Lỗi khi phê duyệt đánh giá:', error);
@@ -178,34 +292,34 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const rejectReview = useCallback(async (reviewId: string): Promise<boolean> => {
     try {
       setLoading(true);
-      
+
       const response = await api().patch(`/admin/reviews/${reviewId}/status`, {
         status: 'rejected'
       });
-      
+
       if (response.data) {
         // Cập nhật danh sách đánh giá
-        setReviews(prevReviews => 
-          prevReviews.map(review => 
-            review.reviewId === reviewId 
-              ? { ...review, status: 'rejected' } 
+        setReviews(prevReviews =>
+          prevReviews.map(review =>
+            review.reviewId === reviewId
+              ? { ...review, status: 'rejected' }
               : review
           )
         );
-        
+
         // Cập nhật danh sách đánh giá của người dùng
-        setUserReviews(prevReviews => 
-          prevReviews.map(review => 
-            review.reviewId === reviewId 
-              ? { ...review, status: 'rejected' } 
+        setUserReviews(prevReviews =>
+          prevReviews.map(review =>
+            review.reviewId === reviewId
+              ? { ...review, status: 'rejected' }
               : review
           )
         );
-        
+
         toast.success('Đã từ chối đánh giá thành công');
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Lỗi khi từ chối đánh giá:', error);
@@ -220,19 +334,19 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const deleteReview = useCallback(async (reviewId: string): Promise<boolean> => {
     try {
       setLoading(true);
-      
+
       await api().delete(`/admin/reviews/${reviewId}`);
-      
+
       // Cập nhật danh sách đánh giá
-      setReviews(prevReviews => 
+      setReviews(prevReviews =>
         prevReviews.filter(review => review.reviewId !== reviewId)
       );
-      
+
       // Cập nhật danh sách đánh giá của người dùng
-      setUserReviews(prevReviews => 
+      setUserReviews(prevReviews =>
         prevReviews.filter(review => review.reviewId !== reviewId)
       );
-      
+
       toast.success('Đã xóa đánh giá thành công');
       return true;
     } catch (error) {
@@ -248,17 +362,22 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const getReviewStats = useCallback(async (): Promise<Record<string, number>> => {
     try {
       const response = await api().get('/admin/reviews/stats');
-      
+
       if (response.data) {
         return response.data;
       }
-      
+
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
     } catch (error) {
       console.error('Lỗi khi lấy thống kê đánh giá:', error);
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
     }
   }, [api]);
+
+  // Phương thức reset số lượng đánh giá mới
+  const resetNewReviewsCount = useCallback(() => {
+    setNewReviewsCount(0);
+  }, []);
 
   // Context value
   const value: AdminUserReviewContextType = {
@@ -269,12 +388,14 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     totalItems,
     totalPages,
     currentPage,
+    newReviewsCount,
     fetchReviews,
     fetchUserReviews,
     approveReview,
     rejectReview,
     deleteReview,
     getReviewStats,
+    resetNewReviewsCount,
   };
 
   return (

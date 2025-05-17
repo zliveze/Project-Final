@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAdminAuth } from '../../contexts/AdminAuthContext';
+import { AdminUserReviewProvider } from '../../contexts/AdminUserReviewContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminLayoutProps {
@@ -78,7 +79,7 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
   }
 
   return (
-    <>
+    <AdminUserReviewProvider>
       <Head>
         <title>{title}</title>
       </Head>
@@ -119,6 +120,6 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
           </motion.main>
         </div>
       </div>
-    </>
+    </AdminUserReviewProvider>
   );
 }
