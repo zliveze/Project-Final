@@ -14,6 +14,7 @@ export interface User {
   monthlyOrders: number;
   totalOrders: number;
   lastOrderDate?: string;
+  pendingReviews?: number; // Số lượng đánh giá đang chờ duyệt
 }
 
 interface UserTableProps {
@@ -192,16 +193,28 @@ const UserRow = React.memo(({
   };
 
   return (
-    <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
+    <tr key={user.id} className={`border-b hover:bg-gray-50 transition-colors ${user.pendingReviews ? 'bg-pink-50' : ''}`}>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         <div className="flex items-center">
-          <div className="h-10 w-10 flex-shrink-0 mr-3">
+          <div className="h-10 w-10 flex-shrink-0 mr-3 relative">
             <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
               <span className="text-blue-600 font-medium">{user.name.slice(0, 2).toUpperCase()}</span>
             </div>
+            {user.pendingReviews && user.pendingReviews > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                {user.pendingReviews}
+              </span>
+            )}
           </div>
           <div>
-            <div className="font-medium">{user.name}</div>
+            <div className="font-medium flex items-center">
+              {user.name}
+              {user.pendingReviews && user.pendingReviews > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-pink-100 text-pink-800">
+                  {user.pendingReviews} đánh giá chờ duyệt
+                </span>
+              )}
+            </div>
             <div className="text-gray-500">{user.email}</div>
           </div>
         </div>

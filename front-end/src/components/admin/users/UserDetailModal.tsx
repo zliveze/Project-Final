@@ -557,7 +557,8 @@ const TabNavigation: React.FC<{
       id: 'reviews',
       label: 'Đánh giá',
       icon: <FiStar className="mr-2" />,
-      badge: newReviewsCount > 0 ? newReviewsCount : undefined
+      badge: newReviewsCount > 0 ? newReviewsCount : undefined,
+      highlight: newReviewsCount > 0
     },
   ];
 
@@ -571,7 +572,9 @@ const TabNavigation: React.FC<{
               flex items-center whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors
               ${activeTab === tab.id
                 ? 'border-pink-500 text-pink-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                : tab.highlight
+                  ? 'border-transparent text-pink-600 bg-pink-50 hover:bg-pink-100 hover:border-pink-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
             onClick={() => onTabChange(tab.id)}
           >
@@ -705,7 +708,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-          <div className="overflow-hidden p-6" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          <div className={`overflow-hidden p-6 ${activeTab === 'reviews' ? 'bg-pink-50' : ''}`} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {activeTab === 'info' && <UserInfoTab user={user} />}
             {activeTab === 'addresses' && <UserAddressTab addresses={user.addresses} />}
             {activeTab === 'orders' && <UserOrderTab orders={user.orders} />}

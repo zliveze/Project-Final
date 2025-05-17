@@ -118,11 +118,27 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
 
   return (
     <div className="py-4 animate-fadeIn">
-      <div className="flex items-center mb-4">
-        <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-3">
-          <FiStar className="text-pink-500" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center mr-3">
+            <FiStar className="text-pink-500" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-800">Đánh giá sản phẩm</h3>
+          {filteredReviews.filter(review => review.status === 'pending').length > 0 && (
+            <span className="ml-2 px-2 py-1 text-xs rounded-full bg-pink-100 text-pink-800 font-medium">
+              {filteredReviews.filter(review => review.status === 'pending').length} chờ duyệt
+            </span>
+          )}
         </div>
-        <h3 className="text-lg font-medium text-gray-800">Đánh giá sản phẩm</h3>
+        <a
+          href={`/admin/reviews?userId=${userId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-pink-600 hover:text-pink-800 flex items-center"
+        >
+          <FiExternalLink className="mr-1" size={14} />
+          Xem trong trang quản lý
+        </a>
       </div>
 
       {/* Bộ lọc */}
@@ -166,7 +182,18 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
       ) : (
         <div className="space-y-4">
           {filteredReviews.map((review) => (
-            <div key={review.reviewId} className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+            <div
+              key={review.reviewId}
+              className={`p-4 rounded-lg border hover:shadow-md transition-shadow ${
+                review.status === 'pending'
+                  ? 'bg-pink-50 border-pink-200'
+                  : review.status === 'approved'
+                    ? 'bg-green-50 border-green-200'
+                    : review.status === 'rejected'
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-white border-gray-200'
+              }`}
+            >
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center">
                   <div className="mr-2">

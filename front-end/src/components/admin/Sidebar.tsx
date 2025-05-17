@@ -42,7 +42,12 @@ const getMenuItems = (newReviewsCount: number) => [
   {
     name: 'Người dùng',
     href: '/admin/users',
-    icon: FiUsers,
+    icon: FiUsers
+  },
+  {
+    name: 'Đánh giá sản phẩm',
+    href: '/admin/reviews',
+    icon: FiStar,
     badge: newReviewsCount > 0 ? newReviewsCount : undefined
   },
   {
@@ -68,7 +73,7 @@ const getMenuItems = (newReviewsCount: number) => [
   {
     name: 'Sự kiện',
     href: '/admin/events',
-    icon: FiStar
+    icon: FiCalendar
   },
   {
     name: 'Banners',

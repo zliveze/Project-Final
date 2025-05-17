@@ -52,7 +52,11 @@ export default function Header() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Link href="/admin/users" className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors flex items-center">
+            <Link
+              href="/admin/reviews"
+              className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors flex items-center"
+              title="Quản lý đánh giá sản phẩm"
+            >
               <span className="sr-only">Đánh giá mới</span>
               <FiStar className="h-5 w-5" />
               {newReviewsCount > 0 && (
