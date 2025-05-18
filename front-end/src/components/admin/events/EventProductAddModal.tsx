@@ -7,6 +7,26 @@ import { useCategory } from '@/contexts/CategoryContext';
 import { toast } from 'react-hot-toast';
 import useProductPromotionCheck from '@/hooks/useProductPromotionCheck';
 
+// Định nghĩa interface cho biến thể
+interface Variant {
+  variantId: string;
+  name?: string;
+  sku?: string;
+  price?: number;
+  options?: {
+    color?: string;
+    shades?: string[];
+    sizes?: string[];
+  };
+  images?: Array<{url: string, alt: string, isPrimary?: boolean}>;
+  combinations?: Array<{
+    combinationId: string;
+    attributes: Record<string, string>;
+    price?: number;
+    additionalPrice?: number;
+  }>;
+}
+
 // Định nghĩa interface cho sản phẩm từ API
 interface Product {
   _id?: string;
@@ -28,6 +48,7 @@ interface Product {
     hasGifts?: boolean;
   };
   images?: Array<{url: string, alt: string, isPrimary?: boolean}>;
+  variants?: Variant[];
 }
 
 // Interface cho bộ lọc sản phẩm
@@ -52,10 +73,13 @@ interface EventProductAddModalProps {
   onAdd: (products: {
     productId: string;
     variantId?: string;
+    combinationId?: string;
     adjustedPrice: number;
     name?: string;
     image?: string;
     originalPrice?: number;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
   }[]) => void;
   excludedProductIds?: string[]; // Các sản phẩm đã được thêm vào sự kiện
 }
@@ -80,10 +104,14 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   const [selectedProducts, setSelectedProducts] = useState<{
     productId: string;
+    variantId?: string;
+    combinationId?: string;
     adjustedPrice: number;
     name?: string;
     image?: string;
     originalPrice?: number;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
   }[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30); // Mặc định giảm 30%
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -325,13 +353,27 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         productImage = primaryImage ? primaryImage.url : product.images[0].url;
       }
 
-      setSelectedProducts(prev => [...prev, {
-        productId: productId,
-        adjustedPrice,
-        name: product.name,
-        image: productImage,
-        originalPrice: productPrice
-      }]);
+      // Kiểm tra xem sản phẩm có biến thể không
+      if (product.variants && product.variants.length > 0) {
+        // Nếu có biến thể, mở modal chọn biến thể
+        // Tạm thời chỉ thêm sản phẩm gốc
+        setSelectedProducts(prev => [...prev, {
+          productId: productId,
+          adjustedPrice,
+          name: product.name,
+          image: productImage,
+          originalPrice: productPrice
+        }]);
+      } else {
+        // Nếu không có biến thể, thêm sản phẩm gốc
+        setSelectedProducts(prev => [...prev, {
+          productId: productId,
+          adjustedPrice,
+          name: product.name,
+          image: productImage,
+          originalPrice: productPrice
+        }]);
+      }
     }
   };
 
@@ -347,13 +389,30 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         let originalPrice = product.originalPrice || 0;
 
         if (originalProduct) {
-          // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
-          if (originalProduct.originalPrice) {
-            originalPrice = typeof originalProduct.originalPrice === 'string' ?
-              parseFloat(originalProduct.originalPrice) : originalProduct.originalPrice;
-          } else if (originalProduct.price) {
-            originalPrice = typeof originalProduct.price === 'string' ?
-              parseFloat(originalProduct.price) : (originalProduct.price || 0);
+          // Nếu có variantId, lấy giá từ biến thể
+          if (product.variantId && originalProduct.variants) {
+            const variant = originalProduct.variants.find(v => v.variantId === product.variantId);
+
+            // Nếu có combinationId, lấy giá từ tổ hợp biến thể
+            if (product.combinationId && variant?.combinations) {
+              const combination = variant.combinations.find(c => c.combinationId === product.combinationId);
+              if (combination && combination.price) {
+                originalPrice = combination.price;
+              } else if (variant.price) {
+                originalPrice = variant.price;
+              }
+            } else if (variant?.price) {
+              originalPrice = variant.price;
+            }
+          } else {
+            // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
+            if (originalProduct.originalPrice) {
+              originalPrice = typeof originalProduct.originalPrice === 'string' ?
+                parseFloat(originalProduct.originalPrice) : originalProduct.originalPrice;
+            } else if (originalProduct.price) {
+              originalPrice = typeof originalProduct.price === 'string' ?
+                parseFloat(originalProduct.price) : (originalProduct.price || 0);
+            }
           }
         }
 

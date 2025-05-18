@@ -78,10 +78,23 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
   };
 
   // Xử lý xóa sản phẩm khỏi sự kiện
-  const handleRemoveProduct = (productId: string) => {
+  const handleRemoveProduct = (productId: string, variantId?: string, combinationId?: string) => {
     setFormData(prev => ({
       ...prev,
-      products: prev.products.filter(product => product.productId !== productId)
+      products: prev.products.filter(product => {
+        // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
+        if (combinationId) {
+          return !(product.productId === productId &&
+                  product.variantId === variantId &&
+                  product.combinationId === combinationId);
+        }
+        // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
+        else if (variantId) {
+          return !(product.productId === productId && product.variantId === variantId);
+        }
+        // Nếu chỉ có productId, kiểm tra productId
+        return product.productId !== productId;
+      })
     }));
 
     toast.success('Đã xóa sản phẩm khỏi sự kiện');

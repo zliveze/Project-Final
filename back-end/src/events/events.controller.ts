@@ -146,9 +146,11 @@ export class EventsController {
   @ApiResponse({ status: 404, description: 'Event or product not found.' })
   removeProductFromEvent(
     @Param('id') id: string,
-    @Param('productId') productId: string
+    @Param('productId') productId: string,
+    @Query('variantId') variantId?: string,
+    @Query('combinationId') combinationId?: string
   ) {
-    return this.eventsService.removeProductFromEvent(id, productId);
+    return this.eventsService.removeProductFromEvent(id, productId, variantId, combinationId);
   }
 
   @Patch(':id/products/:productId')
@@ -165,8 +167,14 @@ export class EventsController {
   updateProductPriceInEvent(
     @Param('id') id: string,
     @Param('productId') productId: string,
-    @Body() data: { adjustedPrice: number }
+    @Body() data: { adjustedPrice: number, variantId?: string, combinationId?: string }
   ) {
-    return this.eventsService.updateProductPriceInEvent(id, productId, data.adjustedPrice);
+    return this.eventsService.updateProductPriceInEvent(
+      id,
+      productId,
+      data.adjustedPrice,
+      data.variantId,
+      data.combinationId
+    );
   }
-} 
+}

@@ -11,10 +11,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 export interface ProductInEvent {
   productId: string;
   variantId?: string;
+  combinationId?: string;
   adjustedPrice: number;
   name?: string;
   image?: string;
   originalPrice?: number;
+  variantName?: string;
+  variantAttributes?: Record<string, string>;
 }
 
 // Định nghĩa interface cho event
@@ -55,8 +58,8 @@ interface EventsContextType {
   findEventsByVariantId: (variantId: string) => Promise<Event[]>;
   // Các phương thức mới cho quản lý sản phẩm trong event
   addProductsToEvent: (eventId: string, products: ProductInEvent[]) => Promise<Event | null>;
-  removeProductFromEvent: (eventId: string, productId: string) => Promise<Event | null>;
-  updateProductPriceInEvent: (eventId: string, productId: string, adjustedPrice: number, showToast?: boolean) => Promise<Event | null>;
+  removeProductFromEvent: (eventId: string, productId: string, variantId?: string, combinationId?: string) => Promise<Event | null>;
+  updateProductPriceInEvent: (eventId: string, productId: string, adjustedPrice: number, variantId?: string, combinationId?: string, showToast?: boolean) => Promise<Event | null>;
 }
 
 // Tạo context
@@ -145,7 +148,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Hàm để thêm event mới (cần xác thực admin)
   const addEvent = useCallback(async (eventData: EventFormData): Promise<Event | null> => {
     console.log('addEvent called - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'null');
-    
+
     if (!isAuthenticated || !accessToken) {
       toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
       return null;
@@ -285,7 +288,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Hàm để thêm sản phẩm vào event
   const addProductsToEvent = useCallback(async (
-    eventId: string, 
+    eventId: string,
     products: ProductInEvent[]
   ): Promise<Event | null> => {
     if (!isAuthenticated || !accessToken) {
@@ -308,12 +311,12 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       const updatedEvent = formatEventData(response.data);
-      
+
       // Cập nhật state events
-      setEvents(prev => prev.map(event => 
+      setEvents(prev => prev.map(event =>
         event._id === eventId ? updatedEvent : event
       ));
-      
+
       toast.success('Đã thêm sản phẩm vào sự kiện thành công');
       return updatedEvent;
     } catch (err: any) {
@@ -325,11 +328,13 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(false);
     }
   }, [isAuthenticated, accessToken]);
-  
+
   // Hàm để xóa sản phẩm khỏi event
   const removeProductFromEvent = useCallback(async (
-    eventId: string, 
-    productId: string
+    eventId: string,
+    productId: string,
+    variantId?: string,
+    combinationId?: string
   ): Promise<Event | null> => {
     if (!isAuthenticated || !accessToken) {
       toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
@@ -340,8 +345,26 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
 
     try {
+      // Tạo query params nếu có variantId hoặc combinationId
+      let url = `${API_URL}/events/${eventId}/products/${productId}`;
+      const params = new URLSearchParams();
+
+      if (variantId) {
+        params.append('variantId', variantId);
+      }
+
+      if (combinationId) {
+        params.append('combinationId', combinationId);
+      }
+
+      // Thêm query params vào URL nếu có
+      const queryString = params.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+
       const response = await axios.delete(
-        `${API_URL}/events/${eventId}/products/${productId}`,
+        url,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -350,12 +373,12 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       const updatedEvent = formatEventData(response.data);
-      
+
       // Cập nhật state events
-      setEvents(prev => prev.map(event => 
+      setEvents(prev => prev.map(event =>
         event._id === eventId ? updatedEvent : event
       ));
-      
+
       toast.success('Đã xóa sản phẩm khỏi sự kiện thành công');
       return updatedEvent;
     } catch (err: any) {
@@ -367,12 +390,14 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(false);
     }
   }, [isAuthenticated, accessToken]);
-  
+
   // Hàm để cập nhật giá sản phẩm trong event
   const updateProductPriceInEvent = useCallback(async (
-    eventId: string, 
-    productId: string, 
+    eventId: string,
+    productId: string,
     adjustedPrice: number,
+    variantId?: string,
+    combinationId?: string,
     showToast: boolean = false
   ): Promise<Event | null> => {
     if (!isAuthenticated || !accessToken) {
@@ -384,9 +409,23 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
 
     try {
+      // Tạo payload với các thông tin cần thiết
+      const payload: any = {
+        adjustedPrice
+      };
+
+      // Thêm variantId và combinationId vào payload nếu có
+      if (variantId) {
+        payload.variantId = variantId;
+      }
+
+      if (combinationId) {
+        payload.combinationId = combinationId;
+      }
+
       const response = await axios.patch(
         `${API_URL}/events/${eventId}/products/${productId}`,
-        { adjustedPrice },
+        payload,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -395,17 +434,17 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       const updatedEvent = formatEventData(response.data);
-      
+
       // Cập nhật state events
-      setEvents(prev => prev.map(event => 
+      setEvents(prev => prev.map(event =>
         event._id === eventId ? updatedEvent : event
       ));
-      
+
       // Chỉ hiển thị thông báo nếu showToast = true
       if (showToast) {
         toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
       }
-      
+
       return updatedEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể cập nhật giá sản phẩm trong sự kiện';
@@ -422,9 +461,9 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const loadData = async () => {
       // Chỉ load events khi ở các trang liên quan
-      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') &&
                                !router.pathname.startsWith('/auth');
-      
+
       if (isUserRelatedPage) {
         await fetchEvents();
       }
@@ -455,4 +494,4 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       {children}
     </EventsContext.Provider>
   );
-}; 
+};

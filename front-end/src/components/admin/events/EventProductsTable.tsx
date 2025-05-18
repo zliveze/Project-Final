@@ -7,13 +7,16 @@ interface EventProductsTableProps {
   products: {
     productId: string;
     variantId?: string;
+    combinationId?: string;
     adjustedPrice: number;
     name?: string;
     image?: string;
     originalPrice?: number;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
   }[];
-  onRemoveProduct: (productId: string) => void;
-  onPriceChange: (productId: string, newPrice: number) => void;
+  onRemoveProduct: (productId: string, variantId?: string, combinationId?: string) => void;
+  onPriceChange: (productId: string, newPrice: number, variantId?: string, combinationId?: string) => void;
 }
 
 // Sản phẩm mẫu (để hiển thị khi chưa có data)
@@ -51,8 +54,13 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     let hasNewProducts = false;
 
     products.forEach(product => {
-      if (localPrices[product.productId] === undefined) {
-        initialPrices[product.productId] = product.adjustedPrice;
+      // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
+      const key = product.productId +
+        (product.variantId ? `:${product.variantId}` : '') +
+        (product.combinationId ? `:${product.combinationId}` : '');
+
+      if (localPrices[key] === undefined) {
+        initialPrices[key] = product.adjustedPrice;
         hasNewProducts = true;
       }
     });
@@ -71,8 +79,13 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     let hasNewProducts = false;
 
     products.forEach(product => {
-      if (localPrices[product.productId] === undefined) {
-        newProductsPrice[product.productId] = product.adjustedPrice;
+      // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
+      const key = product.productId +
+        (product.variantId ? `:${product.variantId}` : '') +
+        (product.combinationId ? `:${product.combinationId}` : '');
+
+      if (localPrices[key] === undefined) {
+        newProductsPrice[key] = product.adjustedPrice;
         hasNewProducts = true;
       }
     });
@@ -98,15 +111,23 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     : [];
 
   // Hàm xử lý khi giá thay đổi
-  const handlePriceChange = useCallback((productId: string, newPrice: number) => {
+  const handlePriceChange = useCallback((
+    productId: string,
+    newPrice: number,
+    variantId?: string,
+    combinationId?: string
+  ) => {
+    // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
+    const key = productId + (variantId ? `:${variantId}` : '') + (combinationId ? `:${combinationId}` : '');
+
     // Cập nhật giá trong state local
     setLocalPrices(prev => ({
       ...prev,
-      [productId]: newPrice
+      [key]: newPrice
     }));
 
     // Gọi onPriceChange để cập nhật state ở component cha
-    onPriceChange(productId, newPrice);
+    onPriceChange(productId, newPrice, variantId, combinationId);
   }, [onPriceChange]);
 
   return (
@@ -135,14 +156,19 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
           <tbody className="bg-white divide-y divide-gray-100">
             {displayProducts.length > 0 ? (
               displayProducts.map((product) => {
+                // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
+                const key = product.productId +
+                  (product.variantId ? `:${product.variantId}` : '') +
+                  (product.combinationId ? `:${product.combinationId}` : '');
+
                 // Lấy giá hiển thị từ state local hoặc từ props nếu chưa có trong state
                 // Ưu tiên giá người dùng đã nhập (trong localPrices)
-                const displayPrice = localPrices[product.productId] !== undefined
-                  ? localPrices[product.productId]
+                const displayPrice = localPrices[key] !== undefined
+                  ? localPrices[key]
                   : product.adjustedPrice;
 
                 return (
-                  <tr key={product.productId + (product.variantId || '')} className="hover:bg-gray-50 transition-colors duration-150">
+                  <tr key={product.productId + (product.variantId || '') + (product.combinationId || '')} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-5 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         {product.image ? (
@@ -164,9 +190,28 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                           <div className="text-sm font-medium text-gray-800 line-clamp-2">
                             {product.name || `Sản phẩm ID: ${product.productId}`}
                           </div>
-                          {product.variantId && (
+                          {product.variantName && (
+                            <div className="text-xs font-medium text-pink-600 mt-1">
+                              {product.variantName}
+                            </div>
+                          )}
+                          {product.variantAttributes && Object.keys(product.variantAttributes).length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-1">
+                              {Object.entries(product.variantAttributes).map(([key, value]) => (
+                                value && <span key={key} className="bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                  {key}: {value}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {!product.variantAttributes && product.variantId && (
                             <div className="text-xs text-gray-500 mt-1">
                               Variant ID: {product.variantId.substring(0, 8)}...
+                            </div>
+                          )}
+                          {product.combinationId && !product.variantAttributes && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Combination ID: {product.combinationId.substring(0, 8)}...
                             </div>
                           )}
                         </div>
@@ -191,7 +236,12 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                               const value = parseInt(e.target.value);
                               if (!isNaN(value) && value >= 0) {
                                 // Cập nhật giá trong state local
-                                handlePriceChange(product.productId, value);
+                                handlePriceChange(
+                                  product.productId,
+                                  value,
+                                  product.variantId,
+                                  product.combinationId
+                                );
                               }
                             }}
                             min="0"
@@ -221,7 +271,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
 
                     <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
-                        onClick={() => onRemoveProduct(product.productId)}
+                        onClick={() => onRemoveProduct(product.productId, product.variantId, product.combinationId)}
                         className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-150 p-2 rounded-full hover:bg-pink-50"
                         title="Xóa sản phẩm khỏi sự kiện"
                       >

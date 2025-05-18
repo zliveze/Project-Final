@@ -1,4 +1,4 @@
-import { IsArray, IsDate, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsDate, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { Schema as MongooseSchema } from 'mongoose';
@@ -14,10 +14,20 @@ export class ProductInEventDto {
   @IsOptional()
   variantId?: MongooseSchema.Types.ObjectId;
 
+  @ApiProperty({ description: 'Product Combination ID (optional)', required: false })
+  @IsMongoId()
+  @IsOptional()
+  combinationId?: MongooseSchema.Types.ObjectId;
+
   @ApiProperty({ description: 'Adjusted price for the product during the event' })
   @IsNumber()
   @IsNotEmpty()
   adjustedPrice: number;
+
+  @ApiProperty({ description: 'Variant attributes (e.g., color, size)', required: false })
+  @IsObject()
+  @IsOptional()
+  variantAttributes?: Record<string, string>;
 }
 
 export class CreateEventDto {
@@ -49,14 +59,14 @@ export class CreateEventDto {
   @IsNotEmpty()
   endDate: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Products in event with adjusted prices',
     type: [ProductInEventDto],
-    required: false 
+    required: false
   })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProductInEventDto)
   @IsOptional()
   products?: ProductInEventDto[];
-} 
+}

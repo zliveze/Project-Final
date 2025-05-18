@@ -8,8 +8,14 @@ export class ProductInEvent {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ProductVariant' })
   variantId: MongooseSchema.Types.ObjectId;
 
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  combinationId: MongooseSchema.Types.ObjectId;
+
   @Prop({ required: true })
   adjustedPrice: number;
+
+  @Prop({ type: Object })
+  variantAttributes: Record<string, string>;
 }
 
 @Schema({ timestamps: true })
@@ -33,4 +39,4 @@ export class Event extends Document {
   products: ProductInEvent[];
 }
 
-export const EventSchema = SchemaFactory.createForClass(Event); 
+export const EventSchema = SchemaFactory.createForClass(Event);

@@ -119,21 +119,46 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   };
 
   // Xử lý xóa sản phẩm khỏi sự kiện - Cách tiếp cận mới
-  const handleRemoveProduct = async (productId: string) => {
+  const handleRemoveProduct = async (
+    productId: string,
+    variantId?: string,
+    combinationId?: string
+  ) => {
     if (!formData || !eventId) return;
 
     try {
       // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
-      setPendingOperations(prev => [...prev, { type: 'remove', productId }]);
+      setPendingOperations(prev => [...prev, {
+        type: 'remove',
+        productId,
+        variantId,
+        combinationId
+      }]);
 
       // Cập nhật state local, không gọi API
       setFormData({
         ...formData,
-        products: formData.products.filter(product => product.productId !== productId)
+        products: formData.products.filter(product => {
+          // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
+          if (combinationId) {
+            return !(product.productId === productId &&
+                    product.variantId === variantId &&
+                    product.combinationId === combinationId);
+          }
+          // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
+          else if (variantId) {
+            return !(product.productId === productId && product.variantId === variantId);
+          }
+          // Nếu chỉ có productId, kiểm tra productId
+          return product.productId !== productId;
+        })
       });
 
       // Thêm productId vào danh sách sản phẩm đã xóa để loại trừ khỏi modal thêm sản phẩm
-      setRemovedProductIds(prev => [...prev, productId]);
+      // Chỉ thêm productId vào danh sách nếu không có variantId hoặc combinationId
+      if (!variantId && !combinationId) {
+        setRemovedProductIds(prev => [...prev, productId]);
+      }
 
       // Hiển thị thông báo thành công nhưng không đóng modal
       toast.success('Đã xóa sản phẩm khỏi sự kiện. Nhấn Lưu để hoàn tất thay đổi.');
@@ -146,20 +171,51 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   };
 
   // Xử lý cập nhật giá sản phẩm trong sự kiện - Cách tiếp cận mới
-  const handleUpdateProductPrice = async (productId: string, newPrice: number) => {
+  const handleUpdateProductPrice = async (
+    productId: string,
+    newPrice: number,
+    variantId?: string,
+    combinationId?: string
+  ) => {
     if (!formData || !eventId) return;
 
     // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
-    setPendingOperations(prev => [...prev, { type: 'update_price', productId, adjustedPrice: newPrice }]);
+    setPendingOperations(prev => [...prev, {
+      type: 'update_price',
+      productId,
+      variantId,
+      combinationId,
+      adjustedPrice: newPrice
+    }]);
 
     // Chỉ cập nhật state local, không gọi API
     setFormData({
       ...formData,
-      products: formData.products.map(product =>
-        product.productId === productId
-          ? { ...product, adjustedPrice: newPrice }
-          : product
-      )
+      products: formData.products.map(product => {
+        // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
+        if (combinationId && product.combinationId) {
+          if (product.productId === productId &&
+              product.variantId === variantId &&
+              product.combinationId === combinationId) {
+            return { ...product, adjustedPrice: newPrice };
+          }
+          return product;
+        }
+        // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
+        else if (variantId && product.variantId && !combinationId && !product.combinationId) {
+          if (product.productId === productId && product.variantId === variantId) {
+            return { ...product, adjustedPrice: newPrice };
+          }
+          return product;
+        }
+        // Nếu chỉ có productId, kiểm tra productId
+        else if (!variantId && !product.variantId) {
+          if (product.productId === productId) {
+            return { ...product, adjustedPrice: newPrice };
+          }
+        }
+        return product;
+      })
     });
 
     // Không gọi API updateProductPriceInEvent nữa
@@ -189,7 +245,12 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
             case 'remove':
               // Xóa sản phẩm khỏi sự kiện
-              await removeProductFromEvent(eventId, operation.productId);
+              await removeProductFromEvent(
+                eventId,
+                operation.productId,
+                operation.variantId,
+                operation.combinationId
+              );
               break;
 
             case 'update_price':
@@ -198,6 +259,8 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
                 eventId,
                 operation.productId,
                 operation.adjustedPrice,
+                operation.variantId,
+                operation.combinationId,
                 false // Không hiển thị toast
               );
               break;

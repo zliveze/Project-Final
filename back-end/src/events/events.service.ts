@@ -91,11 +91,25 @@ export class EventsService {
       throw new BadRequestException('Danh sách sản phẩm không được trống');
     }
 
-    // Kiểm tra trùng lặp sản phẩm
-    const existingProductIds = new Set(event.products.map(p => p.productId.toString()));
+    // Kiểm tra trùng lặp sản phẩm, biến thể và tổ hợp
+    const existingProducts = new Set<string>();
+    event.products.forEach(p => {
+      // Tạo key duy nhất cho mỗi sản phẩm/biến thể/tổ hợp
+      const key = this.createProductKey(
+        p.productId.toString(),
+        p.variantId?.toString(),
+        p.combinationId?.toString()
+      );
+      existingProducts.add(key);
+    });
+
     const newProducts = productsData.filter(product => {
-      const productIdStr = product.productId.toString();
-      return !existingProductIds.has(productIdStr);
+      const key = this.createProductKey(
+        product.productId.toString(),
+        product.variantId?.toString(),
+        product.combinationId?.toString()
+      );
+      return !existingProducts.has(key);
     });
 
     if (newProducts.length === 0) {
@@ -161,21 +175,51 @@ export class EventsService {
     return populatedEvents[0];
   }
 
-  async removeProductFromEvent(id: string, productId: string): Promise<Event> {
+  // Helper method để tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
+  private createProductKey(productId: string, variantId?: string, combinationId?: string): string {
+    if (combinationId) {
+      return `${productId}:${variantId || ''}:${combinationId}`;
+    }
+    if (variantId) {
+      return `${productId}:${variantId}`;
+    }
+    return productId;
+  }
+
+  async removeProductFromEvent(id: string, productId: string, variantId?: string, combinationId?: string): Promise<Event> {
     // Kiểm tra sự kiện tồn tại
     const event = await this.findOne(id);
 
+    // Tạo điều kiện xóa dựa trên các tham số
+    let pullCondition: any = { productId: new Types.ObjectId(productId) };
+
+    // Nếu có variantId, thêm vào điều kiện
+    if (variantId) {
+      pullCondition.variantId = new Types.ObjectId(variantId);
+
+      // Nếu có combinationId, thêm vào điều kiện
+      if (combinationId) {
+        pullCondition.combinationId = new Types.ObjectId(combinationId);
+      }
+    }
+
     // Kiểm tra sản phẩm tồn tại trong sự kiện
-    const productExists = event.products.some(p => p.productId.toString() === productId);
+    const productExists = event.products.some(p => {
+      if (p.productId.toString() !== productId) return false;
+      if (variantId && p.variantId?.toString() !== variantId) return false;
+      if (combinationId && p.combinationId?.toString() !== combinationId) return false;
+      return true;
+    });
+
     if (!productExists) {
-      throw new NotFoundException(`Product with ID ${productId} not found in event ${id}`);
+      throw new NotFoundException(`Product with specified criteria not found in event ${id}`);
     }
 
     // Xóa sản phẩm khỏi sự kiện
     const updatedEvent = await this.eventModel
       .findByIdAndUpdate(
         id,
-        { $pull: { products: { productId: new Types.ObjectId(productId) } } },
+        { $pull: { products: pullCondition } },
         { new: true }
       )
       .exec();
@@ -188,7 +232,13 @@ export class EventsService {
     return populatedEvents[0];
   }
 
-  async updateProductPriceInEvent(id: string, productId: string, adjustedPrice: number): Promise<Event> {
+  async updateProductPriceInEvent(
+    id: string,
+    productId: string,
+    adjustedPrice: number,
+    variantId?: string,
+    combinationId?: string
+  ): Promise<Event> {
     // Kiểm tra sự kiện tồn tại
     const event = await this.findOne(id);
 
@@ -197,11 +247,16 @@ export class EventsService {
       throw new BadRequestException('Giá sản phẩm không được âm');
     }
 
-    // Kiểm tra sản phẩm tồn tại trong sự kiện
-    const productIndex = event.products.findIndex(p => p.productId.toString() === productId);
+    // Tìm sản phẩm trong sự kiện dựa trên các tham số
+    const productIndex = event.products.findIndex(p => {
+      if (p.productId.toString() !== productId) return false;
+      if (variantId && p.variantId?.toString() !== variantId) return false;
+      if (combinationId && p.combinationId?.toString() !== combinationId) return false;
+      return true;
+    });
 
     if (productIndex === -1) {
-      throw new NotFoundException(`Product with ID ${productId} not found in event ${id}`);
+      throw new NotFoundException(`Product with specified criteria not found in event ${id}`);
     }
 
     // Cập nhật giá sản phẩm trong sự kiện
@@ -232,10 +287,10 @@ export class EventsService {
       });
     });
 
-    // Lấy thông tin sản phẩm từ database
+    // Lấy thông tin sản phẩm từ database với variants và combinations
     const products = await this.productModel
       .find({ _id: { $in: Array.from(productIds) } })
-      .select('_id name images price')
+      .select('_id name images price variants')
       .lean()
       .exec();
 
@@ -258,12 +313,60 @@ export class EventsService {
             imageUrl = primaryImage ? primaryImage.url : productInfo.images[0].url;
           }
 
-          return {
+          // Thông tin cơ bản của sản phẩm
+          const baseProductInfo = {
             ...product,
             name: productInfo.name,
             image: imageUrl,
             originalPrice: productInfo.price
           };
+
+          // Nếu có variantId, lấy thông tin biến thể
+          if (product.variantId && productInfo.variants && productInfo.variants.length > 0) {
+            const variant = productInfo.variants.find(
+              v => v.variantId && v.variantId.toString() === product.variantId.toString()
+            );
+
+            if (variant) {
+              // Lấy ảnh của biến thể nếu có
+              if (variant.images && variant.images.length > 0) {
+                const variantPrimaryImage = variant.images.find(img => img.isPrimary);
+                imageUrl = variantPrimaryImage ? variantPrimaryImage.url : variant.images[0].url;
+              }
+
+              // Nếu có combinationId, lấy thông tin tổ hợp biến thể
+              if (product.combinationId && variant.combinations && variant.combinations.length > 0) {
+                const combination = variant.combinations.find(
+                  c => c.combinationId && c.combinationId.toString() === product.combinationId.toString()
+                );
+
+                if (combination) {
+                  return {
+                    ...baseProductInfo,
+                    image: imageUrl,
+                    variantName: variant.name || '',
+                    originalPrice: combination.price || variant.price || productInfo.price,
+                    variantAttributes: product.variantAttributes || combination.attributes || {}
+                  };
+                }
+              }
+
+              // Trường hợp chỉ có biến thể, không có tổ hợp
+              return {
+                ...baseProductInfo,
+                image: imageUrl,
+                variantName: variant.name || '',
+                originalPrice: variant.price || productInfo.price,
+                variantAttributes: product.variantAttributes || (variant.options ? {
+                  color: variant.options.color || '',
+                  size: variant.options.sizes && variant.options.sizes.length > 0 ? variant.options.sizes[0] : '',
+                  shade: variant.options.shades && variant.options.shades.length > 0 ? variant.options.shades[0] : ''
+                } : {})
+              };
+            }
+          }
+
+          return baseProductInfo;
         }
         return product;
       });
