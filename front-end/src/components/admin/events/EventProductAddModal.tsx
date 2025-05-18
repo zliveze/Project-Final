@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSearch, FiPlus, FiFilter, FiChevronDown, FiChevronUp, FiAlertCircle } from 'react-icons/fi';
+import { FiX, FiSearch, FiPlus, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Pagination from '@/components/admin/common/Pagination';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
@@ -43,30 +43,8 @@ interface ProductFilter {
   hasGifts?: boolean;
 }
 
-// Interface để phù hợp với AdminProduct từ API
-interface AdminProductResponse {
-  products: Product[];
-  total: number;
-  totalPages: number;
-}
-
-// Thêm định nghĩa cho tham số fetchAdminProductList
-interface AdminProductListParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  brandId?: string;
-  categoryId?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  isBestSeller?: boolean;
-  isNew?: boolean;
-  isOnSale?: boolean;
-  hasGifts?: boolean;
-}
+// Định nghĩa cho tham số fetchAdminProductList được sử dụng trong fetchProducts
+// Không cần export vì chỉ sử dụng nội bộ trong component này
 
 interface EventProductAddModalProps {
   isOpen: boolean;
@@ -89,9 +67,9 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   excludedProductIds = []
 }) => {
   const { fetchAdminProductList } = useProduct();
-  const { brands } = useBrands();
-  const { categories } = useCategory();
-  const { checkProducts, loading: checkingProducts } = useProductPromotionCheck();
+  const { brands, fetchBrands } = useBrands();
+  const { categories, fetchCategories } = useCategory();
+  const { checkProducts } = useProductPromotionCheck();
   const [modalVisible, setModalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -109,7 +87,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   }[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30); // Mặc định giảm 30%
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [productsInCampaign, setProductsInCampaign] = useState<Map<string, string>>(new Map());
+  const productsInCampaign = new Map<string, string>();
 
   // State cho filter nâng cao
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -130,8 +108,12 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         name: brand.name
       }));
       setBrands(brandItems);
+    } else if (isOpen) {
+      // Tải brands nếu chưa có khi modal mở
+      console.log('Tải danh sách thương hiệu...');
+      fetchBrands(1, 100); // Tải tối đa 100 brands
     }
-  }, [brands]);
+  }, [brands, isOpen, fetchBrands]);
 
   useEffect(() => {
     if (categories && categories.length > 0) {
@@ -140,8 +122,12 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         name: category.name
       }));
       setCategories(categoryItems);
+    } else if (isOpen) {
+      // Tải categories nếu chưa có khi modal mở
+      console.log('Tải danh sách danh mục...');
+      fetchCategories(1, 100); // Tải tối đa 100 categories
     }
-  }, [categories]);
+  }, [categories, isOpen, fetchCategories]);
 
   // Effect for modal visibility and resetting state
   useEffect(() => {
@@ -185,7 +171,10 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
       if (result && result.products) {
         // Lấy danh sách product IDs
-        const fetchedProductIds = result.products.map(product => product._id || product.id || '');
+        const fetchedProductIds = result.products.map(product => {
+          // Đảm bảo luôn có một ID hợp lệ để tham chiếu
+          return ((product as any)._id || product.id || '').toString();
+        }).filter(id => id !== ''); // Loại bỏ các ID rỗng
 
         try {
           // Thay vì sử dụng filterProductsNotInCampaign, sử dụng checkProducts trực tiếp
@@ -200,7 +189,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
           // Lọc danh sách sản phẩm chỉ lấy những sản phẩm không thuộc về Campaign
           const filteredProducts = result.products.filter(product => {
-            const productId = product._id || product.id || '';
+            const productId = ((product as any)._id || product.id || '').toString();
             return validProductIds.includes(productId);
           });
 
@@ -498,8 +487,162 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
             {/* Advanced Filters */}
             {showAdvancedFilters && (
-              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {/* Filter contents */}
+              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Brand Filter */}
+                <div>
+                  <label htmlFor="brandFilter" className="block text-sm font-medium text-gray-700 mb-1">Thương hiệu</label>
+                  <select
+                    id="brandFilter"
+                    name="brandId"
+                    value={tempFilters.brandId || ''}
+                    onChange={(e) => handleFilterChange('brandId', e.target.value || undefined)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Tất cả thương hiệu</option>
+                    {brandsList.map((brand) => (
+                      <option key={brand.id} value={brand.id}>{brand.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <label htmlFor="categoryFilter" className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                  <select
+                    id="categoryFilter"
+                    name="categoryId"
+                    value={tempFilters.categoryId || ''}
+                    onChange={(e) => handleFilterChange('categoryId', e.target.value || undefined)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Tất cả danh mục</option>
+                    {categoriesList.map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                  <select
+                    id="statusFilter"
+                    name="status"
+                    value={tempFilters.status || 'active'}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                  >
+                    <option value="active">Đang hoạt động</option>
+                    <option value="inactive">Ngừng hoạt động</option>
+                    <option value="draft">Bản nháp</option>
+                    <option value="">Tất cả</option>
+                  </select>
+                </div>
+
+                {/* Price Range Filter */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="minPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Giá từ</label>
+                    <input
+                      type="number"
+                      id="minPriceFilter"
+                      name="minPrice"
+                      placeholder="0đ"
+                      value={tempFilters.minPrice?.toString() || ''}
+                      onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
+                      className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="maxPriceFilter" className="block text-sm font-medium text-gray-700 mb-1">Đến</label>
+                    <input
+                      type="number"
+                      id="maxPriceFilter"
+                      name="maxPrice"
+                      placeholder="1,000,000đ"
+                      value={tempFilters.maxPrice?.toString() || ''}
+                      onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
+                      className="block w-full pl-3 pr-3 py-2 text-base border border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md"
+                    />
+                  </div>
+                </div>
+
+                {/* Product Flags */}
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Đặc điểm sản phẩm</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="flex items-center">
+                      <input
+                        id="isBestSeller"
+                        name="isBestSeller"
+                        type="checkbox"
+                        checked={tempFilters.isBestSeller || false}
+                        onChange={(e) => handleFilterChange('isBestSeller', e.target.checked)}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isBestSeller" className="ml-2 block text-sm text-gray-700">
+                        Bán chạy
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="isNew"
+                        name="isNew"
+                        type="checkbox"
+                        checked={tempFilters.isNew || false}
+                        onChange={(e) => handleFilterChange('isNew', e.target.checked)}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isNew" className="ml-2 block text-sm text-gray-700">
+                        Mới
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="isOnSale"
+                        name="isOnSale"
+                        type="checkbox"
+                        checked={tempFilters.isOnSale || false}
+                        onChange={(e) => handleFilterChange('isOnSale', e.target.checked)}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isOnSale" className="ml-2 block text-sm text-gray-700">
+                        Đang giảm giá
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="hasGifts"
+                        name="hasGifts"
+                        type="checkbox"
+                        checked={tempFilters.hasGifts || false}
+                        onChange={(e) => handleFilterChange('hasGifts', e.target.checked)}
+                        className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="hasGifts" className="ml-2 block text-sm text-gray-700">
+                        Có quà tặng
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter Actions */}
+                <div className="col-span-full flex justify-end space-x-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -607,6 +750,16 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 })}
               </div>
             )}
+          </div>
+
+          {/* Pagination */}
+          <div className="px-6 py-3 sm:px-8 border-t border-gray-200 flex justify-center">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              maxVisiblePages={5}
+            />
           </div>
 
           {/* Footer */}
