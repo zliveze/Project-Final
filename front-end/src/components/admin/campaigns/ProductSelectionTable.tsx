@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiX, FiPlus, FiCheck, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiSearch, FiX, FiPlus, FiCheck, FiFilter, FiChevronDown, FiChevronUp, FiAlertCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import { CampaignProduct } from '@/contexts/CampaignContext'; // Đã import đúng
 import { useProduct } from '@/contexts/ProductContext'; // Thêm context Product
@@ -7,6 +7,7 @@ import { useBrands } from '@/contexts/BrandContext'; // Thêm context Brand
 import { useCategory } from '@/contexts/CategoryContext'; // Thêm context Category
 import { toast } from 'react-hot-toast'; // Thêm toast
 import Pagination from '@/components/admin/common/Pagination'; // Import component Pagination
+import useProductPromotionCheck from '@/hooks/useProductPromotionCheck'; // Import hook kiểm tra sản phẩm
 
 // Định nghĩa interface cho sản phẩm từ API (tương tự EventProductAddModal)
 interface ProductFromApi {
@@ -83,6 +84,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   const { fetchAdminProductList, error: productError } = useProduct();
   const { brands, fetchBrands } = useBrands(); // Lấy brands và hàm fetchBrands
   const { categories, fetchCategories } = useCategory(); // Lấy categories và hàm fetchCategories
+  const { checkProducts, filterProductsNotInEvent, loading: checkingProducts } = useProductPromotionCheck(); // Sử dụng hook kiểm tra sản phẩm
 
   // States
   const [products, setProducts] = useState<ProductFromApi[]>([]);
@@ -93,6 +95,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   const [tempSelectedProducts, setTempSelectedProducts] = useState<CampaignProduct[]>([]);
   const [loading, setLoading] = useState(false); // State loading riêng cho component này
   const [error, setError] = useState<string | null>(null);
+  const [productsInEvent, setProductsInEvent] = useState<Map<string, string>>(new Map()); // Map lưu thông tin sản phẩm trong Event
 
   // State cho filter nâng cao
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -178,48 +181,55 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
     try {
       console.log('Fetching products with params:', params);
       const result = await fetchAdminProductList(params);
-      console.log('API Result:', result);
-
-      if (result && result.products) {
-        // Chuẩn hóa dữ liệu trả về nếu cần
-        const formattedProducts = result.products.map(p => ({
-            ...p,
-            _id: p.id, // Sử dụng p.id thay vì p._id hoặc p.id || p._id
-            // Lấy ảnh chính từ p.image
-            image: p.image || 'https://via.placeholder.com/50',
-            // Chuẩn hóa giá về number
-            price: typeof p.price === 'string' ? parseFloat(p.price) : p.price,
-            originalPrice: p.originalPrice !== undefined
-                ? (typeof p.originalPrice === 'string' ? parseFloat(p.originalPrice) : p.originalPrice)
-                : (typeof p.price === 'string' ? parseFloat(p.price) : p.price),
-            // Giả sử brand là string trả về từ API product
-            brand: p.brand || 'N/A',
-            // Bỏ qua categories nếu không có sẵn hoặc không cần thiết
-            // categories: p.categories?.map(c => c.name).join(', ')
-        }));
-
-        setProducts(formattedProducts);
-        setTotalPages(result.totalPages);
-        setTotalItems(result.total || 0); // Lưu tổng số sản phẩm
-      } else {
-        setProducts([]);
-        setTotalPages(1);
-        setTotalItems(0); // Reset tổng số sản phẩm
-        // Có thể setError nếu result không như mong đợi ngay cả khi không có lỗi API
-        // setError("Không tìm thấy sản phẩm.");
+      
+      if (result) {
+        // Lấy danh sách ID sản phẩm
+        const fetchedProductIds = result.products.map(product => {
+          // Đảm bảo luôn có một ID hợp lệ để tham chiếu
+          return ((product as any)._id || product.id || '').toString();
+        }).filter(id => id !== ''); // Loại bỏ các ID rỗng
+        
+        if (fetchedProductIds.length > 0) {
+          try {
+            // Kiểm tra sản phẩm trong promotions
+            const checkResults = await checkProducts(fetchedProductIds);
+            
+            // Tạo map để theo dõi sản phẩm trong Event
+            const productEventMap = new Map<string, string>();
+            
+            if (Array.isArray(checkResults)) {
+              checkResults.forEach(result => {
+                if (result.inEvent) {
+                  productEventMap.set(result.productId, result.eventName || 'Unknown Event');
+                }
+              });
+            }
+            
+            // Cập nhật productsInEvent state
+            setProductsInEvent(productEventMap);
+            
+            // Lọc danh sách sản phẩm dựa trên API response
+            // KHÔNG tự động lọc bỏ sản phẩm, chỉ đánh dấu
+            setProducts(result.products);
+          } catch (filterError) {
+            console.error('Lỗi khi lọc sản phẩm theo Event:', filterError);
+            // Nếu lọc thất bại, hiển thị tất cả sản phẩm
+            setProducts(result.products);
+          }
+        } else {
+          setProducts(result.products);
+        }
+        
+        setTotalItems(result.total);
+        setTotalPages(Math.ceil(result.total / 10));
       }
-    } catch (err: any) {
-      console.error('Error fetching products:', err);
-      const errorMessage = err?.response?.data?.message || productError || 'Không thể tải danh sách sản phẩm.';
-      setError(errorMessage);
-      toast.error(`Lỗi tải sản phẩm: ${errorMessage}`);
-      setProducts([]); // Xóa sản phẩm cũ khi có lỗi
-      setTotalPages(1);
-      setTotalItems(0); // Reset tổng số sản phẩm
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setError('Lỗi khi tải danh sách sản phẩm. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
-  }, [isOpen, fetchAdminProductList, page, searchTerm, filters, productError]); // Thêm productError vào dependencies
+  }, [isOpen, page, searchTerm, filters, fetchAdminProductList, checkProducts]);
 
   // Effect for fetching data
   useEffect(() => {
@@ -572,126 +582,181 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                   <tbody className="bg-white divide-y divide-gray-200">
                     {products.length === 0 ? (
                        <tr>
-                         <td colSpan={5} className="text-center py-10 text-gray-500">Không tìm thấy sản phẩm phù hợp.</td>
+                         <td colSpan={5} className="text-center py-10 text-gray-500">
+                           <p>Không tìm thấy sản phẩm phù hợp.</p>
+                         </td>
                        </tr>
                      ) : (
-                       products.map((product) => (
-                        // Nếu API trả về variants, lặp qua variants. Nếu không, hiển thị product chính.
-                        (product.variants && product.variants.length > 0) ? (
-                          product.variants.map((variant, index) => {
-                            const currentVariantId = variant._id || variant.id;
-                            const isSelected = isProductSelected(product._id || '', currentVariantId);
-                            return (
-                             <tr key={`${product._id}-${currentVariantId || index}`} className={`${isSelected ? 'bg-pink-50' : ''} hover:bg-gray-50`}>
-                               {/* Chỉ hiển thị thông tin sản phẩm ở dòng đầu tiên của variants */}
-                               {index === 0 ? (
-                                <td className={`px-4 py-3 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
-                                  <div className="flex items-start">
-                                    <div className="flex-shrink-0 h-12 w-12">
-                                      <Image
-                                        src={product.image || 'https://via.placeholder.com/50'}
-                                        alt={product.name}
-                                        width={48}
-                                        height={48}
-                                        className="rounded-md object-cover"
-                                        unoptimized // Bỏ qua tối ưu hóa Next.js nếu URL từ Cloudinary
-                                      />
-                                    </div>
-                                    <div className="ml-3">
-                                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                      <div className="text-xs text-gray-500">ID: {product._id}</div>
-                                      {/* Có thể thêm description ngắn nếu cần */}
-                                    </div>
-                                  </div>
-                                </td>
-                              ) : (
-                                // Các dòng variant sau chỉ cần ô trống hoặc border
-                                <td className="px-4 py-3 border-t border-gray-200"></td>
-                              )}
-                              {/* Thông tin Variant */}
-                              <td className="px-4 py-3 text-sm text-gray-700 align-top">
-                                <div>{variant.name}</div>
-                                <div className="text-xs text-gray-500">SKU: {variant.sku || 'N/A'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-500 align-top">{formatPrice(variant.originalPrice ?? variant.price)}</td>
-                              {/* Chỉ hiển thị thương hiệu ở dòng đầu tiên */}
-                              {index === 0 ? (
-                                 <td className={`px-4 py-3 text-sm text-gray-500 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
-                                   {typeof product.brand === 'object' ? product.brand.name : product.brand}
-                                  </td>
-                              ) : (
-                                  <td className="px-4 py-3 border-t border-gray-200"></td>
-                              )}
-                              {/* Nút chọn Variant */}
-                              <td className="px-4 py-3 text-center align-top">
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault(); // Ngăn chặn sự kiện mặc định
-                                    e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
-                                    handleSelectProduct(product, variant);
-                                  }}
-                                  type="button" // Đảm bảo nút không submit form
-                                  className={`p-1.5 rounded-full transition-colors duration-150 ${
-                                    isSelected
-                                      ? 'bg-pink-500 text-white hover:bg-pink-600'
-                                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                  }`}
-                                  aria-label={isSelected ? 'Bỏ chọn' : 'Chọn'}
-                                >
-                                  {isSelected ? <FiCheck size={14} /> : <FiPlus size={14} />}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                        ) : (
-                          // Trường hợp sản phẩm không có variants
-                          <tr key={product._id} className={`${isProductSelected(product._id || '') ? 'bg-pink-50' : ''} hover:bg-gray-50`}>
-                             <td className="px-4 py-3">
-                               <div className="flex items-center">
-                                 <div className="flex-shrink-0 h-12 w-12">
-                                   <Image
-                                     src={product.image || 'https://via.placeholder.com/50'}
-                                     alt={product.name}
-                                     width={48}
-                                     height={48}
-                                     className="rounded-md object-cover"
-                                     unoptimized
-                                   />
-                                 </div>
-                                 <div className="ml-3">
-                                   <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                    <div className="text-xs text-gray-500">ID: {product._id}</div>
-                                    <div className="text-xs text-gray-500">SKU: {product.sku || 'N/A'}</div>
+                       <>
+                         {productsInEvent.size > 0 && (
+                           <tr>
+                             <td colSpan={5} className="px-4 py-3">
+                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                 <div className="flex items-start">
+                                   <FiAlertCircle className="text-yellow-500 mt-0.5 mr-2" />
+                                   <div>
+                                     <p className="text-sm text-yellow-700 font-medium">Lưu ý về sản phẩm</p>
+                                     <p className="text-xs text-yellow-600 mt-1">
+                                       Sản phẩm đã thuộc về Event sẽ được đánh dấu màu vàng trong danh sách.
+                                       Bạn không thể thêm sản phẩm này vào Campaign khi nó đang thuộc về Event.
+                                     </p>
+                                   </div>
                                  </div>
                                </div>
                              </td>
-                             <td className="px-4 py-3 text-sm text-gray-500 italic">Sản phẩm gốc</td>
-                             <td className="px-4 py-3 text-sm text-gray-500">{formatPrice(product.originalPrice ?? product.price)}</td>
-                             <td className="px-4 py-3 text-sm text-gray-500">
-                                {typeof product.brand === 'object' ? product.brand.name : product.brand}
-                             </td>
-                             <td className="px-4 py-3 text-center">
-                               <button
-                                 onClick={(e) => {
-                                   e.preventDefault(); // Ngăn chặn sự kiện mặc định
-                                   e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
-                                   handleSelectProduct(product, undefined);
-                                 }}
-                                 type="button" // Đảm bảo nút không submit form
-                                 className={`p-1.5 rounded-full transition-colors duration-150 ${
-                                    isProductSelected(product._id || '')
-                                      ? 'bg-pink-500 text-white hover:bg-pink-600'
-                                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                  }`}
-                                   aria-label={isProductSelected(product._id || '') ? 'Bỏ chọn' : 'Chọn'}
-                                >
-                                  {isProductSelected(product._id || '') ? <FiCheck size={14} /> : <FiPlus size={14} />}
-                                </button>
-                             </td>
                            </tr>
-                        )
-                       ))
+                         )}
+                         {products.map((product) => {
+                            const productId = product._id || product.id || '';
+                            const isInEvent = productsInEvent.has(productId);
+                            
+                            if (product.variants && product.variants.length > 0) {
+                              return product.variants.map((variant, index) => {
+                                const currentVariantId = variant._id || variant.id;
+                                const isSelected = isProductSelected(productId, currentVariantId);
+                                return (
+                                  <tr 
+                                    key={`${productId}-${currentVariantId || index}`} 
+                                    className={`${isSelected ? 'bg-pink-50' : ''} ${isInEvent ? 'bg-yellow-50' : ''} hover:bg-gray-50`}
+                                  >
+                                    {/* Chỉ hiển thị thông tin sản phẩm ở dòng đầu tiên của variants */}
+                                    {index === 0 ? (
+                                      <td className={`px-4 py-3 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
+                                        <div className="flex items-start">
+                                          <div className="flex-shrink-0 h-12 w-12">
+                                            <Image
+                                              src={product.image || 'https://via.placeholder.com/50'}
+                                              alt={product.name}
+                                              width={48}
+                                              height={48}
+                                              className="rounded-md object-cover"
+                                              unoptimized // Bỏ qua tối ưu hóa Next.js nếu URL từ Cloudinary
+                                            />
+                                          </div>
+                                          <div className="ml-3">
+                                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                            <div className="text-xs text-gray-500">ID: {productId}</div>
+                                            {isInEvent && (
+                                              <div className="text-xs text-orange-500 mt-1">
+                                                Đang thuộc về Event: {productsInEvent.get(productId)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                    ) : (
+                                      // Các dòng variant sau chỉ cần ô trống hoặc border
+                                      <td className="px-4 py-3 border-t border-gray-200"></td>
+                                    )}
+                                    {/* Thông tin Variant */}
+                                    <td className="px-4 py-3 text-sm text-gray-700 align-top">
+                                      <div>{variant.name}</div>
+                                      <div className="text-xs text-gray-500">SKU: {variant.sku || 'N/A'}</div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-500 align-top">{formatPrice(variant.originalPrice ?? variant.price)}</td>
+                                    {/* Chỉ hiển thị thương hiệu ở dòng đầu tiên */}
+                                    {index === 0 ? (
+                                      <td className={`px-4 py-3 text-sm text-gray-500 align-top ${product.variants && product.variants.length > 1 ? `row-span-${product.variants.length}` : ''}`}>
+                                        {typeof product.brand === 'object' ? product.brand.name : product.brand}
+                                      </td>
+                                    ) : (
+                                      <td className="px-4 py-3 border-t border-gray-200"></td>
+                                    )}
+                                    {/* Nút chọn Variant */}
+                                    <td className="px-4 py-3 text-center align-top">
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault(); // Ngăn chặn sự kiện mặc định
+                                          e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
+                                          if (!isInEvent) {
+                                            handleSelectProduct(product, variant);
+                                          } else {
+                                            toast.error('Không thể thêm sản phẩm đang thuộc về Event');
+                                          }
+                                        }}
+                                        disabled={isInEvent}
+                                        type="button" // Đảm bảo nút không submit form
+                                        className={`p-1.5 rounded-full transition-colors duration-150 ${
+                                          isInEvent 
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : isSelected
+                                              ? 'bg-pink-500 text-white hover:bg-pink-600'
+                                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                        }`}
+                                        aria-label={isSelected ? 'Bỏ chọn' : 'Chọn'}
+                                      >
+                                        {isSelected ? <FiCheck size={14} /> : <FiPlus size={14} />}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            } else {
+                              // Trường hợp sản phẩm không có variants
+                              return (
+                                <tr 
+                                  key={productId} 
+                                  className={`${isProductSelected(productId) ? 'bg-pink-50' : ''} ${isInEvent ? 'bg-yellow-50' : ''} hover:bg-gray-50`}
+                                >
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center">
+                                      <div className="flex-shrink-0 h-12 w-12">
+                                        <Image
+                                          src={product.image || 'https://via.placeholder.com/50'}
+                                          alt={product.name}
+                                          width={48}
+                                          height={48}
+                                          className="rounded-md object-cover"
+                                          unoptimized
+                                        />
+                                      </div>
+                                      <div className="ml-3">
+                                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                        <div className="text-xs text-gray-500">ID: {productId}</div>
+                                        <div className="text-xs text-gray-500">SKU: {product.sku || 'N/A'}</div>
+                                        {isInEvent && (
+                                          <div className="text-xs text-orange-500 mt-1">
+                                            Đang thuộc về Event: {productsInEvent.get(productId)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-500 italic">Sản phẩm gốc</td>
+                                  <td className="px-4 py-3 text-sm text-gray-500">{formatPrice(product.originalPrice ?? product.price)}</td>
+                                  <td className="px-4 py-3 text-sm text-gray-500">
+                                    {typeof product.brand === 'object' ? product.brand.name : product.brand}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (!isInEvent) {
+                                          handleSelectProduct(product, undefined);
+                                        } else {
+                                          toast.error('Không thể thêm sản phẩm đang thuộc về Event');
+                                        }
+                                      }}
+                                      disabled={isInEvent}
+                                      type="button"
+                                      className={`p-1.5 rounded-full transition-colors duration-150 ${
+                                        isInEvent 
+                                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                          : isProductSelected(productId)
+                                            ? 'bg-pink-500 text-white hover:bg-pink-600'
+                                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                      }`}
+                                      aria-label={isProductSelected(productId) ? 'Bỏ chọn' : 'Chọn'}
+                                    >
+                                      {isProductSelected(productId) ? <FiCheck size={14} /> : <FiPlus size={14} />}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                          })}
+                       </>
                      )}
                   </tbody>
                 </table>

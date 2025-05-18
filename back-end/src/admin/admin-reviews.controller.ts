@@ -89,6 +89,38 @@ export class AdminReviewsController {
     }
   }
 
+  // Lấy thống kê đánh giá - Chuyển lên trước route :id để ưu tiên xử lý
+  @Get('stats/count')
+  @ApiOperation({ summary: 'Lấy thống kê đánh giá (Admin)' })
+  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
+  async getReviewStats() {
+    try {
+      const counts = await this.reviewsService.countByStatus();
+      return {
+        total: counts.total,
+        pending: counts.pending,
+        approved: counts.approved,
+        rejected: counts.rejected,
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy thống kê đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Thêm route xử lý riêng cho /admin/reviews/stats để tránh xung đột với route param :id
+  @Get('stats')
+  @ApiOperation({ summary: 'Redirect đến trang thống kê đánh giá (Admin)' })
+  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
+  async getReviewStatsRedirect() {
+    try {
+      return this.getReviewStats();
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy thống kê đánh giá (redirect): ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   // Lấy đánh giá theo ID
   @Get(':id')
   @ApiOperation({ summary: 'Lấy chi tiết đánh giá theo ID (Admin)' })
@@ -214,25 +246,6 @@ export class AdminReviewsController {
       await this.reviewsService.hardDelete(id);
     } catch (error) {
       this.logger.error(`Lỗi khi xóa đánh giá: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // Lấy thống kê đánh giá
-  @Get('stats/count')
-  @ApiOperation({ summary: 'Lấy thống kê đánh giá (Admin)' })
-  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
-  async getReviewStats() {
-    try {
-      const counts = await this.reviewsService.countByStatus();
-      return {
-        total: counts.total,
-        pending: counts.pending,
-        approved: counts.approved,
-        rejected: counts.rejected,
-      };
-    } catch (error) {
-      this.logger.error(`Lỗi khi lấy thống kê đánh giá: ${error.message}`, error.stack);
       throw error;
     }
   }

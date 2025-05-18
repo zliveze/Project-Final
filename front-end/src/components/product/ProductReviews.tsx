@@ -9,100 +9,123 @@ import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Component riêng cho nút Like
-function LikeButton({ review, isPendingByCurrentUser }: { review: ReviewType; isPendingByCurrentUser: boolean }) {
-  const { isAuthenticated } = useAuth();
-  const [liked, setLiked] = useState(review.isLiked || false);
-  const [likeCount, setLikeCount] = useState(review.likes || 0);
+// Cập nhật interface LikeButtonProps, loại bỏ handleLikeReview
+interface LikeButtonProps {
+  review: ReviewType;
+  isPendingByCurrentUser: boolean;
+  currentUserId?: string;
+}
+
+// Custom hook để quản lý trạng thái like
+const useLikeState = (review: ReviewType, toggleLikeAction: (reviewId: string, isLiked: boolean) => Promise<boolean>) => {
+  // Tạo tham chiếu đến review để theo dõi thay đổi
+  const reviewRef = React.useRef(review);
+  
+  // Lưu trạng thái ban đầu từ prop
+  const [isLiked, setIsLiked] = useState(review.isLiked || false);
+  const [likesCount, setLikesCount] = useState(review.likes || 0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Cập nhật state khi props thay đổi
+  // Lưu reviewId để nhận biết khi review thay đổi hoàn toàn
+  const [reviewId, setReviewId] = useState(review._id);
+
+  // Khi reviewId thay đổi, đặt lại trạng thái hoàn toàn
   useEffect(() => {
-    setLiked(review.isLiked || false);
-    setLikeCount(review.likes || 0);
-  }, [review.isLiked, review.likes]);
-
-  // Xử lý sự kiện click
-  async function handleClick() {
-    if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để thích đánh giá');
-      return;
+    if (reviewId !== review._id) {
+      setReviewId(review._id);
+      setIsLiked(review.isLiked || false);
+      setLikesCount(review.likes || 0);
     }
+  }, [review._id, reviewId, review.isLiked, review.likes]);
 
-    if (isPendingByCurrentUser || isLoading) return;
+  // Cập nhật khi trạng thái isLiked hoặc likes từ server thay đổi
+  useEffect(() => {
+    // So sánh với giá trị trước đó để tránh vòng lặp vô hạn
+    if (reviewRef.current.isLiked !== review.isLiked || 
+        reviewRef.current.likes !== review.likes) {
+      reviewRef.current = review; // Cập nhật ref
+      
+      if (!isLoading) { // Chỉ cập nhật nếu không đang xử lý
+        setIsLiked(review.isLiked || false);
+        setLikesCount(review.likes || 0);
+      }
+    }
+  }, [review, isLoading]);
 
-    // Cập nhật UI ngay lập tức
-    const newLiked = !liked;
-    const newCount = newLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-
-    setLiked(newLiked);
-    setLikeCount(newCount);
+  const toggleLike = async () => {
+    if (isLoading) return;
+    
     setIsLoading(true);
-
+    
+    // Lưu trạng thái trước khi thay đổi
+    const currentIsLiked = isLiked;
+    const currentLikesCount = likesCount;
+    
+    // Cập nhật UI ngay lập tức
+    const newIsLiked = !currentIsLiked;
+    setIsLiked(newIsLiked);
+    setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+    
     try {
-      // Gọi API trực tiếp
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        toast.error('Vui lòng đăng nhập để thích đánh giá');
-        setLiked(!newLiked);
-        setLikeCount(likeCount);
-        return;
+      // Gọi API để cập nhật server
+      const success = await toggleLikeAction(review._id, currentIsLiked);
+      
+      if (!success) {
+        // Khôi phục trạng thái nếu không thành công
+        setIsLiked(currentIsLiked);
+        setLikesCount(currentLikesCount);
       }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/reviews/${review._id}/toggle-like`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Không thể thích/bỏ thích đánh giá');
-      }
-
-      const data = await response.json();
-
-      // Cập nhật UI với dữ liệu từ server
-      setLiked(data.isLiked);
-      setLikeCount(data.likes);
-
     } catch (error) {
-      console.error('Lỗi khi thích/bỏ thích:', error);
+      console.error('Lỗi khi thực hiện like/unlike:', error);
       // Khôi phục trạng thái ban đầu nếu có lỗi
-      setLiked(!newLiked);
-      setLikeCount(newLiked ? newCount - 1 : newCount + 1);
-      toast.error('Có lỗi xảy ra khi thích/bỏ thích đánh giá');
+      setIsLiked(currentIsLiked);
+      setLikesCount(currentLikesCount);
     } finally {
       setIsLoading(false);
     }
-  }
+  };
+
+  return {
+    isLiked,
+    likesCount,
+    isLoading,
+    toggleLike
+  };
+};
+
+// Component riêng cho nút Like
+const LikeButton: React.FC<LikeButtonProps> = ({
+  review,
+  isPendingByCurrentUser,
+  currentUserId
+}) => {
+  const { toggleLikeReview } = useUserReview();
+  const { isLiked, likesCount, isLoading, toggleLike } = useLikeState(review, toggleLikeReview);
+
+  // Xác định các class dựa trên trạng thái
+  const buttonClass = isPendingByCurrentUser || isLoading
+    ? 'text-gray-400 cursor-not-allowed'
+    : isLiked
+      ? 'text-[#d53f8c] font-medium bg-pink-50 px-2 py-1 rounded-md border border-pink-200'
+      : 'text-gray-500 hover:text-[#d53f8c] px-2 py-1 rounded-md';
+
+  const iconClass = `mr-1 transition-all duration-200 ${isLiked ? 'fill-[#d53f8c] scale-110' : 'scale-100'}`;
 
   return (
     <button
-      onClick={handleClick}
-      className={`flex items-center text-sm px-2 py-1 rounded-md ${
-        isPendingByCurrentUser || isLoading
-          ? 'text-gray-400 cursor-not-allowed'
-          : liked
-            ? 'text-[#d53f8c] font-medium bg-pink-50 border border-pink-200'
-            : 'text-gray-500 hover:text-[#d53f8c]'
-      }`}
-      disabled={isPendingByCurrentUser || isLoading}
-      title={liked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
+      onClick={toggleLike}
+      className={`flex items-center text-sm ${buttonClass}`}
+      disabled={(isPendingByCurrentUser && review.user?._id === currentUserId) || isLoading}
+      title={isLiked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
     >
       <FiThumbsUp
-        className="mr-1"
-        style={{
-          color: liked ? '#d53f8c' : 'currentColor',
-          fill: liked ? '#d53f8c' : 'none'
-        }}
+        className={iconClass}
+        style={{ color: isLiked ? '#d53f8c' : 'inherit' }}
       />
-      <span>Hữu ích ({likeCount})</span>
+      <span>Hữu ích ({likesCount})</span>
     </button>
   );
-}
+};
 
 interface ReviewImage {
   url: string;
@@ -128,6 +151,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     fetchProductReviews,
     getReviewStats,
     checkCanReview,
+    toggleLikeReview,
     deleteReview: deleteReviewFromContext,
     loading: contextLoading,
   } = useUserReview();
@@ -424,12 +448,10 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                   status: reviewFromContext.status,
                   isLiked: reviewFromContext.isLiked
                 });
-                console.log(`Updating review ${reviewFromContext._id} status to ${reviewFromContext.status}`);
               }
               // Nếu đánh giá chưa tồn tại trong Map, thêm nó vào
               else {
                 reviewMap.set(reviewFromContext._id, reviewFromContext);
-                console.log(`Adding review ${reviewFromContext._id} to userPendingReviews`);
               }
             }
           });
@@ -492,9 +514,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
-    // Log để debug
-    console.log('displayedReviews được tính toán lại với', combined.length, 'đánh giá');
-
     return combined;
   }, [contextProductReviews, userPendingReviews, currentUserId, mapReviewData, reviews]);
 
@@ -529,8 +548,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         : [...prev, reviewId]
     );
   };
-
-
 
   const handleEditReview = (review: ReviewType) => {
     setEditingReview(review);
@@ -922,10 +939,11 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                     )}
 
                     <div className="mt-3 pl-14 flex items-center space-x-4">
-                      {/* Không sử dụng useMemo trong vòng lặp map */}
+                      {/* Không cần truyền handleLikeReview nữa */}
                       <LikeButton
                         review={review}
                         isPendingByCurrentUser={isPendingByCurrentUser}
+                        currentUserId={currentUserId}
                       />
 
                       {isCurrentUserReview && (

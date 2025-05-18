@@ -130,6 +130,23 @@ export class ReviewsController {
     }
   }
 
+  // Thêm route xử lý riêng cho /reviews/stats để tránh xung đột với route param :id
+  @Get('stats')
+  @ApiOperation({ summary: 'Redirect đến trang thống kê đánh giá' })
+  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
+  async getReviewStatsRedirect(
+    @Query('status') status?: string,
+    @Query('rating') rating?: number,
+    @Query('userId') userId?: string,
+  ) {
+    try {
+      return this.getReviewCounts(status, rating, userId);
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy thống kê đánh giá (redirect): ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   // Lấy điểm trung bình của sản phẩm
   @Get('stats/rating/:productId')
   @ApiOperation({ summary: 'Lấy điểm trung bình và phân phối đánh giá của sản phẩm' })

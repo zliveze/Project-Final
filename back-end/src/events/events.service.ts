@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Event } from './entities/event.entity';
 import { CreateEventDto, UpdateEventDto, ProductInEventDto } from './dto';
 import { Product } from '../products/schemas/product.schema';
+import { CampaignsService } from '../campaigns/campaigns.service';
 
 @Injectable()
 export class EventsService {
@@ -11,7 +12,8 @@ export class EventsService {
 
   constructor(
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
-    @InjectModel(Product.name) private readonly productModel: Model<Product>
+    @InjectModel(Product.name) private readonly productModel: Model<Product>,
+    @Inject(forwardRef(() => CampaignsService)) private readonly campaignsService: CampaignsService
   ) {}
 
   async create(createEventDto: CreateEventDto): Promise<Event> {
@@ -98,6 +100,48 @@ export class EventsService {
 
     if (newProducts.length === 0) {
       throw new BadRequestException('Tất cả sản phẩm đã tồn tại trong sự kiện');
+    }
+
+    // Kiểm tra xem sản phẩm đã thuộc về Campaign nào chưa
+    const productIds = newProducts.map(p => p.productId.toString());
+    const activeCampaigns = await this.campaignsService.getActiveCampaigns();
+
+    // Tạo map để lưu thông tin Campaign chứa sản phẩm
+    const productCampaignMap = new Map<string, { campaignId: string; campaignName: string }>();
+
+    // Kiểm tra sản phẩm trong Campaign
+    activeCampaigns.forEach(campaign => {
+      if (campaign && campaign.products) {
+        campaign.products.forEach(product => {
+          if (product && product.productId) {
+            const productIdStr = product.productId.toString();
+            // Sử dụng id thay vì _id cho Campaign
+            if (campaign._id) {
+              productCampaignMap.set(productIdStr, {
+                campaignId: campaign._id.toString(),
+                campaignName: campaign.title || 'Không có tên'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Lọc ra các sản phẩm đã thuộc về Campaign
+    const productsInCampaign = productIds.filter(productId => productCampaignMap.has(productId));
+
+    // Nếu có sản phẩm đã thuộc về Campaign, thông báo lỗi
+    if (productsInCampaign.length > 0) {
+      const campaignInfo = productCampaignMap.get(productsInCampaign[0]);
+      if (campaignInfo) {
+        throw new BadRequestException(
+          `Sản phẩm đã thuộc về Campaign "${campaignInfo.campaignName}". Vui lòng xóa sản phẩm khỏi Campaign trước khi thêm vào Event.`
+        );
+      } else {
+        throw new BadRequestException(
+          `Sản phẩm đã thuộc về một Campaign. Vui lòng xóa sản phẩm khỏi Campaign trước khi thêm vào Event.`
+        );
+      }
     }
 
     // Thêm sản phẩm mới vào sự kiện

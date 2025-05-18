@@ -1,12 +1,14 @@
-import { Injectable, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { CreateAdminDto } from './dto/admin-auth.dto';
+import { CreateAdminDto, UpdateAdminProfileDto } from './dto/admin-auth.dto';
 import { UsersService } from '../users/users.service';
+import { CampaignsService } from '../campaigns/campaigns.service';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class AdminService {
@@ -15,6 +17,8 @@ export class AdminService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    @Inject(forwardRef(() => EventsService)) private readonly eventsService: EventsService,
+    @Inject(forwardRef(() => CampaignsService)) private readonly campaignsService: CampaignsService,
   ) {
     // Tạo Super Admin khi khởi động app
     this.createSuperAdmin();
@@ -213,7 +217,7 @@ export class AdminService {
     };
   }
 
-  async updateAdminProfile(userId: string, updateProfileDto: any) {
+  async updateAdminProfile(userId: string, updateProfileDto: UpdateAdminProfileDto) {
     console.log('updateAdminProfile called with:', { userId, updateProfileDto });
     
     const admin = await this.usersService.findOne(userId);
@@ -319,5 +323,108 @@ export class AdminService {
       console.error('Lỗi khi đổi mật khẩu admin:', error);
       throw error;
     }
+  }
+
+  // Phương thức kiểm tra sản phẩm trong Event và Campaign
+  async checkProductsInPromotions(productIds: string[]): Promise<any[]> {
+    if (!productIds || productIds.length === 0) {
+      throw new BadRequestException('Danh sách productIds không được trống');
+    }
+
+    const result: Array<{
+      productId: string;
+      inEvent: boolean;
+      eventId?: string;
+      eventName?: string;
+      inCampaign: boolean;
+      campaignId?: string;
+      campaignName?: string;
+    }> = [];
+
+    // Lấy tất cả Event đang hoạt động
+    const activeEvents = await this.eventsService.findActive();
+    
+    // Lấy tất cả Campaign đang hoạt động
+    const activeCampaigns = await this.campaignsService.getActiveCampaigns();
+
+    // Tạo map để lưu thông tin Event và Campaign chứa sản phẩm
+    const productEventMap = new Map<string, { eventId: string; eventName: string }>();
+    const productCampaignMap = new Map<string, { campaignId: string; campaignName: string }>();
+
+    // Kiểm tra sản phẩm trong Event
+    activeEvents.forEach(event => {
+      if (event && event.products) {
+        event.products.forEach(product => {
+          if (product && product.productId) {
+            const productIdStr = product.productId.toString();
+            if (event._id) {
+              productEventMap.set(productIdStr, {
+                eventId: event._id.toString(),
+                eventName: event.title || 'Không có tên'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Kiểm tra sản phẩm trong Campaign
+    activeCampaigns.forEach(campaign => {
+      if (campaign && campaign.products) {
+        campaign.products.forEach(product => {
+          if (product && product.productId) {
+            const productIdStr = product.productId.toString();
+            if (campaign._id) {
+              productCampaignMap.set(productIdStr, {
+                campaignId: campaign._id.toString(),
+                campaignName: campaign.title || 'Không có tên'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Kiểm tra từng sản phẩm
+    for (const productId of productIds) {
+      const inEvent = productEventMap.has(productId);
+      const inCampaign = productCampaignMap.has(productId);
+      
+      const productCheck: {
+        productId: string;
+        inEvent: boolean;
+        eventId?: string;
+        eventName?: string;
+        inCampaign: boolean;
+        campaignId?: string;
+        campaignName?: string;
+      } = {
+        productId,
+        inEvent,
+        inCampaign
+      };
+      
+      // Thêm thông tin Event nếu sản phẩm thuộc về Event
+      if (inEvent) {
+        const eventInfo = productEventMap.get(productId);
+        if (eventInfo) {
+          productCheck.eventId = eventInfo.eventId;
+          productCheck.eventName = eventInfo.eventName;
+        }
+      }
+      
+      // Thêm thông tin Campaign nếu sản phẩm thuộc về Campaign
+      if (inCampaign) {
+        const campaignInfo = productCampaignMap.get(productId);
+        if (campaignInfo) {
+          productCheck.campaignId = campaignInfo.campaignId;
+          productCheck.campaignName = campaignInfo.campaignName;
+        }
+      }
+      
+      result.push(productCheck);
+    }
+
+    return result;
   }
 } 

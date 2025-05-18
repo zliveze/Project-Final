@@ -16,6 +16,8 @@ class CampaignProduct {
 
 @Schema({ timestamps: true })
 export class Campaign {
+  _id?: MongooseSchema.Types.ObjectId;
+
   @Prop({ required: true })
   title: string;
 
@@ -41,4 +43,4 @@ export class Campaign {
   updatedAt: Date;
 }
 
-export const CampaignSchema = SchemaFactory.createForClass(Campaign); 
+export const CampaignSchema = SchemaFactory.createForClass(Campaign);

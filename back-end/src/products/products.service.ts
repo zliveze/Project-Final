@@ -18,6 +18,7 @@ import { CampaignsService } from '../campaigns/campaigns.service'; // Import Cam
 import { Event } from '../events/entities/event.entity'; // Import Event entity
 import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
 import * as XLSX from 'xlsx';
+import { ProductPromotionCheckDto } from './dto/product-promotion-check.dto';
 
 @Injectable()
 export class ProductsService {
@@ -2255,6 +2256,91 @@ export class ProductsService {
       return this.mapProductToResponseDto(savedProduct);
     } catch (error) {
       this.logger.error(`Lỗi khi nhân bản sản phẩm: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức kiểm tra sản phẩm có trong Event hoặc Campaign nào không
+  async checkProductsInPromotions(productIds: string[]): Promise<ProductPromotionCheckDto[]> {
+    try {
+      this.logger.log(`Kiểm tra ${productIds.length} sản phẩm trong Event và Campaign`);
+
+      // Chuyển đổi productIds thành ObjectId
+      const productObjectIds = productIds.map(id => {
+        try {
+          return new Types.ObjectId(id);
+        } catch (error) {
+          this.logger.warn(`ID sản phẩm không hợp lệ: ${id}`);
+          return id; // Giữ nguyên ID nếu không chuyển đổi được
+        }
+      });
+
+      // Lấy tất cả Event đang hoạt động
+      const activeEvents = await this.eventsService.findActive();
+
+      // Lấy tất cả Campaign đang hoạt động
+      const activeCampaigns = await this.campaignsService.getActiveCampaigns();
+
+      // Tạo map để lưu thông tin Event chứa sản phẩm
+      const productEventMap = new Map<string, { eventId: string; eventName: string }>();
+
+      // Kiểm tra sản phẩm trong Event
+      activeEvents.forEach(event => {
+        if (event && event.products) {
+          event.products.forEach(product => {
+            if (product && product.productId) {
+              const productIdStr = product.productId.toString();
+              if (event._id) {
+                productEventMap.set(productIdStr, {
+                  eventId: event._id.toString(),
+                  eventName: event.title || 'Không có tên'
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Tạo map để lưu thông tin Campaign chứa sản phẩm
+      const productCampaignMap = new Map<string, { campaignId: string; campaignName: string }>();
+
+      // Kiểm tra sản phẩm trong Campaign
+      activeCampaigns.forEach(campaign => {
+        if (campaign && campaign.products) {
+          campaign.products.forEach(product => {
+            if (product && product.productId) {
+              const productIdStr = product.productId.toString();
+              // Sử dụng id thay vì _id cho Campaign
+              if (campaign._id) {
+                productCampaignMap.set(productIdStr, {
+                  campaignId: campaign._id.toString(),
+                  campaignName: campaign.title || 'Không có tên'
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Tạo kết quả
+      const result: ProductPromotionCheckDto[] = productIds.map(productId => {
+        const inEvent = productEventMap.has(productId);
+        const inCampaign = productCampaignMap.has(productId);
+
+        return {
+          productId,
+          inEvent,
+          eventId: inEvent && productEventMap.get(productId) ? productEventMap.get(productId)!.eventId : undefined,
+          eventName: inEvent && productEventMap.get(productId) ? productEventMap.get(productId)!.eventName : undefined,
+          inCampaign,
+          campaignId: inCampaign && productCampaignMap.get(productId) ? productCampaignMap.get(productId)!.campaignId : undefined,
+          campaignName: inCampaign && productCampaignMap.get(productId) ? productCampaignMap.get(productId)!.campaignName : undefined
+        };
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Lỗi khi kiểm tra sản phẩm trong Event và Campaign: ${error.message}`, error.stack);
       throw error;
     }
   }

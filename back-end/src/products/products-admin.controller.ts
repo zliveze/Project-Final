@@ -28,7 +28,8 @@ import {
   QueryProductDto,
   ProductResponseDto,
   PaginatedProductsResponseDto,
-  AdminListProductResponseDto
+  AdminListProductResponseDto,
+  ProductPromotionCheckDto
 } from './dto';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
@@ -96,6 +97,18 @@ export class ProductsAdminController {
   @ApiResponse({ status: 200, description: 'Returns product statistics' })
   async getStatistics() {
     return this.productsService.getStatistics();
+  }
+
+  @Post('check-promotions')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Kiểm tra sản phẩm có trong Event hoặc Campaign nào không' })
+  @ApiResponse({
+    status: 200,
+    description: 'Trả về thông tin về Event/Campaign chứa sản phẩm',
+    type: [ProductPromotionCheckDto]
+  })
+  async checkProductsInPromotions(@Body() data: { productIds: string[] }) {
+    return this.productsService.checkProductsInPromotions(data.productIds);
   }
 
   @Get(':id')
