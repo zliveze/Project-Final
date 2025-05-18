@@ -408,14 +408,25 @@ export class ReviewsService {
         updatedData.status = 'pending';
       }
 
+      // Xử lý cập nhật hình ảnh
+      if (updateReviewDto.images) {
+        // Nếu đã được cung cấp images qua body (từ existingImages), sử dụng nó
+        this.logger.debug(`Sử dụng images từ updateReviewDto: ${JSON.stringify(updateReviewDto.images)}`);
+        updatedData.images = updateReviewDto.images;
+      }
+
       // Upload ảnh mới lên Cloudinary nếu có
       if (files && files.length > 0) {
         const uploadedImages = await this.uploadReviewImages(files);
 
-        // Nếu đã có ảnh trước đó, thêm ảnh mới vào
-        if (review.images && review.images.length > 0) {
+        // Kết hợp với ảnh hiện có từ updatedData.images nếu có
+        if (updatedData.images && updatedData.images.length > 0) {
+          updatedData.images = [...updatedData.images, ...uploadedImages];
+        } else if (review.images && review.images.length > 0 && !updateReviewDto.images) {
+          // Nếu không có updatedData.images nhưng có ảnh cũ và không có yêu cầu xóa ảnh
           updatedData.images = [...review.images, ...uploadedImages];
         } else {
+          // Nếu không có ảnh cũ hoặc đã xóa hết ảnh cũ
           updatedData.images = uploadedImages;
         }
       }

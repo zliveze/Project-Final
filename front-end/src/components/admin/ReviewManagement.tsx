@@ -310,6 +310,35 @@ export const ReviewManagement: React.FC = () => {
                         ? `${review.content.substring(0, 150)}...`
                         : review.content}
                     </div>
+                    
+                    {/* Hiển thị thumbnail hình ảnh */}
+                    {review.images && review.images.length > 0 && (
+                      <div className="mt-3 flex space-x-2 overflow-x-auto">
+                        {review.images.slice(0, 3).map((image, index) => (
+                          <div
+                            key={index}
+                            className="h-16 w-16 flex-shrink-0 rounded-md overflow-hidden cursor-pointer"
+                            onClick={() => handleViewImage(image.url)}
+                          >
+                            <Image
+                              src={image.url}
+                              alt={image.alt || `Hình ảnh ${index + 1}`}
+                              width={64}
+                              height={64}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ))}
+                        {review.images.length > 3 && (
+                          <div
+                            className="h-16 w-16 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center cursor-pointer"
+                            onClick={() => handleViewImage(review.images[3].url)}
+                          >
+                            <span className="text-sm font-medium text-gray-500">+{review.images.length - 3}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -511,19 +540,31 @@ export const ReviewManagement: React.FC = () => {
 
       {/* Modal xem hình ảnh */}
       {showImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <button
-              onClick={() => setShowImageModal(false)}
-              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-1 rounded-full"
-            >
-              <FiX size={20} />
-            </button>
-            <img
-              src={selectedImage}
-              alt="Hình ảnh đánh giá"
-              className="max-h-[90vh] max-w-full object-contain"
-            />
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl">
+              <div className="relative">
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded-full z-10 hover:bg-opacity-70 transition-all duration-200"
+                >
+                  <FiX size={20} />
+                </button>
+                <div className="p-1 bg-white">
+                  <img
+                    src={selectedImage}
+                    alt="Hình ảnh đánh giá"
+                    className="max-h-[80vh] object-contain"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

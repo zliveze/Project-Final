@@ -55,7 +55,7 @@ axiosInstance.interceptors.response.use(
       if (typeof window !== 'undefined') {
         // Có thể thêm thông báo cho người dùng trước khi chuyển hướng
         // toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-        window.location.href = '/login'; // Hoặc trang đăng nhập của bạn
+        window.location.href = 'auth/login'; // Hoặc trang đăng nhập của bạn
       }
 
       // Trả về một Promise bị reject để ngăn chặn xử lý tiếp theo

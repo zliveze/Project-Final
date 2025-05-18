@@ -548,49 +548,90 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       return false;
     }
 
+    // Lưu lại trạng thái hiện tại trước khi gọi API để phục vụ cho việc khôi phục nếu gặp lỗi
+    const currentIsLiked = isLiked;
+
     try {
-      // Gọi API toggle-like, đảm bảo reviewId là _id
+      // Cập nhật UI trước để người dùng nhận được phản hồi ngay lập tức
+      // Đảo ngược trạng thái isLiked từ false -> true hoặc true -> false
+      const newClientIsLiked = !currentIsLiked;
+      
+      setReviews(prevReviews =>
+        prevReviews.map(review =>
+          review._id === reviewId
+            ? {
+                ...review,
+                likes: currentIsLiked ? Math.max(0, review.likes - 1) : review.likes + 1,
+                isLiked: newClientIsLiked
+              }
+            : review
+        )
+      );
+
+      // Gọi API toggle-like
       const response = await api().post(`/reviews/${reviewId}/toggle-like`);
 
       if (response.data) {
-        // Cập nhật số lượt thích và trạng thái isLiked trong danh sách đánh giá
+        // Trạng thái isLiked trong response.data là trạng thái MỚI từ server
+        const serverIsLiked = response.data.isLiked;
+        
+        // Cập nhật lại chính xác dữ liệu từ phản hồi của server
         setReviews(prevReviews =>
           prevReviews.map(review =>
-            review._id === reviewId // Sử dụng _id để so sánh
+            review._id === reviewId
               ? {
                   ...review,
-                  // API nên trả về số lượt thích mới và trạng thái isLiked mới
-                  likes: response.data.likes !== undefined ? response.data.likes : (isLiked ? Math.max(0, review.likes - 1) : review.likes + 1),
-                  isLiked: response.data.isLiked !== undefined ? response.data.isLiked : !isLiked
+                  likes: response.data.likes, // Sử dụng chính xác số lượt thích từ server
+                  isLiked: serverIsLiked // Sử dụng trạng thái isLiked từ server
                 }
               : review
           )
         );
 
-        // Cập nhật danh sách đánh giá đã thích (likedReviews set)
+        // Cập nhật danh sách đánh giá đã thích
         setLikedReviews(prev => {
           const newSet = new Set(prev);
-          // Backend nên trả về trạng thái isLiked mới
-          // Nếu API trả về isLiked = true, nghĩa là người dùng vừa thích => thêm vào set
-          // Nếu API trả về isLiked = false, nghĩa là người dùng vừa bỏ thích => xóa khỏi set
-          if (response.data.isLiked === true) {
-            newSet.add(reviewId); // reviewId ở đây là _id
+          if (serverIsLiked) {
+            newSet.add(reviewId);
           } else {
-            newSet.delete(reviewId); // reviewId ở đây là _id
+            newSet.delete(reviewId);
           }
           return newSet;
         });
 
-        // Sử dụng trạng thái isLiked *trước khi* toggle để xác định thông báo
-        // Nếu isLiked (trạng thái cũ) là false, nghĩa là người dùng vừa thực hiện hành động LIKE, trạng thái mới là true
-        // Nếu isLiked (trạng thái cũ) là true, nghĩa là người dùng vừa thực hiện hành động UNLIKE, trạng thái mới là false
-        toast.success(!isLiked ? 'Đã thích đánh giá' : 'Đã bỏ thích đánh giá');
         return true;
       }
+
+      // Nếu không có response.data, khôi phục trạng thái ban đầu
+      setReviews(prevReviews =>
+        prevReviews.map(review =>
+          review._id === reviewId
+            ? {
+                ...review,
+                likes: currentIsLiked ? review.likes + 1 : Math.max(0, review.likes - 1),
+                isLiked: currentIsLiked
+              }
+            : review
+        )
+      );
 
       return false;
     } catch (error: any) {
       console.error('Lỗi khi toggle thích/bỏ thích đánh giá:', error);
+      
+      // Khôi phục trạng thái ban đầu khi gặp lỗi
+      setReviews(prevReviews =>
+        prevReviews.map(review =>
+          review._id === reviewId
+            ? {
+                ...review,
+                likes: currentIsLiked ? review.likes + 1 : Math.max(0, review.likes - 1),
+                isLiked: currentIsLiked
+              }
+            : review
+        )
+      );
+      
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
       return false;
     }

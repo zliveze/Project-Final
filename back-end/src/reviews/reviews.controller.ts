@@ -25,6 +25,7 @@ import { CreateReviewDto, UpdateReviewDto, QueryReviewDto } from './dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { Types } from 'mongoose';
 
 @ApiTags('Reviews')
 @Controller('reviews')
@@ -112,7 +113,66 @@ export class ReviewsController {
     }
   }
 
-  // Lấy đánh giá theo ID - Di chuyển xuống dưới để tránh xung đột với /user/me và /user/:userId
+  // Lấy thống kê đánh giá theo trạng thái
+  @Get('stats/count')
+  @ApiOperation({ summary: 'Lấy thống kê đánh giá theo trạng thái' })
+  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
+  async getReviewCounts(
+    @Query('status') status?: string,
+    @Query('rating') rating?: number,
+    @Query('userId') userId?: string,
+  ) {
+    try {
+      return this.reviewsService.countByStatus(status, rating, userId);
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy thống kê đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Lấy điểm trung bình của sản phẩm
+  @Get('stats/rating/:productId')
+  @ApiOperation({ summary: 'Lấy điểm trung bình và phân phối đánh giá của sản phẩm' })
+  @ApiResponse({ status: 200, description: 'Trả về điểm trung bình và phân phối đánh giá' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy sản phẩm' })
+  async getAverageRating(@Param('productId') productId: string) {
+    try {
+      return {
+        average: await this.reviewsService.getAverageRating(productId),
+        distribution: await this.reviewsService.getRatingDistribution(productId),
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy điểm trung bình đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Kiểm tra xem người dùng đã mua sản phẩm và có thể đánh giá không
+  @UseGuards(JwtAuthGuard)
+  @Get('check-can-review/:productId')
+  @ApiOperation({ summary: 'Kiểm tra xem người dùng có thể đánh giá sản phẩm không' })
+  @ApiResponse({ status: 200, description: 'Trả về kết quả kiểm tra' })
+  @ApiBearerAuth()
+  async checkCanReview(
+    @Param('productId') productId: string,
+    @CurrentUser('userId') userId: string,
+  ) {
+    try {
+      const hasPurchased = await this.reviewsService.checkUserPurchasedProduct(userId, productId);
+      const hasReviewed = await this.reviewsService.checkUserReviewedProduct(userId, productId);
+
+      return {
+        canReview: hasPurchased && !hasReviewed,
+        hasPurchased,
+        hasReviewed
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi kiểm tra khả năng đánh giá: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Lấy đánh giá theo ID - Di chuyển xuống dưới các route khác để tránh xung đột với các path có tên cụ thể
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.reviewsService.findOne(id);
@@ -223,12 +283,14 @@ export class ReviewsController {
   @ApiBearerAuth()
   async update(
     @Param('id') id: string,
-    @Body() updateReviewDto: UpdateReviewDto,
+    @Body() body: any,
     @CurrentUser('userId') userId: string,
     @CurrentUser('role') role: string,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     try {
+      this.logger.debug(`Nhận dữ liệu cập nhật đánh giá: ${JSON.stringify(body)}`);
+      
       const review = await this.reviewsService.findOne(id);
 
       // Kiểm tra quyền: phải là chủ đánh giá hoặc admin
@@ -236,19 +298,34 @@ export class ReviewsController {
         throw new UnauthorizedException('Bạn không có quyền chỉnh sửa đánh giá này');
       }
 
+      // Tạo đối tượng UpdateReviewDto từ dữ liệu nhận được
+      const updateReviewDto = new UpdateReviewDto();
+      
+      // Lấy các trường từ body
+      if (body.rating) updateReviewDto.rating = parseInt(body.rating, 10);
+      if (body.content) updateReviewDto.content = body.content;
+      
+      // Xử lý existingImages nếu có
+      if (body.existingImages) {
+        try {
+          const existingImages = Array.isArray(body.existingImages) 
+            ? body.existingImages 
+            : JSON.parse(body.existingImages);
+            
+          updateReviewDto.images = existingImages;
+          this.logger.debug(`Đã parse existingImages: ${JSON.stringify(existingImages)}`);
+        } catch (e) {
+          this.logger.error(`Lỗi khi parse existingImages: ${e.message}`);
+        }
+      }
+
       // Nếu là admin, cho phép cập nhật trạng thái
       if (role === 'admin' || role === 'superadmin') {
+        if (body.status) updateReviewDto.status = body.status;
         return this.reviewsService.update(id, updateReviewDto, undefined, files);
       }
 
-      // Nếu là người dùng thường, chỉ cho phép cập nhật nội dung, rating và hình ảnh
-      const allowedFields: UpdateReviewDto = {
-        rating: updateReviewDto.rating,
-        content: updateReviewDto.content,
-        images: updateReviewDto.images
-      };
-
-      return this.reviewsService.update(id, allowedFields, userId, files);
+      return this.reviewsService.update(id, updateReviewDto, userId, files);
     } catch (error) {
       this.logger.error(`Lỗi khi cập nhật đánh giá: ${error.message}`, error.stack);
       throw error;
@@ -333,68 +410,23 @@ export class ReviewsController {
     @CurrentUser('userId') userId: string
   ) {
     try {
-      return this.reviewsService.toggleLikeReview(id, userId);
+      const updatedReview = await this.reviewsService.toggleLikeReview(id, userId);
+      
+      // Kiểm tra xem người dùng có trong danh sách likedBy không
+      const userObjectId = new Types.ObjectId(userId);
+      const isLiked = updatedReview.likedBy && updatedReview.likedBy.some(
+        id => id.toString() === userObjectId.toString()
+      );
+      
+      // Trả về đối tượng với các thông tin cần thiết bao gồm isLiked
+      return {
+        _id: updatedReview._id,
+        likes: updatedReview.likes,
+        likedBy: updatedReview.likedBy,
+        isLiked: isLiked
+      };
     } catch (error) {
       this.logger.error(`Lỗi khi toggle thích/bỏ thích đánh giá: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // Lấy thống kê đánh giá theo trạng thái
-  @Get('stats/count')
-  @ApiOperation({ summary: 'Lấy thống kê đánh giá theo trạng thái' })
-  @ApiResponse({ status: 200, description: 'Trả về thống kê đánh giá' })
-  async getReviewCounts(
-    @Query('status') status?: string,
-    @Query('rating') rating?: number,
-    @Query('userId') userId?: string,
-  ) {
-    try {
-      return this.reviewsService.countByStatus(status, rating, userId);
-    } catch (error) {
-      this.logger.error(`Lỗi khi lấy thống kê đánh giá: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // Lấy điểm trung bình của sản phẩm
-  @Get('stats/rating/:productId')
-  @ApiOperation({ summary: 'Lấy điểm trung bình và phân phối đánh giá của sản phẩm' })
-  @ApiResponse({ status: 200, description: 'Trả về điểm trung bình và phân phối đánh giá' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy sản phẩm' })
-  async getAverageRating(@Param('productId') productId: string) {
-    try {
-      return {
-        average: await this.reviewsService.getAverageRating(productId),
-        distribution: await this.reviewsService.getRatingDistribution(productId),
-      };
-    } catch (error) {
-      this.logger.error(`Lỗi khi lấy điểm trung bình đánh giá: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  // Kiểm tra xem người dùng đã mua sản phẩm và có thể đánh giá không
-  @UseGuards(JwtAuthGuard)
-  @Get('check-can-review/:productId')
-  @ApiOperation({ summary: 'Kiểm tra xem người dùng có thể đánh giá sản phẩm không' })
-  @ApiResponse({ status: 200, description: 'Trả về kết quả kiểm tra' })
-  @ApiBearerAuth()
-  async checkCanReview(
-    @Param('productId') productId: string,
-    @CurrentUser('userId') userId: string,
-  ) {
-    try {
-      const hasPurchased = await this.reviewsService.checkUserPurchasedProduct(userId, productId);
-      const hasReviewed = await this.reviewsService.checkUserReviewedProduct(userId, productId);
-
-      return {
-        canReview: hasPurchased && !hasReviewed,
-        hasPurchased,
-        hasReviewed
-      };
-    } catch (error) {
-      this.logger.error(`Lỗi khi kiểm tra khả năng đánh giá: ${error.message}`, error.stack);
       throw error;
     }
   }

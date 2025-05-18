@@ -37,7 +37,7 @@ export const checkAuth = (
     if (redirect) {
       // Lấy đường dẫn hiện tại để quay lại sau khi đăng nhập
       const currentPath = window.location.pathname;
-      const redirectUrl = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      const redirectUrl = `auth/login?redirect=${encodeURIComponent(currentPath)}`;
       
       // Chuyển hướng sau 1 giây để người dùng có thể đọc thông báo
       setTimeout(() => {

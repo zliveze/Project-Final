@@ -414,7 +414,21 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       toast.error('Vui lòng đăng nhập để thích đánh giá');
       return;
     }
-    await toggleLikeReview(reviewId, isLiked);
+    
+    try {
+      // Tìm đánh giá trong danh sách hiển thị
+      const currentReview = displayedReviews.find(review => review._id === reviewId);
+      if (!currentReview) return;
+      
+      // Gọi API để cập nhật và tự động cập nhật UI thông qua context
+      const success = await toggleLikeReview(reviewId, isLiked);
+      
+      if (!success) {
+        console.error('Không thể thực hiện hành động thích/bỏ thích đánh giá');
+      }
+    } catch (error) {
+      console.error('Lỗi khi thực hiện thích/bỏ thích đánh giá:', error);
+    }
   };
 
   const handleEditReview = (review: ReviewType) => {
@@ -817,8 +831,11 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                               : 'text-gray-500 hover:text-[#d53f8c]'
                         }`}
                         disabled={isPendingByCurrentUser && review.user?._id === currentUserId}
+                        title={review.isLiked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
                       >
-                        <FiThumbsUp className={`mr-1 ${review.isLiked ? 'fill-current' : ''}`} />
+                        <FiThumbsUp 
+                          className={`mr-1 transition-all duration-200 ${review.isLiked ? 'fill-current scale-110' : 'scale-100'}`} 
+                        />
                         <span>Hữu ích ({review.likes || 0})</span>
                       </button>
 
