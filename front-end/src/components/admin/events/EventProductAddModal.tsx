@@ -182,35 +182,35 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         isOnSale: filters.isOnSale,
         hasGifts: filters.hasGifts,
       });
-      
+
       if (result && result.products) {
         // Lấy danh sách product IDs
         const fetchedProductIds = result.products.map(product => product._id || product.id || '');
-        
+
         try {
           // Thay vì sử dụng filterProductsNotInCampaign, sử dụng checkProducts trực tiếp
           const checkResults = await checkProducts(fetchedProductIds);
-          
+
           // Lọc ra các sản phẩm không thuộc về Campaign
           const validProductIds = Array.isArray(checkResults)
             ? checkResults
               .filter(result => !result.inCampaign)
               .map(result => result.productId)
             : fetchedProductIds; // Nếu checkResults không phải mảng, giữ nguyên danh sách
-          
+
           // Lọc danh sách sản phẩm chỉ lấy những sản phẩm không thuộc về Campaign
           const filteredProducts = result.products.filter(product => {
             const productId = product._id || product.id || '';
             return validProductIds.includes(productId);
           });
-          
+
           setProducts(filteredProducts);
         } catch (filterError) {
           console.error('Lỗi khi lọc sản phẩm theo Campaign:', filterError);
           // Nếu lọc thất bại, hiển thị tất cả sản phẩm
           setProducts(result.products);
         }
-        
+
         setTotalPages(Math.ceil(result.total / 12));
       }
     } catch (err) {
@@ -431,50 +431,50 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
           {/* Header */}
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 sm:px-6 flex justify-between items-center">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
+          <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 sm:px-8 flex justify-between items-center">
+            <h3 className="text-lg leading-6 font-medium text-gray-800">
               Thêm sản phẩm vào sự kiện
             </h3>
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-200 bg-white rounded-full p-1.5 hover:bg-pink-50"
             >
               <FiX className="h-5 w-5" />
             </button>
           </div>
 
           {/* Search and Discount */}
-          <div className="px-4 py-3 sm:px-6 border-b border-gray-200">
-            <div className="flex flex-wrap gap-3 items-center">
+          <div className="px-6 py-4 sm:px-8 border-b border-gray-200">
+            <div className="flex flex-wrap gap-4 items-center">
               {/* Search */}
-              <div className="relative flex-1 min-w-[200px]">
+              <div className="relative flex-1 min-w-[250px]">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiSearch className="h-5 w-5 text-gray-400" />
+                  <FiSearch className="h-5 w-5 text-pink-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="Tìm kiếm sản phẩm..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200"
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
                 />
               </div>
 
               {/* Discount Percentage */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <label htmlFor="discountPercent" className="text-sm font-medium text-gray-700">
                   Giảm giá:
                 </label>
-                <div className="relative w-24">
+                <div className="relative w-28">
                   <input
                     type="number"
                     id="discountPercent"
                     min="0"
                     max="100"
-                    className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="block w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200"
                     value={discountPercent}
                     onChange={handleDiscountChange}
                   />
@@ -488,11 +488,11 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
+                className="px-4 py-2.5 bg-pink-50 text-pink-700 rounded-md hover:bg-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-500 flex items-center transition-colors duration-200"
               >
-                <FiFilter className="mr-1" />
+                <FiFilter className="mr-1.5" />
                 Lọc nâng cao
-                {showAdvancedFilters ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />}
+                {showAdvancedFilters ? <FiChevronUp className="ml-1.5" /> : <FiChevronDown className="ml-1.5" />}
               </button>
             </div>
 
@@ -505,17 +505,17 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           </div>
 
           {/* Product List */}
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[450px] overflow-y-auto">
             {loading ? (
               <div className="flex justify-center items-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-pink-500"></div>
               </div>
             ) : error ? (
               <div className="p-8 text-center text-red-500">
                 <p>{error}</p>
                 <button
                   onClick={fetchProducts}
-                  className="mt-2 text-sm text-pink-600 hover:text-pink-500"
+                  className="mt-2 text-sm text-pink-600 hover:text-pink-500 focus:outline-none focus:underline"
                 >
                   Thử lại
                 </button>
@@ -525,11 +525,11 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 <p>Không tìm thấy sản phẩm nào.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
                 {filteredProducts.map((product) => {
                   const productId = product._id || product.id || '';
                   const isSelected = isProductSelected(productId);
-                  
+
                   // Ưu tiên lấy giá từ originalPrice sau đó mới đến price
                   let productPrice = 0;
                   if (product.originalPrice) {
@@ -542,7 +542,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
                   const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
                   const actualDiscount = Math.round(((productPrice - adjustedPrice) / productPrice) * 100);
-                  
+
                   // Lấy ảnh sản phẩm
                   let productImage = product.image;
                   if (product.images && product.images.length > 0) {
@@ -610,23 +610,31 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-3 sm:px-6 border-t border-gray-200 flex justify-between">
+          <div className="px-6 py-4 sm:px-8 border-t border-gray-200 flex justify-between items-center">
             <div>
-              <span className="text-sm text-gray-700">
-                Đã chọn {selectedProducts.length} sản phẩm
+              <span className="text-sm text-gray-700 flex items-center">
+                <span className="bg-pink-100 text-pink-800 text-xs font-medium px-2.5 py-1 rounded-full mr-2">
+                  {selectedProducts.length}
+                </span>
+                Sản phẩm đã chọn
                 {selectedProducts.length > 10 &&
-                  <span className="text-orange-500 ml-1">(Khuyến nghị: Nên chọn tối đa 10 sản phẩm mỗi lần)</span>
+                  <span className="text-orange-500 ml-2 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Khuyến nghị: Nên chọn tối đa 10 sản phẩm mỗi lần
+                  </span>
                 }
               </span>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex space-x-4">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className={`py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 ${
+                className={`py-2.5 px-5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 ${
                   submitting ? 'opacity-50 cursor-not-allowed' : 'bg-white hover:bg-gray-50'
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                } focus:outline-none focus:ring-2 focus:ring-pink-200 transition-colors duration-200`}
               >
                 Hủy
               </button>
@@ -634,10 +642,10 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                 type="button"
                 onClick={handleAddProducts}
                 disabled={selectedProducts.length === 0 || submitting}
-                className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white
+                className={`py-2.5 px-5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white
                   ${selectedProducts.length === 0 || submitting
                     ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500'}`}
+                    : 'bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all duration-200 transform hover:-translate-y-0.5'}`}
               >
                 {submitting ? (
                   <>
@@ -646,7 +654,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <FiPlus className="inline-block h-4 w-4 mr-1" />
+                    <FiPlus className="inline-block h-4 w-4 mr-1.5" />
                     Thêm vào sự kiện
                   </>
                 )}
@@ -659,4 +667,4 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   );
 };
 
-export default EventProductAddModal; 
+export default EventProductAddModal;

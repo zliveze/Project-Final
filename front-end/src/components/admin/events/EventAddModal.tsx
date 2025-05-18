@@ -26,7 +26,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
     endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
     products: []
   });
-  
+
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +37,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
       }, 300);
     }
   }, [isOpen]);
-  
+
   // Xử lý thêm sản phẩm vào sự kiện
   const handleAddProducts = (products: {
     productId: string;
@@ -53,22 +53,22 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
         toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
         return;
       }
-      
+
       // Kiểm tra sản phẩm trùng lặp
       const existingProductIds = new Set(formData.products.map(p => p.productId));
       const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
-      
+
       if (uniqueProducts.length === 0) {
         toast.error('Các sản phẩm đã tồn tại trong sự kiện');
         return;
       }
-      
+
       // Cập nhật state với sản phẩm mới
       setFormData(prev => ({
         ...prev,
         products: [...prev.products, ...uniqueProducts]
       }));
-      
+
       setShowProductModal(false);
       toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
     } catch (error) {
@@ -76,28 +76,28 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
       toast.error('Có lỗi xảy ra khi thêm sản phẩm');
     }
   };
-  
+
   // Xử lý xóa sản phẩm khỏi sự kiện
   const handleRemoveProduct = (productId: string) => {
     setFormData(prev => ({
       ...prev,
       products: prev.products.filter(product => product.productId !== productId)
     }));
-    
+
     toast.success('Đã xóa sản phẩm khỏi sự kiện');
   };
-  
+
   // Xử lý khi submit form
   const handleSubmit = async (data: EventFormData) => {
     try {
       setIsSubmitting(true);
-      
+
       // Gọi hàm submit từ parent component
       await onSubmit(data);
-      
+
       // Đóng modal
       onClose();
-      
+
       // Reset form
       setFormData({
         title: '',
@@ -114,7 +114,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
       setIsSubmitting(false);
     }
   };
-  
+
   if (!modalVisible) return null;
 
   // Danh sách ID sản phẩm đã thêm vào sự kiện
@@ -130,23 +130,23 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
 
           <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-          <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+          <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
             {/* Header */}
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 sm:px-6 flex justify-between items-center">
+            <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 sm:px-8 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Thêm sự kiện mới
               </h3>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                className="text-gray-400 hover:text-gray-500 focus:outline-none rounded-full hover:bg-pink-100 p-2 transition-colors"
               >
                 <FiX className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Body */}
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            {/* Body với padding lớn hơn */}
+            <div className="bg-white px-8 pt-6 pb-8 sm:p-8 max-h-[80vh] overflow-y-auto">
               <EventForm
                 initialData={formData}
                 onSubmit={handleSubmit}
@@ -159,7 +159,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
           </div>
         </div>
       </div>
-      
+
       {/* Modal thêm sản phẩm */}
       <EventProductAddModal
         isOpen={showProductModal}
@@ -171,4 +171,4 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
   );
 };
 
-export default EventAddModal; 
+export default EventAddModal;

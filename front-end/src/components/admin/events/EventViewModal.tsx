@@ -19,7 +19,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'products'
-  
+
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
     if (isOpen) {
@@ -30,20 +30,20 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
       }, 300);
     }
   }, [isOpen]);
-  
+
   if (!modalVisible || !event) return null;
-  
+
   // Tính toán trạng thái của sự kiện
   const getEventStatus = (event: Event): EventStatus => {
     const now = new Date();
     const startDate = new Date(event.startDate);
     const endDate = new Date(event.endDate);
-    
+
     if (isBefore(now, startDate)) return 'upcoming';
     if (isAfter(now, endDate)) return 'ended';
     return 'ongoing';
   };
-  
+
   // Lấy màu cho trạng thái
   const getStatusColor = (status: EventStatus): string => {
     switch (status) {
@@ -57,7 +57,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   // Lấy text cho trạng thái
   const getStatusText = (status: EventStatus): string => {
     switch (status) {
@@ -71,34 +71,34 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
         return 'Không xác định';
     }
   };
-  
+
   // Tính toán thời gian còn lại hoặc đã kết thúc
   const getTimeInfo = (event: Event): string => {
     const now = new Date();
     const startDate = new Date(event.startDate);
     const endDate = new Date(event.endDate);
-    
+
     if (isBefore(now, startDate)) {
       return `Bắt đầu sau ${formatDistanceToNow(startDate)}`;
     }
-    
+
     if (isWithinInterval(now, { start: startDate, end: endDate })) {
       return `Kết thúc sau ${formatDistanceToNow(endDate)}`;
     }
-    
+
     return `Đã kết thúc ${formatDistanceToNow(endDate, { addSuffix: true })}`;
   };
-  
+
   // Tính % giảm giá trung bình
   const calculateAverageDiscount = (): number => {
     if (!event.products || event.products.length === 0) return 0;
-    
+
     // Giả sử chúng ta có thông tin về giá gốc và giá khuyến mãi
     // Trong thực tế, cần lấy thông tin này từ API
     // Ở đây chỉ là demo với giá trị cố định
     return 30; // Giả sử giảm giá trung bình là 30%
   };
-  
+
   const status = getEventStatus(event);
 
   return (
@@ -110,16 +110,16 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
           {/* Header */}
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 sm:px-6 flex justify-between items-center">
+          <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 sm:px-6 flex justify-between items-center">
             <h3 className="text-lg leading-6 font-medium text-gray-900">
               Chi tiết sự kiện
             </h3>
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              className="text-gray-400 hover:text-pink-500 focus:outline-none rounded-full hover:bg-pink-100 p-2 transition-colors"
             >
               <FiX className="h-5 w-5" />
             </button>
@@ -152,7 +152,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="bg-white px-6 pt-6 pb-6 sm:p-8 max-h-[70vh] overflow-y-auto">
             {activeTab === 'info' ? (
               <div className="space-y-6">
                 {/* Tiêu đề và trạng thái */}
@@ -167,7 +167,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Thông tin thời gian và thời lượng */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -180,7 +180,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center">
                       <FiCalendar className="h-5 w-5 text-gray-400 mr-2" />
                       <div>
@@ -190,7 +190,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center">
                       <FiClock className="h-5 w-5 text-gray-400 mr-2" />
                       <div>
@@ -200,7 +200,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Tags */}
                 {event.tags && event.tags.length > 0 && (
                   <div className="flex items-start">
@@ -220,24 +220,24 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Thống kê nhanh */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-pink-50 p-3 rounded-lg">
                     <div className="text-xs text-pink-500 font-medium">Số sản phẩm</div>
                     <div className="text-2xl font-bold text-pink-700">{event.products.length}</div>
                   </div>
-                  
+
                   <div className="bg-green-50 p-3 rounded-lg">
                     <div className="text-xs text-green-500 font-medium">Giảm giá TB</div>
                     <div className="text-2xl font-bold text-green-700">{calculateAverageDiscount()}%</div>
                   </div>
-                  
+
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-xs text-blue-500 font-medium">Tổng xem</div>
                     <div className="text-2xl font-bold text-blue-700">1,287</div>
                   </div>
-                  
+
                   <div className="bg-yellow-50 p-3 rounded-lg">
                     <div className="text-xs text-yellow-500 font-medium">Đơn hàng</div>
                     <div className="text-2xl font-bold text-yellow-700">86</div>
@@ -269,19 +269,19 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                       <tbody className="bg-white divide-y divide-gray-200">
                         {event.products.map((product, index) => {
                           // Tính phần trăm giảm giá (nếu có originalPrice)
-                          const discountPercent = product.originalPrice 
+                          const discountPercent = product.originalPrice
                             ? Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)
                             : 0;
-                            
+
                           return (
                             <tr key={index} className="hover:bg-gray-50">
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <div className="flex items-center">
                                   {product.image ? (
                                     <div className="flex-shrink-0 h-10 w-10 mr-3">
-                                      <img 
-                                        className="h-10 w-10 rounded-md object-cover" 
-                                        src={product.image} 
+                                      <img
+                                        className="h-10 w-10 rounded-md object-cover"
+                                        src={product.image}
                                         alt={product.name || 'Sản phẩm'}
                                       />
                                     </div>
@@ -323,7 +323,7 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                             </tr>
                           );
                         })}
-                        
+
                         {event.products.length === 0 && (
                           <tr>
                             <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
@@ -338,9 +338,9 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Footer */}
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-between border-t border-gray-200">
+          <div className="bg-pink-50 px-6 py-4 sm:px-8 flex justify-between border-t border-pink-100">
             <div className="text-xs text-gray-500">
               Tạo lúc: {format(new Date(event.createdAt), 'HH:mm - dd/MM/yyyy')}
             </div>
@@ -359,4 +359,4 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
   );
 };
 
-export default EventViewModal; 
+export default EventViewModal;

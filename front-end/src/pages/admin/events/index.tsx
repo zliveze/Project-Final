@@ -259,7 +259,7 @@ export default function AdminEvents() {
         onSubmit={handleAddEvent}
       />
       
-      <EventEditModal 
+      <EventEditModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         onSubmit={handleEditEvent}

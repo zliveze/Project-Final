@@ -3,7 +3,7 @@ import { FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
-import { Event, useEvents } from '@/contexts/EventsContext';
+import { Event, useEvents, ProductInEvent } from '@/contexts/EventsContext';
 
 interface EventEditModalProps {
   isOpen: boolean;
@@ -12,6 +12,12 @@ interface EventEditModalProps {
   eventId?: string;
   events: Event[];
 }
+
+// Định nghĩa kiểu dữ liệu cho các thao tác với sản phẩm
+type ProductOperation =
+  | { type: 'add'; products: ProductInEvent[] }
+  | { type: 'remove'; productId: string }
+  | { type: 'update_price'; productId: string; adjustedPrice: number };
 
 const EventEditModal: React.FC<EventEditModalProps> = ({
   isOpen,
@@ -24,10 +30,14 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [formData, setFormData] = useState<EventFormData | null>(null);
-  
+  // State để theo dõi các sản phẩm đã xóa (để loại trừ khỏi modal thêm sản phẩm)
+  const [removedProductIds, setRemovedProductIds] = useState<string[]>([]);
+  // State mới để theo dõi tất cả các thao tác với sản phẩm trong một phiên chỉnh sửa
+  const [pendingOperations, setPendingOperations] = useState<ProductOperation[]>([]);
+
   // Sử dụng context để thao tác với API
   const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent, fetchEventById } = useEvents();
-  
+
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
     if (isOpen) {
@@ -38,7 +48,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       }, 300);
     }
   }, [isOpen]);
-  
+
   // Tải dữ liệu sự kiện khi mở modal và có eventId
   useEffect(() => {
     if (isOpen && eventId) {
@@ -53,11 +63,14 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
           endDate: new Date(event.endDate),
           products: [...event.products]
         });
+        // Reset danh sách sản phẩm đã xóa và các thao tác đang chờ xử lý khi mở modal mới
+        setRemovedProductIds([]);
+        setPendingOperations([]);
       }
     }
   }, [isOpen, eventId, events]);
-  
-  // Xử lý thêm sản phẩm vào sự kiện
+
+  // Xử lý thêm sản phẩm vào sự kiện - Cách tiếp cận mới
   const handleAddProducts = async (products: {
     productId: string;
     variantId?: string;
@@ -67,129 +80,141 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
     originalPrice?: number;
   }[]) => {
     if (!formData || !eventId) return;
-    
+
     try {
       // Giới hạn số lượng sản phẩm có thể thêm vào một lần
       if (formData.products.length + products.length > 50) {
         toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
         return;
       }
-      
+
       // Kiểm tra sản phẩm trùng lặp
       const existingProductIds = new Set(formData.products.map(p => p.productId));
       const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
-      
+
       if (uniqueProducts.length === 0) {
         toast.error('Các sản phẩm đã tồn tại trong sự kiện');
         return;
       }
-      
-      // Gọi API thêm sản phẩm vào sự kiện
-      setIsSubmitting(true);
-      const updatedEvent = await addProductsToEvent(eventId, uniqueProducts);
-      setIsSubmitting(false);
-      
-      if (updatedEvent) {
-        // Cập nhật state với sản phẩm mới
-        setFormData({
-          ...formData,
-          products: updatedEvent.products
-        });
-        
-        setShowProductModal(false);
-      }
+
+      // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
+      setPendingOperations(prev => [...prev, { type: 'add', products: uniqueProducts }]);
+
+      // Cập nhật state local mà không gọi API
+      setFormData({
+        ...formData,
+        products: [...formData.products, ...uniqueProducts]
+      });
+
+      // Xóa các sản phẩm mới thêm khỏi danh sách sản phẩm đã xóa (nếu có)
+      const addedProductIds = uniqueProducts.map(p => p.productId);
+      setRemovedProductIds(prev => prev.filter(id => !addedProductIds.includes(id)));
+
+      setShowProductModal(false);
+      toast.success('Đã thêm sản phẩm vào sự kiện. Nhấn Lưu để hoàn tất thay đổi.');
     } catch (error) {
       console.error('Error adding products:', error);
       toast.error('Có lỗi xảy ra khi thêm sản phẩm');
-      setIsSubmitting(false);
     }
   };
-  
-  // Xử lý xóa sản phẩm khỏi sự kiện
+
+  // Xử lý xóa sản phẩm khỏi sự kiện - Cách tiếp cận mới
   const handleRemoveProduct = async (productId: string) => {
     if (!formData || !eventId) return;
-    
+
     try {
-      setIsSubmitting(true);
-      const updatedEvent = await removeProductFromEvent(eventId, productId);
-      setIsSubmitting(false);
-      
-      if (updatedEvent) {
-        // Cập nhật state local
-        setFormData({
-          ...formData,
-          products: formData.products.filter(product => product.productId !== productId)
-        });
-      }
+      // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
+      setPendingOperations(prev => [...prev, { type: 'remove', productId }]);
+
+      // Cập nhật state local, không gọi API
+      setFormData({
+        ...formData,
+        products: formData.products.filter(product => product.productId !== productId)
+      });
+
+      // Thêm productId vào danh sách sản phẩm đã xóa để loại trừ khỏi modal thêm sản phẩm
+      setRemovedProductIds(prev => [...prev, productId]);
+
+      // Hiển thị thông báo thành công nhưng không đóng modal
+      toast.success('Đã xóa sản phẩm khỏi sự kiện. Nhấn Lưu để hoàn tất thay đổi.');
+
+      // Việc gọi API removeProductFromEvent sẽ được thực hiện khi submit form
     } catch (error) {
       console.error('Error removing product:', error);
       toast.error('Có lỗi xảy ra khi xóa sản phẩm');
-      setIsSubmitting(false);
     }
   };
-  
-  // Xử lý cập nhật giá sản phẩm trong sự kiện
+
+  // Xử lý cập nhật giá sản phẩm trong sự kiện - Cách tiếp cận mới
   const handleUpdateProductPrice = async (productId: string, newPrice: number) => {
     if (!formData || !eventId) return;
-    
+
+    // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
+    setPendingOperations(prev => [...prev, { type: 'update_price', productId, adjustedPrice: newPrice }]);
+
     // Chỉ cập nhật state local, không gọi API
     setFormData({
       ...formData,
-      products: formData.products.map(product => 
-        product.productId === productId 
+      products: formData.products.map(product =>
+        product.productId === productId
           ? { ...product, adjustedPrice: newPrice }
           : product
       )
     });
-    
+
     // Không gọi API updateProductPriceInEvent nữa
     // Việc cập nhật API sẽ được thực hiện khi submit form
+    toast.success('Đã cập nhật giá sản phẩm. Nhấn Lưu để hoàn tất thay đổi.');
   };
-  
-  // Xử lý khi submit form
+
+  // Xử lý khi submit form - Cách tiếp cận mới
   const handleSubmit = async (data: EventFormData) => {
     if (!eventId) {
       toast.error('Không tìm thấy ID sự kiện');
       return;
     }
-    
+
     try {
       setIsSubmitting(true);
-      
-      // Cập nhật tất cả giá sản phẩm đã thay đổi
-      // Lưu ý: Chỉ khi người dùng bấm nút Lưu
-      if (formData) {
-        // Tạo mảng promises để cập nhật giá tất cả sản phẩm
-        const productPricePromises = formData.products.map(async (product) => {
-          // Tìm sản phẩm tương ứng từ events ban đầu
-          const originalEvent = events.find(e => e._id === eventId);
-          if (!originalEvent) return null;
-          
-          const originalProduct = originalEvent.products.find(p => p.productId === product.productId);
-          if (!originalProduct) return null;
-          
-          // Kiểm tra xem giá có thay đổi không
-          if (originalProduct.adjustedPrice !== product.adjustedPrice) {
-            // Chỉ gọi API, không sử dụng kết quả trả về để cập nhật UI
-            await updateProductPriceInEvent(eventId, product.productId, product.adjustedPrice);
-            return true;
+
+      // Xử lý tất cả các thao tác đang chờ xử lý
+      if (formData && pendingOperations.length > 0) {
+        // Xử lý từng thao tác theo thứ tự
+        for (const operation of pendingOperations) {
+          switch (operation.type) {
+            case 'add':
+              // Thêm sản phẩm vào sự kiện
+              await addProductsToEvent(eventId, operation.products);
+              break;
+
+            case 'remove':
+              // Xóa sản phẩm khỏi sự kiện
+              await removeProductFromEvent(eventId, operation.productId);
+              break;
+
+            case 'update_price':
+              // Cập nhật giá sản phẩm
+              await updateProductPriceInEvent(
+                eventId,
+                operation.productId,
+                operation.adjustedPrice,
+                false // Không hiển thị toast
+              );
+              break;
           }
-          return null;
-        });
-        
-        // Chờ tất cả promises hoàn thành (chỉ các promises không null)
-        await Promise.all(productPricePromises.filter(Boolean));
-        
-        // QUAN TRỌNG: Không lấy lại dữ liệu từ server để tránh reset giá
-        // Tiếp tục sử dụng giá người dùng đã nhập
+        }
+
+        // Reset danh sách thao tác đang chờ xử lý và sản phẩm đã xóa
+        setPendingOperations([]);
+        setRemovedProductIds([]);
       }
-      
+
       // Gọi hàm submit từ parent component để cập nhật thông tin sự kiện
       await onSubmit(eventId, data);
-      
+
       // Hiển thị thông báo thành công
       toast.success('Đã lưu sự kiện thành công');
-      
+
       // Đóng modal
       onClose();
     } catch (error) {
@@ -199,11 +224,14 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       setIsSubmitting(false);
     }
   };
-  
+
   if (!modalVisible || !formData) return null;
 
-  // Danh sách ID sản phẩm đã thêm vào sự kiện
-  const excludedProductIds = formData.products.map(product => product.productId);
+  // Danh sách ID sản phẩm đã thêm vào sự kiện và đã xóa
+  const excludedProductIds = [
+    ...formData.products.map(product => product.productId),
+    ...removedProductIds
+  ];
 
   return (
     <>
@@ -215,23 +243,28 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
           <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-          <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
-            {/* Header */}
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 sm:px-6 flex justify-between items-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+          <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+            {/* Header với màu hồng nhạt */}
+            <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center">
+              <h3 className="text-lg leading-6 font-medium text-gray-800 flex items-center">
+                <span className="bg-pink-100 p-1.5 rounded-lg mr-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-pink-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h8V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm11 14a1 1 0 001-1V6a1 1 0 00-1-1H4a1 1 0 00-1 1v9a1 1 0 001 1h12z" clipRule="evenodd" />
+                  </svg>
+                </span>
                 Chỉnh sửa sự kiện
               </h3>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-200 bg-white rounded-full p-1.5 hover:bg-pink-50"
               >
                 <FiX className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Body */}
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            {/* Body với padding lớn hơn và scroll */}
+            <div className="bg-white px-8 pt-6 pb-8 sm:p-8 max-h-[80vh] overflow-y-auto">
               <EventForm
                 initialData={formData}
                 onSubmit={handleSubmit}
@@ -245,7 +278,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
           </div>
         </div>
       </div>
-      
+
       {/* Modal thêm sản phẩm */}
       <EventProductAddModal
         isOpen={showProductModal}
@@ -257,4 +290,4 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   );
 };
 
-export default EventEditModal; 
+export default EventEditModal;
