@@ -9,49 +9,100 @@ import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Component riêng cho nút Like để tránh lỗi hooks
-interface LikeButtonProps {
-  review: ReviewType;
-  isPendingByCurrentUser: boolean;
-  currentUserId?: string;
-  handleLikeReview: (reviewId: string, isLiked: boolean) => Promise<void>;
-}
+// Component riêng cho nút Like
+function LikeButton({ review, isPendingByCurrentUser }: { review: ReviewType; isPendingByCurrentUser: boolean }) {
+  const { isAuthenticated } = useAuth();
+  const [liked, setLiked] = useState(review.isLiked || false);
+  const [likeCount, setLikeCount] = useState(review.likes || 0);
+  const [isLoading, setIsLoading] = useState(false);
 
-const LikeButton: React.FC<LikeButtonProps> = ({
-  review,
-  isPendingByCurrentUser,
-  currentUserId,
-  handleLikeReview
-}) => {
-  // Lấy trạng thái isLiked trực tiếp từ review
-  const isLiked = review.isLiked || false;
+  // Cập nhật state khi props thay đổi
+  useEffect(() => {
+    setLiked(review.isLiked || false);
+    setLikeCount(review.likes || 0);
+  }, [review.isLiked, review.likes]);
 
-  // Xác định các class dựa trên trạng thái
-  const buttonClass = isPendingByCurrentUser
-    ? 'text-gray-400 cursor-not-allowed'
-    : isLiked
-      ? 'text-[#d53f8c] font-medium bg-pink-50 px-2 py-1 rounded-md border border-pink-200'
-      : 'text-gray-500 hover:text-[#d53f8c] px-2 py-1 rounded-md';
+  // Xử lý sự kiện click
+  async function handleClick() {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để thích đánh giá');
+      return;
+    }
 
-  const iconClass = `mr-1 transition-all duration-200 ${isLiked ? 'fill-[#d53f8c] scale-110' : 'scale-100'}`;
+    if (isPendingByCurrentUser || isLoading) return;
+
+    // Cập nhật UI ngay lập tức
+    const newLiked = !liked;
+    const newCount = newLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+
+    setLiked(newLiked);
+    setLikeCount(newCount);
+    setIsLoading(true);
+
+    try {
+      // Gọi API trực tiếp
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast.error('Vui lòng đăng nhập để thích đánh giá');
+        setLiked(!newLiked);
+        setLikeCount(likeCount);
+        return;
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/reviews/${review._id}/toggle-like`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Không thể thích/bỏ thích đánh giá');
+      }
+
+      const data = await response.json();
+
+      // Cập nhật UI với dữ liệu từ server
+      setLiked(data.isLiked);
+      setLikeCount(data.likes);
+
+    } catch (error) {
+      console.error('Lỗi khi thích/bỏ thích:', error);
+      // Khôi phục trạng thái ban đầu nếu có lỗi
+      setLiked(!newLiked);
+      setLikeCount(newLiked ? newCount - 1 : newCount + 1);
+      toast.error('Có lỗi xảy ra khi thích/bỏ thích đánh giá');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <button
-      onClick={() => {
-        handleLikeReview(review._id, isLiked);
-      }}
-      className={`flex items-center text-sm ${buttonClass}`}
-      disabled={isPendingByCurrentUser && review.user?._id === currentUserId}
-      title={isLiked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
+      onClick={handleClick}
+      className={`flex items-center text-sm px-2 py-1 rounded-md ${
+        isPendingByCurrentUser || isLoading
+          ? 'text-gray-400 cursor-not-allowed'
+          : liked
+            ? 'text-[#d53f8c] font-medium bg-pink-50 border border-pink-200'
+            : 'text-gray-500 hover:text-[#d53f8c]'
+      }`}
+      disabled={isPendingByCurrentUser || isLoading}
+      title={liked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
     >
       <FiThumbsUp
-        className={iconClass}
-        style={{ color: isLiked ? '#d53f8c' : 'inherit' }}
+        className="mr-1"
+        style={{
+          color: liked ? '#d53f8c' : 'currentColor',
+          fill: liked ? '#d53f8c' : 'none'
+        }}
       />
-      <span>Hữu ích ({review.likes || 0})</span>
+      <span>Hữu ích ({likeCount})</span>
     </button>
   );
-};
+}
 
 interface ReviewImage {
   url: string;
@@ -77,7 +128,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     fetchProductReviews,
     getReviewStats,
     checkCanReview,
-    toggleLikeReview,
     deleteReview: deleteReviewFromContext,
     loading: contextLoading,
   } = useUserReview();
@@ -480,25 +530,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     );
   };
 
-  const handleLikeReview = async (reviewId: string, isLiked: boolean) => {
-    if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để thích đánh giá');
-      return;
-    }
 
-    try {
-      // Gọi API để cập nhật trên server
-      // Không cần cập nhật UI trước vì toggleLikeReview đã làm điều đó
-      const success = await toggleLikeReview(reviewId, isLiked);
-
-      if (!success) {
-        toast.error('Không thể thực hiện hành động thích/bỏ thích đánh giá');
-      }
-    } catch (error) {
-      console.error('Lỗi khi thực hiện thích/bỏ thích đánh giá:', error);
-      toast.error('Đã xảy ra lỗi khi thực hiện hành động thích/bỏ thích đánh giá');
-    }
-  };
 
   const handleEditReview = (review: ReviewType) => {
     setEditingReview(review);
@@ -894,8 +926,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       <LikeButton
                         review={review}
                         isPendingByCurrentUser={isPendingByCurrentUser}
-                        currentUserId={currentUserId}
-                        handleLikeReview={handleLikeReview}
                       />
 
                       {isCurrentUserReview && (
