@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FiBell, FiUser, FiLogOut, FiSettings, FiStar } from 'react-icons/fi';
 import { useAdminAuth } from '../../contexts';
 import { useAdminUserReview } from '../../contexts/AdminUserReviewContext';
@@ -6,12 +6,14 @@ import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/router';
 
 export default function Header() {
   const [user, setUser] = useState<{ email: string; role: string; name: string } | null>(null);
   const [notifications, setNotifications] = useState<number>(0);
   const { logout } = useAdminAuth();
-  const { newReviewsCount, resetNewReviewsCount } = useAdminUserReview();
+  const { newReviewsCount, updatePendingReviewsCount } = useAdminUserReview();
+  const router = useRouter();
 
   useEffect(() => {
     // Lấy thông tin người dùng từ localStorage
@@ -29,9 +31,23 @@ export default function Header() {
     setNotifications(3);
   }, []);
 
+  // Cập nhật số lượng thông báo review khi đang ở trang reviews
+  useEffect(() => {
+    if (router.pathname === '/admin/reviews' || router.pathname.startsWith('/admin/reviews/')) {
+      // Không reset số lượng thông báo, chỉ cập nhật lại để hiển thị số lượng chính xác
+      updatePendingReviewsCount();
+    }
+  }, [router.pathname, updatePendingReviewsCount]);
+
   const handleLogout = async () => {
     await logout();
   };
+
+  // Xử lý khi click vào thông báo đánh giá
+  const handleReviewNotificationClick = useCallback(() => {
+    // Không reset số lượng thông báo, chỉ chuyển hướng đến trang quản lý review
+    router.push('/admin/reviews');
+  }, [router]);
 
   return (
     <motion.header
@@ -52,19 +68,20 @@ export default function Header() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Link
-              href="/admin/reviews"
-              className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors flex items-center"
-              title="Quản lý đánh giá sản phẩm"
+            <button
+              onClick={handleReviewNotificationClick}
+              className="p-2 rounded-md text-gray-500 hover:text-pink-500 hover:bg-pink-50 transition-colors flex items-center relative"
+              title={`${newReviewsCount > 0 ? `${newReviewsCount} đánh giá mới cần duyệt` : 'Quản lý đánh giá sản phẩm'}`}
+              aria-label="Quản lý đánh giá sản phẩm"
             >
               <span className="sr-only">Đánh giá mới</span>
-              <FiStar className="h-5 w-5" />
+              <FiStar className={`h-5 w-5 ${newReviewsCount > 0 ? 'text-pink-500' : ''}`} />
               {newReviewsCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium animate-pulse">
                   {newReviewsCount}
                 </span>
               )}
-            </Link>
+            </button>
           </motion.div>
 
           {/* Thông báo hệ thống */}

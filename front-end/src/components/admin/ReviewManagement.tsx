@@ -34,14 +34,15 @@ export const ReviewManagement: React.FC = () => {
     approveReview,
     rejectReview,
     deleteReview,
-    resetNewReviewsCount
+    updatePendingReviewsCount
   } = useAdminUserReview();
 
   // Lấy danh sách đánh giá khi component được mount hoặc filter thay đổi
   useEffect(() => {
     fetchReviews(1, 10, statusFilter);
-    resetNewReviewsCount();
-  }, [fetchReviews, statusFilter, resetNewReviewsCount]);
+    // Không reset số lượng thông báo, chỉ cập nhật lại để hiển thị số lượng chính xác
+    updatePendingReviewsCount();
+  }, [fetchReviews, statusFilter, updatePendingReviewsCount]);
 
   // Xử lý tìm kiếm
   const handleSearch = useCallback(() => {
@@ -93,11 +94,11 @@ export const ReviewManagement: React.FC = () => {
   // Xử lý xem chi tiết người dùng trực tiếp từ review
   const handleViewUser = useCallback(async (review: Review) => {
     setLoadingUser(true);
-    
+
     try {
       // Thử lấy userId từ review hoặc sử dụng ID cố định để demo
       let userId = '67ed0cb4498448d8c8c687f0'; // ID dự phòng
-      
+
       // Kiểm tra review.userId có tồn tại và hợp lệ không
       if (review && review.userId) {
         // Nếu là string, sử dụng trực tiếp
@@ -113,11 +114,11 @@ export const ReviewManagement: React.FC = () => {
           }
         }
       }
-      
+
       const loadingToast = toast.loading('Đang tải thông tin người dùng...');
-      
+
       const userDetail = await getUserDetail(userId);
-      
+
       if (userDetail) {
         setSelectedDetailUser(userDetail);
         setShowDetailModal(true);

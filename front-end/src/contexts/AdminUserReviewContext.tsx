@@ -47,6 +47,7 @@ export interface AdminUserReviewContextType {
   deleteReview: (reviewId: string) => Promise<boolean>;
   getReviewStats: () => Promise<Record<string, number>>;
   resetNewReviewsCount: () => void;
+  updatePendingReviewsCount: () => Promise<void>;
 }
 
 // Tạo context
@@ -79,6 +80,41 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     });
   }, [accessToken]);
 
+  // Lấy thống kê đánh giá
+  const getReviewStats = useCallback(async (): Promise<Record<string, number>> => {
+    try {
+      // Thử endpoint chính
+      try {
+        const response = await api().get('/admin/reviews/stats');
+        if (response.data) {
+          return response.data;
+        }
+      } catch (err) {
+        console.warn('Không thể lấy thống kê từ endpoint chính, thử endpoint thay thế:', err);
+      }
+
+      // Thử endpoint thay thế nếu endpoint chính không hoạt động
+      try {
+        const altResponse = await api().get('/admin/reviews?status=pending&limit=1');
+        if (altResponse.data && typeof altResponse.data.totalItems === 'number') {
+          return {
+            total: altResponse.data.totalItems || 0,
+            pending: altResponse.data.totalItems || 0,
+            approved: 0,
+            rejected: 0
+          };
+        }
+      } catch (err) {
+        console.error('Không thể lấy thống kê từ endpoint thay thế:', err);
+      }
+
+      return { total: 0, pending: 0, approved: 0, rejected: 0 };
+    } catch (error) {
+      console.error('Lỗi khi lấy thống kê đánh giá:', error);
+      return { total: 0, pending: 0, approved: 0, rejected: 0 };
+    }
+  }, [api]);
+
   // Lấy danh sách đánh giá
   const fetchReviews = useCallback(async (
     page: number = 1,
@@ -110,6 +146,16 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         setTotalItems(response.data.totalItems || 0);
         setTotalPages(response.data.totalPages || 0);
         setCurrentPage(response.data.currentPage || 1);
+
+        // Luôn cập nhật số lượng đánh giá đang chờ duyệt, không quan tâm đang xem trang nào
+        try {
+          const stats = await getReviewStats();
+          if (stats && typeof stats.pending === 'number') {
+            setNewReviewsCount(stats.pending);
+          }
+        } catch (error) {
+          console.error('Lỗi khi cập nhật số lượng đánh giá đang chờ duyệt:', error);
+        }
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách đánh giá:', error);
@@ -117,7 +163,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, getReviewStats]);
 
   // Lấy đánh giá của một người dùng cụ thể
   const fetchUserReviews = useCallback(async (userId: string) => {
@@ -138,6 +184,37 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
       setLoading(false);
     }
   }, [api]); // Thêm api vào dependencies nếu chưa có, nhưng không thêm currentlyViewedUserForReviewsId để tránh vòng lặp
+
+  // Cập nhật số lượng đánh giá đang chờ duyệt
+  const updatePendingReviewsCount = useCallback(async () => {
+    try {
+      const stats = await getReviewStats();
+      if (stats && typeof stats.pending === 'number') {
+        setNewReviewsCount(stats.pending);
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật số lượng đánh giá đang chờ duyệt:', error);
+    }
+  }, [getReviewStats]);
+
+  // Khởi tạo và cập nhật số lượng đánh giá đang chờ duyệt khi component mount
+  useEffect(() => {
+    if (accessToken) {
+      // Cập nhật số lượng đánh giá đang chờ duyệt khi component mount
+      const fetchPendingCount = async () => {
+        try {
+          const stats = await getReviewStats();
+          if (stats && typeof stats.pending === 'number') {
+            setNewReviewsCount(stats.pending);
+          }
+        } catch (error) {
+          console.error('Lỗi khi cập nhật số lượng đánh giá đang chờ duyệt:', error);
+        }
+      };
+
+      fetchPendingCount();
+    }
+  }, [accessToken, getReviewStats]);
 
   // Khởi tạo WebSocket connection
   useEffect(() => {
@@ -179,7 +256,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         // Cập nhật danh sách đánh giá nếu đang ở trang đánh giá
         // Luôn fetch trang đầu tiên của các đánh giá đang chờ để đảm bảo review mới nhất được hiển thị
         fetchReviews(1, undefined, 'pending');
-        
+
         // Nếu đánh giá mới thuộc về người dùng đang được xem, làm mới danh sách đánh giá của họ
         if (data.userId && data.userId === currentlyViewedUserForReviewsId) {
           fetchUserReviews(data.userId);
@@ -219,7 +296,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
             }
             return prevUserReviews;
           });
-          
+
           // Fetch lại danh sách chung để cập nhật phân trang và bộ lọc
           fetchReviews(currentPage, undefined, reviews.find(r => r.reviewId === data.reviewId)?.status || undefined);
 
@@ -252,7 +329,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
           setUserReviews(prevUserReviews =>
             prevUserReviews.filter(review => review.reviewId !== data.reviewId)
           );
-          
+
           // Fetch lại danh sách chung để cập nhật phân trang
           fetchReviews(currentPage);
 
@@ -314,6 +391,9 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
           )
         );
 
+        // Cập nhật số lượng đánh giá đang chờ duyệt
+        updatePendingReviewsCount();
+
         toast.success('Đã phê duyệt đánh giá thành công');
         return true;
       }
@@ -326,7 +406,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, updatePendingReviewsCount]);
 
   // Từ chối đánh giá
   const rejectReview = useCallback(async (reviewId: string): Promise<boolean> => {
@@ -356,6 +436,9 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
           )
         );
 
+        // Cập nhật số lượng đánh giá đang chờ duyệt
+        updatePendingReviewsCount();
+
         toast.success('Đã từ chối đánh giá thành công');
         return true;
       }
@@ -368,7 +451,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, updatePendingReviewsCount]);
 
   // Xóa đánh giá
   const deleteReview = useCallback(async (reviewId: string): Promise<boolean> => {
@@ -387,6 +470,9 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         prevReviews.filter(review => review.reviewId !== reviewId)
       );
 
+      // Cập nhật số lượng đánh giá đang chờ duyệt
+      updatePendingReviewsCount();
+
       toast.success('Đã xóa đánh giá thành công');
       return true;
     } catch (error) {
@@ -396,25 +482,12 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, updatePendingReviewsCount]);
 
-  // Lấy thống kê đánh giá
-  const getReviewStats = useCallback(async (): Promise<Record<string, number>> => {
-    try {
-      const response = await api().get('/admin/reviews/stats');
 
-      if (response.data) {
-        return response.data;
-      }
 
-      return { total: 0, pending: 0, approved: 0, rejected: 0 };
-    } catch (error) {
-      console.error('Lỗi khi lấy thống kê đánh giá:', error);
-      return { total: 0, pending: 0, approved: 0, rejected: 0 };
-    }
-  }, [api]);
-
-  // Phương thức reset số lượng đánh giá mới
+  // Phương thức reset số lượng đánh giá mới - chỉ sử dụng khi cần thiết
+  // Ví dụ: khi tất cả đánh giá đã được duyệt hoặc từ chối
   const resetNewReviewsCount = useCallback(() => {
     setNewReviewsCount(0);
   }, []);
@@ -436,6 +509,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     deleteReview,
     getReviewStats,
     resetNewReviewsCount,
+    updatePendingReviewsCount,
   };
 
   return (

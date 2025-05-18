@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
@@ -48,7 +48,8 @@ const getMenuItems = (newReviewsCount: number) => [
     name: 'Đánh giá sản phẩm',
     href: '/admin/reviews',
     icon: FiStar,
-    badge: newReviewsCount > 0 ? newReviewsCount : undefined
+    badge: newReviewsCount > 0 ? newReviewsCount : undefined,
+    highlight: newReviewsCount > 0
   },
   {
     name: 'Danh mục',
@@ -95,7 +96,15 @@ export default function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAdminAuth();
-  const { newReviewsCount } = useAdminUserReview();
+  const { newReviewsCount, updatePendingReviewsCount } = useAdminUserReview();
+
+  // Cập nhật số lượng thông báo review khi đang ở trang reviews
+  useEffect(() => {
+    if (router.pathname === '/admin/reviews' || router.pathname.startsWith('/admin/reviews/')) {
+      // Không reset số lượng thông báo, chỉ cập nhật lại để hiển thị số lượng chính xác
+      updatePendingReviewsCount();
+    }
+  }, [router.pathname, updatePendingReviewsCount]);
 
   const handleLogout = async () => {
     await logout();
@@ -144,19 +153,30 @@ export default function Sidebar() {
                   className={`flex items-center p-2 rounded-md transition-colors ${
                     isActive
                       ? 'bg-pink-100 text-pink-600'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-pink-500'
+                      : item.highlight
+                        ? 'text-pink-600 hover:bg-pink-50 hover:text-pink-700'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-pink-500'
                   } ${collapsed ? 'justify-center' : ''}`}
-                  title={collapsed ? item.name : ''}
+                  title={collapsed ? (item.badge ? `${item.name} (${item.badge} mới)` : item.name) : ''}
+                  onClick={() => {
+                    // Không reset số lượng thông báo khi click vào menu item
+                  }}
                 >
                   <div className="relative">
-                    <item.icon className={`h-5 w-5 ${isActive ? 'text-pink-500' : 'text-gray-400'}`} />
+                    <item.icon className={`h-5 w-5 ${
+                      isActive
+                        ? 'text-pink-500'
+                        : item.highlight
+                          ? 'text-pink-500'
+                          : 'text-gray-400'
+                    }`} />
                     {item.badge && !collapsed && (
-                      <span className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                      <span className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium animate-pulse">
                         {item.badge}
                       </span>
                     )}
                     {item.badge && collapsed && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium">
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-pink-500 text-xs text-white flex items-center justify-center font-medium animate-pulse">
                         {item.badge}
                       </span>
                     )}

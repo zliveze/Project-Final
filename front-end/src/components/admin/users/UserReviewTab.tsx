@@ -9,7 +9,7 @@ interface UserReviewTabProps {
 }
 
 const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
-  const { userReviews, loading, fetchUserReviews, approveReview, rejectReview, deleteReview, resetNewReviewsCount } = useAdminUserReview();
+  const { userReviews, loading, fetchUserReviews, approveReview, rejectReview, deleteReview, updatePendingReviewsCount } = useAdminUserReview();
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [showImageModal, setShowImageModal] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string>('');
@@ -19,10 +19,10 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
   useEffect(() => {
     if (userId) {
       fetchUserReviews(userId);
-      // Reset số lượng đánh giá mới khi mở tab đánh giá
-      resetNewReviewsCount();
+      // Cập nhật số lượng đánh giá đang chờ duyệt
+      updatePendingReviewsCount();
     }
-  }, [userId, fetchUserReviews, resetNewReviewsCount]);
+  }, [userId, fetchUserReviews, updatePendingReviewsCount]);
 
   // Lọc đánh giá theo trạng thái và rating
   const filteredReviews = userReviews.filter(review => {
