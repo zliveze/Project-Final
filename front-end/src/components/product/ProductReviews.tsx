@@ -9,6 +9,50 @@ import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Component riêng cho nút Like để tránh lỗi hooks
+interface LikeButtonProps {
+  review: ReviewType;
+  isPendingByCurrentUser: boolean;
+  currentUserId?: string;
+  handleLikeReview: (reviewId: string, isLiked: boolean) => Promise<void>;
+}
+
+const LikeButton: React.FC<LikeButtonProps> = ({
+  review,
+  isPendingByCurrentUser,
+  currentUserId,
+  handleLikeReview
+}) => {
+  // Lấy trạng thái isLiked trực tiếp từ review
+  const isLiked = review.isLiked || false;
+
+  // Xác định các class dựa trên trạng thái
+  const buttonClass = isPendingByCurrentUser
+    ? 'text-gray-400 cursor-not-allowed'
+    : isLiked
+      ? 'text-[#d53f8c] font-medium bg-pink-50 px-2 py-1 rounded-md border border-pink-200'
+      : 'text-gray-500 hover:text-[#d53f8c] px-2 py-1 rounded-md';
+
+  const iconClass = `mr-1 transition-all duration-200 ${isLiked ? 'fill-[#d53f8c] scale-110' : 'scale-100'}`;
+
+  return (
+    <button
+      onClick={() => {
+        handleLikeReview(review._id, isLiked);
+      }}
+      className={`flex items-center text-sm ${buttonClass}`}
+      disabled={isPendingByCurrentUser && review.user?._id === currentUserId}
+      title={isLiked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
+    >
+      <FiThumbsUp
+        className={iconClass}
+        style={{ color: isLiked ? '#d53f8c' : 'inherit' }}
+      />
+      <span>Hữu ích ({review.likes || 0})</span>
+    </button>
+  );
+};
+
 interface ReviewImage {
   url: string;
   alt?: string;
@@ -51,6 +95,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const [userPendingReviews, setUserPendingReviews] = useState<ReviewType[]>([]);
+  const [reviews, setReviews] = useState<ReviewType[]>([]);
 
   const [reviewStats, setReviewStats] = useState({
     average: 0,
@@ -301,46 +346,54 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   }, [productId, isAuthenticated, currentUserId, fetchProductReviews, getReviewStats, checkCanReview, localApiClient, mapReviewData, localStorageToken]);
 
   // Lắng nghe sự thay đổi từ contextProductReviews (đã bao gồm cập nhật từ WebSocket)
-  // để cập nhật lại userPendingReviews cho chính xác.
+  // để cập nhật lại userPendingReviews và reviews cho chính xác.
   useEffect(() => {
-    if (currentUserId && Array.isArray(contextProductReviews)) {
-      setUserPendingReviews(prevPendingReviews => {
-        // Tạo một Map để theo dõi các đánh giá hiện có theo ID
-        const reviewMap = new Map();
+    if (Array.isArray(contextProductReviews)) {
+      // Cập nhật state reviews từ contextProductReviews
+      setReviews(contextProductReviews.map(mapReviewData));
 
-        // Thêm tất cả đánh giá hiện có vào Map
-        prevPendingReviews.forEach(review => {
-          reviewMap.set(review._id, review);
-        });
+      // Cập nhật userPendingReviews nếu người dùng đã đăng nhập
+      if (currentUserId) {
+        setUserPendingReviews(prevPendingReviews => {
+          // Tạo một Map để theo dõi các đánh giá hiện có theo ID
+          const reviewMap = new Map();
 
-        // Cập nhật Map với đánh giá từ context
-        contextProductReviews.forEach(reviewFromContext => {
-          if (reviewFromContext.user?._id === currentUserId) {
-            // Nếu đánh giá đã tồn tại trong Map, cập nhật trạng thái của nó
-            if (reviewMap.has(reviewFromContext._id)) {
-              const existingReview = reviewMap.get(reviewFromContext._id);
-              reviewMap.set(reviewFromContext._id, {
-                ...existingReview,
-                status: reviewFromContext.status
-              });
-              console.log(`Updating review ${reviewFromContext._id} status to ${reviewFromContext.status}`);
+          // Thêm tất cả đánh giá hiện có vào Map
+          prevPendingReviews.forEach(review => {
+            reviewMap.set(review._id, review);
+          });
+
+          // Cập nhật Map với đánh giá từ context
+          contextProductReviews.forEach(reviewFromContext => {
+            if (reviewFromContext.user?._id === currentUserId) {
+              // Nếu đánh giá đã tồn tại trong Map, cập nhật trạng thái của nó
+              if (reviewMap.has(reviewFromContext._id)) {
+                const existingReview = reviewMap.get(reviewFromContext._id);
+                reviewMap.set(reviewFromContext._id, {
+                  ...existingReview,
+                  status: reviewFromContext.status,
+                  isLiked: reviewFromContext.isLiked
+                });
+                console.log(`Updating review ${reviewFromContext._id} status to ${reviewFromContext.status}`);
+              }
+              // Nếu đánh giá chưa tồn tại trong Map, thêm nó vào
+              else {
+                reviewMap.set(reviewFromContext._id, reviewFromContext);
+                console.log(`Adding review ${reviewFromContext._id} to userPendingReviews`);
+              }
             }
-            // Nếu đánh giá chưa tồn tại trong Map, thêm nó vào
-            else {
-              reviewMap.set(reviewFromContext._id, reviewFromContext);
-              console.log(`Adding review ${reviewFromContext._id} to userPendingReviews`);
-            }
-          }
-        });
+          });
 
-        // Chuyển đổi Map thành mảng
-        return Array.from(reviewMap.values());
-      });
+          // Chuyển đổi Map thành mảng
+          return Array.from(reviewMap.values());
+        });
+      }
     }
-  }, [contextProductReviews, currentUserId]);
+  }, [contextProductReviews, currentUserId, mapReviewData]);
 
 
   const displayedReviews = useMemo(() => {
+    // Bắt đầu với dữ liệu từ context
     let combined = Array.isArray(contextProductReviews) ? [...contextProductReviews.map(mapReviewData)] : [];
 
     const reviewsMap = new Map<string, ReviewType>();
@@ -348,6 +401,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       if(review._id) reviewsMap.set(review._id, review);
     });
 
+    // Thêm đánh giá đang chờ duyệt của người dùng
     userPendingReviews.forEach(pendingReview => {
       if (pendingReview.user?._id === currentUserId && pendingReview._id) {
         reviewsMap.set(pendingReview._id, pendingReview);
@@ -355,8 +409,21 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         reviewsMap.set(pendingReview._id, pendingReview);
       }
     });
+
+    // Ưu tiên cao nhất cho state local reviews (chứa các cập nhật mới nhất từ người dùng)
+    if (reviews.length > 0) {
+      reviews.forEach(review => {
+        if (review._id) {
+          // Ghi đè hoàn toàn review từ context với dữ liệu từ state local
+          reviewsMap.set(review._id, { ...review });
+        }
+      });
+    }
+
+    // Chuyển Map thành mảng
     combined = Array.from(reviewsMap.values());
 
+    // Sắp xếp đánh giá
     if (currentUserId) {
       combined.sort((a, b) => {
         const aIsCurrentUser = a.user?._id === currentUserId;
@@ -374,8 +441,12 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     } else {
       combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
+
+    // Log để debug
+    console.log('displayedReviews được tính toán lại với', combined.length, 'đánh giá');
+
     return combined;
-  }, [contextProductReviews, userPendingReviews, currentUserId, mapReviewData]);
+  }, [contextProductReviews, userPendingReviews, currentUserId, mapReviewData, reviews]);
 
 
   // Lọc đánh giá theo rating và hiển thị đánh giá đã được phê duyệt hoặc đánh giá của người dùng hiện tại
@@ -414,20 +485,18 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       toast.error('Vui lòng đăng nhập để thích đánh giá');
       return;
     }
-    
+
     try {
-      // Tìm đánh giá trong danh sách hiển thị
-      const currentReview = displayedReviews.find(review => review._id === reviewId);
-      if (!currentReview) return;
-      
-      // Gọi API để cập nhật và tự động cập nhật UI thông qua context
+      // Gọi API để cập nhật trên server
+      // Không cần cập nhật UI trước vì toggleLikeReview đã làm điều đó
       const success = await toggleLikeReview(reviewId, isLiked);
-      
+
       if (!success) {
-        console.error('Không thể thực hiện hành động thích/bỏ thích đánh giá');
+        toast.error('Không thể thực hiện hành động thích/bỏ thích đánh giá');
       }
     } catch (error) {
       console.error('Lỗi khi thực hiện thích/bỏ thích đánh giá:', error);
+      toast.error('Đã xảy ra lỗi khi thực hiện hành động thích/bỏ thích đánh giá');
     }
   };
 
@@ -821,23 +890,13 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                     )}
 
                     <div className="mt-3 pl-14 flex items-center space-x-4">
-                      <button
-                        onClick={() => handleLikeReview(review._id, review.isLiked || false)}
-                        className={`flex items-center text-sm ${
-                          isPendingByCurrentUser
-                            ? 'text-gray-400 cursor-not-allowed'
-                            : review.isLiked
-                              ? 'text-[#d53f8c]'
-                              : 'text-gray-500 hover:text-[#d53f8c]'
-                        }`}
-                        disabled={isPendingByCurrentUser && review.user?._id === currentUserId}
-                        title={review.isLiked ? "Bỏ thích đánh giá này" : "Thích đánh giá này"}
-                      >
-                        <FiThumbsUp 
-                          className={`mr-1 transition-all duration-200 ${review.isLiked ? 'fill-current scale-110' : 'scale-100'}`} 
-                        />
-                        <span>Hữu ích ({review.likes || 0})</span>
-                      </button>
+                      {/* Không sử dụng useMemo trong vòng lặp map */}
+                      <LikeButton
+                        review={review}
+                        isPendingByCurrentUser={isPendingByCurrentUser}
+                        currentUserId={currentUserId}
+                        handleLikeReview={handleLikeReview}
+                      />
 
                       {isCurrentUserReview && (
                         <>
