@@ -81,6 +81,14 @@ interface EventProductAddModalProps {
     originalPrice?: number;
     variantName?: string;
     variantAttributes?: Record<string, string>;
+    // Thêm các trường mới
+    sku?: string;
+    status?: string;
+    brandId?: string;
+    brand?: string;
+    variantSku?: string;
+    variantPrice?: number;
+    combinationPrice?: number;
   }[]) => void;
   excludedProductIds?: string[]; // Các sản phẩm đã được thêm vào sự kiện
 }
@@ -373,13 +381,18 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       productImage = primaryImage ? primaryImage.url : product.images[0].url;
     }
 
-    // Thêm sản phẩm gốc
+    // Thêm sản phẩm gốc với thông tin đầy đủ
     setSelectedProducts(prev => [...prev, {
       productId: productId,
       adjustedPrice,
       name: product.name,
       image: productImage,
-      originalPrice: productPrice
+      originalPrice: productPrice,
+      // Thêm các trường khác nếu có
+      sku: product.sku,
+      status: product.status,
+      brandId: product.brandId,
+      brand: product.brand
     }]);
   };
 
@@ -404,6 +417,8 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
               const combination = variant.combinations.find(c => c.combinationId === product.combinationId);
               if (combination && combination.price) {
                 originalPrice = combination.price;
+              } else if (combination && combination.additionalPrice && variant.price) {
+                originalPrice = variant.price + combination.additionalPrice;
               } else if (variant.price) {
                 originalPrice = variant.price;
               }
@@ -424,11 +439,23 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
         const newAdjustedPrice = Math.round(originalPrice * (100 - value) / 100);
 
-        return {
+        // Cập nhật thông tin giá
+        const updatedProduct = {
           ...product,
           adjustedPrice: newAdjustedPrice,
           originalPrice
         };
+
+        // Cập nhật thông tin giá biến thể và tổ hợp nếu có
+        if (product.variantId) {
+          if (product.combinationId) {
+            updatedProduct.combinationPrice = originalPrice;
+          } else {
+            updatedProduct.variantPrice = originalPrice;
+          }
+        }
+
+        return updatedProduct;
       }));
     }
   };
@@ -550,25 +577,36 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         productImage = primaryImage ? primaryImage.url : selectedProductForVariants.images[0].url;
       }
 
-      // Tạo đối tượng sản phẩm để thêm vào danh sách
+      // Tạo đối tượng sản phẩm để thêm vào danh sách với thông tin đầy đủ
       const productToAdd = {
         productId,
         name: selectedProductForVariants.name,
         image: productImage,
         originalPrice: variantPrice,
-        adjustedPrice
+        adjustedPrice,
+        sku: selectedProductForVariants.sku,
+        status: selectedProductForVariants.status,
+        brandId: selectedProductForVariants.brandId,
+        brand: selectedProductForVariants.brand
       };
 
       // Nếu có biến thể được chọn, thêm thông tin biến thể
       if (selectedVariant) {
         const variantId = selectedVariant.variantId;
         const variantName = selectedVariant.name || '';
+        const variantSku = selectedVariant.sku || '';
 
         // Tạo đối tượng thuộc tính biến thể
         const variantAttributes: Record<string, string> = {};
         if (selectedVariant.options) {
           if (selectedVariant.options.color) {
             variantAttributes['Màu'] = selectedVariant.options.color;
+          }
+          if (selectedVariant.options.sizes && selectedVariant.options.sizes.length > 0) {
+            variantAttributes['Kích thước'] = selectedVariant.options.sizes.join(', ');
+          }
+          if (selectedVariant.options.shades && selectedVariant.options.shades.length > 0) {
+            variantAttributes['Tông màu'] = selectedVariant.options.shades.join(', ');
           }
         }
 
@@ -581,22 +619,26 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
               variantAttributes[key] = value;
             });
 
-            // Thêm sản phẩm với thông tin tổ hợp
+            // Thêm sản phẩm với thông tin tổ hợp đầy đủ
             setSelectedProducts(prev => [...prev, {
               ...productToAdd,
               variantId,
               variantName,
+              variantSku,
               combinationId: selectedCombination,
-              variantAttributes
+              variantAttributes,
+              combinationPrice: combination.price || (selectedVariant.price + (combination.additionalPrice || 0))
             }]);
           }
         } else {
-          // Thêm sản phẩm chỉ với thông tin biến thể
+          // Thêm sản phẩm chỉ với thông tin biến thể đầy đủ
           setSelectedProducts(prev => [...prev, {
             ...productToAdd,
             variantId,
             variantName,
-            variantAttributes
+            variantSku,
+            variantAttributes,
+            variantPrice: selectedVariant.price
           }]);
         }
       } else {

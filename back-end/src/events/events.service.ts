@@ -158,11 +158,97 @@ export class EventsService {
       }
     }
 
+    // Lấy thông tin chi tiết sản phẩm từ database
+    const productDetailsMap = new Map<string, any>();
+
+    // Lấy tất cả productIds từ newProducts
+    const productIdsToFetch = [...new Set(newProducts.map(p => p.productId.toString()))];
+
+    // Lấy thông tin sản phẩm từ database
+    const productDetails = await this.productModel
+      .find({ _id: { $in: productIdsToFetch } })
+      .select('_id name images price variants sku status brandId brand')
+      .populate('brandId', 'name')
+      .lean()
+      .exec();
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm
+    productDetails.forEach(product => {
+      productDetailsMap.set(product._id.toString(), product);
+    });
+
+    // Bổ sung thông tin chi tiết cho các sản phẩm mới
+    const enrichedProducts = newProducts.map(product => {
+      const productInfo = productDetailsMap.get(product.productId.toString());
+      if (!productInfo) return product;
+
+      // Lấy ảnh chính hoặc ảnh đầu tiên
+      let imageUrl = '';
+      if (productInfo.images && productInfo.images.length > 0) {
+        const primaryImage = productInfo.images.find(img => img.isPrimary);
+        imageUrl = primaryImage ? primaryImage.url : productInfo.images[0].url;
+      }
+
+      // Thông tin cơ bản của sản phẩm
+      const enrichedProduct = {
+        ...product,
+        name: product.name || productInfo.name,
+        image: product.image || imageUrl,
+        originalPrice: product.originalPrice || productInfo.price,
+        sku: product.sku || productInfo.sku,
+        status: product.status || productInfo.status,
+        brandId: product.brandId || productInfo.brandId,
+        brand: product.brand || (productInfo.brand?.name || (productInfo.brandId && typeof productInfo.brandId === 'object' && productInfo.brandId.name) || '')
+      };
+
+      // Nếu có variantId, lấy thông tin biến thể
+      if (product.variantId && productInfo.variants && productInfo.variants.length > 0) {
+        const variant = productInfo.variants.find(
+          v => v.variantId && product.variantId && v.variantId.toString() === product.variantId.toString()
+        );
+
+        if (variant) {
+          // Lấy ảnh của biến thể nếu có
+          if (variant.images && variant.images.length > 0) {
+            const variantPrimaryImage = variant.images.find(img => img.isPrimary);
+            enrichedProduct.image = product.image || (variantPrimaryImage ? variantPrimaryImage.url : variant.images[0].url);
+          }
+
+          enrichedProduct.variantName = product.variantName || variant.name || '';
+          enrichedProduct.variantSku = product.variantSku || variant.sku || '';
+          enrichedProduct.variantPrice = product.variantPrice || variant.price || 0;
+
+          // Nếu có combinationId, lấy thông tin tổ hợp biến thể
+          if (product.combinationId && variant.combinations && variant.combinations.length > 0) {
+            const combination = variant.combinations.find(
+              c => c.combinationId && product.combinationId && c.combinationId.toString() === product.combinationId.toString()
+            );
+
+            if (combination) {
+              enrichedProduct.originalPrice = product.originalPrice || combination.price || variant.price || productInfo.price;
+              enrichedProduct.variantAttributes = product.variantAttributes || combination.attributes || {};
+              enrichedProduct.combinationPrice = product.combinationPrice || combination.price || (variant.price + (combination.additionalPrice || 0)) || 0;
+            }
+          } else {
+            // Trường hợp chỉ có biến thể, không có tổ hợp
+            enrichedProduct.originalPrice = product.originalPrice || variant.price || productInfo.price;
+            enrichedProduct.variantAttributes = product.variantAttributes || (variant.options ? {
+              color: variant.options.color || '',
+              size: variant.options.sizes && variant.options.sizes.length > 0 ? variant.options.sizes[0] : '',
+              shade: variant.options.shades && variant.options.shades.length > 0 ? variant.options.shades[0] : ''
+            } : {});
+          }
+        }
+      }
+
+      return enrichedProduct;
+    });
+
     // Thêm sản phẩm mới vào sự kiện
     const updatedEvent = await this.eventModel
       .findByIdAndUpdate(
         id,
-        { $push: { products: { $each: newProducts } } },
+        { $push: { products: { $each: enrichedProducts } } },
         { new: true }
       )
       .exec();
@@ -259,14 +345,54 @@ export class EventsService {
       throw new NotFoundException(`Product with specified criteria not found in event ${id}`);
     }
 
-    // Cập nhật giá sản phẩm trong sự kiện
-    event.products[productIndex].adjustedPrice = adjustedPrice;
+    // Tạo điều kiện truy vấn để cập nhật giá sản phẩm cụ thể trong mảng products
+    const updateQuery = {};
+    updateQuery[`products.${productIndex}.adjustedPrice`] = adjustedPrice;
 
-    // Lưu cập nhật
-    await event.save();
+    // Lấy thông tin sản phẩm từ database để cập nhật giá gốc
+    const product = await this.productModel.findById(productId).select('price variants').lean().exec();
+
+    if (product) {
+      let originalPrice = product.price || 0;
+
+      // Nếu có variantId, lấy giá từ biến thể
+      if (variantId && product.variants && product.variants.length > 0) {
+        const variant = product.variants.find(v => v.variantId && variantId && v.variantId.toString() === variantId);
+
+        if (variant) {
+          // Nếu có combinationId, lấy giá từ tổ hợp biến thể
+          if (combinationId && variant.combinations && variant.combinations.length > 0) {
+            const combination = variant.combinations.find(c => c.combinationId && combinationId && c.combinationId.toString() === combinationId);
+
+            if (combination) {
+              originalPrice = combination.price || (variant.price + (combination.additionalPrice || 0)) || product.price;
+              updateQuery[`products.${productIndex}.combinationPrice`] = originalPrice;
+            }
+          } else {
+            originalPrice = variant.price || product.price;
+            updateQuery[`products.${productIndex}.variantPrice`] = originalPrice;
+          }
+        }
+      }
+
+      updateQuery[`products.${productIndex}.originalPrice`] = originalPrice;
+    }
+
+    // Sử dụng findByIdAndUpdate thay vì save
+    const updatedEvent = await this.eventModel
+      .findByIdAndUpdate(
+        id,
+        { $set: updateQuery },
+        { new: true }
+      )
+      .exec();
+
+    if (!updatedEvent) {
+      throw new NotFoundException(`Event with ID ${id} not found after update`);
+    }
 
     // Populate thông tin sản phẩm
-    const populatedEvents = await this.populateProductDetails([event]);
+    const populatedEvents = await this.populateProductDetails([updatedEvent]);
     return populatedEvents[0];
   }
 
@@ -282,15 +408,26 @@ export class EventsService {
     // Lấy tất cả productIds từ tất cả events
     const productIds = new Set<string>();
     events.forEach(event => {
+      if (!event.products) {
+        this.logger.warn(`Event ${event._id} không có thuộc tính products`);
+        event.products = [];
+        return;
+      }
+
       event.products.forEach(product => {
-        productIds.add(product.productId.toString());
+        if (product && product.productId) {
+          productIds.add(product.productId.toString());
+        } else {
+          this.logger.warn(`Phát hiện sản phẩm không hợp lệ trong event ${event._id}`);
+        }
       });
     });
 
     // Lấy thông tin sản phẩm từ database với variants và combinations
     const products = await this.productModel
       .find({ _id: { $in: Array.from(productIds) } })
-      .select('_id name images price variants')
+      .select('_id name images price variants sku status brandId brand')
+      .populate('brandId', 'name')
       .lean()
       .exec();
 
@@ -304,6 +441,11 @@ export class EventsService {
     const populatedEvents = events.map(event => {
       const eventObj = event.toObject ? event.toObject() : { ...event };
       eventObj.products = eventObj.products.map(product => {
+        // Bỏ qua các sản phẩm không hợp lệ
+        if (!product || !product.productId) {
+          return product;
+        }
+
         const productInfo = productMap.get(product.productId.toString());
         if (productInfo) {
           // Lấy ảnh chính hoặc ảnh đầu tiên
@@ -318,13 +460,17 @@ export class EventsService {
             ...product,
             name: productInfo.name,
             image: imageUrl,
-            originalPrice: productInfo.price
+            originalPrice: productInfo.price,
+            sku: productInfo.sku,
+            status: productInfo.status,
+            brandId: productInfo.brandId,
+            brand: productInfo.brand?.name || (productInfo.brandId && typeof productInfo.brandId === 'object' && productInfo.brandId.name) || ''
           };
 
           // Nếu có variantId, lấy thông tin biến thể
           if (product.variantId && productInfo.variants && productInfo.variants.length > 0) {
             const variant = productInfo.variants.find(
-              v => v.variantId && v.variantId.toString() === product.variantId.toString()
+              v => v.variantId && product.variantId && v.variantId.toString() === product.variantId.toString()
             );
 
             if (variant) {
@@ -337,7 +483,7 @@ export class EventsService {
               // Nếu có combinationId, lấy thông tin tổ hợp biến thể
               if (product.combinationId && variant.combinations && variant.combinations.length > 0) {
                 const combination = variant.combinations.find(
-                  c => c.combinationId && c.combinationId.toString() === product.combinationId.toString()
+                  c => c.combinationId && product.combinationId && c.combinationId.toString() === product.combinationId.toString()
                 );
 
                 if (combination) {
@@ -346,7 +492,10 @@ export class EventsService {
                     image: imageUrl,
                     variantName: variant.name || '',
                     originalPrice: combination.price || variant.price || productInfo.price,
-                    variantAttributes: product.variantAttributes || combination.attributes || {}
+                    variantAttributes: product.variantAttributes || combination.attributes || {},
+                    variantSku: variant.sku || '',
+                    variantPrice: variant.price || 0,
+                    combinationPrice: combination.price || (variant.price + (combination.additionalPrice || 0)) || 0
                   };
                 }
               }
@@ -361,7 +510,9 @@ export class EventsService {
                   color: variant.options.color || '',
                   size: variant.options.sizes && variant.options.sizes.length > 0 ? variant.options.sizes[0] : '',
                   shade: variant.options.shades && variant.options.shades.length > 0 ? variant.options.shades[0] : ''
-                } : {})
+                } : {}),
+                variantSku: variant.sku || '',
+                variantPrice: variant.price || 0
               };
             }
           }
@@ -372,6 +523,12 @@ export class EventsService {
       });
       return eventObj;
     });
+
+    // Kiểm tra cuối cùng trước khi trả về kết quả
+    if (!populatedEvents) {
+      this.logger.warn('populateProductDetails trả về null hoặc undefined');
+      return events;
+    }
 
     return populatedEvents;
   }

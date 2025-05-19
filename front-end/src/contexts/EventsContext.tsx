@@ -18,6 +18,14 @@ export interface ProductInEvent {
   originalPrice?: number;
   variantName?: string;
   variantAttributes?: Record<string, string>;
+  // Thêm các trường mới
+  sku?: string;
+  status?: string;
+  brandId?: string;
+  brand?: string;
+  variantSku?: string;
+  variantPrice?: number;
+  combinationPrice?: number;
 }
 
 // Định nghĩa interface cho event

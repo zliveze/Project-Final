@@ -28,6 +28,62 @@ export class ProductInEventDto {
   @IsObject()
   @IsOptional()
   variantAttributes?: Record<string, string>;
+
+  // Thêm các trường mới
+  @ApiProperty({ description: 'Product name', required: false })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiProperty({ description: 'Product image URL', required: false })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ description: 'Original price of the product', required: false })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+
+  @ApiProperty({ description: 'Product SKU', required: false })
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @ApiProperty({ description: 'Product status', required: false })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ description: 'Brand ID', required: false })
+  @IsMongoId()
+  @IsOptional()
+  brandId?: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Brand name', required: false })
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @ApiProperty({ description: 'Variant name', required: false })
+  @IsString()
+  @IsOptional()
+  variantName?: string;
+
+  @ApiProperty({ description: 'Variant SKU', required: false })
+  @IsString()
+  @IsOptional()
+  variantSku?: string;
+
+  @ApiProperty({ description: 'Variant price', required: false })
+  @IsNumber()
+  @IsOptional()
+  variantPrice?: number;
+
+  @ApiProperty({ description: 'Combination price', required: false })
+  @IsNumber()
+  @IsOptional()
+  combinationPrice?: number;
 }
 
 export class CreateEventDto {

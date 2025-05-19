@@ -16,6 +16,14 @@ interface EventProductsTableProps {
     originalPrice?: number;
     variantName?: string;
     variantAttributes?: Record<string, string>;
+    // Thêm các trường mới
+    sku?: string;
+    status?: string;
+    brandId?: string;
+    brand?: string;
+    variantSku?: string;
+    variantPrice?: number;
+    combinationPrice?: number;
   }[];
   onRemoveProduct: (productId: string, variantId?: string, combinationId?: string) => void;
   onPriceChange: (productId: string, newPrice: number, variantId?: string, combinationId?: string) => void;
@@ -298,9 +306,27 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                             </button>
                           </div>
 
+                          {/* Hiển thị thông tin sản phẩm */}
+                          {product.sku && (
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              SKU: {product.sku}
+                            </div>
+                          )}
+                          {product.brand && (
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              Thương hiệu: {product.brand}
+                            </div>
+                          )}
+
+                          {/* Hiển thị thông tin biến thể */}
                           {product.variantName && (
                             <div className="text-[10px] font-medium text-pink-600 mt-0.5">
                               {product.variantName}
+                            </div>
+                          )}
+                          {product.variantSku && (
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              Variant SKU: {product.variantSku}
                             </div>
                           )}
                           {product.variantAttributes && Object.keys(product.variantAttributes).length > 0 && (
@@ -340,9 +366,15 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                           {/* Hiển thị thông tin loại giá đang nhập - nhỏ gọn hơn */}
                           <div className="text-[10px] font-medium text-gray-500">
                             {product.combinationId ? (
-                              <span className="text-pink-600">Giá cho tổ hợp biến thể</span>
+                              <span className="text-pink-600">
+                                Giá cho tổ hợp biến thể
+                                {product.combinationPrice && ` (${new Intl.NumberFormat('vi-VN').format(product.combinationPrice)} ₫)`}
+                              </span>
                             ) : product.variantId ? (
-                              <span className="text-pink-600">Giá cho biến thể</span>
+                              <span className="text-pink-600">
+                                Giá cho biến thể
+                                {product.variantPrice && ` (${new Intl.NumberFormat('vi-VN').format(product.variantPrice)} ₫)`}
+                              </span>
                             ) : (
                               <span>Giá cho sản phẩm</span>
                             )}
@@ -474,6 +506,30 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                         </div>
                                       </div>
 
+                                      {/* Hiển thị thông tin chi tiết biến thể */}
+                                      <div className="text-xs text-gray-500 mb-2 flex flex-wrap gap-2">
+                                        {variant.sku && (
+                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
+                                            SKU: {variant.sku}
+                                          </span>
+                                        )}
+                                        {variant.options?.color && (
+                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
+                                            Màu: {variant.options.color}
+                                          </span>
+                                        )}
+                                        {variant.options?.sizes && variant.options.sizes.length > 0 && (
+                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
+                                            Kích thước: {variant.options.sizes.join(', ')}
+                                          </span>
+                                        )}
+                                        {variant.options?.shades && variant.options.shades.length > 0 && (
+                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
+                                            Tông màu: {variant.options.shades.join(', ')}
+                                          </span>
+                                        )}
+                                      </div>
+
                                       {/* Tổ hợp biến thể */}
                                       {variant.combinations && variant.combinations.length > 0 && (
                                         <div className="pl-4 border-l-2 border-pink-100 mt-3 space-y-2">
@@ -481,15 +537,34 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                           {variant.combinations.map((combination: any) => (
                                             <div
                                               key={combination.combinationId}
-                                              className="flex justify-between items-center bg-gray-50 p-2 rounded-md"
+                                              className="flex flex-col bg-gray-50 p-2 rounded-md"
                                               onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
                                             >
-                                              <div className="text-xs text-gray-700">
-                                                {Object.entries(combination.attributes || {}).map(([key, value]) => `${key}: ${value}`).join(', ') || combination.combinationId.substring(0, 8)}
+                                              {/* Thông tin thuộc tính tổ hợp */}
+                                              <div className="flex justify-between items-center mb-2">
+                                                <div className="text-xs text-gray-700">
+                                                  <div className="font-medium mb-1">
+                                                    Tổ hợp: {combination.combinationId.substring(0, 8)}
+                                                  </div>
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {Object.entries(combination.attributes || {}).map(([key, value]) => (
+                                                      <span key={key} className="bg-white px-1.5 py-0.5 rounded text-[10px] border border-gray-100">
+                                                        {key}: {String(value)}
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                </div>
                                               </div>
-                                              <div className="flex items-center space-x-2">
+
+                                              {/* Thông tin giá */}
+                                              <div className="flex justify-between items-center mt-1">
                                                 <div className="text-xs text-gray-500">
-                                                  Giá: {new Intl.NumberFormat('vi-VN').format(combination.price || (variant.price + (combination.additionalPrice || 0)) || 0)} ₫
+                                                  Giá gốc: {new Intl.NumberFormat('vi-VN').format(combination.price || (variant.price + (combination.additionalPrice || 0)) || 0)} ₫
+                                                  {combination.additionalPrice && !combination.price && (
+                                                    <span className="text-[10px] ml-1 text-pink-500">
+                                                      (+{new Intl.NumberFormat('vi-VN').format(combination.additionalPrice)} ₫)
+                                                    </span>
+                                                  )}
                                                 </div>
                                                 <div className="relative">
                                                   <input

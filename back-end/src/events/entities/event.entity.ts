@@ -16,6 +16,40 @@ export class ProductInEvent {
 
   @Prop({ type: Object })
   variantAttributes: Record<string, string>;
+
+  // Thêm các trường mới
+  @Prop()
+  name: string;
+
+  @Prop()
+  image: string;
+
+  @Prop()
+  originalPrice: number;
+
+  @Prop()
+  sku: string;
+
+  @Prop()
+  status: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  brandId: MongooseSchema.Types.ObjectId;
+
+  @Prop()
+  brand: string;
+
+  @Prop()
+  variantName: string;
+
+  @Prop()
+  variantSku: string;
+
+  @Prop()
+  variantPrice: number;
+
+  @Prop()
+  combinationPrice: number;
 }
 
 @Schema({ timestamps: true })

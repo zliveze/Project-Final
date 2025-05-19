@@ -1,0 +1,8 @@
+{
+  // ...existing content...
+  "dependencies": {
+    // ...existing dependencies...
+    "@mui/x-data-grid": "^6.19.3",
+    "@mui/x-date-pickers": "^6.19.3"
+  }
+}
