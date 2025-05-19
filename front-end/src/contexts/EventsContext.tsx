@@ -440,10 +440,11 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         event._id === eventId ? updatedEvent : event
       ));
 
-      // Chỉ hiển thị thông báo nếu showToast = true
-      if (showToast) {
-        toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
-      }
+      // Không hiển thị thông báo để tránh làm đóng dropdown
+      // Chỉ hiển thị thông báo nếu showToast = true và không phải trong quá trình chỉnh sửa
+      // if (showToast) {
+      //   toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+      // }
 
       return updatedEvent;
     } catch (err: any) {

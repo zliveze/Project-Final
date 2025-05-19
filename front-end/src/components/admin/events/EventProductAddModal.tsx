@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSearch, FiPlus, FiFilter, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiX, FiSearch, FiPlus, FiFilter, FiChevronDown, FiChevronUp, FiCheck } from 'react-icons/fi';
 import Pagination from '@/components/admin/common/Pagination';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
 import { toast } from 'react-hot-toast';
 import useProductPromotionCheck from '@/hooks/useProductPromotionCheck';
+import { Dialog, RadioGroup } from '@headlessui/react';
 
 // Định nghĩa interface cho biến thể
 interface Variant {
@@ -324,6 +325,10 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     return selectedProducts.some(product => product.productId === productId);
   };
 
+  // State để lưu trữ sản phẩm đang được chọn biến thể
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+
   // Xử lý chọn/bỏ chọn sản phẩm
   const toggleProductSelection = (product: Product) => {
     const productId = product._id || product.id || '';
@@ -332,49 +337,50 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       // Bỏ chọn sản phẩm
       setSelectedProducts(prev => prev.filter(item => item.productId !== productId));
     } else {
-      // Chọn sản phẩm và tính giá sau khi áp dụng % giảm giá
-      // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
-      let productPrice = 0;
-
-      if (product.originalPrice) {
-        productPrice = typeof product.originalPrice === 'string' ?
-          parseFloat(product.originalPrice) : product.originalPrice;
-      } else if (product.price) {
-        productPrice = typeof product.price === 'string' ?
-          parseFloat(product.price) : (product.price || 0);
-      }
-
-      const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
-
-      // Lấy ảnh đầu tiên hoặc ảnh được đánh dấu là primary từ mảng images nếu có
-      let productImage = product.image;
-      if (product.images && product.images.length > 0) {
-        const primaryImage = product.images.find(img => img.isPrimary);
-        productImage = primaryImage ? primaryImage.url : product.images[0].url;
-      }
-
       // Kiểm tra xem sản phẩm có biến thể không
       if (product.variants && product.variants.length > 0) {
         // Nếu có biến thể, mở modal chọn biến thể
-        // Tạm thời chỉ thêm sản phẩm gốc
-        setSelectedProducts(prev => [...prev, {
-          productId: productId,
-          adjustedPrice,
-          name: product.name,
-          image: productImage,
-          originalPrice: productPrice
-        }]);
+        setSelectedProductForVariants(product);
+        setShowVariantModal(true);
       } else {
         // Nếu không có biến thể, thêm sản phẩm gốc
-        setSelectedProducts(prev => [...prev, {
-          productId: productId,
-          adjustedPrice,
-          name: product.name,
-          image: productImage,
-          originalPrice: productPrice
-        }]);
+        addProductWithoutVariants(product);
       }
     }
+  };
+
+  // Hàm thêm sản phẩm không có biến thể
+  const addProductWithoutVariants = (product: Product) => {
+    const productId = product._id || product.id || '';
+
+    // Ưu tiên lấy giá từ originalPrice (giá thực trong DB) nếu có
+    let productPrice = 0;
+
+    if (product.originalPrice) {
+      productPrice = typeof product.originalPrice === 'string' ?
+        parseFloat(product.originalPrice) : product.originalPrice;
+    } else if (product.price) {
+      productPrice = typeof product.price === 'string' ?
+        parseFloat(product.price) : (product.price || 0);
+    }
+
+    const adjustedPrice = Math.round(productPrice * (100 - discountPercent) / 100);
+
+    // Lấy ảnh đầu tiên hoặc ảnh được đánh dấu là primary từ mảng images nếu có
+    let productImage = product.image;
+    if (product.images && product.images.length > 0) {
+      const primaryImage = product.images.find(img => img.isPrimary);
+      productImage = primaryImage ? primaryImage.url : product.images[0].url;
+    }
+
+    // Thêm sản phẩm gốc
+    setSelectedProducts(prev => [...prev, {
+      productId: productId,
+      adjustedPrice,
+      name: product.name,
+      image: productImage,
+      originalPrice: productPrice
+    }]);
   };
 
   // Xử lý thay đổi % giảm giá
@@ -469,6 +475,373 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   };
 
   if (!modalVisible) return null;
+
+  // Component Modal chọn biến thể và tổ hợp biến thể
+  const VariantSelectionModal = () => {
+    const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
+    const [selectedCombination, setSelectedCombination] = useState<string | null>(null);
+    const [variantPrice, setVariantPrice] = useState<number>(0);
+    const [adjustedPrice, setAdjustedPrice] = useState<number>(0);
+
+    useEffect(() => {
+      if (!selectedProductForVariants) return;
+
+      // Reset selection khi product thay đổi
+      setSelectedVariant(null);
+      setSelectedCombination(null);
+
+      // Lấy giá gốc của sản phẩm
+      let productPrice = 0;
+      if (selectedProductForVariants.originalPrice) {
+        productPrice = typeof selectedProductForVariants.originalPrice === 'string' ?
+          parseFloat(selectedProductForVariants.originalPrice) : selectedProductForVariants.originalPrice;
+      } else if (selectedProductForVariants.price) {
+        productPrice = typeof selectedProductForVariants.price === 'string' ?
+          parseFloat(selectedProductForVariants.price) : (selectedProductForVariants.price || 0);
+      }
+
+      setVariantPrice(productPrice);
+      setAdjustedPrice(Math.round(productPrice * (100 - discountPercent) / 100));
+    }, [selectedProductForVariants, discountPercent]);
+
+    // Cập nhật giá khi chọn biến thể
+    useEffect(() => {
+      if (!selectedVariant) return;
+
+      let newPrice = selectedVariant.price || variantPrice;
+      setVariantPrice(newPrice);
+      setAdjustedPrice(Math.round(newPrice * (100 - discountPercent) / 100));
+
+      // Reset combination khi thay đổi variant
+      setSelectedCombination(null);
+    }, [selectedVariant, discountPercent, variantPrice]);
+
+    // Cập nhật giá khi chọn tổ hợp biến thể
+    useEffect(() => {
+      if (!selectedVariant || !selectedCombination) return;
+
+      const combination = selectedVariant.combinations?.find(c => c.combinationId === selectedCombination);
+      if (combination) {
+        let combinationPrice = combination.price;
+        if (!combinationPrice && combination.additionalPrice) {
+          combinationPrice = (selectedVariant.price || variantPrice) + combination.additionalPrice;
+        }
+
+        if (combinationPrice) {
+          setVariantPrice(combinationPrice);
+          setAdjustedPrice(Math.round(combinationPrice * (100 - discountPercent) / 100));
+        }
+      }
+    }, [selectedCombination, selectedVariant, discountPercent, variantPrice]);
+
+    // Xử lý thêm biến thể vào sự kiện
+    const handleAddVariant = () => {
+      if (!selectedProductForVariants) return;
+
+      const productId = selectedProductForVariants._id || selectedProductForVariants.id || '';
+
+      // Lấy ảnh từ biến thể hoặc sản phẩm
+      let productImage = selectedProductForVariants.image;
+      if (selectedVariant && selectedVariant.images && selectedVariant.images.length > 0) {
+        const primaryImage = selectedVariant.images.find(img => img.isPrimary);
+        productImage = primaryImage ? primaryImage.url : selectedVariant.images[0].url;
+      } else if (selectedProductForVariants.images && selectedProductForVariants.images.length > 0) {
+        const primaryImage = selectedProductForVariants.images.find(img => img.isPrimary);
+        productImage = primaryImage ? primaryImage.url : selectedProductForVariants.images[0].url;
+      }
+
+      // Tạo đối tượng sản phẩm để thêm vào danh sách
+      const productToAdd = {
+        productId,
+        name: selectedProductForVariants.name,
+        image: productImage,
+        originalPrice: variantPrice,
+        adjustedPrice
+      };
+
+      // Nếu có biến thể được chọn, thêm thông tin biến thể
+      if (selectedVariant) {
+        const variantId = selectedVariant.variantId;
+        const variantName = selectedVariant.name || '';
+
+        // Tạo đối tượng thuộc tính biến thể
+        const variantAttributes: Record<string, string> = {};
+        if (selectedVariant.options) {
+          if (selectedVariant.options.color) {
+            variantAttributes['Màu'] = selectedVariant.options.color;
+          }
+        }
+
+        // Nếu có tổ hợp biến thể được chọn
+        if (selectedCombination) {
+          const combination = selectedVariant.combinations?.find(c => c.combinationId === selectedCombination);
+          if (combination) {
+            // Thêm thuộc tính từ tổ hợp
+            Object.entries(combination.attributes).forEach(([key, value]) => {
+              variantAttributes[key] = value;
+            });
+
+            // Thêm sản phẩm với thông tin tổ hợp
+            setSelectedProducts(prev => [...prev, {
+              ...productToAdd,
+              variantId,
+              variantName,
+              combinationId: selectedCombination,
+              variantAttributes
+            }]);
+          }
+        } else {
+          // Thêm sản phẩm chỉ với thông tin biến thể
+          setSelectedProducts(prev => [...prev, {
+            ...productToAdd,
+            variantId,
+            variantName,
+            variantAttributes
+          }]);
+        }
+      } else {
+        // Thêm sản phẩm gốc nếu không có biến thể được chọn
+        setSelectedProducts(prev => [...prev, productToAdd]);
+      }
+
+      // Đóng modal
+      setShowVariantModal(false);
+      setSelectedProductForVariants(null);
+    };
+
+    // Hàm hủy chọn biến thể
+    const handleCancel = () => {
+      setShowVariantModal(false);
+      setSelectedProductForVariants(null);
+    };
+
+    if (!selectedProductForVariants || !showVariantModal) return null;
+
+    return (
+      <Dialog
+        open={showVariantModal}
+        onClose={() => setShowVariantModal(false)}
+        className="fixed inset-0 z-50 overflow-y-auto"
+      >
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="fixed inset-0 bg-black opacity-30" />
+
+          <div className="relative bg-white rounded-lg max-w-2xl w-full mx-auto shadow-xl">
+            {/* Header */}
+            <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center">
+              <Dialog.Title className="text-lg font-medium text-gray-800">
+                Chọn biến thể sản phẩm
+              </Dialog.Title>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-200 bg-white rounded-full p-1.5 hover:bg-pink-50"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+              <div className="mb-6 flex items-start">
+                {/* Hình ảnh sản phẩm */}
+                <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden mr-4">
+                  {selectedProductForVariants.image ? (
+                    <img
+                      src={selectedProductForVariants.image}
+                      alt={selectedProductForVariants.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-gray-200">
+                      <span className="text-gray-400 text-xs">No image</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Thông tin sản phẩm */}
+                <div>
+                  <h3 className="text-base font-medium text-gray-900">{selectedProductForVariants.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Giá gốc: {new Intl.NumberFormat('vi-VN').format(
+                      typeof selectedProductForVariants.price === 'string'
+                        ? parseFloat(selectedProductForVariants.price)
+                        : selectedProductForVariants.price || 0
+                    )} ₫
+                  </p>
+                </div>
+              </div>
+
+              {/* Danh sách biến thể */}
+              {selectedProductForVariants.variants && selectedProductForVariants.variants.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chọn biến thể:
+                  </label>
+                  <RadioGroup value={selectedVariant} onChange={setSelectedVariant} className="mt-2">
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedProductForVariants.variants.map((variant) => (
+                        <RadioGroup.Option
+                          key={variant.variantId}
+                          value={variant}
+                          className={({ active, checked }) =>
+                            `${active ? 'ring-2 ring-pink-500' : ''}
+                            ${checked ? 'bg-pink-50 border-pink-500 text-pink-900' : 'bg-white border-gray-200'}
+                            relative border rounded-lg shadow-sm p-4 flex cursor-pointer focus:outline-none`
+                          }
+                        >
+                          {({ active, checked }) => (
+                            <>
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center">
+                                  <div className="text-sm">
+                                    <RadioGroup.Label as="p" className="font-medium text-gray-900">
+                                      {variant.name || `Biến thể ${variant.variantId.substring(0, 8)}`}
+                                    </RadioGroup.Label>
+                                    <RadioGroup.Description as="div" className="text-gray-500">
+                                      {variant.options && (
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {variant.options.color && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                              Màu: {variant.options.color}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {variant.price && (
+                                        <p className="mt-1 text-sm text-gray-500">
+                                          Giá: {new Intl.NumberFormat('vi-VN').format(variant.price)} ₫
+                                        </p>
+                                      )}
+                                    </RadioGroup.Description>
+                                  </div>
+                                </div>
+                                {checked && (
+                                  <div className="flex-shrink-0 text-pink-600">
+                                    <FiCheck className="h-5 w-5" />
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </RadioGroup.Option>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+
+              {/* Danh sách tổ hợp biến thể (nếu có) */}
+              {selectedVariant && selectedVariant.combinations && selectedVariant.combinations.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chọn tổ hợp biến thể:
+                  </label>
+                  <RadioGroup value={selectedCombination} onChange={setSelectedCombination} className="mt-2">
+                    <div className="grid grid-cols-1 gap-3">
+                      {selectedVariant.combinations.map((combination) => (
+                        <RadioGroup.Option
+                          key={combination.combinationId}
+                          value={combination.combinationId}
+                          className={({ active, checked }) =>
+                            `${active ? 'ring-2 ring-pink-500' : ''}
+                            ${checked ? 'bg-pink-50 border-pink-500 text-pink-900' : 'bg-white border-gray-200'}
+                            relative border rounded-lg shadow-sm p-4 flex cursor-pointer focus:outline-none`
+                          }
+                        >
+                          {({ active, checked }) => (
+                            <>
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center">
+                                  <div className="text-sm">
+                                    <RadioGroup.Label as="p" className="font-medium text-gray-900">
+                                      Tổ hợp {combination.combinationId.substring(0, 8)}
+                                    </RadioGroup.Label>
+                                    <RadioGroup.Description as="div" className="text-gray-500">
+                                      {combination.attributes && (
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {Object.entries(combination.attributes).map(([key, value]) => (
+                                            <span key={key} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                              {key}: {value}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {(combination.price || combination.additionalPrice) && (
+                                        <p className="mt-1 text-sm text-gray-500">
+                                          {combination.price
+                                            ? `Giá: ${new Intl.NumberFormat('vi-VN').format(combination.price)} ₫`
+                                            : `Giá thêm: +${new Intl.NumberFormat('vi-VN').format(combination.additionalPrice || 0)} ₫`}
+                                        </p>
+                                      )}
+                                    </RadioGroup.Description>
+                                  </div>
+                                </div>
+                                {checked && (
+                                  <div className="flex-shrink-0 text-pink-600">
+                                    <FiCheck className="h-5 w-5" />
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </RadioGroup.Option>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+
+              {/* Giá sau khi giảm */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Giá sau khi giảm {discountPercent}%:
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <input
+                    type="number"
+                    value={adjustedPrice}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        setAdjustedPrice(value);
+                      }
+                    }}
+                    className="focus:ring-pink-500 focus:border-pink-500 block w-full pl-3 pr-12 sm:text-sm border-gray-300 rounded-md"
+                    placeholder="0"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 sm:text-sm">₫</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Giá gốc: {new Intl.NumberFormat('vi-VN').format(variantPrice)} ₫
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-8 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                >
+                  Thêm vào sự kiện
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+    );
+  };
 
   return (
     <div className={`fixed inset-0 z-50 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
@@ -875,6 +1248,9 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Render modal chọn biến thể */}
+      <VariantSelectionModal />
     </div>
   );
 };

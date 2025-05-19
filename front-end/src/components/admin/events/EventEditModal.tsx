@@ -220,7 +220,8 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
     // Không gọi API updateProductPriceInEvent nữa
     // Việc cập nhật API sẽ được thực hiện khi submit form
-    toast.success('Đã cập nhật giá sản phẩm. Nhấn Lưu để hoàn tất thay đổi.');
+    // Không hiển thị toast để tránh làm đóng dropdown
+    // toast.success('Đã cập nhật giá sản phẩm. Nhấn Lưu để hoàn tất thay đổi.');
   };
 
   // Xử lý khi submit form - Cách tiếp cận mới
