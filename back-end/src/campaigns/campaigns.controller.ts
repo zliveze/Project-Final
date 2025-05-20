@@ -9,12 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
 import { AdminRoles } from '../common/decorators/admin-roles.decorator';
 import { CampaignsService } from './campaigns.service';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { CreateCampaignDto, ProductInCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { QueryCampaignDto } from './dto/query-campaign.dto';
 
@@ -76,4 +76,69 @@ export class CampaignsController {
   remove(@Param('id') id: string) {
     return this.campaignsService.remove(id);
   }
-} 
+
+  @Post(':id/products')
+  @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
+  @AdminRoles('admin', 'superadmin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Thêm sản phẩm vào chiến dịch (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sản phẩm đã được thêm vào chiến dịch thành công.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Chiến dịch không tồn tại.' })
+  addProductsToCampaign(
+    @Param('id') id: string,
+    @Body() data: { products: ProductInCampaignDto[] }
+  ) {
+    return this.campaignsService.addProductsToCampaign(id, data.products);
+  }
+
+  @Delete(':id/products/:productId')
+  @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
+  @AdminRoles('admin', 'superadmin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Xóa sản phẩm khỏi chiến dịch (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sản phẩm đã được xóa khỏi chiến dịch thành công.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Chiến dịch hoặc sản phẩm không tồn tại.' })
+  removeProductFromCampaign(
+    @Param('id') id: string,
+    @Param('productId') productId: string,
+    @Query('variantId') variantId?: string
+  ) {
+    return this.campaignsService.removeProductFromCampaign(id, productId, variantId);
+  }
+
+  @Patch(':id/products/:productId/price')
+  @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
+  @AdminRoles('admin', 'superadmin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật giá sản phẩm trong chiến dịch (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Giá sản phẩm đã được cập nhật thành công.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Chiến dịch hoặc sản phẩm không tồn tại.' })
+  updateProductPriceInCampaign(
+    @Param('id') id: string,
+    @Param('productId') productId: string,
+    @Body() data: { adjustedPrice: number, variantId?: string, combinationId?: string }
+  ) {
+    return this.campaignsService.updateProductPriceInCampaign(
+      id,
+      productId,
+      data.adjustedPrice,
+      data.variantId,
+      data.combinationId
+    );
+  }
+}

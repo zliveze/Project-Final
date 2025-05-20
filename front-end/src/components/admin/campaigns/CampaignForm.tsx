@@ -5,8 +5,9 @@ import { vi } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ProductSelectionTable from './ProductSelectionTable';
+import CampaignProductsTable from './CampaignProductsTable';
 // Import types from context
-import { Campaign, CampaignProduct as Product } from '@/contexts/CampaignContext';
+import { Campaign, ProductInCampaign, VariantInCampaign, CombinationInCampaign } from '@/contexts/CampaignContext';
 
 interface CampaignFormProps {
   initialData?: Partial<Campaign>; // Use context Campaign type
@@ -84,7 +85,7 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   };
 
   // Xử lý thêm sản phẩm
-  const handleAddProducts = (products: Product[]) => {
+  const handleAddProducts = (products: ProductInCampaign[]) => {
     setFormData(prev => ({
       ...prev,
       products: [...products]
@@ -94,26 +95,122 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
   };
 
   // Xử lý xóa sản phẩm
-  const handleRemoveProduct = (productId: string, variantId?: string) => { // Make variantId optional here
-    setFormData(prev => ({
-      ...prev,
-      products: prev.products?.filter(p =>
-        !(p.productId === productId && p.variantId === variantId)
-      ) || []
-    }));
+  const handleRemoveProduct = (productId: string, variantId?: string, combinationId?: string) => {
+    setFormData(prev => {
+      const updatedProducts = [...(prev.products || [])];
+
+      if (combinationId && variantId) {
+        // Xóa tổ hợp biến thể cụ thể
+        return {
+          ...prev,
+          products: updatedProducts.map(product => {
+            if (product.productId === productId) {
+              return {
+                ...product,
+                variants: product.variants?.map(variant => {
+                  if (variant.variantId === variantId) {
+                    return {
+                      ...variant,
+                      combinations: variant.combinations?.filter(
+                        combination => combination.combinationId !== combinationId
+                      )
+                    };
+                  }
+                  return variant;
+                })
+              };
+            }
+            return product;
+          })
+        };
+      } else if (variantId) {
+        // Xóa biến thể cụ thể
+        return {
+          ...prev,
+          products: updatedProducts.map(product => {
+            if (product.productId === productId) {
+              return {
+                ...product,
+                variants: product.variants?.filter(variant => variant.variantId !== variantId)
+              };
+            }
+            return product;
+          })
+        };
+      } else {
+        // Xóa toàn bộ sản phẩm
+        return {
+          ...prev,
+          products: updatedProducts.filter(product => product.productId !== productId)
+        };
+      }
+    });
   };
 
   // Xử lý thay đổi giá sản phẩm
-  const handleProductPriceChange = (productId: string, variantId: string | undefined, newPrice: number) => { // Allow variantId to be undefined
-    setFormData(prev => ({
-      ...prev,
-      products: prev.products?.map(p => {
-        if (p.productId === productId && p.variantId === variantId) {
-          return { ...p, adjustedPrice: newPrice };
-        }
-        return p;
-      }) || []
-    }));
+  const handleProductPriceChange = (productId: string, newPrice: number, variantId?: string, combinationId?: string) => {
+    setFormData(prev => {
+      const updatedProducts = [...(prev.products || [])];
+
+      if (combinationId && variantId) {
+        // Cập nhật giá cho tổ hợp biến thể cụ thể
+        return {
+          ...prev,
+          products: updatedProducts.map(product => {
+            if (product.productId === productId) {
+              return {
+                ...product,
+                variants: product.variants?.map(variant => {
+                  if (variant.variantId === variantId) {
+                    return {
+                      ...variant,
+                      combinations: variant.combinations?.map(combination => {
+                        if (combination.combinationId === combinationId) {
+                          return { ...combination, adjustedPrice: newPrice };
+                        }
+                        return combination;
+                      })
+                    };
+                  }
+                  return variant;
+                })
+              };
+            }
+            return product;
+          })
+        };
+      } else if (variantId) {
+        // Cập nhật giá cho biến thể cụ thể
+        return {
+          ...prev,
+          products: updatedProducts.map(product => {
+            if (product.productId === productId) {
+              return {
+                ...product,
+                variants: product.variants?.map(variant => {
+                  if (variant.variantId === variantId) {
+                    return { ...variant, adjustedPrice: newPrice };
+                  }
+                  return variant;
+                })
+              };
+            }
+            return product;
+          })
+        };
+      } else {
+        // Cập nhật giá cho sản phẩm chính
+        return {
+          ...prev,
+          products: updatedProducts.map(product => {
+            if (product.productId === productId) {
+              return { ...product, adjustedPrice: newPrice };
+            }
+            return product;
+          })
+        };
+      }
+    });
   };
 
   // Validation form
@@ -315,108 +412,11 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
         )}
 
         {formData.products && formData.products.length > 0 ? (
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sản phẩm
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Biến thể
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giá gốc
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giá campaign
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giảm giá
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {formData.products.map((product, index) => (
-                  <tr key={`${product.productId}-${product.variantId}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <Image
-                            src={product.image || 'https://via.placeholder.com/40'}
-                            alt={product.productName || 'Product image'}
-                            width={40}
-                            height={40}
-                            className="rounded-md object-cover"
-                          />
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.productName || `Sản phẩm ${index + 1}`}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.variantName || 'Mặc định'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.originalPrice?.toLocaleString('vi-VN')}₫
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="number"
-                        min="0"
-                        value={product.adjustedPrice}
-                        onChange={(e) => {
-                          e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
-                          handleProductPriceChange(
-                            product.productId,
-                            product.variantId, // Pass potentially undefined variantId
-                            Number(e.target.value)
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện lan truyền khi click
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault(); // Ngăn chặn sự kiện mặc định khi nhấn Enter
-                          }
-                        }}
-                        className="w-24 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      {product.originalPrice && product.adjustedPrice ? ( // Check adjustedPrice too
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          ((product.originalPrice - product.adjustedPrice) / product.originalPrice * 100) > 0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)}%
-                        </span>
-                      ) : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault(); // Ngăn chặn sự kiện mặc định
-                          e.stopPropagation(); // Ngăn chặn sự kiện lan truyền
-                          handleRemoveProduct(product.productId, product.variantId); // Pass potentially undefined variantId
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Xóa
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CampaignProductsTable
+            products={formData.products}
+            onRemoveProduct={handleRemoveProduct}
+            onPriceChange={handleProductPriceChange}
+          />
         ) : (
           <div className="border border-dashed border-gray-300 rounded-md p-6 text-center">
             <FiShoppingBag className="mx-auto h-12 w-12 text-gray-400" />

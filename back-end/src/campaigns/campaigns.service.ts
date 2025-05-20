@@ -1,16 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Campaign, CampaignDocument } from './schemas/campaign.schema';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { CreateCampaignDto, ProductInCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { QueryCampaignDto } from './dto/query-campaign.dto';
 import { EventsService } from '../events/events.service';
+import { Product } from '../products/schemas/product.schema';
 
 @Injectable()
 export class CampaignsService {
+  private readonly logger = new Logger(CampaignsService.name);
+
   constructor(
     @InjectModel(Campaign.name) private campaignModel: Model<CampaignDocument>,
+    @InjectModel(Product.name) private readonly productModel: Model<Product>,
     @Inject(forwardRef(() => EventsService)) private readonly eventsService: EventsService
   ) {}
 
@@ -58,10 +62,106 @@ export class CampaignsService {
           );
         }
       }
+
+      // Làm phong phú dữ liệu sản phẩm với thông tin chi tiết
+      const enrichedProducts = await this.enrichProductsData(createCampaignDto.products);
+      createCampaignDto.products = enrichedProducts;
     }
 
     const newCampaign = new this.campaignModel(createCampaignDto);
     return newCampaign.save();
+  }
+
+  // Phương thức làm phong phú dữ liệu sản phẩm với thông tin chi tiết
+  private async enrichProductsData(productsData: ProductInCampaignDto[]): Promise<ProductInCampaignDto[]> {
+    if (!productsData || productsData.length === 0) {
+      return [];
+    }
+
+    // Lấy danh sách ID sản phẩm
+    const productIds = productsData.map(p => new Types.ObjectId(p.productId.toString()));
+
+    // Lấy thông tin chi tiết sản phẩm từ database
+    const productDetails = await this.productModel
+      .find({ _id: { $in: productIds } })
+      .select('_id name images price variants sku status brandId brand')
+      .populate('brandId', 'name')
+      .lean()
+      .exec();
+
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm
+    const productDetailsMap = new Map<string, any>();
+    productDetails.forEach(product => {
+      productDetailsMap.set(product._id.toString(), product);
+    });
+
+    // Làm phong phú dữ liệu sản phẩm
+    return productsData.map(product => {
+      const productId = product.productId.toString();
+      const productInfo = productDetailsMap.get(productId);
+
+      if (!productInfo) {
+        this.logger.warn(`Không tìm thấy thông tin sản phẩm cho ID: ${productId}`);
+        return product;
+      }
+
+      // Tạo sản phẩm mới với thông tin chi tiết
+      const enrichedProduct: ProductInCampaignDto = {
+        ...product,
+        name: product.name || productInfo.name,
+        image: product.image || (productInfo.images && productInfo.images.length > 0 ?
+          productInfo.images.find(img => img.isPrimary)?.url || productInfo.images[0].url : undefined),
+        originalPrice: product.originalPrice || productInfo.price,
+        sku: product.sku || productInfo.sku,
+        status: product.status || productInfo.status,
+        brandId: product.brandId || productInfo.brandId,
+        brand: product.brand || (productInfo.brandId && productInfo.brandId.name ? productInfo.brandId.name : undefined),
+      };
+
+      // Xử lý biến thể
+      if (product.variants && product.variants.length > 0) {
+        enrichedProduct.variants = product.variants.map(variant => {
+          // Tìm thông tin biến thể từ database
+          const variantInfo = productInfo.variants?.find(
+            (v: any) => v.variantId && variant.variantId && v.variantId.toString() === variant.variantId.toString()
+          );
+
+          // Tạo biến thể mới
+          const enrichedVariant = {
+            ...variant,
+            variantName: variant.variantName || variantInfo?.name,
+            variantSku: variant.variantSku || variantInfo?.sku,
+            variantAttributes: variant.variantAttributes || variantInfo?.options || {},
+            variantPrice: variant.variantPrice || variantInfo?.price || productInfo.price,
+            originalPrice: variant.originalPrice || variantInfo?.price || productInfo.price,
+            image: variant.image || (variantInfo?.images && variantInfo.images.length > 0 ?
+              variantInfo.images[0].url : undefined),
+          };
+
+          // Xử lý tổ hợp biến thể
+          if (variant.combinations && variant.combinations.length > 0) {
+            enrichedVariant.combinations = variant.combinations.map(combination => {
+              // Tìm thông tin tổ hợp từ database
+              const combinationInfo = variantInfo?.combinations?.find(
+                (c: any) => c.combinationId && combination.combinationId && c.combinationId.toString() === combination.combinationId.toString()
+              );
+
+              // Tạo tổ hợp mới
+              return {
+                ...combination,
+                attributes: combination.attributes || {},
+                combinationPrice: combination.combinationPrice || (combinationInfo?.price || 0),
+                originalPrice: combination.originalPrice || (combinationInfo?.price || variantInfo?.price || productInfo.price)
+              };
+            });
+          }
+
+          return enrichedVariant;
+        });
+      }
+
+      return enrichedProduct;
+    });
   }
 
   async findAll(queryDto: QueryCampaignDto): Promise<{
@@ -192,6 +292,16 @@ export class CampaignsService {
           }
         }
       }
+
+      // Làm phong phú dữ liệu sản phẩm mới với thông tin chi tiết
+      const newProducts = updateCampaignDto.products.filter(p => !existingProductIds.has(p.productId.toString()));
+      if (newProducts.length > 0) {
+        const enrichedNewProducts = await this.enrichProductsData(newProducts);
+
+        // Kết hợp sản phẩm mới và sản phẩm hiện tại
+        const existingProducts = updateCampaignDto.products.filter(p => existingProductIds.has(p.productId.toString()));
+        updateCampaignDto.products = [...existingProducts, ...enrichedNewProducts];
+      }
     }
 
     const updatedCampaign = await this.campaignModel
@@ -226,5 +336,237 @@ export class CampaignsService {
       .select('_id title description type startDate endDate products')
       .lean()
       .exec();
+  }
+
+  // Phương thức thêm sản phẩm vào chiến dịch
+  async addProductsToCampaign(id: string, productsData: ProductInCampaignDto[]): Promise<Campaign> {
+    // Kiểm tra chiến dịch tồn tại
+    const campaign = await this.findOne(id);
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!productsData || productsData.length === 0) {
+      throw new BadRequestException('Danh sách sản phẩm không được trống');
+    }
+
+    // Lấy danh sách ID sản phẩm
+    const productIds = productsData.map(p => p.productId.toString());
+
+    // Kiểm tra sản phẩm đã thuộc về Event nào chưa
+    const activeEvents = await this.eventsService.findActive();
+    const productEventMap = new Map<string, { eventId: string; eventName: string }>();
+
+    // Kiểm tra sản phẩm trong Event
+    activeEvents.forEach(event => {
+      if (event && event.products) {
+        event.products.forEach(product => {
+          if (product && product.productId) {
+            const productIdStr = product.productId.toString();
+            if (event._id) {
+              productEventMap.set(productIdStr, {
+                eventId: event._id.toString(),
+                eventName: event.title || 'Không có tên'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Lọc ra các sản phẩm đã thuộc về Event
+    const productsInEvent = productIds.filter(productId => productEventMap.has(productId));
+
+    // Nếu có sản phẩm đã thuộc về Event, thông báo lỗi
+    if (productsInEvent.length > 0) {
+      const eventInfo = productEventMap.get(productsInEvent[0]);
+      if (eventInfo) {
+        throw new BadRequestException(
+          `Sản phẩm đã thuộc về Event "${eventInfo.eventName}". Vui lòng xóa sản phẩm khỏi Event trước khi thêm vào Campaign.`
+        );
+      } else {
+        throw new BadRequestException(
+          `Sản phẩm đã thuộc về một Event. Vui lòng xóa sản phẩm khỏi Event trước khi thêm vào Campaign.`
+        );
+      }
+    }
+
+    // Kiểm tra trùng lặp sản phẩm
+    const existingProductIds = new Set(campaign.products.map(p => p.productId.toString()));
+    const newProductIds = productIds.filter(id => !existingProductIds.has(id));
+
+    if (newProductIds.length === 0) {
+      throw new BadRequestException('Tất cả sản phẩm đã tồn tại trong chiến dịch');
+    }
+
+    // Làm phong phú dữ liệu sản phẩm với thông tin chi tiết
+    const enrichedProducts = await this.enrichProductsData(productsData);
+
+    // Thêm sản phẩm mới vào chiến dịch
+    const updatedCampaign = await this.campaignModel
+      .findByIdAndUpdate(
+        id,
+        { $push: { products: { $each: enrichedProducts } } },
+        { new: true }
+      )
+      .exec();
+
+    if (!updatedCampaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found`);
+    }
+
+    return updatedCampaign;
+  }
+
+  // Phương thức xóa sản phẩm khỏi chiến dịch
+  async removeProductFromCampaign(id: string, productId: string, variantId?: string): Promise<Campaign> {
+    // Kiểm tra chiến dịch tồn tại
+    const campaign = await this.findOne(id);
+
+    // Nếu không có variantId, xóa toàn bộ sản phẩm
+    if (!variantId) {
+      // Xóa sản phẩm khỏi chiến dịch
+      const updatedCampaign = await this.campaignModel
+        .findByIdAndUpdate(
+          id,
+          { $pull: { products: { productId: new Types.ObjectId(productId) } } },
+          { new: true }
+        )
+        .exec();
+
+      if (!updatedCampaign) {
+        throw new NotFoundException(`Campaign with ID ${id} not found`);
+      }
+
+      return updatedCampaign;
+    }
+
+    // Nếu có variantId, chỉ xóa biến thể
+    const productIndex = campaign.products.findIndex(p => p.productId.toString() === productId);
+    if (productIndex === -1) {
+      throw new NotFoundException(`Product with ID ${productId} not found in campaign ${id}`);
+    }
+
+    // Tạo điều kiện truy vấn để xóa biến thể
+    const updateQuery = {};
+    updateQuery[`products.${productIndex}.variants`] = { $elemMatch: { variantId: new Types.ObjectId(variantId) } };
+
+    // Xóa biến thể khỏi sản phẩm
+    const updatedCampaign = await this.campaignModel
+      .findByIdAndUpdate(
+        id,
+        { $pull: { [`products.${productIndex}.variants`]: { variantId: new Types.ObjectId(variantId) } } },
+        { new: true }
+      )
+      .exec();
+
+    if (!updatedCampaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found`);
+    }
+
+    return updatedCampaign;
+  }
+
+  // Phương thức cập nhật giá sản phẩm trong chiến dịch
+  async updateProductPriceInCampaign(
+    id: string,
+    productId: string,
+    adjustedPrice: number,
+    variantId?: string,
+    combinationId?: string
+  ): Promise<Campaign> {
+    // Kiểm tra chiến dịch tồn tại
+    const campaign = await this.findOne(id);
+
+    // Kiểm tra giá hợp lệ
+    if (adjustedPrice < 0) {
+      throw new BadRequestException('Giá sản phẩm không được âm');
+    }
+
+    // Tìm sản phẩm trong chiến dịch
+    const productIndex = campaign.products.findIndex(p => p.productId.toString() === productId);
+
+    if (productIndex === -1) {
+      throw new NotFoundException(`Product with ID ${productId} not found in campaign ${id}`);
+    }
+
+    // Nếu không có variantId, cập nhật giá sản phẩm gốc
+    if (!variantId) {
+      // Tạo điều kiện truy vấn để cập nhật giá sản phẩm
+      const updateQuery = {};
+      updateQuery[`products.${productIndex}.adjustedPrice`] = adjustedPrice;
+
+      // Cập nhật chiến dịch
+      const updatedCampaign = await this.campaignModel
+        .findByIdAndUpdate(
+          id,
+          { $set: updateQuery },
+          { new: true }
+        )
+        .exec();
+
+      if (!updatedCampaign) {
+        throw new NotFoundException(`Campaign with ID ${id} not found after update`);
+      }
+
+      return updatedCampaign;
+    }
+
+    // Nếu có variantId, tìm biến thể
+    const variantIndex = campaign.products[productIndex].variants.findIndex(
+      v => v.variantId.toString() === variantId
+    );
+
+    if (variantIndex === -1) {
+      throw new NotFoundException(`Variant with ID ${variantId} not found in product ${productId} of campaign ${id}`);
+    }
+
+    // Nếu không có combinationId, cập nhật giá biến thể
+    if (!combinationId) {
+      // Tạo điều kiện truy vấn để cập nhật giá biến thể
+      const updateQuery = {};
+      updateQuery[`products.${productIndex}.variants.${variantIndex}.adjustedPrice`] = adjustedPrice;
+
+      // Cập nhật chiến dịch
+      const updatedCampaign = await this.campaignModel
+        .findByIdAndUpdate(
+          id,
+          { $set: updateQuery },
+          { new: true }
+        )
+        .exec();
+
+      if (!updatedCampaign) {
+        throw new NotFoundException(`Campaign with ID ${id} not found after update`);
+      }
+
+      return updatedCampaign;
+    }
+
+    // Nếu có combinationId, tìm tổ hợp biến thể
+    const combinationIndex = campaign.products[productIndex].variants[variantIndex].combinations.findIndex(
+      c => c.combinationId.toString() === combinationId
+    );
+
+    if (combinationIndex === -1) {
+      throw new NotFoundException(`Combination with ID ${combinationId} not found in variant ${variantId} of product ${productId} in campaign ${id}`);
+    }
+
+    // Tạo điều kiện truy vấn để cập nhật giá tổ hợp biến thể
+    const updateQuery = {};
+    updateQuery[`products.${productIndex}.variants.${variantIndex}.combinations.${combinationIndex}.adjustedPrice`] = adjustedPrice;
+
+    // Cập nhật chiến dịch
+    const updatedCampaign = await this.campaignModel
+      .findByIdAndUpdate(
+        id,
+        { $set: updateQuery },
+        { new: true }
+      )
+      .exec();
+
+    if (!updatedCampaign) {
+      throw new NotFoundException(`Campaign with ID ${id} not found after update`);
+    }
+
+    return updatedCampaign;
   }
 }

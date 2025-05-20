@@ -7,32 +7,149 @@ import {
   IsMongoId,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Types } from 'mongoose';
+import { Schema as MongooseSchema } from 'mongoose';
 
 export enum CampaignType {
   HERO_BANNER = 'Hero Banner',
   SALE_EVENT = 'Sale Event',
 }
 
-class CampaignProductDto {
-  @ApiProperty({ description: 'ID của sản phẩm' })
-  @IsMongoId()
-  @IsNotEmpty()
-  productId: Types.ObjectId;
-
-  @ApiProperty({ description: 'ID của biến thể sản phẩm (nếu có)', required: false })
+// DTO cho tổ hợp biến thể trong chiến dịch
+export class CombinationInCampaignDto {
+  @ApiProperty({ description: 'Combination ID' })
   @IsMongoId()
   @IsOptional()
-  variantId?: Types.ObjectId;
+  combinationId?: MongooseSchema.Types.ObjectId;
 
-  @ApiProperty({ description: 'Giá sản phẩm trong thời gian Campaign' })
+  @ApiProperty({ description: 'Combination attributes (e.g., color, size)' })
+  @IsObject()
+  @IsOptional()
+  attributes?: Record<string, string>;
+
+  @ApiProperty({ description: 'Combination price' })
+  @IsNumber()
+  @IsOptional()
+  combinationPrice?: number;
+
+  @ApiProperty({ description: 'Adjusted price for the combination during the campaign' })
   @IsNumber()
   @IsNotEmpty()
   adjustedPrice: number;
+
+  @ApiProperty({ description: 'Original price of the combination' })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+}
+
+// DTO cho biến thể trong chiến dịch
+export class VariantInCampaignDto {
+  @ApiProperty({ description: 'Variant ID' })
+  @IsMongoId()
+  @IsOptional()
+  variantId?: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Variant name' })
+  @IsString()
+  @IsOptional()
+  variantName?: string;
+
+  @ApiProperty({ description: 'Variant SKU' })
+  @IsString()
+  @IsOptional()
+  variantSku?: string;
+
+  @ApiProperty({ description: 'Variant attributes (e.g., color, size)' })
+  @IsObject()
+  @IsOptional()
+  variantAttributes?: Record<string, string>;
+
+  @ApiProperty({ description: 'Variant price' })
+  @IsNumber()
+  @IsOptional()
+  variantPrice?: number;
+
+  @ApiProperty({ description: 'Adjusted price for the variant during the campaign' })
+  @IsNumber()
+  @IsNotEmpty()
+  adjustedPrice: number;
+
+  @ApiProperty({ description: 'Original price of the variant' })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+
+  @ApiProperty({ description: 'Variant image URL' })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ description: 'Combinations of the variant', type: [CombinationInCampaignDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CombinationInCampaignDto)
+  @IsOptional()
+  combinations?: CombinationInCampaignDto[];
+}
+
+// DTO cho sản phẩm trong chiến dịch
+export class ProductInCampaignDto {
+  @ApiProperty({ description: 'Product ID' })
+  @IsMongoId()
+  @IsNotEmpty()
+  productId: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Adjusted price for the product during the campaign' })
+  @IsNumber()
+  @IsNotEmpty()
+  adjustedPrice: number;
+
+  @ApiProperty({ description: 'Product name' })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiProperty({ description: 'Product image URL' })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ description: 'Original price of the product' })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+
+  @ApiProperty({ description: 'Product SKU' })
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @ApiProperty({ description: 'Product status' })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ description: 'Brand ID' })
+  @IsMongoId()
+  @IsOptional()
+  brandId?: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Brand name' })
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @ApiProperty({ description: 'Variants of the product', type: [VariantInCampaignDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantInCampaignDto)
+  @IsOptional()
+  variants?: VariantInCampaignDto[];
 }
 
 export class CreateCampaignDto {
@@ -69,12 +186,12 @@ export class CreateCampaignDto {
 
   @ApiProperty({
     description: 'Danh sách sản phẩm trong chiến dịch',
-    type: [CampaignProductDto],
+    type: [ProductInCampaignDto],
     required: false,
   })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CampaignProductDto)
+  @Type(() => ProductInCampaignDto)
   @IsOptional()
-  products?: CampaignProductDto[];
-} 
+  products?: ProductInCampaignDto[];
+}
