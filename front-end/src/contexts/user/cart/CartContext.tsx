@@ -135,9 +135,9 @@ interface CartContextType {
   voucherCode: string;
   voucherId: string;
   fetchCart: () => Promise<void>;
-  addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>) => Promise<boolean>; // Allow undefined, null, or empty string variantId
-  updateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => Promise<boolean>; // Changed variantId to itemId
-  debouncedUpdateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void; // Changed variantId to itemId
+  addItemToCart: (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>, price?: number) => Promise<boolean>; // Allow undefined, null, or empty string variantId
+  updateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string, price?: number) => Promise<boolean>; // Changed variantId to itemId
+  debouncedUpdateCartItem: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string, price?: number) => void; // Changed variantId to itemId
   removeCartItem: (itemId: string) => Promise<boolean>; // Changed variantId to itemId
   clearCart: () => Promise<boolean>;
   applyVoucher: (code: string) => Promise<boolean>;
@@ -433,7 +433,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchAndPopulateCart();
   }, [fetchAndPopulateCart, isAuthenticated]); // Thêm isAuthenticated
 
-  const addItemToCart = async (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>): Promise<boolean> => {
+  const addItemToCart = async (productId: string, variantId: string | undefined | null | '', quantity: number, options?: Record<string, string>, price?: number): Promise<boolean> => {
 
     if (!isAuthenticated) {
       toast.info('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
@@ -442,7 +442,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Optional: Add loading state specific to this action
     // setIsLoadingAdd(true);
     try {
-      const dto = { productId, variantId, quantity, selectedOptions: options };
+      const dto = { productId, variantId, quantity, selectedOptions: options, price };
       // Gọi API POST bằng fetch
       const response = await fetch(`${API_URL}/carts/items`, {
           method: 'POST',
@@ -507,7 +507,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Queue for pending updates to prevent conflicting API calls
   const pendingUpdates = useRef<Record<string, number>>({});
 
-  const updateCartItem = async (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string): Promise<boolean> => { // Changed variantId to itemId
+  const updateCartItem = async (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number): Promise<boolean> => { // Changed variantId to itemId
      if (!isAuthenticated) return false;
 
      // Tìm item hiện tại bằng itemId (là _id của CartProduct)
@@ -531,7 +531,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      }
 
      // If quantity hasn't changed, do nothing
-     if (currentItem.quantity === validQuantity && currentItem.selectedBranchId === selectedBranchId) return true; // Check selectedBranchId too
+     if (currentItem.quantity === validQuantity && currentItem.selectedBranchId === selectedBranchId && !price) return true; // Check selectedBranchId too
 
      // Store this update in the pending queue
      pendingUpdates.current[itemId] = validQuantity; // Use itemId as key
@@ -544,7 +544,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
            return {
              ...item,
              quantity: validQuantity,
-             selectedBranchId: selectedBranchId || item.selectedBranchId
+             selectedBranchId: selectedBranchId || item.selectedBranchId,
+             price: price || item.price
            }; // Đảm bảo số lượng hợp lệ và lưu chi nhánh đã chọn
          }
          return item;
@@ -552,8 +553,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      );
 
     try {
-      // Create DTO with quantity and selectedBranchId if provided
+      // Create DTO with quantity, selectedBranchId, and price if provided
       const dto: any = { quantity: validQuantity };
+
+      // Add price to DTO if provided
+      if (price) {
+        dto.price = price;
+      }
 
       // Prepare selectedOptions for the DTO
       // Start with current item's selectedOptions to preserve combinationId
@@ -624,8 +630,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Create a debounced version of updateCartItem
   const debouncedUpdateCartItem = useCallback(
-    debounce((itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => { // Changed variantId to itemId
-      updateCartItem(itemId, quantity, showToast, selectedBranchId); // Changed variantId to itemId
+    debounce((itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number) => { // Changed variantId to itemId
+      updateCartItem(itemId, quantity, showToast, selectedBranchId, price); // Changed variantId to itemId
     }, 500), // 500ms debounce delay
     [updateCartItem]
   );

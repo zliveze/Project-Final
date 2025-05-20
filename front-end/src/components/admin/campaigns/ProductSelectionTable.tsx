@@ -134,7 +134,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
         return {
           ...p,
           originalPrice: productOriginalPrice, // Ensure originalPrice is a number
-          adjustedPrice: productOriginalPrice, 
+          adjustedPrice: productOriginalPrice,
           variants: p.variants?.map(v => {
             const variantOriginalPrice = v.originalPrice ?? 0;
             return {
@@ -227,9 +227,15 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
   const isProductSelected = (productId: string, variantId?: string) => {
     const productEntry = tempSelectedProducts.find(p => p.productId === productId);
     if (!productEntry) return false;
-    if (!variantId) { // Checking if the base product (without specific variant) is selected
-      return !productEntry.variants || productEntry.variants.length === 0;
+
+    // Nếu không có variantId, kiểm tra xem sản phẩm cơ bản đã được chọn chưa
+    if (!variantId) {
+      // Sản phẩm được chọn nếu nó tồn tại trong tempSelectedProducts
+      // Không quan tâm đến việc nó có variants hay không
+      return true;
     }
+
+    // Kiểm tra xem biến thể cụ thể đã được chọn chưa
     return productEntry.variants?.some(v => v.variantId === variantId) || false;
   };
 
@@ -305,8 +311,8 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
     const campaignVariants: VariantInCampaign[] = [];
 
     // Logic to populate campaignVariants based on selection
-    const variantsToProcess = selectedVariantId 
-      ? productDetails.variants?.filter(v => (v._id || v.id || v.variantId) === selectedVariantId) 
+    const variantsToProcess = selectedVariantId
+      ? productDetails.variants?.filter(v => (v._id || v.id || v.variantId) === selectedVariantId)
       : productDetails.variants;
 
     (variantsToProcess || []).forEach((vDetail: ProductFromApiVariant) => {
@@ -328,21 +334,21 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
         combinations: (vDetail.combinations || []).map((combo: ProductFromApiVariantCombination) => {
           const cOriginalPriceFromData = (typeof combo.originalPrice === 'number' ? combo.originalPrice : parseFloat(String(combo.originalPrice))) || (typeof combo.price === 'number' ? combo.price : parseFloat(String(combo.price))) || 0;
           const cAdditionalPrice = typeof combo.additionalPrice === 'number' ? combo.additionalPrice : 0;
-          
+
           // If combo has its own price, use it. Otherwise, it's additive to variant price or just variant price.
           const comboBasePrice = cOriginalPriceFromData > 0 ? cOriginalPriceFromData : (vOriginalPrice + cAdditionalPrice);
 
           return {
             combinationId: combo._id || combo.id || combo.combinationId || '',
             attributes: combo.attributes || {},
-            combinationPrice: comboBasePrice, 
-            originalPrice: comboBasePrice, 
+            combinationPrice: comboBasePrice,
+            originalPrice: comboBasePrice,
             adjustedPrice: discountPercent > 0 ? Math.round(comboBasePrice * (100 - discountPercent) / 100) : comboBasePrice,
           };
         })
       });
     });
-    
+
     const productToAdd: ProductInCampaign = {
       productId: definitiveProductId,
       name: productDetails.name,
@@ -361,7 +367,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
       if (existingProductIndex >= 0) {
         const updatedProducts = [...prev];
         const existingProduct = { ...updatedProducts[existingProductIndex] };
-        
+
         if (selectedVariantId) { // Adding/updating a specific variant
             const newVariantToAdd = productToAdd.variants ? productToAdd.variants[0] : undefined;
             if (newVariantToAdd) {
@@ -371,7 +377,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                 ];
             }
         } else { // Adding/updating the base product (with all its variants)
-            existingProduct.variants = productToAdd.variants; 
+            existingProduct.variants = productToAdd.variants;
         }
         // Update other base product fields
         existingProduct.name = productToAdd.name;
@@ -483,7 +489,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <div 
+        <div
           className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -504,7 +510,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
           </div>
 
           {/* Main Content Area */}
-          <div className="flex flex-col overflow-hidden"> 
+          <div className="flex flex-col overflow-hidden">
             {/* Search, Discount, and Filters */}
             <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0">
               <p className="text-sm text-slate-600 mb-4">
@@ -603,7 +609,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
               </div>
             )}
             </div>
-            
+
             {/* Product List Area */}
             {/* Adjusted max-height.
                 Header: ~60px
@@ -658,9 +664,9 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
 
                         const isSelected = isProductSelected(productId); // Simplified: check if product ID is in tempSelectedProducts
                         const isInEvent = productsInEvent.has(productId);
-                        
+
                         const productOriginalPrice = (typeof product.originalPrice === 'number' ? product.originalPrice : parseFloat(String(product.originalPrice))) || (typeof product.price === 'number' ? product.price : parseFloat(String(product.price))) || 0;
-                        
+
                         // Find this product in tempSelectedProducts to get its current adjustedPrice for display
                         const tempSelectedProduct = tempSelectedProducts.find(p => p.productId === productId);
                         const displayAdjustedPrice = tempSelectedProduct ? tempSelectedProduct.adjustedPrice : productOriginalPrice;
@@ -678,18 +684,18 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
                             onClick={() => {
                               if (!isInEvent) {
                                 // Pass undefined for variant to select the whole product with its variants
-                                handleSelectProduct(product, undefined); 
+                                handleSelectProduct(product, undefined);
                               } else {
                                 toast.error(`Sản phẩm "${product.name}" đang thuộc Event: ${productsInEvent.get(productId)}. Không thể thêm vào Campaign.`);
                               }
                             }}
                           >
                             <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                              <Image 
-                                src={productImage} 
-                                alt={product.name} 
-                                layout="fill" 
-                                objectFit="cover" 
+                              <Image
+                                src={productImage}
+                                alt={product.name}
+                                layout="fill"
+                                objectFit="cover"
                                 className="transition-transform duration-300 group-hover:scale-105"
                                 unoptimized
                               />

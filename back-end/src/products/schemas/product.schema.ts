@@ -41,6 +41,24 @@ export class VariantCombination {
 
   @Prop({ type: Number, default: 0 })
   additionalPrice: number; // Giá chênh lệch so với biến thể gốc (tùy chọn)
+
+  @Prop({ type: Number })
+  promotionPrice: number; // Giá khuyến mãi
+
+  @Prop({
+    type: {
+      type: { type: String, enum: ['event', 'campaign'] },
+      id: { type: String },
+      name: { type: String },
+      adjustedPrice: { type: Number }
+    }
+  })
+  promotion: {
+    type: 'event' | 'campaign';
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
 }
 
 // Schema for product variant
@@ -59,6 +77,24 @@ export class ProductVariant {
 
   @Prop({ type: Number })
   price: number;
+
+  @Prop({ type: Number })
+  promotionPrice: number; // Giá khuyến mãi
+
+  @Prop({
+    type: {
+      type: { type: String, enum: ['event', 'campaign'] },
+      id: { type: String },
+      name: { type: String },
+      adjustedPrice: { type: Number }
+    }
+  })
+  promotion: {
+    type: 'event' | 'campaign';
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
 
   @Prop({ type: [ProductImage] })
   images: ProductImage[];

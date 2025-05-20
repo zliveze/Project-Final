@@ -438,6 +438,210 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     const product = await productRes.json();
 
+    // Lấy thông tin khuyến mãi từ Event và Campaign đang hoạt động
+    try {
+      // Lấy tất cả events đang hoạt động
+      const eventsRes = await fetch(`${API_URL}/events/active`);
+      const activeEvents = eventsRes.ok ? await eventsRes.json() : [];
+
+      // Lấy tất cả campaigns đang hoạt động
+      const campaignsRes = await fetch(`${API_URL}/campaigns/active`);
+      const activeCampaigns = campaignsRes.ok ? await campaignsRes.json() : [];
+
+      // Tạo map để lưu giá khuyến mãi tốt nhất cho sản phẩm
+      const promotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
+
+      // Tạo map để lưu giá khuyến mãi cho biến thể
+      const variantPromotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
+
+      // Tạo map để lưu giá khuyến mãi cho tổ hợp
+      const combinationPromotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
+
+      // Xử lý active events
+      activeEvents.forEach((event: any) => {
+        event.products.forEach((productInEvent: any) => {
+          const productIdStr = productInEvent.productId.toString();
+          if (productIdStr === product._id.toString()) {
+            // Xử lý khuyến mãi cho sản phẩm gốc
+            const currentPromotion = promotionMap.get(productIdStr);
+            if (!currentPromotion || productInEvent.adjustedPrice < currentPromotion.price) {
+              const eventId = event._id?.toString() || '';
+              promotionMap.set(productIdStr, {
+                price: productInEvent.adjustedPrice,
+                type: 'event',
+                name: event.title,
+                id: eventId
+              });
+            }
+
+            // Xử lý khuyến mãi cho biến thể
+            if (productInEvent.variants && productInEvent.variants.length > 0) {
+              productInEvent.variants.forEach((variantInEvent: any) => {
+                if (variantInEvent.variantId) {
+                  const variantIdStr = variantInEvent.variantId.toString();
+                  const variantKey = `${productIdStr}_${variantIdStr}`;
+                  const currentVariantPromotion = variantPromotionMap.get(variantKey);
+
+                  if (!currentVariantPromotion || variantInEvent.adjustedPrice < currentVariantPromotion.price) {
+                    const eventId = event._id?.toString() || '';
+                    variantPromotionMap.set(variantKey, {
+                      price: variantInEvent.adjustedPrice,
+                      type: 'event',
+                      name: event.title,
+                      id: eventId
+                    });
+                  }
+
+                  // Xử lý khuyến mãi cho tổ hợp
+                  if (variantInEvent.combinations && variantInEvent.combinations.length > 0) {
+                    variantInEvent.combinations.forEach((combinationInEvent: any) => {
+                      if (combinationInEvent.combinationId) {
+                        const combinationIdStr = combinationInEvent.combinationId.toString();
+                        const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
+                        const currentCombinationPromotion = combinationPromotionMap.get(combinationKey);
+
+                        if (!currentCombinationPromotion || combinationInEvent.adjustedPrice < currentCombinationPromotion.price) {
+                          const eventId = event._id?.toString() || '';
+                          combinationPromotionMap.set(combinationKey, {
+                            price: combinationInEvent.adjustedPrice,
+                            type: 'event',
+                            name: event.title,
+                            id: eventId
+                          });
+                        }
+                      }
+                    });
+                  }
+                }
+              });
+            }
+          }
+        });
+      });
+
+      // Xử lý active campaigns
+      activeCampaigns.forEach((campaign: any) => {
+        campaign.products.forEach((productInCampaign: any) => {
+          const productIdStr = productInCampaign.productId.toString();
+          if (productIdStr === product._id.toString()) {
+            // Xử lý khuyến mãi cho sản phẩm gốc
+            const currentPromotion = promotionMap.get(productIdStr);
+            if (!currentPromotion || productInCampaign.adjustedPrice < currentPromotion.price) {
+              const campaignId = campaign._id?.toString() || '';
+              promotionMap.set(productIdStr, {
+                price: productInCampaign.adjustedPrice,
+                type: 'campaign',
+                name: campaign.title,
+                id: campaignId
+              });
+            }
+
+            // Xử lý khuyến mãi cho biến thể
+            if (productInCampaign.variants && productInCampaign.variants.length > 0) {
+              productInCampaign.variants.forEach((variantInCampaign: any) => {
+                if (variantInCampaign.variantId) {
+                  const variantIdStr = variantInCampaign.variantId.toString();
+                  const variantKey = `${productIdStr}_${variantIdStr}`;
+                  const currentVariantPromotion = variantPromotionMap.get(variantKey);
+
+                  if (!currentVariantPromotion || variantInCampaign.adjustedPrice < currentVariantPromotion.price) {
+                    const campaignId = campaign._id?.toString() || '';
+                    variantPromotionMap.set(variantKey, {
+                      price: variantInCampaign.adjustedPrice,
+                      type: 'campaign',
+                      name: campaign.title,
+                      id: campaignId
+                    });
+                  }
+
+                  // Xử lý khuyến mãi cho tổ hợp
+                  if (variantInCampaign.combinations && variantInCampaign.combinations.length > 0) {
+                    variantInCampaign.combinations.forEach((combinationInCampaign: any) => {
+                      if (combinationInCampaign.combinationId) {
+                        const combinationIdStr = combinationInCampaign.combinationId.toString();
+                        const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
+                        const currentCombinationPromotion = combinationPromotionMap.get(combinationKey);
+
+                        if (!currentCombinationPromotion || combinationInCampaign.adjustedPrice < currentCombinationPromotion.price) {
+                          const campaignId = campaign._id?.toString() || '';
+                          combinationPromotionMap.set(combinationKey, {
+                            price: combinationInCampaign.adjustedPrice,
+                            type: 'campaign',
+                            name: campaign.title,
+                            id: campaignId
+                          });
+                        }
+                      }
+                    });
+                  }
+                }
+              });
+            }
+          }
+        });
+      });
+
+      // Thêm thông tin khuyến mãi vào sản phẩm
+      const productIdStr = product._id.toString();
+      const promotion = promotionMap.get(productIdStr);
+
+      if (promotion && promotion.price < product.currentPrice) {
+        product.currentPrice = promotion.price;
+        product.promotion = {
+          type: promotion.type,
+          id: promotion.id || '',
+          name: promotion.name,
+          adjustedPrice: promotion.price
+        };
+      }
+
+      // Thêm thông tin khuyến mãi vào biến thể
+      if (product.variants && product.variants.length > 0) {
+        product.variants = product.variants.map((variant: any) => {
+          if (variant.variantId) {
+            const variantIdStr = variant.variantId.toString();
+            const variantKey = `${productIdStr}_${variantIdStr}`;
+            const variantPromotion = variantPromotionMap.get(variantKey);
+
+            if (variantPromotion && (!variant.price || variantPromotion.price < variant.price)) {
+              variant.promotionPrice = variantPromotion.price;
+              variant.promotion = {
+                type: variantPromotion.type,
+                id: variantPromotion.id || '',
+                name: variantPromotion.name,
+                adjustedPrice: variantPromotion.price
+              };
+            }
+
+            // Thêm thông tin khuyến mãi vào tổ hợp
+            if (variant.combinations && variant.combinations.length > 0) {
+              variant.combinations = variant.combinations.map((combination: any) => {
+                if (combination.combinationId) {
+                  const combinationIdStr = combination.combinationId.toString();
+                  const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
+                  const combinationPromotion = combinationPromotionMap.get(combinationKey);
+
+                  if (combinationPromotion && (!combination.price || combinationPromotion.price < combination.price)) {
+                    combination.promotionPrice = combinationPromotion.price;
+                    combination.promotion = {
+                      type: combinationPromotion.type,
+                      id: combinationPromotion.id || '',
+                      name: combinationPromotion.name,
+                      adjustedPrice: combinationPromotion.price
+                    };
+                  }
+                }
+                return combination;
+              });
+            }
+          }
+          return variant;
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching promotions:', error);
+    }
+
     // --- LOGGING: Check fetched product and variant data ---
     console.log(`getServerSideProps: Fetched product with ID: ${product._id}`);
     if (product.variants && product.variants.length > 0) {

@@ -12,6 +12,13 @@ export interface VariantCombination {
   attributes: Record<string, string>; // Ví dụ: { shade: 'Đỏ', size: 'Mini' }
   price?: number; // Giá riêng cho tổ hợp
   additionalPrice?: number; // Giá chênh lệch so với biến thể gốc
+  promotionPrice?: number; // Giá khuyến mãi
+  promotion?: {
+    type: 'event' | 'campaign';
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
 }
 
 export interface Variant {
@@ -19,6 +26,13 @@ export interface Variant {
   sku: string;
   options: VariantOption;
   price: number;
+  promotionPrice?: number;
+  promotion?: {
+    type: 'event' | 'campaign';
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
   images?: string[];
   combinations?: VariantCombination[];
 }
@@ -306,20 +320,44 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   }
 
   // Tìm giá của tổ hợp được chọn
-  const selectedPrice = React.useMemo(() => {
-    if (!selectedVariant) return null;
+  const selectedPriceInfo = React.useMemo(() => {
+    if (!selectedVariant) return { originalPrice: null, currentPrice: null, hasPromotion: false };
 
     // Nếu có combination được chọn, lấy giá của combination đó
     if (selectedCombinationId && selectedVariant.combinations) {
       const combination = selectedVariant.combinations.find(c => c.combinationId === selectedCombinationId);
       if (combination) {
-        if (combination.price) return combination.price;
-        if (combination.additionalPrice) return selectedVariant.price + combination.additionalPrice;
+        let originalPrice = 0;
+        let currentPrice = 0;
+        let hasPromotion = false;
+
+        // Xác định giá gốc
+        if (combination.price) {
+          originalPrice = combination.price;
+        } else if (combination.additionalPrice) {
+          originalPrice = selectedVariant.price + combination.additionalPrice;
+        } else {
+          originalPrice = selectedVariant.price;
+        }
+
+        // Xác định giá hiện tại (có thể là giá khuyến mãi)
+        if (combination.promotion && combination.promotionPrice) {
+          currentPrice = combination.promotionPrice;
+          hasPromotion = true;
+        } else {
+          currentPrice = originalPrice;
+        }
+
+        return { originalPrice, currentPrice, hasPromotion };
       }
     }
 
     // Nếu không có combination hoặc không tìm thấy, trả về giá của variant
-    return selectedVariant.price;
+    let originalPrice = selectedVariant.price;
+    let currentPrice = selectedVariant.promotionPrice || selectedVariant.price;
+    let hasPromotion = !!selectedVariant.promotion && !!selectedVariant.promotionPrice;
+
+    return { originalPrice, currentPrice, hasPromotion };
   }, [selectedVariant, selectedCombinationId]);
 
   return (
@@ -439,11 +477,23 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
                 return null;
               })}
             </div>
-            {selectedPrice && (
+            {selectedPriceInfo.currentPrice !== null && (
               <div className="text-right">
-                <span className="text-lg font-medium text-pink-600">
-                  {selectedPrice.toLocaleString('vi-VN')}đ
-                </span>
+                {selectedPriceInfo.hasPromotion && selectedPriceInfo.originalPrice !== null && (
+                  <div className="flex flex-col items-end">
+                    <span className="text-lg font-medium text-pink-600">
+                      {selectedPriceInfo.currentPrice.toLocaleString('vi-VN')}đ
+                    </span>
+                    <span className="text-sm text-gray-400 line-through">
+                      {selectedPriceInfo.originalPrice.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                )}
+                {!selectedPriceInfo.hasPromotion && (
+                  <span className="text-lg font-medium text-pink-600">
+                    {selectedPriceInfo.currentPrice.toLocaleString('vi-VN')}đ
+                  </span>
+                )}
               </div>
             )}
           </div>

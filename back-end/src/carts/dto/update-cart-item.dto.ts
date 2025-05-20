@@ -17,6 +17,17 @@ export class UpdateCartItemDto {
   quantity: number;
 
   @ApiPropertyOptional({
+    description: 'Giá sản phẩm (có thể là giá khuyến mãi)',
+    example: 100000,
+    type: Number,
+    required: false,
+  })
+  @IsNumber({}, { message: 'Giá phải là một số' })
+  @IsOptional() // Price might not always be provided, backend will calculate if not
+  @Type(() => Number) // Ensure transformation from string if needed
+  price?: number;
+
+  @ApiPropertyOptional({
     description: 'Các tùy chọn đã chọn (ví dụ: màu sắc, kích thước, chi nhánh)',
     example: { selectedBranchId: '60d5ec49f8d3e7e7d8f1e8a1' },
     type: Object,

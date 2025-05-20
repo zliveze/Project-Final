@@ -339,16 +339,54 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   // For display purposes - show total stock, not just available stock
   const displayTotalStock = totalStock;
 
-  // Use the selected combination's price if available, otherwise use the selected variant's price or base product price
-  const displayPrice = selectedCombination?.price || selectedVariant?.price || price;
-  const displayCurrentPrice = selectedCombination?.price || selectedVariant?.price || currentPrice;
-  // If combination has additionalPrice, add it to the variant price
-  const combinationPrice = selectedCombination?.additionalPrice && selectedVariant?.price
-    ? selectedVariant.price + selectedCombination.additionalPrice
-    : displayCurrentPrice;
-  // Use combinationPrice if it exists
-  const finalDisplayPrice = selectedCombination?.additionalPrice ? combinationPrice : displayCurrentPrice;
-  const discount = displayPrice > finalDisplayPrice ? Math.round(((displayPrice - finalDisplayPrice) / displayPrice) * 100) : 0;
+  // Xác định giá gốc và giá khuyến mãi cho biến thể và tổ hợp
+  let displayPrice = price; // Giá gốc mặc định
+  let displayCurrentPrice = currentPrice; // Giá hiện tại mặc định (có thể đã được giảm giá)
+
+  // Nếu có biến thể được chọn
+  if (selectedVariant) {
+    // Lấy giá gốc của biến thể
+    displayPrice = selectedVariant.price || price;
+
+    // Kiểm tra xem biến thể có giá khuyến mãi không
+    if (selectedVariant.promotion && selectedVariant.promotionPrice) {
+      displayCurrentPrice = selectedVariant.promotionPrice;
+    } else {
+      displayCurrentPrice = selectedVariant.price || currentPrice;
+    }
+
+    // Nếu có tổ hợp được chọn
+    if (selectedCombination) {
+      // Nếu tổ hợp có giá riêng
+      if (selectedCombination.price) {
+        displayPrice = selectedCombination.price;
+
+        // Kiểm tra xem tổ hợp có giá khuyến mãi không
+        if (selectedCombination.promotion && selectedCombination.promotionPrice) {
+          displayCurrentPrice = selectedCombination.promotionPrice;
+        } else {
+          displayCurrentPrice = selectedCombination.price;
+        }
+      }
+      // Nếu tổ hợp có giá chênh lệch
+      else if (selectedCombination.additionalPrice) {
+        displayPrice = selectedVariant.price + selectedCombination.additionalPrice;
+
+        // Kiểm tra xem tổ hợp có giá khuyến mãi không
+        if (selectedCombination.promotion && selectedCombination.promotionPrice) {
+          displayCurrentPrice = selectedCombination.promotionPrice;
+        } else {
+          displayCurrentPrice = displayPrice;
+        }
+      }
+    }
+  }
+
+  // Tính phần trăm giảm giá
+  const discount = displayPrice > displayCurrentPrice ? Math.round(((displayPrice - displayCurrentPrice) / displayPrice) * 100) : 0;
+
+  // Giá cuối cùng hiển thị
+  const finalDisplayPrice = displayCurrentPrice;
 
   // Get product inventory for products without variants
   const productInventory = !hasVariants ? product?.inventory || [] : [];
@@ -618,6 +656,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     // Call the context function based on whether variants exist
 
+    // Xác định giá khuyến mãi để gửi đến giỏ hàng
+    const priceToSend = finalDisplayPrice;
+
     if (variants && variants.length > 0) {
         // Variants exist, variantIdToAdd must be a string here due to earlier check
         if (variantIdToAdd) {
@@ -626,7 +667,8 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                 _id, // productId
                 variantIdToAdd as string, // Assert as string to satisfy TypeScript
                 quantity,
-                optionsForBackend
+                optionsForBackend,
+                priceToSend // Truyền giá khuyến mãi
             );
         } else {
              // This case should ideally not be reached due to the check above, but added for safety
@@ -640,7 +682,8 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             _id, // productId
             '', // Pass empty string for variantId for products without variants
             quantity,
-            optionsForBackend // Options might be empty, which is fine
+            optionsForBackend, // Options might be empty, which is fine
+            priceToSend // Truyền giá khuyến mãi
         );
         console.log('Added product without variants to cart with empty string variantId');
     }
@@ -855,7 +898,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
           <div className="w-full md:w-1/3 space-y-4">
             {/* Số lượng */}
             <div>
-             
+
               <div className="flex">
                 <div className={`flex h-11 border rounded-md overflow-hidden w-full max-w-[150px] ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
                   <button

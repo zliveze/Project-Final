@@ -84,7 +84,7 @@ export class CartsService {
   // Add item to cart
   async addItemToCart(userId: string, addToCartDto: AddToCartDto): Promise<CartDocument> {
     console.log(`[CartsService] addItemToCart START - userId: ${userId}, DTO:`, addToCartDto);
-    const { productId, variantId, quantity, selectedOptions } = addToCartDto;
+    const { productId, variantId, quantity, selectedOptions, price: dtoPrice } = addToCartDto;
 
     // Only validate userId and productId as MongoDB ObjectIDs
     // variantId can be a custom string format (e.g., "new-1234567890")
@@ -129,7 +129,33 @@ export class CartsService {
             throw new NotFoundException(`Biến thể với ID ${variantId} không thuộc sản phẩm ${productId}.`);
         } else {
             console.log(`[CartsService] addItemToCart: Variant FOUND within product:`, variant);
-            priceToUse = variant.price;
+
+            // Kiểm tra xem biến thể có giá khuyến mãi không
+            if (variant.promotionPrice) {
+                console.log(`[CartsService] Using variant promotion price: ${variant.promotionPrice}`);
+                priceToUse = variant.promotionPrice;
+            } else {
+                priceToUse = variant.price;
+            }
+
+            // Kiểm tra xem có tổ hợp được chọn không
+            const combinationId = selectedOptions?.combinationId;
+            if (combinationId && variant.combinations) {
+                const combination = variant.combinations.find(c => c.combinationId.toString() === combinationId);
+                if (combination) {
+                    console.log(`[CartsService] Found combination with ID: ${combinationId}`);
+
+                    // Kiểm tra xem tổ hợp có giá khuyến mãi không
+                    if (combination.promotionPrice) {
+                        console.log(`[CartsService] Using combination promotion price: ${combination.promotionPrice}`);
+                        priceToUse = combination.promotionPrice;
+                    } else if (combination.price) {
+                        priceToUse = combination.price;
+                    } else if (combination.additionalPrice) {
+                        priceToUse = variant.promotionPrice || variant.price + combination.additionalPrice;
+                    }
+                }
+            }
         }
     } else {
         // Handle products without variants
@@ -225,7 +251,7 @@ export class CartsService {
         variantId: variantId || '', // Use empty string for products without variants
         quantity,
         selectedOptions: optionsForCart, // Use the converted/provided options
-        price: priceToUse, // Use price from variant or product
+        price: dtoPrice || priceToUse, // Use price from DTO if provided, otherwise use calculated price
       };
 
       console.log(`[CartsService] Created new cart item with variantId: ${newItem.variantId} (${typeof newItem.variantId})`, newItem);
@@ -274,7 +300,7 @@ export class CartsService {
   // Update item quantity in cart
   async updateCartItem(userId: string, variantId: string | null, updateCartItemDto: UpdateCartItemDto): Promise<CartDocument> {
     console.log(`[CartsService] updateCartItem START - userId: ${userId}, variantId: ${variantId}, DTO:`, updateCartItemDto);
-    const { quantity, selectedOptions } = updateCartItemDto;
+    const { quantity, selectedOptions, price: dtoPrice } = updateCartItemDto;
 
     if (!Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('ID người dùng không hợp lệ.');
@@ -385,16 +411,28 @@ export class CartsService {
           throw new NotFoundException(`Biến thể với ID ${displayId} không còn tồn tại trong sản phẩm. Mục đã bị xóa.`);
       }
 
+      // Kiểm tra xem biến thể có giá khuyến mãi không
+      if (variant.promotionPrice) {
+          console.log(`[CartsService] Using variant promotion price: ${variant.promotionPrice}`);
+          priceToUse = variant.promotionPrice;
+      } else {
+          priceToUse = variant.price;
+      }
+
       // If a combination was involved, the price might need to be adjusted based on the combination
       if (combinationIdFromParam && variant.combinations) {
         const combination = variant.combinations.find(c => c.combinationId.toString() === combinationIdFromParam);
         if (combination) {
-          if (typeof combination.price === 'number') {
+          // Kiểm tra xem tổ hợp có giá khuyến mãi không
+          if (combination.promotionPrice) {
+              console.log(`[CartsService] Using combination promotion price: ${combination.promotionPrice}`);
+              priceToUse = combination.promotionPrice;
+          } else if (typeof combination.price === 'number') {
             priceToUse = combination.price;
           } else if (typeof combination.additionalPrice === 'number') {
-            priceToUse = variant.price + combination.additionalPrice;
+            priceToUse = variant.promotionPrice || variant.price + combination.additionalPrice;
           } else {
-            priceToUse = variant.price; // Fallback to variant price
+            priceToUse = variant.promotionPrice || variant.price; // Fallback to variant price
           }
         } else {
           // Combination not found, this is an issue.
@@ -404,8 +442,6 @@ export class CartsService {
           await cart.save();
           throw new NotFoundException(`Tổ hợp với ID ${combinationIdFromParam} không thuộc biến thể ${actualVariantIdFromParam}. Mục đã bị xóa.`);
         }
-      } else {
-        priceToUse = variant.price; // No combination, use variant's base price
       }
     } else { // This 'else' corresponds to (actualVariantIdFromParam is null or 'none')
       // For products without variants, check if the product has variants
@@ -428,8 +464,8 @@ export class CartsService {
     // 4. Update quantity and selectedOptions
     console.log(`[CartsService] Updating quantity for item at index ${itemIndex} to ${quantity}`);
     cart.items[itemIndex].quantity = quantity;
-    // Optionally update price if needed (use price from variant or product)
-    cart.items[itemIndex].price = priceToUse;
+    // Optionally update price if needed (use price from DTO if provided, otherwise use calculated price)
+    cart.items[itemIndex].price = dtoPrice || priceToUse;
 
     // Update selectedOptions if provided
     if (selectedOptions) {
