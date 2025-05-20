@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiTrash2, FiChevronDown, FiChevronUp, FiEdit, FiLoader } from 'react-icons/fi';
+import { Trash2, ChevronDown, ChevronUp, Loader2, ImageOff, Edit3, PackageSearch } from 'lucide-react'; // Updated icons
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import { ProductInEvent, VariantInEvent, CombinationInEvent } from '@/contexts/EventsContext';
+// Sử dụng ProductInEventData từ EventForm để đảm bảo tính nhất quán
+import { ProductInEventData as ProductInEvent, VariantInEventData as VariantInEvent, CombinationInEventData as CombinationInEvent } from './EventForm';
+
 
 // Định nghĩa kiểu dữ liệu cho props
 interface EventProductsTableProps {
@@ -34,649 +36,365 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
   onRemoveProduct,
   onPriceChange
 }) => {
-  // State lưu trữ giá trị người dùng nhập
-  const [localPrices, setLocalPrices] = useState<{[key: string]: number}>({});
+  const [localPrices, setLocalPrices] = useState<Record<string, number>>({});
+  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
 
-  // State để quản lý việc hiển thị dropdown cho từng sản phẩm
-  const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
-
-  // Chỉ khởi tạo giá khi lần đầu mounted, KHÔNG cập nhật khi props thay đổi
-  // Điều này giúp giữ nguyên giá người dùng đã nhập
+  // Initialize or update localPrices when products prop changes
   useEffect(() => {
-    // Khởi tạo giá trị ban đầu chỉ một lần khi component mount
-    // và chỉ khởi tạo cho sản phẩm chưa có trong localPrices
-    const initialPrices: {[key: string]: number} = { ...localPrices };
-    let hasNewProducts = false;
+    const newLocalPrices = { ...localPrices };
+    let pricesChanged = false;
 
-    // Khởi tạo giá cho sản phẩm chính
     products.forEach(product => {
-      // Tạo key duy nhất cho sản phẩm
-      const key = product.productId;
-
-      if (localPrices[key] === undefined) {
-        initialPrices[key] = product.adjustedPrice;
-        hasNewProducts = true;
+      const productKey = createProductKey(product.productId);
+      if (newLocalPrices[productKey] === undefined || newLocalPrices[productKey] !== product.adjustedPrice) {
+        newLocalPrices[productKey] = product.adjustedPrice;
+        pricesChanged = true;
       }
 
-      // Khởi tạo giá cho các biến thể
-      if (product.variants && product.variants.length > 0) {
-        product.variants.forEach(variant => {
-          const variantKey = `${product.productId}:${variant.variantId}`;
+      product.variants?.forEach(variant => {
+        const variantKey = createProductKey(product.productId, variant.variantId);
+        if (newLocalPrices[variantKey] === undefined || newLocalPrices[variantKey] !== variant.adjustedPrice) {
+          newLocalPrices[variantKey] = variant.adjustedPrice;
+          pricesChanged = true;
+        }
 
-          if (localPrices[variantKey] === undefined) {
-            initialPrices[variantKey] = variant.adjustedPrice;
-            hasNewProducts = true;
-          }
-
-          // Khởi tạo giá cho các tổ hợp biến thể
-          if (variant.combinations && variant.combinations.length > 0) {
-            variant.combinations.forEach(combination => {
-              const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
-
-              if (localPrices[combinationKey] === undefined) {
-                initialPrices[combinationKey] = combination.adjustedPrice;
-                hasNewProducts = true;
-              }
-            });
+        variant.combinations?.forEach(combination => {
+          const combinationKey = createProductKey(product.productId, variant.variantId, combination.combinationId);
+          if (newLocalPrices[combinationKey] === undefined || newLocalPrices[combinationKey] !== combination.adjustedPrice) {
+            newLocalPrices[combinationKey] = combination.adjustedPrice;
+            pricesChanged = true;
           }
         });
-      }
+      });
     });
 
-    // Chỉ cập nhật state nếu có sản phẩm mới
-    if (hasNewProducts) {
-      setLocalPrices(initialPrices);
+    if (pricesChanged) {
+      setLocalPrices(newLocalPrices);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Chỉ chạy khi mount, không phụ thuộc vào products
+  }, [products]); // Rerun when products array itself changes, or its content.
 
-  // Thêm useEffect mới để khởi tạo giá cho sản phẩm mới
-  useEffect(() => {
-    // Chỉ khởi tạo giá cho sản phẩm mới thêm vào mà chưa có trong localPrices
-    const newProductsPrice: {[key: string]: number} = {};
-    let hasNewProducts = false;
-
-    // Khởi tạo giá cho sản phẩm chính
-    products.forEach(product => {
-      // Tạo key duy nhất cho sản phẩm
-      const key = product.productId;
-
-      if (localPrices[key] === undefined) {
-        newProductsPrice[key] = product.adjustedPrice;
-        hasNewProducts = true;
-      }
-
-      // Khởi tạo giá cho các biến thể
-      if (product.variants && product.variants.length > 0) {
-        product.variants.forEach(variant => {
-          const variantKey = `${product.productId}:${variant.variantId}`;
-
-          if (localPrices[variantKey] === undefined) {
-            newProductsPrice[variantKey] = variant.adjustedPrice;
-            hasNewProducts = true;
-          }
-
-          // Khởi tạo giá cho các tổ hợp biến thể
-          if (variant.combinations && variant.combinations.length > 0) {
-            variant.combinations.forEach(combination => {
-              const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
-
-              if (localPrices[combinationKey] === undefined) {
-                newProductsPrice[combinationKey] = combination.adjustedPrice;
-                hasNewProducts = true;
-              }
-            });
-          }
-        });
-      }
-    });
-
-    // Chỉ cập nhật state nếu có sản phẩm mới
-    if (hasNewProducts) {
-      setLocalPrices(prev => ({
-        ...prev,
-        ...newProductsPrice
-      }));
-    }
-  }, [products, localPrices]);
-
-  // Tính toán % giảm giá
-  const calculateDiscount = (originalPrice: number, adjustedPrice: number) => {
-    if (!originalPrice || originalPrice <= 0) return 0;
+  const calculateDiscount = (originalPrice?: number, adjustedPrice?: number) => {
+    if (originalPrice === undefined || adjustedPrice === undefined || originalPrice <= 0) return 0;
     return Math.round(((originalPrice - adjustedPrice) / originalPrice) * 100);
   };
 
-  // Hiển thị sản phẩm từ props
-  const displayProducts = products.length > 0
-    ? products
-    : [];
+  const displayProducts = products; // Use products directly
 
-  // Hàm xử lý khi giá thay đổi
-  const handlePriceChange = useCallback((
+  const createProductKey = useCallback((productId: string, variantId?: string, combinationId?: string) => {
+    return `${productId}${variantId ? `:${variantId}` : ''}${combinationId ? `:${combinationId}` : ''}`;
+  }, []);
+
+  const handlePriceInputChange = (key: string, value: string) => {
+    const newPrice = parseInt(value, 10);
+    if (!isNaN(newPrice) && newPrice >= 0) {
+      setLocalPrices(prev => ({ ...prev, [key]: newPrice }));
+    } else if (value === '') { // Allow clearing the input
+      setLocalPrices(prev => ({ ...prev, [key]: 0 })); // Or handle as undefined if preferred
+    }
+  };
+
+  const handlePriceInputBlur = (
     productId: string,
-    newPrice: number,
+    currentAdjustedPrice: number, // Giá hiện tại từ localPrices
     variantId?: string,
     combinationId?: string
   ) => {
-    // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
-    const key = productId + (variantId ? `:${variantId}` : '') + (combinationId ? `:${combinationId}` : '');
-
-    // Log thông tin về giá thay đổi
-    console.log('EventProductsTable - handlePriceChange:', {
-      productId,
-      variantId,
-      combinationId,
-      key,
-      newPrice
-    });
-
-    // Tìm sản phẩm trong danh sách
+    // Tìm giá gốc tương ứng
+    let originalPrice: number | undefined;
     const product = products.find(p => p.productId === productId);
-
-    if (!product) {
-      console.error('Không tìm thấy sản phẩm với ID:', productId);
-      return;
+    if (product) {
+      if (combinationId && variantId && product.variants) {
+        const variant = product.variants.find(v => v.variantId === variantId);
+        const combination = variant?.combinations?.find(c => c.combinationId === combinationId);
+        originalPrice = combination?.originalPrice;
+      } else if (variantId && product.variants) {
+        const variant = product.variants.find(v => v.variantId === variantId);
+        originalPrice = variant?.originalPrice;
+      } else {
+        originalPrice = product.originalPrice;
+      }
     }
 
-    // Log thông tin chi tiết về thay đổi giá
-    if (combinationId && variantId) {
-      // Tìm biến thể và tổ hợp
-      const variant = product.variants?.find(v => v.variantId === variantId);
-      const combination = variant?.combinations?.find(c => c.combinationId === combinationId);
-      console.log('Cập nhật giá cho tổ hợp biến thể:', {
-        productName: product.name,
-        variantName: variant?.variantName,
-        combinationAttributes: combination?.attributes,
-        oldPrice: combination?.adjustedPrice,
-        newPrice
-      });
-    } else if (variantId) {
-      // Tìm biến thể
-      const variant = product.variants?.find(v => v.variantId === variantId);
-      console.log('Cập nhật giá cho biến thể:', {
-        productName: product.name,
-        variantName: variant?.variantName,
-        oldPrice: variant?.adjustedPrice,
-        newPrice
-      });
-    } else {
-      console.log('Cập nhật giá cho sản phẩm:', {
-        productName: product.name,
-        oldPrice: product.adjustedPrice,
-        newPrice
-      });
+    if (currentAdjustedPrice > (originalPrice || 0) && originalPrice !== undefined) {
+      toast.error('Giá khuyến mãi không được lớn hơn giá gốc.');
+      // Optionally revert to originalPrice or previous valid price
+      // For now, we let the user correct it.
+      // Or, call onPriceChange with originalPrice to revert
+      // onPriceChange(productId, originalPrice, variantId, combinationId);
+      // setLocalPrices(prev => ({ ...prev, [createProductKey(productId, variantId, combinationId)]: originalPrice }));
+      return; // Prevent calling onPriceChange if invalid
     }
+    onPriceChange(productId, currentAdjustedPrice, variantId, combinationId);
+  };
 
-    // Cập nhật giá trong state local
-    setLocalPrices(prev => ({
-      ...prev,
-      [key]: newPrice
-    }));
 
-    // Gọi onPriceChange để cập nhật state ở component cha
-    // Sử dụng setTimeout để tránh việc re-render ngay lập tức
-    // Điều này giúp giữ dropdown mở khi người dùng thay đổi giá
-    setTimeout(() => {
-      // Thêm log để kiểm tra dữ liệu gửi đi
-      console.log('EventProductsTable - Gọi onPriceChange với dữ liệu:', {
-        productId,
-        newPrice,
-        variantId,
-        combinationId
-      });
-
-      onPriceChange(productId, newPrice, variantId, combinationId);
-    }, 0);
-  }, [onPriceChange, products]);
-
-  // Hàm tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
-  const createProductKey = useCallback((productId: string, variantId?: string, combinationId?: string) => {
-    return productId + (variantId ? `:${variantId}` : '') + (combinationId ? `:${combinationId}` : '');
+  const handleToggleProductExpand = useCallback((key: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    setExpandedProducts(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  // State để theo dõi trạng thái loading của từng sản phẩm
-  const [loadingVariants, setLoadingVariants] = useState<{[key: string]: boolean}>({});
-
-  // Hàm xử lý khi mở/đóng dropdown
-  const handleToggleProductExpand = useCallback((productId: string, e?: React.MouseEvent) => {
-    // Ngăn chặn sự kiện lan truyền nếu có
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-
-    // Đảo trạng thái hiển thị dropdown
-    setExpandedProducts(prev => {
-      const newState = { ...prev, [productId]: !prev[productId] };
-      return newState;
-    });
-  }, []);
+  const formatCurrency = (value?: number) => {
+    if (value === undefined || isNaN(value)) return 'N/A';
+    return new Intl.NumberFormat('vi-VN').format(value) + ' ₫';
+  };
 
   return (
-    <div className="bg-white overflow-hidden border border-gray-100 rounded-xl shadow-sm">
+    <div className="bg-white overflow-hidden border border-slate-200 rounded-lg shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-pink-50">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50">
             <tr>
-              <th scope="col" className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Sản phẩm
               </th>
-              <th scope="col" className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Giá gốc
               </th>
-              <th scope="col" className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Giá KM
               </th>
-              <th scope="col" className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Giảm
               </th>
-              <th scope="col" className="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">
-                Xóa
+              <th scope="col" className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                Thao tác
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody className="bg-white divide-y divide-slate-200">
             {displayProducts.length > 0 ? (
-              // Tạo mảng mới để chứa cả sản phẩm và dropdown biến thể
               displayProducts.flatMap((product) => {
-                // Tạo key duy nhất cho sản phẩm
-                const key = product.productId;
+                const productKey = createProductKey(product.productId);
+                const displayPrice = localPrices[productKey] ?? product.adjustedPrice;
+                const discount = calculateDiscount(product.originalPrice, displayPrice);
 
-                // Lấy giá hiển thị từ state local hoặc từ props nếu chưa có trong state
-                // Ưu tiên giá người dùng đã nhập (trong localPrices)
-                const displayPrice = localPrices[key] !== undefined
-                  ? localPrices[key]
-                  : product.adjustedPrice;
-
-                // Tạo mảng chứa các phần tử cần hiển thị
-                const elements = [];
-
-                // Thêm hàng sản phẩm
-                elements.push(
-                  <tr key={product.productId} className="hover:bg-gray-50 transition-colors duration-150">
-                    <td className="px-3 py-2 whitespace-nowrap">
+                const productRow = (
+                  <tr key={product.productId} className="hover:bg-slate-50/50 transition-colors duration-150">
+                    <td className="px-4 py-3.5 whitespace-nowrap">
                       <div className="flex items-center">
                         {product.image ? (
-                          <div className="flex-shrink-0 h-10 w-10 border border-gray-100 rounded-md overflow-hidden">
-                            <img
-                              className="h-10 w-10 object-cover"
-                              src={product.image}
-                              alt={product.name || 'Product'}
-                            />
-                          </div>
+                          <img
+                            className="h-10 w-10 rounded-md object-cover border border-slate-200"
+                            src={product.image}
+                            alt={product.name || 'Sản phẩm'}
+                          />
                         ) : (
-                          <div className="flex-shrink-0 h-10 w-10 border border-gray-100 rounded-md overflow-hidden bg-gray-50 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                          <div className="flex-shrink-0 h-10 w-10 bg-slate-100 rounded-md flex items-center justify-center">
+                            <ImageOff className="h-5 w-5 text-slate-400" />
                           </div>
                         )}
-                        <div className="ml-3 max-w-xs">
-                          <div className="flex items-center">
-                            <div className="text-xs font-medium text-gray-800 line-clamp-2">
-                              {product.name || `Sản phẩm ID: ${product.productId}`}
-                            </div>
-
-                            {/* Nút xổ xuống để hiển thị biến thể - Thiết kế nhỏ gọn hơn */}
-                            <button
-                              onClick={(e) => handleToggleProductExpand(product.productId, e)}
-                              className="ml-1.5 px-1.5 py-0.5 text-xs rounded bg-pink-50 hover:bg-pink-100 focus:outline-none border border-pink-200 transition-all duration-200"
-                              title="Hiển thị biến thể và tổ hợp biến thể"
-                              aria-label="Xem biến thể sản phẩm"
-                            >
-                              <span className="font-medium text-pink-600 text-[10px]">Biến thể</span>
-                              {loadingVariants[product.productId] ? (
-                                <FiLoader className="h-2.5 w-2.5 text-pink-500 animate-spin inline-block ml-0.5" />
-                              ) : expandedProducts[product.productId] ? (
-                                <FiChevronUp className="h-2.5 w-2.5 text-pink-500 inline-block ml-0.5" />
-                              ) : (
-                                <FiChevronDown className="h-2.5 w-2.5 text-pink-500 inline-block ml-0.5" />
-                              )}
-                            </button>
+                        <div className="ml-3">
+                          <div className="text-sm font-semibold text-slate-800 line-clamp-1">
+                            {product.name || `Sản phẩm ID: ${product.productId}`}
                           </div>
-
-                          {/* Hiển thị thông tin sản phẩm */}
-                          {product.sku && (
-                            <div className="text-[10px] text-gray-500 mt-0.5">
-                              SKU: {product.sku}
-                            </div>
-                          )}
-                          {product.brand && (
-                            <div className="text-[10px] text-gray-500 mt-0.5">
-                              Thương hiệu: {product.brand}
-                            </div>
-                          )}
-
-                          {/* Hiển thị số lượng biến thể */}
-                          {product.variants && product.variants.length > 0 && (
-                            <div className="text-[10px] text-gray-500 mt-0.5">
-                              Số biến thể: {product.variants.length}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <div className="text-xs font-medium text-gray-700">
-                        {product.originalPrice
-                          ? new Intl.NumberFormat('vi-VN').format(product.originalPrice) + ' ₫'
-                          : 'N/A'}
-                      </div>
-                    </td>
-
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <div className="text-xs text-gray-900">
-                        <div className="flex flex-col space-y-1">
-                          {/* Hiển thị thông tin loại giá đang nhập */}
-                          <div className="text-[10px] font-medium text-gray-500">
-                            <span>Giá cho sản phẩm</span>
-                          </div>
-
-                          {/* Trường nhập giá - nhỏ gọn hơn */}
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={displayPrice}
-                              onChange={(e) => {
-                                e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
-                                const value = parseInt(e.target.value);
-                                if (!isNaN(value) && value >= 0) {
-                                  // Cập nhật giá trong state local
-                                  handlePriceChange(
-                                    product.productId,
-                                    value
-                                  );
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                              min="0"
-                              step="1000"
-                              className="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-colors duration-150"
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                              <span className="text-gray-400 text-[10px]">₫</span>
-                            </div>
+                          <div className="text-xs text-slate-500">
+                            {product.sku && `SKU: ${product.sku}`}
+                            {product.brand && ` - ${product.brand}`}
                           </div>
                         </div>
+                        {product.variants && product.variants.length > 0 && (
+                           <button
+                             type="button" // Explicitly set type
+                             onClick={(e) => handleToggleProductExpand(product.productId, e)}
+                             className="ml-2 p-1 rounded-md hover:bg-slate-100 text-slate-500 hover:text-pink-600 transition-colors"
+                             title={expandedProducts[product.productId] ? "Ẩn biến thể" : "Hiện biến thể"}
+                           >
+                             {expandedProducts[product.productId] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                           </button>
+                         )}
                       </div>
                     </td>
-
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {product.originalPrice ? (
-                        <span className={`px-2 py-1 inline-flex text-[10px] leading-none font-medium rounded ${
-                          calculateDiscount(product.originalPrice, displayPrice) >= 30 ? 'bg-pink-100 text-pink-800' :
-                          calculateDiscount(product.originalPrice, displayPrice) >= 15 ? 'bg-pink-50 text-pink-700' :
-                          'bg-green-50 text-green-700'
-                        }`}>
-                          -{calculateDiscount(product.originalPrice, displayPrice)}%
+                    <td className="px-4 py-3.5 whitespace-nowrap text-sm text-slate-600">
+                      {formatCurrency(product.originalPrice)}
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <div className="relative w-28">
+                        <input
+                          type="text" // Use text to allow formatting, parse to number on change/blur
+                          value={localPrices[productKey]?.toLocaleString('vi-VN') || '0'}
+                          onChange={(e) => handlePriceInputChange(productKey, e.target.value.replace(/\./g, ''))}
+                          onBlur={() => handlePriceInputBlur(product.productId, localPrices[productKey] ?? 0)}
+                          className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-colors text-right"
+                        />
+                         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">₫</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap text-sm">
+                      {discount > 0 ? (
+                        <span className={`font-semibold ${discount >= 30 ? 'text-red-600' : 'text-green-600'}`}>
+                          -{discount}%
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-500">N/A</span>
+                        <span className="text-slate-500">-</span>
                       )}
                     </td>
-
-                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                    <td className="px-4 py-3.5 whitespace-nowrap text-center">
                       <button
                         onClick={() => onRemoveProduct(product.productId)}
-                        className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-150 p-1 rounded hover:bg-pink-50"
-                        title="Xóa sản phẩm khỏi sự kiện"
+                        className="text-slate-400 hover:text-red-600 focus:outline-none transition-colors p-1 rounded-md hover:bg-red-50"
+                        title="Xóa sản phẩm"
                       >
-                        <FiTrash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
                 );
 
-                // Nếu sản phẩm đang được mở rộng, thêm hàng hiển thị biến thể
-                if (expandedProducts[product.productId]) {
-                  elements.push(
-                    <tr key={`${product.productId}-variants`}>
-                      <td colSpan={5} className="px-0 py-0 border-t-0">
-                        <div
-                          className="bg-gray-50 p-4 rounded-b-lg"
-                          onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền lên form
-                        >
-                          <div className="mb-3">
-                            <h4 className="text-sm font-medium text-gray-700 mb-1">Nhập giá cho biến thể</h4>
-                            <p className="text-xs text-gray-500">Chọn biến thể và nhập giá khuyến mãi tương ứng.</p>
-                          </div>
+                const variantRows = (expandedProducts[product.productId] && product.variants)
+                  ? product.variants.flatMap(variant => {
+                      const variantKey = createProductKey(product.productId, variant.variantId);
+                      const variantDisplayPrice = localPrices[variantKey] ?? variant.adjustedPrice;
+                      const variantDiscount = calculateDiscount(variant.originalPrice, variantDisplayPrice);
 
-                          {/* Danh sách biến thể từ dữ liệu sản phẩm */}
-                          {product.variants && product.variants.length > 0 ? (
-                            <div className="space-y-3">
-                              {product.variants.map((variant) => {
-                                // Tạo key duy nhất cho biến thể
-                                const variantKey = `${product.productId}:${variant.variantId}`;
+                      const variantRow = (
+                        <tr key={variantKey} className="bg-slate-50/30 hover:bg-slate-50 transition-colors duration-150">
+                          <td className="pl-10 pr-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {variant.image ? (
+                                <img
+                                  className="h-8 w-8 rounded object-cover border border-slate-200"
+                                  src={variant.image}
+                                  alt={variant.variantName || 'Biến thể'}
+                                />
+                              ) : (
+                                <div className="flex-shrink-0 h-8 w-8 bg-slate-100 rounded flex items-center justify-center">
+                                  <ImageOff className="h-4 w-4 text-slate-400" />
+                                </div>
+                              )}
+                              <div className="ml-2.5">
+                                <div className="text-xs font-medium text-slate-700 line-clamp-1">
+                                  {variant.variantName || `Biến thể ID: ${variant.variantId}`}
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  {Object.entries(variant.variantAttributes || {}).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                                  {variant.variantSku && ` (SKU: ${variant.variantSku})`}
+                                </div>
+                              </div>
+                               {variant.combinations && variant.combinations.length > 0 && (
+                                <button
+                                  type="button" // Explicitly set type
+                                  onClick={(e) => handleToggleProductExpand(variantKey, e)} // Use variantKey for expanding combinations
+                                  className="ml-2 p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-pink-500 transition-colors"
+                                  title={expandedProducts[variantKey] ? "Ẩn tổ hợp" : "Hiện tổ hợp"}
+                                >
+                                  {expandedProducts[variantKey] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
+                            {formatCurrency(variant.originalPrice)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                             <div className="relative w-24">
+                                <input
+                                  type="text"
+                                  value={localPrices[variantKey]?.toLocaleString('vi-VN') || '0'}
+                                  onChange={(e) => handlePriceInputChange(variantKey, e.target.value.replace(/\./g, ''))}
+                                  onBlur={() => handlePriceInputBlur(product.productId, localPrices[variantKey] ?? 0, variant.variantId)}
+                                  className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500 transition-colors text-right"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">₫</span>
+                              </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs">
+                            {variantDiscount > 0 ? (
+                              <span className={`font-medium ${variantDiscount >= 30 ? 'text-red-500' : 'text-green-500'}`}>
+                                -{variantDiscount}%
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center">
+                            <button
+                              type="button" // Explicitly set type
+                              onClick={(e) => { e.stopPropagation(); onRemoveProduct(product.productId, variant.variantId); }}
+                              className="text-slate-400 hover:text-red-500 focus:outline-none transition-colors p-0.5 rounded hover:bg-red-50"
+                              title="Xóa biến thể"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
 
-                                // Lấy giá hiển thị từ state local hoặc từ props
-                                const variantDisplayPrice = localPrices[variantKey] !== undefined
-                                  ? localPrices[variantKey]
-                                  : variant.adjustedPrice;
-
-                                return (
-                                  <div
-                                    key={variant.variantId}
-                                    className="border border-gray-200 rounded-md p-3 bg-white shadow-sm"
-                                    onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                  >
-                                    <div className="flex justify-between items-center mb-2">
-                                      <div className="text-sm font-medium text-gray-800">
-                                        {variant.variantName || `Biến thể: ${variant.variantId.substring(0, 8)}`}
-                                      </div>
-                                      <div className="flex items-center space-x-3">
-                                        <div className="text-xs text-gray-500">
-                                          <div className="flex flex-col">
-                                            <span>
-                                              Giá gốc: {new Intl.NumberFormat('vi-VN').format(variant.originalPrice || 0)} ₫
-                                            </span>
-                                            {variant.variantPrice && variant.variantPrice !== variant.originalPrice && (
-                                              <span className="text-[10px] text-pink-600 font-medium">
-                                                Giá riêng: {new Intl.NumberFormat('vi-VN').format(variant.variantPrice)} ₫
-                                              </span>
-                                            )}
-                                            {/* Hiển thị % giảm giá */}
-                                            {variant.originalPrice && variantDisplayPrice && (
-                                              <span className="text-[10px] text-green-600">
-                                                Giảm: {calculateDiscount(variant.originalPrice, variantDisplayPrice)}%
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <div className="relative">
-                                          <input
-                                            type="number"
-                                            placeholder="Giá KM"
-                                            className="w-28 border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                                            value={variantDisplayPrice}
-                                            onChange={(e) => {
-                                              e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
-                                              const value = parseInt(e.target.value);
-                                              if (!isNaN(value) && value >= 0) {
-                                                // Cập nhật giá trong state local
-                                                handlePriceChange(
-                                                  product.productId,
-                                                  value,
-                                                  variant.variantId
-                                                );
-                                              }
-                                            }}
-                                            onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                          />
-                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-400 text-xs">₫</span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Hiển thị thông tin chi tiết biến thể */}
-                                    <div className="text-xs text-gray-500 mb-2 flex flex-wrap gap-2">
-                                      {variant.variantSku && (
-                                        <span className="bg-gray-50 px-2 py-0.5 rounded">
-                                          SKU: {variant.variantSku}
-                                        </span>
-                                      )}
-                                      {variant.variantAttributes && Object.entries(variant.variantAttributes).map(([key, value]) => {
-                                        // Hiển thị các thuộc tính chính của biến thể
-                                        if (key === 'Màu') {
-                                          const colorValue = String(value);
-                                          const colorCode = colorValue.match(/"(#[0-9a-fA-F]{6})"/);
-                                          const colorName = colorValue.replace(/"#[0-9a-fA-F]{6}"/, '').trim();
-
-                                          return (
-                                            <span key={key} className="bg-gray-50 px-2 py-0.5 rounded flex items-center">
-                                              <span className="mr-1">Màu:</span>
-                                              {colorCode && (
-                                                <span
-                                                  className="inline-block w-3 h-3 rounded-full mr-1 border border-gray-300"
-                                                  style={{ backgroundColor: colorCode[1] }}
-                                                ></span>
-                                              )}
-                                              <span>{colorName}</span>
-                                            </span>
+                      const combinationRows = (expandedProducts[variantKey] && variant.combinations)
+                        ? variant.combinations.map(combination => {
+                            const combinationKey = createProductKey(product.productId, variant.variantId, combination.combinationId);
+                            const combinationDisplayPrice = localPrices[combinationKey] ?? combination.adjustedPrice;
+                            const combinationDiscount = calculateDiscount(combination.originalPrice, combinationDisplayPrice);
+                            return (
+                              <tr key={combinationKey} className="bg-slate-50/10 hover:bg-slate-100/50 transition-colors duration-150">
+                                <td className="pl-16 pr-4 py-2.5 whitespace-nowrap">
+                                  <div className="text-[11px] font-normal text-slate-600">
+                                    {
+                                      (() => {
+                                        const combinationSpecificAttributes = Object.entries(combination.attributes || {})
+                                          .filter(([key, value]) => 
+                                            !variant.variantAttributes || 
+                                            variant.variantAttributes[key] !== value
                                           );
+                                        if (combinationSpecificAttributes.length === 0) {
+                                          return <span className="text-slate-400">-</span>;
                                         }
-
-                                        return value && (
-                                          <span key={key} className="bg-gray-50 px-2 py-0.5 rounded">
-                                            {key}: {value}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {/* Tổ hợp biến thể */}
-                                    {variant.combinations && variant.combinations.length > 0 && (
-                                      <div className="pl-4 border-l-2 border-pink-100 mt-3 space-y-2">
-                                        <div className="text-xs font-medium text-pink-600 mb-2">Tổ hợp biến thể:</div>
-                                        {variant.combinations.map((combination) => {
-                                          // Tạo key duy nhất cho tổ hợp
-                                          const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
-
-                                          // Lấy giá hiển thị từ state local hoặc từ props
-                                          const combinationDisplayPrice = localPrices[combinationKey] !== undefined
-                                            ? localPrices[combinationKey]
-                                            : combination.adjustedPrice;
-
-                                          return (
-                                            <div
-                                              key={combination.combinationId}
-                                              className="flex flex-col bg-gray-50 p-2 rounded-md"
-                                              onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                            >
-                                              {/* Thông tin thuộc tính tổ hợp */}
-                                              <div className="flex justify-between items-center mb-2">
-                                                <div className="text-xs text-gray-700">
-                                                  <div className="font-medium mb-1">
-                                                    {/* Hiển thị tên tổ hợp dựa trên các thuộc tính chính */}
-                                                    {combination.attributes.shade && combination.attributes.size ? (
-                                                      <span>
-                                                        {combination.attributes.shade} - {combination.attributes.size}
-                                                      </span>
-                                                    ) : (
-                                                      <span>Tổ hợp: {combination.combinationId.substring(0, 8)}</span>
-                                                    )}
-                                                  </div>
-                                                  <div className="flex flex-wrap gap-1">
-                                                    {Object.entries(combination.attributes || {}).map(([key, value]) => {
-                                                      // Bỏ qua các thuộc tính trùng lặp từ variantAttributes
-                                                      if (key === 'Màu' || key === 'Kích thước' || key === 'Tông màu') {
-                                                        return null;
-                                                      }
-                                                      return (
-                                                        <span key={key} className="bg-white px-1.5 py-0.5 rounded text-[10px] border border-gray-100">
-                                                          {key}: {String(value)}
-                                                        </span>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                </div>
-                                              </div>
-
-                                              {/* Thông tin giá */}
-                                              <div className="flex justify-between items-center mt-1">
-                                                <div className="text-xs text-gray-500">
-                                                  <div className="flex flex-col">
-                                                    <span>
-                                                      Giá gốc: {new Intl.NumberFormat('vi-VN').format(combination.originalPrice || 0)} ₫
-                                                    </span>
-                                                    {combination.combinationPrice && (
-                                                      <span className="text-[10px] text-pink-600 font-medium">
-                                                        Giá riêng: {new Intl.NumberFormat('vi-VN').format(combination.combinationPrice)} ₫
-                                                      </span>
-                                                    )}
-                                                    {/* Hiển thị % giảm giá */}
-                                                    {combination.originalPrice && combinationDisplayPrice && (
-                                                      <span className="text-[10px] text-green-600">
-                                                        Giảm: {calculateDiscount(combination.originalPrice, combinationDisplayPrice)}%
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                <div className="relative">
-                                                  <input
-                                                    type="number"
-                                                    placeholder="Giá KM"
-                                                    className="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
-                                                    value={combinationDisplayPrice}
-                                                    onChange={(e) => {
-                                                      e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
-                                                      const value = parseInt(e.target.value);
-                                                      if (!isNaN(value) && value >= 0) {
-                                                        // Cập nhật giá trong state local
-                                                        handlePriceChange(
-                                                          product.productId,
-                                                          value,
-                                                          variant.variantId,
-                                                          combination.combinationId
-                                                        );
-                                                      }
-                                                    }}
-                                                    onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                                  />
-                                                  <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                                                    <span className="text-gray-400 text-xs">₫</span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                        return combinationSpecificAttributes.map(([k, v]) => `${k}: ${v}`).join(' / ');
+                                      })()
+                                    }
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-xs text-gray-500">
-                              Sản phẩm này không có biến thể.
-                            </div>
-                          )}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-[11px] text-slate-500">
+                                  {formatCurrency(combination.originalPrice)}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap">
+                                  <div className="relative w-20">
+                                    <input
+                                      type="text"
+                                      value={localPrices[combinationKey]?.toLocaleString('vi-VN') || '0'}
+                                      onChange={(e) => handlePriceInputChange(combinationKey, e.target.value.replace(/\./g, ''))}
+                                      onBlur={() => handlePriceInputBlur(product.productId, localPrices[combinationKey] ?? 0, variant.variantId, combination.combinationId)}
+                                      className="w-full border border-slate-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-pink-400 focus:border-pink-400 transition-colors text-right"
+                                    />
+                                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">₫</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-[11px]">
+                                  {combinationDiscount > 0 ? (
+                                    <span className={`font-medium ${combinationDiscount >= 30 ? 'text-red-500' : 'text-green-500'}`}>
+                                      -{combinationDiscount}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-center">
+                                  <button
+                                    type="button" // Explicitly set type
+                                    onClick={(e) => { e.stopPropagation(); onRemoveProduct(product.productId, variant.variantId, combination.combinationId); }}
+                                    className="text-slate-400 hover:text-red-500 focus:outline-none transition-colors p-0.5 rounded hover:bg-red-50"
+                                    title="Xóa tổ hợp"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        : [];
+                      return [variantRow, ...combinationRows];
+                    })
+                  : [];
 
-                          <div className="mt-3 text-xs text-gray-500 italic">
-                            * Giá khuyến mãi sẽ áp dụng trong thời gian diễn ra sự kiện.
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }
-
-                return elements;
+                return [productRow, ...variantRows];
               })
             ) : (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-sm text-gray-500">
+                <td colSpan={5} className="px-6 py-16 text-center text-sm text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-3">
-                    <div className="bg-pink-50 p-3 rounded-full">
-                      <svg className="h-10 w-10 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-600 font-medium">Chưa có sản phẩm nào trong sự kiện</p>
-                    <p className="text-pink-600">Nhấn nút "Thêm sản phẩm" để bắt đầu</p>
+                    <PackageSearch className="h-12 w-12 text-slate-400" />
+                    <p className="text-slate-600 font-medium">Chưa có sản phẩm nào trong sự kiện</p>
+                    <p className="text-xs text-slate-400">Nhấn nút "Thêm sản phẩm" ở trên để bắt đầu.</p>
                   </div>
                 </td>
               </tr>

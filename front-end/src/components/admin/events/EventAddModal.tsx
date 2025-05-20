@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiX } from 'react-icons/fi';
+import { X, PlusCircle } from 'lucide-react'; // Updated icons
 import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
@@ -139,31 +139,32 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
 
   return (
     <>
-      <div className={`fixed inset-0 z-50 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
+      <div className={`fixed inset-0 z-[60] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
         <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
           <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
           </div>
 
           <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-          <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+          <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
             {/* Header */}
-            <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 sm:px-8 flex justify-between items-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+                <PlusCircle className="h-5 w-5 mr-2.5 text-pink-600" />
                 Thêm sự kiện mới
               </h3>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none rounded-full hover:bg-pink-100 p-2 transition-colors"
+                className="text-slate-400 hover:text-pink-600 focus:outline-none transition-colors duration-200 p-1.5 rounded-md hover:bg-slate-100"
               >
-                <FiX className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Body với padding lớn hơn */}
-            <div className="bg-white px-8 pt-6 pb-8 sm:p-8 max-h-[80vh] overflow-y-auto">
+            {/* Body */}
+            <div className="bg-white px-6 pt-6 pb-8 sm:p-8 max-h-[calc(100vh-160px)] overflow-y-auto">
               <EventForm
                 initialData={formData}
                 onSubmit={handleSubmit}

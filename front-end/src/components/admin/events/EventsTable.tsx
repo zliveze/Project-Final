@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
+import { Edit2, Trash2, Eye, Search, Filter, ChevronDown } from 'lucide-react'; // Updated icons
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import Pagination from '../common/Pagination';
@@ -21,6 +21,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
   const [filterStatus, setFilterStatus] = useState('all'); // all, upcoming, ongoing, ended
   const [eventType, setEventType] = useState('all'); // Lọc theo loại sự kiện (dựa trên tags)
   const [itemsPerPage, setItemsPerPage] = useState(10); // Số sự kiện hiển thị mỗi trang
+  const [showFilters, setShowFilters] = useState(false); // State to toggle filter visibility
 
   // Tính toán trạng thái của sự kiện
   const getEventStatus = (event: Event) => {
@@ -133,31 +134,61 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      {/* Filter and Search */}
-      <div className="p-6 border-b border-gray-200 bg-gray-50">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="w-full md:w-1/3">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Tìm kiếm sự kiện..."
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-colors duration-200"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+    <div className="bg-white shadow-lg rounded-xl border border-slate-200 overflow-hidden">
+      {/* Filter and Search Section */}
+      <div className="p-5 border-b border-slate-200 bg-slate-50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Search Input */}
+          <div className="relative flex-grow sm:max-w-xs">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
             </div>
+            <input
+              type="text"
+              placeholder="Tìm kiếm sự kiện..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-colors text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="flex items-center space-x-4 flex-wrap gap-y-2">
+          {/* Filter Button and Dropdowns */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-pink-500 flex items-center transition-colors"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Lọc
+              <ChevronDown className={`h-4 w-4 ml-1.5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
             <div className="relative">
               <select
-                className="appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white transition-colors duration-200"
+                id="items-per-page"
+                className="appearance-none pl-3 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={30}>30 / trang</option>
+                <option value={50}>50 / trang</option>
+                <option value={100}>100 / trang</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Collapsible Filter Options */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="relative">
+              <label htmlFor="eventTypeFilter" className="block text-xs font-medium text-slate-600 mb-1">Loại sự kiện</label>
+              <select
+                id="eventTypeFilter"
+                className="appearance-none w-full pl-3 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
                 value={eventType}
                 onChange={(e) => setEventType(e.target.value)}
               >
@@ -167,16 +198,15 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
                 <option value="promotion">Ưu đãi</option>
                 <option value="holiday">Sự kiện lễ hội</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+              <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
               </div>
             </div>
-
             <div className="relative">
+              <label htmlFor="statusFilter" className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</label>
               <select
-                className="appearance-none pl-3 pr-10 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white transition-colors duration-200"
+                id="statusFilter"
+                className="appearance-none w-full pl-3 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -185,85 +215,61 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
                 <option value="ongoing">Đang diễn ra</option>
                 <option value="ended">Đã kết thúc</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <label htmlFor="items-per-page" className="mr-2 text-sm text-gray-600">Hiển thị:</label>
-              <div className="relative">
-                <select
-                  id="items-per-page"
-                  className="appearance-none pl-3 pr-8 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white transition-colors duration-200"
-                  value={itemsPerPage}
-                  onChange={handleItemsPerPageChange}
-                >
-                  <option value={10}>10</option>
-                  <option value={30}>30</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-pink-50">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-100">
             <tr>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Sự kiện
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Loại
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Thời gian
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Trạng thái
               </th>
-              <th scope="col" className="px-6 py-3.5 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
           </thead>
 
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-slate-200">
             {currentEvents.length > 0 ? (
               currentEvents.map((event) => {
                 const status = getEventStatus(event);
                 const type = getEventType(event);
 
                 return (
-                  <tr key={event._id} className="hover:bg-gray-50 transition-colors duration-150">
+                  <tr key={event._id} className="hover:bg-slate-50 transition-colors duration-150">
                     <td className="px-6 py-5">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12 bg-pink-100 rounded-lg flex items-center justify-center">
-                          <span className="text-pink-600 font-medium text-lg">{event.title.substring(0, 2).toUpperCase()}</span>
+                        <div className="flex-shrink-0 h-11 w-11 bg-pink-100 rounded-lg flex items-center justify-center">
+                          <span className="text-pink-600 font-semibold text-base">{event.title.substring(0, 1).toUpperCase()}</span>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{event.title}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs mt-0.5">{event.description}</div>
-                          <div className="flex flex-wrap mt-2">
+                          <div className="text-sm font-semibold text-slate-800 line-clamp-1">{event.title}</div>
+                          <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">{event.description}</div>
+                          <div className="flex flex-wrap mt-1.5">
                             {event.tags.slice(0, 2).map((tag, index) => (
-                              <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-1.5 transition-colors duration-150 hover:bg-gray-200">
+                              <span key={index} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mr-1.5 mb-1 transition-colors duration-150 hover:bg-slate-200">
                                 {tag}
                               </span>
                             ))}
                             {event.tags.length > 2 && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 transition-colors duration-150 hover:bg-gray-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mb-1 transition-colors duration-150 hover:bg-slate-200">
                                 +{event.tags.length - 2}
                               </span>
                             )}
@@ -273,51 +279,48 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
                     </td>
 
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-pink-100 text-pink-800 transition-colors duration-150 hover:bg-pink-200">
+                      <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-md bg-pink-50 text-pink-700 transition-colors duration-150 hover:bg-pink-100">
                         {getEventTypeText(type)}
                       </span>
                     </td>
 
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {format(new Date(event.startDate), 'dd/MM/yyyy')}
+                      <div className="text-sm font-medium text-slate-800">
+                        {format(new Date(event.startDate), 'dd/MM/yyyy, HH:mm')}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1 flex items-center">
-                        <svg className="w-3.5 h-3.5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                        </svg>
-                        {format(new Date(event.endDate), 'dd/MM/yyyy')}
+                      <div className="text-xs text-slate-500 mt-1">
+                        đến {format(new Date(event.endDate), 'dd/MM/yyyy, HH:mm')}
                       </div>
                     </td>
 
                     <td className="px-6 py-5 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(status)} transition-colors duration-150`}>
+                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-md ${getStatusColor(status)} transition-colors duration-150`}>
                         {getStatusText(status)}
                       </span>
                     </td>
 
                     <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-3">
+                      <div className="flex items-center justify-end space-x-2.5">
                         <button
                           onClick={() => onView(event._id)}
-                          className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors duration-150"
+                          className="text-slate-500 hover:text-slate-700 p-1.5 rounded-md hover:bg-slate-100 transition-colors duration-150"
                           title="Xem chi tiết"
                         >
-                          <FiEye className="h-5 w-5" />
+                          <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => onEdit(event._id)}
-                          className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition-colors duration-150"
+                          className="text-blue-600 hover:text-blue-800 p-1.5 rounded-md hover:bg-blue-50 transition-colors duration-150"
                           title="Chỉnh sửa"
                         >
-                          <FiEdit2 className="h-5 w-5" />
+                          <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => onDelete(event._id)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors duration-150"
+                          className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors duration-150"
                           title="Xóa"
                         >
-                          <FiTrash2 className="h-5 w-5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -326,13 +329,11 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
               })
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-3">
-                    <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-lg font-medium">Không tìm thấy sự kiện nào</p>
-                    <p className="text-sm">Thử thay đổi bộ lọc hoặc tạo sự kiện mới</p>
+                    <Search className="h-10 w-10 text-slate-400" />
+                    <p className="text-base font-medium">Không tìm thấy sự kiện nào</p>
+                    <p className="text-sm">Vui lòng thử lại với bộ lọc khác hoặc tạo sự kiện mới.</p>
                   </div>
                 </td>
               </tr>
@@ -343,9 +344,8 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-5 py-4 border-t border-slate-200 bg-slate-50">
           <div onClick={(e) => {
-            // Ngăn chặn sự kiện lan truyền đến form cha
             e.preventDefault();
             e.stopPropagation();
           }}>
@@ -356,7 +356,7 @@ export default function EventsTable({ events, onView, onEdit, onDelete }: Events
               totalItems={filteredEvents.length}
               itemsPerPage={itemsPerPage}
               showItemsInfo={true}
-              className="py-2"
+              className="py-1.5"
             />
           </div>
         </div>

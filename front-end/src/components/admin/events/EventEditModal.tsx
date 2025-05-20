@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiX } from 'react-icons/fi';
+import { X, FileEdit } from 'lucide-react'; // Updated icons
 import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
@@ -249,7 +249,11 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
     // Cập nhật state local
     setFormData(prevFormData => {
+      if (!prevFormData) { // Guard against null state
+        return null; 
+      }
       // Tìm sản phẩm cần cập nhật
+      // prevFormData is now guaranteed to be EventFormData
       const updatedProducts = prevFormData.products.map(product => {
         // Nếu là sản phẩm chính
         if (product.productId === productId && !variantId) {
@@ -371,7 +375,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
                   false // Không hiển thị toast
                 );
                 console.log('EventEditModal - handleSubmit - Kết quả cập nhật giá:', result ? 'Thành công' : 'Thất bại');
-              } catch (error) {
+              } catch (error: any) { // Added :any to error
                 console.error('EventEditModal - handleSubmit - Lỗi khi cập nhật giá:', error);
                 toast.error(`Lỗi khi cập nhật giá: ${error.message || 'Không xác định'}`, { id: 'event-edit-update-price-error' });
               }
@@ -392,7 +396,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       // Đóng modal
       onClose();
-    } catch (error) {
+    } catch (error: any) { // Added :any to error
       toast.error('Đã xảy ra lỗi khi cập nhật sự kiện!', { id: 'event-update-error' });
     } finally {
       setIsSubmitting(false);
@@ -409,36 +413,32 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
   return (
     <>
-      <div className={`fixed inset-0 z-50 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
+      <div className={`fixed inset-0 z-[60] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
         <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
           <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
           </div>
 
           <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
           <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
-            {/* Header với màu hồng nhạt */}
-            <div className="bg-pink-50 px-6 py-4 border-b border-pink-100 flex justify-between items-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-800 flex items-center">
-                <span className="bg-pink-100 p-1.5 rounded-lg mr-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-pink-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h8V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm11 14a1 1 0 001-1V6a1 1 0 00-1-1H4a1 1 0 00-1 1v9a1 1 0 001 1h12z" clipRule="evenodd" />
-                  </svg>
-                </span>
+            {/* Header */}
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+                <FileEdit className="h-5 w-5 mr-2.5 text-pink-600" />
                 Chỉnh sửa sự kiện
               </h3>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-200 bg-white rounded-full p-1.5 hover:bg-pink-50"
+                className="text-slate-400 hover:text-pink-600 focus:outline-none transition-colors duration-200 p-1.5 rounded-md hover:bg-slate-100"
               >
-                <FiX className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Body với padding lớn hơn và scroll */}
-            <div className="bg-white px-8 pt-6 pb-8 sm:p-8 max-h-[80vh] overflow-y-auto">
+            {/* Body */}
+            <div className="bg-white px-6 pt-6 pb-8 sm:p-8 max-h-[calc(100vh-160px)] overflow-y-auto">
               <EventForm
                 initialData={formData}
                 onSubmit={handleSubmit}

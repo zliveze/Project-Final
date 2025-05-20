@@ -1,6 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { Plus, Calendar, AlertCircle, Info, Save, X } from 'lucide-react'; // Added Lucide icons
 import EventProductsTable from './EventProductsTable';
+
+// Định nghĩa cấu trúc dữ liệu lồng nhau cho sản phẩm trong form
+// Các trường được đánh dấu ? để phù hợp với dữ liệu có thể thiếu từ context
+export interface CombinationInEventData {
+  combinationId: string;
+  attributes: Record<string, string>;
+  adjustedPrice: number;
+  originalPrice?: number; // Cho phép undefined
+  combinationPrice?: number;
+}
+
+export interface VariantInEventData {
+  variantId: string;
+  variantName?: string;
+  variantSku?: string;
+  variantPrice?: number;
+  adjustedPrice: number;
+  originalPrice?: number; // Cho phép undefined
+  variantAttributes?: Record<string, string>;
+  image?: string;
+  combinations?: CombinationInEventData[];
+}
+
+export interface ProductInEventData {
+  productId: string;
+  name?: string;
+  image?: string;
+  originalPrice?: number; // Cho phép undefined
+  adjustedPrice: number;
+  sku?: string;
+  status?: string;
+  brandId?: string;
+  brand?: string;
+  variants?: VariantInEventData[];
+
+  // Các trường này có thể được thêm vào bởi EventProductAddModal hoặc các logic khác
+  // và có thể không tồn tại trên ProductInEvent từ context ban đầu.
+  // Chúng vẫn hữu ích cho việc hiển thị và xử lý trong form.
+  variantId?: string;
+  combinationId?: string;
+  // variantName, variantAttributes, etc. đã có trong VariantInEventData
+}
+
 
 export interface EventFormData {
   _id?: string;
@@ -9,24 +53,7 @@ export interface EventFormData {
   tags: string[];
   startDate: Date | string;
   endDate: Date | string;
-  products: {
-    productId: string;
-    variantId?: string;
-    combinationId?: string;
-    adjustedPrice: number;
-    name?: string;
-    image?: string;
-    originalPrice?: number;
-    variantName?: string;
-    variantAttributes?: Record<string, string>;
-    sku?: string;
-    status?: string;
-    brandId?: string;
-    brand?: string;
-    variantSku?: string;
-    variantPrice?: number;
-    combinationPrice?: number;
-  }[];
+  products: ProductInEventData[]; // Sử dụng cấu trúc lồng mới
 }
 
 interface EventFormProps {
@@ -159,37 +186,40 @@ const EventForm: React.FC<EventFormProps> = ({
 
   // Xử lý điều chỉnh giá sản phẩm trong sự kiện
   const handleProductPriceChange = (productId: string, newPrice: number, variantId?: string, combinationId?: string) => {
-    // Nếu có callback, gọi callback để cập nhật qua API
     if (onUpdateProductPrice) {
       onUpdateProductPrice(productId, newPrice, variantId, combinationId);
     } else {
-      // Nếu không, chỉ cập nhật state local
-      setFormData(prev => ({
-        ...prev,
-        products: prev.products.map(product => {
-          // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
-          if (combinationId && product.combinationId) {
-            return (product.productId === productId &&
-                    product.variantId === variantId &&
-                    product.combinationId === combinationId)
-              ? { ...product, adjustedPrice: newPrice }
-              : product;
+      // Cập nhật state local với cấu trúc lồng
+      setFormData(prev => {
+        const updatedProducts = prev.products.map(p => {
+          if (p.productId === productId) {
+            // Cập nhật sản phẩm gốc hoặc biến thể/tổ hợp của nó
+            if (variantId && p.variants) {
+              const updatedVariants = p.variants.map(v => {
+                if (v.variantId === variantId) {
+                  if (combinationId && v.combinations) {
+                    const updatedCombinations = v.combinations.map(c => {
+                      if (c.combinationId === combinationId) {
+                        return { ...c, adjustedPrice: newPrice };
+                      }
+                      return c;
+                    });
+                    return { ...v, combinations: updatedCombinations };
+                  }
+                  // Cập nhật biến thể (không có tổ hợp cụ thể)
+                  return { ...v, adjustedPrice: newPrice };
+                }
+                return v;
+              });
+              return { ...p, variants: updatedVariants };
+            }
+            // Cập nhật sản phẩm gốc (không có variantId)
+            return { ...p, adjustedPrice: newPrice };
           }
-          // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
-          else if (variantId && product.variantId && !product.combinationId) {
-            return (product.productId === productId && product.variantId === variantId)
-              ? { ...product, adjustedPrice: newPrice }
-              : product;
-          }
-          // Nếu chỉ có productId, kiểm tra productId
-          else if (!variantId && !product.variantId) {
-            return product.productId === productId
-              ? { ...product, adjustedPrice: newPrice }
-              : product;
-          }
-          return product;
-        })
-      }));
+          return p;
+        });
+        return { ...prev, products: updatedProducts };
+      });
     }
   };
 
@@ -275,16 +305,14 @@ const EventForm: React.FC<EventFormProps> = ({
             name="title"
             value={formData.title}
             onChange={handleChange}
-            className={`mt-1 block w-full border ${
-              formErrors.title ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200`}
-            placeholder="Nhập tiêu đề sự kiện"
+            className={`mt-1.5 block w-full border ${
+              formErrors.title ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-pink-500 focus:ring-pink-500'
+            } rounded-lg shadow-sm py-2.5 px-3.5 focus:outline-none focus:ring-2 sm:text-sm transition-colors duration-200 bg-white`}
+            placeholder="Ví dụ: Flash Sale Tháng 5"
           />
           {formErrors.title && (
-            <p className="mt-1.5 text-sm text-red-500 flex items-center">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <p className="mt-1.5 text-sm text-red-600 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-1.5" />
               {formErrors.title}
             </p>
           )}
@@ -292,7 +320,7 @@ const EventForm: React.FC<EventFormProps> = ({
 
         {/* Mô tả */}
         <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="description" className="block text-sm font-medium text-slate-700">
             Mô tả <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -301,16 +329,14 @@ const EventForm: React.FC<EventFormProps> = ({
             rows={4}
             value={formData.description}
             onChange={handleChange}
-            className={`mt-1 block w-full border ${
-              formErrors.description ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200`}
-            placeholder="Nhập mô tả sự kiện"
+            className={`mt-1.5 block w-full border ${
+              formErrors.description ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-pink-500 focus:ring-pink-500'
+            } rounded-lg shadow-sm py-2.5 px-3.5 focus:outline-none focus:ring-2 sm:text-sm transition-colors duration-200 bg-white`}
+            placeholder="Mô tả chi tiết về sự kiện..."
           />
           {formErrors.description && (
-            <p className="mt-1.5 text-sm text-red-500 flex items-center">
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <p className="mt-1.5 text-sm text-red-600 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-1.5" />
               {formErrors.description}
             </p>
           )}
@@ -318,14 +344,14 @@ const EventForm: React.FC<EventFormProps> = ({
 
         {/* Tags */}
         <div>
-          <label htmlFor="tags" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="tags" className="block text-sm font-medium text-slate-700">
             Tags
           </label>
-          <div className="mt-1 flex flex-wrap gap-2 items-center border border-gray-300 rounded-md shadow-sm py-2.5 px-3.5 bg-white">
+          <div className="mt-1.5 flex flex-wrap gap-2 items-center border border-slate-300 rounded-lg shadow-sm p-2.5 bg-white focus-within:ring-2 focus-within:ring-pink-500 focus-within:border-pink-500">
             {formData.tags.map((tag, index) => (
               <span
                 key={index}
-                className="bg-pink-100 text-pink-800 text-xs px-2.5 py-1.5 rounded-full flex items-center transition-colors duration-150 hover:bg-pink-200"
+                className="bg-pink-100 text-pink-700 text-xs px-2.5 py-1 rounded-md flex items-center transition-colors duration-150 hover:bg-pink-200"
               >
                 {tag}
                 <button
@@ -334,7 +360,7 @@ const EventForm: React.FC<EventFormProps> = ({
                   className="ml-1.5 text-pink-500 hover:text-pink-700 focus:outline-none"
                   title="Xóa tag"
                 >
-                  ×
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </span>
             ))}
@@ -344,30 +370,26 @@ const EventForm: React.FC<EventFormProps> = ({
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={handleTagKeyDown}
-              onBlur={handleAddTag}
-              className="flex-1 min-w-[150px] border-0 focus:outline-none focus:ring-0 p-0 text-sm"
-              placeholder={formData.tags.length > 0 ? "" : "Nhập tags và nhấn Enter"}
+              onBlur={handleAddTag} // Add tag on blur as well
+              className="flex-1 min-w-[120px] border-0 focus:outline-none focus:ring-0 p-0.5 text-sm placeholder-slate-400"
+              placeholder={formData.tags.length > 0 ? "" : "Nhập tag..."}
             />
           </div>
-          <p className="mt-1.5 text-xs text-gray-500 flex items-center">
-            <svg className="w-3.5 h-3.5 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Nhập tag và nhấn Enter để thêm. Ví dụ: flash sale, chăm sóc da, v.v.
+          <p className="mt-1.5 text-xs text-slate-500 flex items-center">
+            <Info className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+            Nhấn Enter hoặc dấu phẩy (,) để thêm tag.
           </p>
         </div>
 
         {/* Thời gian */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="startDate" className="block text-sm font-medium text-slate-700">
               Ngày bắt đầu <span className="text-red-500">*</span>
             </label>
-            <div className="mt-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
+            <div className="mt-1.5 relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Calendar className="h-5 w-5 text-slate-400" />
               </div>
               <input
                 type="datetime-local"
@@ -376,28 +398,24 @@ const EventForm: React.FC<EventFormProps> = ({
                 value={formatDateForInput(formData.startDate)}
                 onChange={handleDateChange}
                 className={`block w-full border ${
-                  formErrors.startDate ? 'border-red-500' : 'border-gray-300'
-                } rounded-md shadow-sm py-2.5 pl-10 pr-3.5 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200`}
+                  formErrors.startDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-pink-500 focus:ring-pink-500'
+                } rounded-lg shadow-sm py-2.5 pl-11 pr-3.5 focus:outline-none focus:ring-2 sm:text-sm transition-colors duration-200 bg-white`}
               />
             </div>
             {formErrors.startDate && (
-              <p className="mt-1.5 text-sm text-red-500 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+              <p className="mt-1.5 text-sm text-red-600 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1.5" />
                 {formErrors.startDate}
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="endDate" className="block text-sm font-medium text-slate-700">
               Ngày kết thúc <span className="text-red-500">*</span>
             </label>
-            <div className="mt-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
+            <div className="mt-1.5 relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Calendar className="h-5 w-5 text-slate-400" />
               </div>
               <input
                 type="datetime-local"
@@ -406,15 +424,13 @@ const EventForm: React.FC<EventFormProps> = ({
                 value={formatDateForInput(formData.endDate)}
                 onChange={handleDateChange}
                 className={`block w-full border ${
-                  formErrors.endDate ? 'border-red-500' : 'border-gray-300'
-                } rounded-md shadow-sm py-2.5 pl-10 pr-3.5 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 sm:text-sm transition-colors duration-200`}
+                  formErrors.endDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-pink-500 focus:ring-pink-500'
+                } rounded-lg shadow-sm py-2.5 pl-11 pr-3.5 focus:outline-none focus:ring-2 sm:text-sm transition-colors duration-200 bg-white`}
               />
             </div>
             {formErrors.endDate && (
-              <p className="mt-1.5 text-sm text-red-500 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+              <p className="mt-1.5 text-sm text-red-600 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1.5" />
                 {formErrors.endDate}
               </p>
             )}
@@ -422,24 +438,22 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
 
         {/* Sản phẩm */}
-        <div>
-          <div className="flex justify-between items-center mb-5">
+        <div className="pt-2">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-slate-700">
                 Sản phẩm trong sự kiện <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Thêm sản phẩm và thiết lập giá khuyến mãi cho sự kiện
+              <p className="text-xs text-slate-500 mt-1">
+                Thêm sản phẩm và điều chỉnh giá khuyến mãi cho sự kiện này.
               </p>
             </div>
             <button
               type="button"
               onClick={onAddProduct}
-              className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-pink-500 hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 transition-all duration-200 transform hover:-translate-y-0.5"
+              className="mt-3 sm:mt-0 inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-105"
             >
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              <Plus className="w-5 h-5 mr-2 -ml-1" />
               Thêm sản phẩm
             </button>
           </div>
@@ -451,10 +465,8 @@ const EventForm: React.FC<EventFormProps> = ({
           />
 
           {formErrors.products && (
-            <p className="mt-3 text-sm text-red-500 flex items-center">
-              <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <p className="mt-2 text-sm text-red-600 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-1.5" />
               {formErrors.products}
             </p>
           )}
@@ -462,23 +474,23 @@ const EventForm: React.FC<EventFormProps> = ({
       </div>
 
       {/* Action buttons */}
-      <div className="flex justify-end space-x-4 pt-6 mt-6 border-t border-gray-100">
+      <div className="flex justify-end space-x-3 pt-6 mt-8 border-t border-slate-200">
         <button
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="px-5 py-2.5 border border-gray-200 shadow-sm text-sm font-medium rounded-lg text-gray-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all duration-200"
+          className="px-5 py-2.5 border border-slate-300 shadow-sm text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 transition-all duration-200"
         >
-          Hủy
+          <X className="w-4 h-4 mr-1.5 inline-block -mt-0.5" /> Hủy
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-pink-500 hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-300 flex items-center transition-all duration-200 transform hover:-translate-y-0.5"
+          className="px-6 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 flex items-center justify-center transition-all duration-200 transform hover:scale-105"
         >
           {loading ? (
             <>
-              <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin -ml-1 mr-2.5 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -486,9 +498,7 @@ const EventForm: React.FC<EventFormProps> = ({
             </>
           ) : (
             <>
-              <svg className="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Save className="w-5 h-5 mr-2 -ml-1" />
               Lưu sự kiện
             </>
           )}
