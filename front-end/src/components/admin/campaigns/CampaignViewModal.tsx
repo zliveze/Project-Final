@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FiX, FiEye, FiEdit2, FiCalendar, FiClock, FiTag } from 'react-icons/fi';
-import { format } from 'date-fns';
-import Image from 'next/image';
-import { Campaign, Product } from './CampaignForm';
+import { X, ExternalLink, CalendarDays, Tag, Clock, Info, ShoppingBag, Percent, Eye, CheckCircle, Edit2 } from 'lucide-react';
+import { format, formatDistanceToNow, isAfter, isBefore, isWithinInterval } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { Campaign, ProductInCampaign } from '@/contexts/CampaignContext';
 
 interface CampaignViewModalProps {
   isOpen: boolean;
@@ -11,6 +11,8 @@ interface CampaignViewModalProps {
   campaign: Partial<Campaign>;
 }
 
+type CampaignStatus = 'upcoming' | 'ongoing' | 'ended';
+
 const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
   isOpen,
   onClose,
@@ -18,17 +20,18 @@ const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
   campaign
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'products'>('info');
   
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
+      if (!campaign) setActiveTab('info');
     } else {
       setTimeout(() => {
         setModalVisible(false);
       }, 300);
     }
-  }, [isOpen]);
+  }, [isOpen, campaign]);
 
   const handleEdit = () => {
     if (campaign._id) {
@@ -37,247 +40,217 @@ const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
     }
   };
 
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return 'N/A';
-    try {
-      return format(new Date(date), 'dd/MM/yyyy');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
-    }
+  const getCampaignStatus = (currentCampaign: Partial<Campaign>): CampaignStatus => {
+    if (!currentCampaign.startDate || !currentCampaign.endDate) return 'upcoming';
+    
+    const now = new Date();
+    const startDate = new Date(currentCampaign.startDate);
+    const endDate = new Date(currentCampaign.endDate);
+    
+    if (isBefore(now, startDate)) return 'upcoming';
+    if (isAfter(now, endDate)) return 'ended';
+    return 'ongoing';
   };
 
-  // Tính tổng số sản phẩm và phần trăm giảm giá trung bình
-  const calculateStats = () => {
-    if (!campaign.products || campaign.products.length === 0) {
-      return { totalProducts: 0, avgDiscount: 0 };
+  const getStatusAppearance = (status: CampaignStatus): { text: string; color: string; icon: React.ElementType } => {
+    switch (status) {
+      case 'upcoming': return { text: 'Sắp diễn ra', color: 'bg-blue-100 text-blue-700', icon: Clock };
+      case 'ongoing': return { text: 'Đang diễn ra', color: 'bg-green-100 text-green-700', icon: CalendarDays };
+      case 'ended': return { text: 'Đã kết thúc', color: 'bg-slate-100 text-slate-700', icon: CheckCircle };
+      default: return { text: 'Không xác định', color: 'bg-slate-100 text-slate-700', icon: Info };
     }
+  };
+  
+  const getTimeInfo = (currentCampaign: Partial<Campaign>): string => {
+    if (!currentCampaign.startDate || !currentCampaign.endDate) return 'Chưa có thông tin';
+    
+    const now = new Date();
+    const startDate = new Date(currentCampaign.startDate);
+    const endDate = new Date(currentCampaign.endDate);
+    
+    if (isBefore(now, startDate)) return `Bắt đầu sau ${formatDistanceToNow(startDate, { locale: vi })}`;
+    if (isWithinInterval(now, { start: startDate, end: endDate })) return `Kết thúc sau ${formatDistanceToNow(endDate, { locale: vi })}`;
+    return `Đã kết thúc ${formatDistanceToNow(endDate, { addSuffix: true, locale: vi })}`;
+  };
 
-    const totalProducts = campaign.products.length;
+  const calculateAverageDiscount = (): number => {
+    if (!campaign.products || campaign.products.length === 0) return 0;
+    
     let totalDiscountPercent = 0;
-    let countWithDiscount = 0;
-
-    campaign.products.forEach(product => {
-      if (product.originalPrice && product.adjustedPrice && product.originalPrice > product.adjustedPrice) {
-        const discountPercent = (product.originalPrice - product.adjustedPrice) / product.originalPrice * 100;
-        totalDiscountPercent += discountPercent;
-        countWithDiscount++;
+    let countProductsWithPrice = 0;
+    
+    campaign.products.forEach((product) => {
+      if (product.originalPrice && product.adjustedPrice && product.originalPrice > 0) {
+        totalDiscountPercent += ((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100;
+        countProductsWithPrice++;
       }
     });
-
-    const avgDiscount = countWithDiscount > 0 ? Math.round(totalDiscountPercent / countWithDiscount) : 0;
-    return { totalProducts, avgDiscount };
+    
+    return countProductsWithPrice > 0 ? Math.round(totalDiscountPercent / countProductsWithPrice) : 0;
   };
 
-  const { totalProducts, avgDiscount } = calculateStats();
+  const statusDetails = getStatusAppearance(getCampaignStatus(campaign));
+  const formatCurrency = (value?: number) => value !== undefined ? new Intl.NumberFormat('vi-VN').format(value) + ' ₫' : 'N/A';
 
-  if (!isOpen && !modalVisible) return null;
+  const StatCard = ({ title, value, icon: Icon, iconColorClass }: { title: string, value: string | number, icon: React.ElementType, iconColorClass: string }) => (
+    <div className="bg-slate-100/80 p-4 rounded-lg flex items-start">
+      <div className={`p-2.5 rounded-lg ${iconColorClass.replace('text-', 'bg-').replace('-700', '-100').replace('-600','-100')}`}>
+        <Icon className={`h-5 w-5 ${iconColorClass}`} />
+      </div>
+      <div className="ml-3">
+        <dt className="text-xs font-medium text-slate-500">{title}</dt>
+        <dd className="text-xl font-semibold text-slate-800">{value}</dd>
+      </div>
+    </div>
+  );
+
+  if (!modalVisible || !campaign) return null;
 
   return (
-    <div className={`fixed inset-0 z-[1000] flex items-center justify-center ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-      
-      <div className={`relative bg-white rounded-lg shadow-xl w-[90vw] max-w-6xl mx-auto z-50 ${
-        isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
-      } transition-all duration-300`}>
-        <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3">
-              <FiEye className="text-pink-600" />
-            </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Chi tiết chiến dịch
-            </h2>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={handleEdit}
-              className="inline-flex items-center px-3 py-1.5 border border-pink-300 rounded-md shadow-sm text-sm font-medium text-pink-700 bg-pink-50 hover:bg-pink-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
-            >
-              <FiEdit2 className="mr-2 -ml-1 h-4 w-4" />
-              Chỉnh sửa
-            </button>
-            <button
-              type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors"
-              onClick={onClose}
-            >
-              <span className="sr-only">Đóng</span>
-              <FiX className="h-5 w-5" />
-            </button>
-          </div>
+    <div className={`fixed inset-0 z-[60] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
         </div>
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl lg:max-w-4xl sm:w-full ${isOpen ? 'sm:scale-100' : 'sm:scale-95'}`}>
+          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+              <Eye className="h-5 w-5 mr-2.5 text-pink-600" />
+              Chi tiết chiến dịch
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={handleEdit}
+                className="text-blue-600 hover:text-blue-800 p-1.5 rounded-md hover:bg-blue-50 transition-colors duration-150"
+                title="Chỉnh sửa"
+              >
+                <Edit2 className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={onClose} 
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-md hover:bg-slate-100 transition-colors duration-150"
+                title="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
 
-        <div className="p-4 sm:p-6 overflow-y-auto max-h-[75vh]">
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              <button
-                className={`${
-                  activeTab === 'info'
-                    ? 'border-pink-500 text-pink-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                onClick={() => setActiveTab('info')}
-              >
-                Thông tin chung
-              </button>
-              <button
-                className={`${
-                  activeTab === 'products'
-                    ? 'border-pink-500 text-pink-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                onClick={() => setActiveTab('products')}
-              >
-                Sản phẩm ({totalProducts})
-              </button>
+          <div className="border-b border-slate-200 bg-white">
+            <nav className="flex px-4 -mb-px">
+              {['info', 'products'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as 'info' | 'products')}
+                  className={`py-3.5 px-5 text-center border-b-2 font-medium text-sm transition-colors focus:outline-none
+                    ${activeTab === tab
+                      ? 'border-pink-500 text-pink-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+                >
+                  {tab === 'info' ? 'Thông tin chung' : `Sản phẩm (${campaign.products?.length || 0})`}
+                </button>
+              ))}
             </nav>
           </div>
 
-          {/* Nội dung tab */}
-          {activeTab === 'info' ? (
-            <div className="space-y-6">
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Thông tin chiến dịch</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Tiêu đề</div>
-                      <div className="mt-1 text-base text-gray-900">{campaign.title}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Loại chiến dịch</div>
-                      <div className="mt-1 text-base text-gray-900 flex items-center">
-                        <FiTag className="mr-1.5 h-4 w-4 text-gray-400" />
-                        {campaign.type || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Thời gian bắt đầu</div>
-                      <div className="mt-1 text-base text-gray-900 flex items-center">
-                        <FiCalendar className="mr-1.5 h-4 w-4 text-gray-400" />
-                        {formatDate(campaign.startDate)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Thời gian kết thúc</div>
-                      <div className="mt-1 text-base text-gray-900 flex items-center">
-                        <FiCalendar className="mr-1.5 h-4 w-4 text-gray-400" />
-                        {formatDate(campaign.endDate)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Ngày tạo</div>
-                      <div className="mt-1 text-base text-gray-900 flex items-center">
-                        <FiClock className="mr-1.5 h-4 w-4 text-gray-400" />
-                        {formatDate(campaign.createdAt)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">Cập nhật lần cuối</div>
-                      <div className="mt-1 text-base text-gray-900 flex items-center">
-                        <FiClock className="mr-1.5 h-4 w-4 text-gray-400" />
-                        {formatDate(campaign.updatedAt)}
-                      </div>
-                    </div>
+          <div className="bg-white px-6 pt-6 pb-8 sm:p-7 max-h-[calc(100vh-240px)] overflow-y-auto">
+            {activeTab === 'info' && (
+              <div className="space-y-5">
+                <div className="pb-4 border-b border-slate-200">
+                  <div className="flex justify-between items-start mb-1">
+                    <h2 className="text-2xl font-bold text-slate-800">{campaign.title}</h2>
+                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full items-center ${statusDetails.color}`}>
+                      <statusDetails.icon className="h-3.5 w-3.5 mr-1.5" />
+                      {statusDetails.text}
+                    </span>
                   </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">{campaign.description || 'Không có mô tả'}</p>
                 </div>
-              </div>
-              
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Mô tả</h3>
-                  <div className="prose max-w-none">
-                    <p className="text-base text-gray-700 whitespace-pre-line">
-                      {campaign.description || 'Không có mô tả.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Tổng quan</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <div className="text-sm font-medium text-green-800">Tổng số sản phẩm</div>
-                      <div className="mt-1 text-2xl font-semibold text-green-900">{totalProducts}</div>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="text-sm font-medium text-blue-800">Giảm giá trung bình</div>
-                      <div className="mt-1 text-2xl font-semibold text-blue-900">{avgDiscount}%</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-sm">
+                  <div className="flex items-center bg-slate-50 p-3 rounded-lg">
+                    <CalendarDays className="h-5 w-5 text-slate-500 mr-2.5 flex-shrink-0" />
+                    <div><strong className="font-medium text-slate-700">Bắt đầu:</strong> {campaign.startDate ? format(new Date(campaign.startDate), 'HH:mm, dd/MM/yyyy', { locale: vi }) : 'N/A'}</div>
+                  </div>
+                  <div className="flex items-center bg-slate-50 p-3 rounded-lg">
+                    <CalendarDays className="h-5 w-5 text-slate-500 mr-2.5 flex-shrink-0" />
+                    <div><strong className="font-medium text-slate-700">Kết thúc:</strong> {campaign.endDate ? format(new Date(campaign.endDate), 'HH:mm, dd/MM/yyyy', { locale: vi }) : 'N/A'}</div>
+                  </div>
+                  <div className="flex items-center bg-slate-50 p-3 rounded-lg">
+                    <Clock className="h-5 w-5 text-slate-500 mr-2.5 flex-shrink-0" />
+                    <div><strong className="font-medium text-slate-700">Thời gian:</strong> {getTimeInfo(campaign)}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <Tag className="h-5 w-5 text-slate-500 mt-0.5 mr-2.5 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1 font-medium">Loại chiến dịch</div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-700">
+                        {campaign.type || 'Không xác định'}
+                      </span>
                     </div>
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard title="Số sản phẩm" value={campaign.products?.length || 0} icon={ShoppingBag} iconColorClass="text-purple-600" />
+                  <StatCard title="Giảm giá TB" value={`${calculateAverageDiscount()}%`} icon={Percent} iconColorClass="text-green-600" />
+                  {campaign.startDate && campaign.endDate && (
+                    <StatCard 
+                      title="Thời lượng" 
+                      value={`${Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} ngày`} 
+                      icon={Clock} 
+                      iconColorClass="text-blue-600" 
+                    />
+                  )}
+                  <StatCard title="Loại" value={campaign.type || 'N/A'} icon={Tag} iconColorClass="text-orange-600" />
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            )}
+
+            {activeTab === 'products' && (
+              <div>
+                <h3 className="text-base font-semibold text-slate-800 mb-3">Sản phẩm trong chiến dịch ({campaign.products?.length || 0})</h3>
                 {campaign.products && campaign.products.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="min-w-full divide-y divide-slate-200">
+                      <thead className="bg-slate-50">
                         <tr>
-                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Sản phẩm
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Biến thể
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Giá gốc
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Giá campaign
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Giảm giá
-                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Sản phẩm</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Biến thể</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Giá gốc</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Giá KM</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Giảm</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {campaign.products.map((product: Product) => (
-                          <tr key={`${product.productId}-${product.variantId}`}>
+                      <tbody className="bg-white divide-y divide-slate-200">
+                        {campaign.products.map((product: ProductInCampaign) => (
+                          <tr key={`${product.productId}-${product.variantId || ''}`} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10">
-                                  <Image
-                                    src={product.image || 'https://via.placeholder.com/48'}
-                                    alt={product.productName || 'Product image'}
-                                    width={40}
-                                    height={40}
-                                    className="rounded-md object-cover"
-                                  />
-                                </div>
-                                <div className="ml-3">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {product.productName || `Sản phẩm`}
-                                  </div>
+                                <img 
+                                  src={product.image || '/placeholder-image.png'} 
+                                  alt={product.name || 'product image'} 
+                                  className="h-10 w-10 rounded-md object-cover border border-slate-200 mr-3"
+                                />
+                                <div>
+                                  <div className="text-sm font-medium text-slate-800 line-clamp-1">{product.name || 'Sản phẩm không tên'}</div>
+                                  {product.sku && <div className="text-xs text-slate-500">SKU: {product.sku}</div>}
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                              {product.variantName || 'Mặc định'}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                              {product.originalPrice?.toLocaleString('vi-VN')}₫
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">
-                              {product.adjustedPrice?.toLocaleString('vi-VN')}₫
-                            </td>
-                            <td className="px-4 py-3 text-sm text-center">
-                              {product.originalPrice ? (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  ((product.originalPrice - product.adjustedPrice) / product.originalPrice * 100) > 0
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {Math.round((product.originalPrice - product.adjustedPrice) / product.originalPrice * 100)}%
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{product.variants?.[0]?.variantName || 'Mặc định'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 text-right">{formatCurrency(product.originalPrice)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-pink-600 text-right">{formatCurrency(product.adjustedPrice)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              {product.originalPrice && product.originalPrice > 0 && product.adjustedPrice !== undefined ? (
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${((product.originalPrice - product.adjustedPrice) / product.originalPrice) >= 0.3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                  -{Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)}%
                                 </span>
-                              ) : '-'}
+                              ) : <span className="text-xs text-slate-400">-</span>}
                             </td>
                           </tr>
                         ))}
@@ -285,13 +258,27 @@ const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
                     </table>
                   </div>
                 ) : (
-                  <div className="py-10 px-4 text-center">
-                    <p className="text-gray-500">Không có sản phẩm nào trong chiến dịch này.</p>
+                  <div className="text-center py-10 text-slate-500">
+                    <ShoppingBag className="h-12 w-12 mx-auto mb-2 text-slate-400" />
+                    <p>Chưa có sản phẩm nào trong chiến dịch này.</p>
                   </div>
                 )}
               </div>
+            )}
+          </div>
+
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center">
+            <div className="text-xs text-slate-500">
+              {campaign.createdAt && `Tạo lúc: ${format(new Date(campaign.createdAt), 'HH:mm - dd/MM/yyyy', { locale: vi })}`}
             </div>
-          )}
+            <button
+              type="button"
+              className="inline-flex items-center px-3 py-1.5 border border-slate-300 text-xs font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-pink-500"
+              onClick={onClose}
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>

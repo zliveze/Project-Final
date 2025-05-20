@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { FiEdit2, FiTrash2, FiEye, FiPause, FiPlay, FiSearch } from 'react-icons/fi';
-import Image from 'next/image';
+import { Edit2, Trash2, Eye, Search, Filter, ChevronDown } from 'lucide-react'; // Updated icons
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import Pagination from '@/components/admin/common/Pagination';
 import { Campaign } from '@/contexts/CampaignContext'; // Import Campaign type
-import { format } from 'date-fns'; // Import date-fns for formatting
 
+// Định nghĩa kiểu dữ liệu cho props
 interface CampaignTableProps {
   campaigns: Campaign[]; // Receive campaigns as prop
-  isLoading: boolean;
+  isLoading?: boolean;
   currentPage: number;
   totalPages: number;
   totalItems: number;
@@ -15,16 +16,16 @@ interface CampaignTableProps {
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (campaign: Campaign) => void; // Pass the whole campaign object
-  onToggleStatus: (id: string, currentStatus: string) => void; // Keep for potential future use
+  onToggleStatus?: (id: string, currentStatus: string) => void; // Keep for potential future use
   onPageChange: (page: number) => void;
   onItemsPerPageChange: (limit: number) => void;
   onSearchChange: (search: string) => void;
-  onFilterChange: (filterType: string, value: string | Date | null) => void; // Add filter handler
+  onFilterChange?: (filterType: string, value: string | Date | null) => void; // Add filter handler
 }
 
 export default function CampaignTable({ 
   campaigns,
-  isLoading,
+  isLoading = false,
   currentPage,
   totalPages,
   totalItems,
@@ -40,7 +41,8 @@ export default function CampaignTable({
 }: CampaignTableProps) {
   // Local state for controlled inputs
   const [searchTerm, setSearchTerm] = useState(''); 
-  const [selectedType, setSelectedType] = useState(''); // Use empty string for 'all'
+  const [selectedType, setSelectedType] = useState('all'); // Use 'all' as default
+  const [showFilters, setShowFilters] = useState(false); // State to toggle filter visibility
 
   // Handle search input change with debounce
   useEffect(() => {
@@ -59,7 +61,9 @@ export default function CampaignTable({
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newType = e.target.value;
     setSelectedType(newType);
-    onFilterChange('type', newType === 'all' ? '' : newType); // Pass empty string if 'all'
+    if (onFilterChange) {
+      onFilterChange('type', newType === 'all' ? '' : newType); // Pass empty string if 'all'
+    }
   };
 
   // Handle items per page change
@@ -102,36 +106,6 @@ export default function CampaignTable({
     }
   };
 
-  // Function to display toggle button (Placeholder)
-  const getToggleButton = (campaign: Campaign) => {
-    const statusInfo = getStatusInfo(campaign.startDate, campaign.endDate);
-    // This requires backend logic for pause/resume functionality
-    if (statusInfo.text === 'Đang diễn ra') {
-      return (
-        <button 
-          onClick={() => onToggleStatus(campaign._id, 'active')}
-          className="text-orange-600 hover:text-orange-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Tạm dừng (Chưa hỗ trợ)"
-          disabled // Disable until implemented
-        >
-          <FiPause className="h-5 w-5" />
-        </button>
-      );
-    } else if (statusInfo.text === 'Lên lịch') {
-      return (
-        <button 
-          onClick={() => onToggleStatus(campaign._id, 'inactive')}
-          className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Kích hoạt (Chưa hỗ trợ)"
-          disabled // Disable until implemented
-        >
-          <FiPlay className="h-5 w-5" />
-        </button>
-      );
-    }
-    return null;
-  };
-
   // Format date helper
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return 'N/A';
@@ -141,7 +115,7 @@ export default function CampaignTable({
       if (isNaN(dateObj.getTime())) {
           return 'Ngày không hợp lệ';
       }
-      return format(dateObj, 'dd/MM/yyyy');
+      return format(dateObj, 'dd/MM/yyyy, HH:mm');
     } catch (error) {
       console.error("Error formatting date:", date, error);
       return 'Lỗi định dạng';
@@ -149,93 +123,123 @@ export default function CampaignTable({
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      {/* Filters Section */}
-      <div className="p-4 md:p-6 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="bg-white shadow-lg rounded-xl border border-slate-200 overflow-hidden">
+      {/* Filter and Search Section */}
+      <div className="p-5 border-b border-slate-200 bg-slate-50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           {/* Search Input */}
-          <div className="w-full md:w-auto md:flex-grow lg:max-w-xs">
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="h-5 w-5 text-gray-400" />
-              </span>
-              <input
-                type="text"
-                placeholder="Tìm theo tiêu đề..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="relative flex-grow sm:max-w-xs">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
             </div>
+            <input
+              type="text"
+              placeholder="Tìm kiếm chiến dịch..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-colors text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          
-          {/* Other Filters */}
-          <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap">
-            {/* Type Filter */}
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
-              value={selectedType}
-              onChange={handleTypeChange}
+
+          {/* Filter Button and Dropdowns */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-pink-500 flex items-center transition-colors"
             >
-              <option value="">Tất cả loại</option> {/* Use empty string for 'all' */}
-              <option value="Sale Event">Sự kiện giảm giá</option>
-              <option value="Hero Banner">Banner quảng cáo</option>
-            </select>
-            
-            {/* Items Per Page Selector */}
-            <div className="flex items-center">
-              <label htmlFor="items-per-page" className="mr-2 text-sm text-gray-600 whitespace-nowrap">Hiển thị:</label>
+              <Filter className="h-4 w-4 mr-2" />
+              Lọc
+              <ChevronDown className={`h-4 w-4 ml-1.5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+            <div className="relative">
               <select
                 id="items-per-page"
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                className="appearance-none pl-3 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
                 value={itemsPerPage}
                 onChange={handleItemsPerPageChange}
               >
-                <option value={10}>10</option>
-                <option value={30}>30</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
+                <option value={10}>10 / trang</option>
+                <option value={30}>30 / trang</option>
+                <option value={50}>50 / trang</option>
+                <option value={100}>100 / trang</option>
               </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Collapsible Filter Options */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="relative">
+              <label htmlFor="campaignTypeFilter" className="block text-xs font-medium text-slate-600 mb-1">Loại chiến dịch</label>
+              <select
+                id="campaignTypeFilter"
+                className="appearance-none w-full pl-3 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
+                value={selectedType}
+                onChange={handleTypeChange}
+              >
+                <option value="all">Tất cả loại</option>
+                <option value="Sale Event">Sự kiện giảm giá</option>
+                <option value="Hero Banner">Banner quảng cáo</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="relative">
+              <label htmlFor="statusFilter" className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</label>
+              <select
+                id="statusFilter"
+                className="appearance-none w-full pl-3 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-sm transition-colors"
+                value="all"
+                onChange={(e) => onFilterChange && onFilterChange('status', e.target.value === 'all' ? '' : e.target.value)}
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="upcoming">Sắp diễn ra</option>
+                <option value="ongoing">Đang diễn ra</option>
+                <option value="ended">Đã kết thúc</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 top-6 flex items-center px-2 text-slate-500">
+                <ChevronDown className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-100">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Chiến dịch
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Loại
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Thời gian
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Trạng thái
               </th>
-               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Ngày tạo
-              </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+
+          <tbody className="bg-white divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                  <div className="inline-flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Đang tải dữ liệu...
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-pink-500"></div>
+                    <p className="text-base font-medium">Đang tải dữ liệu...</p>
                   </div>
                 </td>
               </tr>
@@ -243,64 +247,69 @@ export default function CampaignTable({
               campaigns.map((campaign) => {
                 const statusInfo = getStatusInfo(campaign.startDate, campaign.endDate);
                 return (
-                  <tr key={campaign._id} className="hover:bg-gray-50 transition-colors duration-150">
-                    {/* Campaign Info */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={campaign._id} className="hover:bg-slate-50 transition-colors duration-150">
+                    <td className="px-6 py-5">
                       <div className="flex items-center">
-                        {/* Optional Image Placeholder */}
-                        {/* <div className="flex-shrink-0 h-10 w-10 mr-4"> <Image ... /> </div> */}
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900">{campaign.title}</div>
-                          <div className="text-xs text-gray-500 max-w-xs truncate" title={campaign.description}>
-                            {campaign.description || 'Không có mô tả'}
+                        <div className="flex-shrink-0 h-11 w-11 bg-pink-100 rounded-lg flex items-center justify-center">
+                          <span className="text-pink-600 font-semibold text-base">{campaign.title.substring(0, 1).toUpperCase()}</span>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-semibold text-slate-800 line-clamp-1">{campaign.title}</div>
+                          <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">{campaign.description || 'Không có mô tả'}</div>
+                          <div className="flex flex-wrap mt-1.5">
+                            {campaign.products && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 mr-1.5 mb-1 transition-colors duration-150 hover:bg-slate-200">
+                                {campaign.products.length} sản phẩm
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </td>
-                    {/* Type */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-800">{getTypeText(campaign.type)}</div>
-                      <div className="text-xs text-gray-500">{campaign.products?.length || 0} sản phẩm</div>
+
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-md bg-pink-50 text-pink-700 transition-colors duration-150 hover:bg-pink-100">
+                        {getTypeText(campaign.type)}
+                      </span>
                     </td>
-                    {/* Dates */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div>Từ: {formatDate(campaign.startDate)}</div>
-                      <div>Đến: {formatDate(campaign.endDate)}</div>
+
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-800">
+                        {formatDate(campaign.startDate)}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        đến {formatDate(campaign.endDate)}
+                      </div>
                     </td>
-                    {/* Status */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${statusInfo.color}`}>
+
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-md ${statusInfo.color} transition-colors duration-150`}>
                         {statusInfo.text}
                       </span>
                     </td>
-                     {/* Created At */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(campaign.createdAt)}
-                    </td>
-                    {/* Actions */}
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-3">
-                        <button 
+
+                    <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2.5">
+                        <button
                           onClick={() => onView(campaign._id)}
-                          className="text-gray-500 hover:text-pink-600 transition-colors duration-150"
+                          className="text-slate-500 hover:text-slate-700 p-1.5 rounded-md hover:bg-slate-100 transition-colors duration-150"
                           title="Xem chi tiết"
                         >
-                          <FiEye className="h-5 w-5" />
+                          <Eye className="h-4 w-4" />
                         </button>
-                        {/* {getToggleButton(campaign)} */}
-                        <button 
+                        <button
                           onClick={() => onEdit(campaign._id)}
-                          className="text-blue-500 hover:text-blue-700 transition-colors duration-150"
+                          className="text-blue-600 hover:text-blue-800 p-1.5 rounded-md hover:bg-blue-50 transition-colors duration-150"
                           title="Chỉnh sửa"
                         >
-                          <FiEdit2 className="h-5 w-5" />
+                          <Edit2 className="h-4 w-4" />
                         </button>
-                        <button 
-                          onClick={() => onDelete(campaign)} // Pass whole campaign object
-                          className="text-red-500 hover:text-red-700 transition-colors duration-150"
+                        <button
+                          onClick={() => onDelete(campaign)}
+                          className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors duration-150"
                           title="Xóa"
                         >
-                          <FiTrash2 className="h-5 w-5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -309,26 +318,36 @@ export default function CampaignTable({
               })
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                  Không tìm thấy chiến dịch nào phù hợp.
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <Search className="h-10 w-10 text-slate-400" />
+                    <p className="text-base font-medium">Không tìm thấy chiến dịch nào</p>
+                    <p className="text-sm">Vui lòng thử lại với bộ lọc khác hoặc tạo chiến dịch mới.</p>
+                  </div>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      
+
       {/* Pagination */}
-      { !isLoading && totalPages > 0 && (
-        <div className="px-4 py-3 md:px-6 border-t border-gray-200 bg-gray-50">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={onPageChange} // Use handler from props
-            totalItems={totalItems}
-            itemsPerPage={itemsPerPage}
-            showItemsInfo={true}
-          />
+      {!isLoading && totalPages > 1 && (
+        <div className="px-5 py-4 border-t border-slate-200 bg-slate-50">
+          <div onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={onPageChange}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              showItemsInfo={true}
+              className="py-1.5"
+            />
+          </div>
         </div>
       )}
     </div>

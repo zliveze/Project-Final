@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { FiSave, FiX, FiCalendar, FiShoppingBag } from 'react-icons/fi';
 import Image from 'next/image';
 import { vi } from 'date-fns/locale';
@@ -34,6 +34,19 @@ const CampaignForm: React.FC<CampaignFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showProductSelection, setShowProductSelection] = useState(false);
+
+  // Effect to manage body scroll when ProductSelectionTable is open/closed
+  useEffect(() => {
+    if (showProductSelection) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = ''; // Revert to default
+    }
+    // Cleanup function to ensure body scroll is restored if component unmounts while modal is open
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showProductSelection]);
 
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
