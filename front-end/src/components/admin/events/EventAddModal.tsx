@@ -78,7 +78,6 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
       setShowProductModal(false);
       toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
     } catch (error) {
-      console.error('Error adding products:', error);
       toast.error('Có lỗi xảy ra khi thêm sản phẩm');
     }
   };
@@ -127,7 +126,6 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
         products: []
       });
     } catch (error) {
-      console.error('Error submitting form:', error);
       toast.error('Đã xảy ra lỗi khi thêm sự kiện!');
     } finally {
       setIsSubmitting(false);

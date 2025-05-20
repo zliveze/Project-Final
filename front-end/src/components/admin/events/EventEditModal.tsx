@@ -140,10 +140,9 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       setRemovedProductIds(prev => prev.filter(id => !addedProductIds.includes(id)));
 
       setShowProductModal(false);
-      toast.success('Đã thêm sản phẩm vào sự kiện. Nhấn Lưu để hoàn tất thay đổi.');
+      toast.success('Đã thêm sản phẩm vào sự kiện. Nhấn Lưu để hoàn tất thay đổi.', { id: 'event-edit-add-product-temp' });
     } catch (error) {
-      console.error('Error adding products:', error);
-      toast.error('Có lỗi xảy ra khi thêm sản phẩm');
+      toast.error('Có lỗi xảy ra khi thêm sản phẩm', { id: 'event-edit-add-product-error' });
     }
   };
 
@@ -190,12 +189,11 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       }
 
       // Hiển thị thông báo thành công nhưng không đóng modal
-      toast.success('Đã xóa sản phẩm khỏi sự kiện. Nhấn Lưu để hoàn tất thay đổi.');
+      toast.success('Đã xóa sản phẩm khỏi sự kiện. Nhấn Lưu để hoàn tất thay đổi.', { id: 'event-edit-remove-product-temp' });
 
       // Việc gọi API removeProductFromEvent sẽ được thực hiện khi submit form
     } catch (error) {
-      console.error('Error removing product:', error);
-      toast.error('Có lỗi xảy ra khi xóa sản phẩm');
+      toast.error('Có lỗi xảy ra khi xóa sản phẩm', { id: 'event-edit-remove-product-error' });
     }
   };
 
@@ -328,12 +326,9 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       // Xử lý tất cả các thao tác đang chờ xử lý
       if (formData && pendingOperations.length > 0) {
-        console.log('EventEditModal - handleSubmit - Số lượng thao tác cần xử lý:', pendingOperations.length);
-        console.log('EventEditModal - handleSubmit - Danh sách thao tác:', JSON.stringify(pendingOperations, null, 2));
 
         // Xử lý từng thao tác theo thứ tự
         for (const operation of pendingOperations) {
-          console.log('EventEditModal - handleSubmit - Đang xử lý thao tác:', operation);
 
           switch (operation.type) {
             case 'add':
@@ -378,7 +373,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
                 console.log('EventEditModal - handleSubmit - Kết quả cập nhật giá:', result ? 'Thành công' : 'Thất bại');
               } catch (error) {
                 console.error('EventEditModal - handleSubmit - Lỗi khi cập nhật giá:', error);
-                toast.error(`Lỗi khi cập nhật giá: ${error.message || 'Không xác định'}`);
+                toast.error(`Lỗi khi cập nhật giá: ${error.message || 'Không xác định'}`, { id: 'event-edit-update-price-error' });
               }
               break;
           }
@@ -393,13 +388,12 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       await onSubmit(eventId, data);
 
       // Hiển thị thông báo thành công
-      toast.success('Đã lưu sự kiện thành công');
+      toast.success('Đã lưu sự kiện thành công', { id: 'event-update-success' });
 
       // Đóng modal
       onClose();
     } catch (error) {
-      console.error('Error updating event:', error);
-      toast.error('Đã xảy ra lỗi khi cập nhật sự kiện!');
+      toast.error('Đã xảy ra lỗi khi cập nhật sự kiện!', { id: 'event-update-error' });
     } finally {
       setIsSubmitting(false);
     }

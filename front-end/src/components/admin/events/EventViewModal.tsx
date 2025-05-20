@@ -93,10 +93,19 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
   const calculateAverageDiscount = (): number => {
     if (!event.products || event.products.length === 0) return 0;
 
-    // Giả sử chúng ta có thông tin về giá gốc và giá khuyến mãi
-    // Trong thực tế, cần lấy thông tin này từ API
-    // Ở đây chỉ là demo với giá trị cố định
-    return 30; // Giả sử giảm giá trung bình là 30%
+    // Tính toán % giảm giá trung bình dựa trên giá gốc và giá khuyến mãi
+    let totalDiscountPercent = 0;
+    let countProducts = 0;
+
+    event.products.forEach(product => {
+      if (product.originalPrice && product.adjustedPrice && product.originalPrice > 0) {
+        const discountPercent = ((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100;
+        totalDiscountPercent += discountPercent;
+        countProducts++;
+      }
+    });
+
+    return countProducts > 0 ? Math.round(totalDiscountPercent / countProducts) : 0;
   };
 
   const status = getEventStatus(event);
@@ -234,13 +243,15 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                   </div>
 
                   <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="text-xs text-blue-500 font-medium">Tổng xem</div>
-                    <div className="text-2xl font-bold text-blue-700">1,287</div>
+                    <div className="text-xs text-blue-500 font-medium">Thời gian</div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {Math.ceil((new Date(event.endDate).getTime() - new Date(event.startDate).getTime()) / (1000 * 60 * 60 * 24))} ngày
+                    </div>
                   </div>
 
                   <div className="bg-yellow-50 p-3 rounded-lg">
-                    <div className="text-xs text-yellow-500 font-medium">Đơn hàng</div>
-                    <div className="text-2xl font-bold text-yellow-700">86</div>
+                    <div className="text-xs text-yellow-500 font-medium">Tags</div>
+                    <div className="text-2xl font-bold text-yellow-700">{event.tags.length}</div>
                   </div>
                 </div>
               </div>

@@ -376,17 +376,14 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         return null;
       }
 
-      console.log(`Đang lấy thông tin chi tiết sản phẩm ID: ${productId}`);
       const response = await axios.get(`${API_URL}/admin/products/${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
-      console.log('Thông tin chi tiết sản phẩm:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Lỗi khi lấy thông tin chi tiết sản phẩm:', error);
       toast.error('Không thể lấy thông tin chi tiết sản phẩm');
       return null;
     } finally {
@@ -415,9 +412,6 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
       // Thêm sản phẩm vào danh sách đã chọn
       setSelectedProducts(prev => [...prev, newProduct]);
-
-      // Log thông tin sản phẩm được thêm vào
-      console.log('Thêm sản phẩm với biến thể:', newProduct);
     }
   };
 
@@ -665,9 +659,6 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         return newProduct;
       });
 
-      // Log dữ liệu sản phẩm được gửi đến backend
-      console.log('Dữ liệu sản phẩm gửi đến backend:', JSON.stringify(restructuredProducts, null, 2));
-
       // Phân tích thông tin về sản phẩm, biến thể và tổ hợp biến thể
       const stats = {
         uniqueProductCount: restructuredProducts.length,
@@ -681,8 +672,6 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
           return total + count;
         }, 0)
       };
-
-      console.log('Thống kê sản phẩm:', stats);
 
       // Hiển thị thông báo chi tiết
       const message = `Đã thêm ${stats.uniqueProductCount} sản phẩm với ${stats.variantCount} biến thể và ${stats.combinationCount} tổ hợp biến thể vào sự kiện`;
@@ -699,7 +688,6 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
         onClose();
       }, 100);
     } catch (error) {
-      console.error('Error adding products:', error);
       toast.error('Đã xảy ra lỗi khi thêm sản phẩm vào sự kiện!');
     } finally {
       setSubmitting(false);

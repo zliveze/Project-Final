@@ -20,7 +20,7 @@ const EventDeleteModal: React.FC<EventDeleteModalProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
     if (isOpen) {
@@ -31,26 +31,26 @@ const EventDeleteModal: React.FC<EventDeleteModalProps> = ({
       }, 300);
     }
   }, [isOpen]);
-  
+
   // Xử lý xác nhận xóa
   const handleConfirm = async () => {
     if (!eventId) return;
-    
+
     try {
       setIsDeleting(true);
-      
+
       // Gọi hàm xóa từ parent component
       await onConfirm(eventId);
-      
+
       // Đóng modal sau khi xóa thành công
       onClose();
     } catch (error) {
-      console.error('Error deleting event:', error);
+      toast.error('Đã xảy ra lỗi khi xóa sự kiện!');
     } finally {
       setIsDeleting(false);
     }
   };
-  
+
   if (!modalVisible) return null;
 
   return (
@@ -109,4 +109,4 @@ const EventDeleteModal: React.FC<EventDeleteModalProps> = ({
   );
 };
 
-export default EventDeleteModal; 
+export default EventDeleteModal;

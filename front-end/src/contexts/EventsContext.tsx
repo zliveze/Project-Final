@@ -115,8 +115,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsLoading(true);
     setError(null);
 
-    console.log('fetchEvents called - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'null');
-
     try {
       const response = await axios.get(`${API_URL}/events`);
       const formattedEvents = response.data.map(formatEventData);
@@ -130,7 +128,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, accessToken]);
+  }, []);
 
   // Hàm để lấy chi tiết event theo ID
   const fetchEventById = useCallback(async (id: string): Promise<Event | null> => {
@@ -170,8 +168,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Hàm để thêm event mới (cần xác thực admin)
   const addEvent = useCallback(async (eventData: EventFormData): Promise<Event | null> => {
-    console.log('addEvent called - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'null');
-
     if (!isAuthenticated || !accessToken) {
       toast.error('Bạn cần đăng nhập với quyền admin để thực hiện thao tác này');
       return null;
@@ -193,7 +189,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const newEvent = formatEventData(response.data);
       setEvents(prev => [newEvent, ...prev]);
-      toast.success('Thêm sự kiện mới thành công');
+      toast.success('Thêm sự kiện mới thành công', { id: 'event-add-success' });
       return newEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể thêm sự kiện mới';
@@ -228,7 +224,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const updatedEvent = formatEventData(response.data);
       setEvents(prev => prev.map(event => event._id === id ? updatedEvent : event));
-      toast.success('Cập nhật sự kiện thành công');
+      toast.success('Cập nhật sự kiện thành công', { id: 'event-update-success' });
       return updatedEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || `Không thể cập nhật sự kiện ID: ${id}`;
@@ -261,7 +257,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       setEvents(prev => prev.filter(event => event._id !== id));
-      toast.success('Xóa sự kiện thành công');
+      toast.success('Xóa sự kiện thành công', { id: 'event-delete-success' });
       return true;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || `Không thể xóa sự kiện ID: ${id}`;
@@ -347,9 +343,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return newProduct;
       });
 
-      // Log dữ liệu sản phẩm gửi đến backend
-      console.log('EventsContext - Dữ liệu sản phẩm gửi đến backend:', JSON.stringify(restructuredProducts, null, 2));
-
       const response = await axios.post(
         `${API_URL}/events/${eventId}/products`,
         { products: restructuredProducts },
@@ -360,9 +353,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       );
 
-      // Log dữ liệu phản hồi từ backend
-      console.log('EventsContext - Dữ liệu phản hồi từ backend:', JSON.stringify(response.data, null, 2));
-
       const updatedEvent = formatEventData(response.data);
 
       // Cập nhật state events
@@ -370,7 +360,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         event._id === eventId ? updatedEvent : event
       ));
 
-      toast.success('Đã thêm sản phẩm vào sự kiện thành công');
+      toast.success('Đã thêm sản phẩm vào sự kiện thành công', { id: 'event-add-product-success' });
       return updatedEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể thêm sản phẩm vào sự kiện';
@@ -416,9 +406,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         url += `?${queryString}`;
       }
 
-      // Log thông tin xóa sản phẩm
-      console.log('EventsContext - removeProductFromEvent - URL:', url);
-
       const response = await axios.delete(
         url,
         {
@@ -428,9 +415,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       );
 
-      // Log dữ liệu phản hồi từ backend
-      console.log('EventsContext - removeProductFromEvent - Phản hồi:', JSON.stringify(response.data, null, 2));
-
       const updatedEvent = formatEventData(response.data);
 
       // Cập nhật state events
@@ -438,7 +422,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         event._id === eventId ? updatedEvent : event
       ));
 
-      toast.success('Đã xóa sản phẩm khỏi sự kiện thành công');
+      toast.success('Đã xóa sản phẩm khỏi sự kiện thành công', { id: 'event-remove-product-success' });
       return updatedEvent;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể xóa sản phẩm khỏi sự kiện';
@@ -482,10 +466,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         payload.combinationId = combinationId;
       }
 
-      // Log dữ liệu gửi đến backend
-      console.log('EventsContext - updateProductPriceInEvent - Payload:', JSON.stringify(payload, null, 2));
-      console.log('EventsContext - updateProductPriceInEvent - URL:', `${API_URL}/events/${eventId}/products/${productId}`);
-
       const response = await axios.patch(
         `${API_URL}/events/${eventId}/products/${productId}`,
         payload,
@@ -496,9 +476,6 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       );
 
-      // Log dữ liệu phản hồi từ backend
-      console.log('EventsContext - updateProductPriceInEvent - Phản hồi:', JSON.stringify(response.data, null, 2));
-
       const updatedEvent = formatEventData(response.data);
 
       // Cập nhật state events
@@ -508,7 +485,7 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Hiển thị thông báo nếu được yêu cầu
       if (showToast) {
-        toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+        toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công', { id: 'event-update-price-success' });
       }
 
       return updatedEvent;
