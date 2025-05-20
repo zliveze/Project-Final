@@ -208,43 +208,106 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   ) => {
     if (!formData || !eventId) return;
 
+    // Log thông tin đầu vào
+    console.log('EventEditModal - handleUpdateProductPrice - Dữ liệu đầu vào:', {
+      productId,
+      newPrice,
+      variantId,
+      combinationId
+    });
+
     // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
-    setPendingOperations(prev => [...prev, {
-      type: 'update_price',
+    const newOperation = {
+      type: 'update_price' as const,
       productId,
       variantId,
       combinationId,
       adjustedPrice: newPrice
-    }]);
+    };
 
-    // Chỉ cập nhật state local, không gọi API
-    setFormData({
-      ...formData,
-      products: formData.products.map(product => {
-        // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
-        if (combinationId && product.combinationId) {
-          if (product.productId === productId &&
-              product.variantId === variantId &&
-              product.combinationId === combinationId) {
-            return { ...product, adjustedPrice: newPrice };
-          }
-          return product;
+    console.log('EventEditModal - Thêm thao tác mới:', newOperation);
+
+    setPendingOperations(prev => {
+      // Kiểm tra xem đã có thao tác cập nhật giá cho sản phẩm/biến thể/tổ hợp này chưa
+      const existingIndex = prev.findIndex(op =>
+        op.type === 'update_price' &&
+        op.productId === productId &&
+        op.variantId === variantId &&
+        op.combinationId === combinationId
+      );
+
+      // Nếu đã có, thay thế thao tác cũ bằng thao tác mới
+      if (existingIndex !== -1) {
+        const newOperations = [...prev];
+        newOperations[existingIndex] = newOperation;
+        console.log('EventEditModal - Cập nhật thao tác đã tồn tại:', newOperations);
+        return newOperations;
+      }
+
+      // Nếu chưa có, thêm thao tác mới
+      console.log('EventEditModal - Thêm thao tác mới vào danh sách:', [...prev, newOperation]);
+      return [...prev, newOperation];
+    });
+
+    // Cập nhật state local
+    setFormData(prevFormData => {
+      // Tìm sản phẩm cần cập nhật
+      const updatedProducts = prevFormData.products.map(product => {
+        // Nếu là sản phẩm chính
+        if (product.productId === productId && !variantId) {
+          console.log('EventEditModal - Cập nhật giá sản phẩm chính:', {
+            productId,
+            oldPrice: product.adjustedPrice,
+            newPrice
+          });
+          return { ...product, adjustedPrice: newPrice };
         }
-        // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
-        else if (variantId && product.variantId && !combinationId && !product.combinationId) {
-          if (product.productId === productId && product.variantId === variantId) {
-            return { ...product, adjustedPrice: newPrice };
-          }
-          return product;
+
+        // Nếu là biến thể hoặc tổ hợp biến thể
+        if (product.productId === productId && product.variants) {
+          // Tạo bản sao của mảng variants
+          const updatedVariants = product.variants.map(variant => {
+            // Nếu là biến thể cần cập nhật
+            if (variant.variantId === variantId && !combinationId) {
+              console.log('EventEditModal - Cập nhật giá biến thể:', {
+                productId,
+                variantId,
+                oldPrice: variant.adjustedPrice,
+                newPrice
+              });
+              return { ...variant, adjustedPrice: newPrice };
+            }
+
+            // Nếu là tổ hợp biến thể cần cập nhật
+            if (variant.variantId === variantId && variant.combinations) {
+              // Tạo bản sao của mảng combinations
+              const updatedCombinations = variant.combinations.map(combination => {
+                if (combination.combinationId === combinationId) {
+                  console.log('EventEditModal - Cập nhật giá tổ hợp biến thể:', {
+                    productId,
+                    variantId,
+                    combinationId,
+                    oldPrice: combination.adjustedPrice,
+                    newPrice
+                  });
+                  return { ...combination, adjustedPrice: newPrice };
+                }
+                return combination;
+              });
+
+              return { ...variant, combinations: updatedCombinations };
+            }
+
+            return variant;
+          });
+
+          return { ...product, variants: updatedVariants };
         }
-        // Nếu chỉ có productId, kiểm tra productId
-        else if (!variantId && !product.variantId) {
-          if (product.productId === productId) {
-            return { ...product, adjustedPrice: newPrice };
-          }
-        }
+
         return product;
-      })
+      });
+
+      return { ...prevFormData, products: updatedProducts };
     });
 
     // Không gọi API updateProductPriceInEvent nữa
@@ -265,16 +328,27 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       // Xử lý tất cả các thao tác đang chờ xử lý
       if (formData && pendingOperations.length > 0) {
+        console.log('EventEditModal - handleSubmit - Số lượng thao tác cần xử lý:', pendingOperations.length);
+        console.log('EventEditModal - handleSubmit - Danh sách thao tác:', JSON.stringify(pendingOperations, null, 2));
+
         // Xử lý từng thao tác theo thứ tự
         for (const operation of pendingOperations) {
+          console.log('EventEditModal - handleSubmit - Đang xử lý thao tác:', operation);
+
           switch (operation.type) {
             case 'add':
               // Thêm sản phẩm vào sự kiện
+              console.log('EventEditModal - handleSubmit - Thêm sản phẩm:', operation.products);
               await addProductsToEvent(eventId, operation.products);
               break;
 
             case 'remove':
               // Xóa sản phẩm khỏi sự kiện
+              console.log('EventEditModal - handleSubmit - Xóa sản phẩm:', {
+                productId: operation.productId,
+                variantId: operation.variantId,
+                combinationId: operation.combinationId
+              });
               await removeProductFromEvent(
                 eventId,
                 operation.productId,
@@ -285,14 +359,27 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
             case 'update_price':
               // Cập nhật giá sản phẩm
-              await updateProductPriceInEvent(
-                eventId,
-                operation.productId,
-                operation.adjustedPrice,
-                operation.variantId,
-                operation.combinationId,
-                false // Không hiển thị toast
-              );
+              console.log('EventEditModal - handleSubmit - Cập nhật giá sản phẩm:', {
+                productId: operation.productId,
+                adjustedPrice: operation.adjustedPrice,
+                variantId: operation.variantId,
+                combinationId: operation.combinationId
+              });
+
+              try {
+                const result = await updateProductPriceInEvent(
+                  eventId,
+                  operation.productId,
+                  operation.adjustedPrice,
+                  operation.variantId,
+                  operation.combinationId,
+                  false // Không hiển thị toast
+                );
+                console.log('EventEditModal - handleSubmit - Kết quả cập nhật giá:', result ? 'Thành công' : 'Thất bại');
+              } catch (error) {
+                console.error('EventEditModal - handleSubmit - Lỗi khi cập nhật giá:', error);
+                toast.error(`Lỗi khi cập nhật giá: ${error.message || 'Không xác định'}`);
+              }
               break;
           }
         }

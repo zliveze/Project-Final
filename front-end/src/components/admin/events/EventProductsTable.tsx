@@ -1,30 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiTrash2, FiChevronDown, FiChevronUp, FiEdit, FiLoader } from 'react-icons/fi';
 import { format } from 'date-fns';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { ProductInEvent, VariantInEvent, CombinationInEvent } from '@/contexts/EventsContext';
 
 // Định nghĩa kiểu dữ liệu cho props
 interface EventProductsTableProps {
-  products: {
-    productId: string;
-    variantId?: string;
-    combinationId?: string;
-    adjustedPrice: number;
-    name?: string;
-    image?: string;
-    originalPrice?: number;
-    variantName?: string;
-    variantAttributes?: Record<string, string>;
-    // Thêm các trường mới
-    sku?: string;
-    status?: string;
-    brandId?: string;
-    brand?: string;
-    variantSku?: string;
-    variantPrice?: number;
-    combinationPrice?: number;
-  }[];
+  products: ProductInEvent[];
   onRemoveProduct: (productId: string, variantId?: string, combinationId?: string) => void;
   onPriceChange: (productId: string, newPrice: number, variantId?: string, combinationId?: string) => void;
 }
@@ -58,9 +40,6 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
   // State để quản lý việc hiển thị dropdown cho từng sản phẩm
   const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
 
-  // State để lưu trữ thông tin về biến thể và tổ hợp biến thể của sản phẩm
-  const [productVariants, setProductVariants] = useState<{[productId: string]: any[]}>({});
-
   // Chỉ khởi tạo giá khi lần đầu mounted, KHÔNG cập nhật khi props thay đổi
   // Điều này giúp giữ nguyên giá người dùng đã nhập
   useEffect(() => {
@@ -69,15 +48,38 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     const initialPrices: {[key: string]: number} = { ...localPrices };
     let hasNewProducts = false;
 
+    // Khởi tạo giá cho sản phẩm chính
     products.forEach(product => {
-      // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
-      const key = product.productId +
-        (product.variantId ? `:${product.variantId}` : '') +
-        (product.combinationId ? `:${product.combinationId}` : '');
+      // Tạo key duy nhất cho sản phẩm
+      const key = product.productId;
 
       if (localPrices[key] === undefined) {
         initialPrices[key] = product.adjustedPrice;
         hasNewProducts = true;
+      }
+
+      // Khởi tạo giá cho các biến thể
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach(variant => {
+          const variantKey = `${product.productId}:${variant.variantId}`;
+
+          if (localPrices[variantKey] === undefined) {
+            initialPrices[variantKey] = variant.adjustedPrice;
+            hasNewProducts = true;
+          }
+
+          // Khởi tạo giá cho các tổ hợp biến thể
+          if (variant.combinations && variant.combinations.length > 0) {
+            variant.combinations.forEach(combination => {
+              const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
+
+              if (localPrices[combinationKey] === undefined) {
+                initialPrices[combinationKey] = combination.adjustedPrice;
+                hasNewProducts = true;
+              }
+            });
+          }
+        });
       }
     });
 
@@ -94,15 +96,38 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     const newProductsPrice: {[key: string]: number} = {};
     let hasNewProducts = false;
 
+    // Khởi tạo giá cho sản phẩm chính
     products.forEach(product => {
-      // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
-      const key = product.productId +
-        (product.variantId ? `:${product.variantId}` : '') +
-        (product.combinationId ? `:${product.combinationId}` : '');
+      // Tạo key duy nhất cho sản phẩm
+      const key = product.productId;
 
       if (localPrices[key] === undefined) {
         newProductsPrice[key] = product.adjustedPrice;
         hasNewProducts = true;
+      }
+
+      // Khởi tạo giá cho các biến thể
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach(variant => {
+          const variantKey = `${product.productId}:${variant.variantId}`;
+
+          if (localPrices[variantKey] === undefined) {
+            newProductsPrice[variantKey] = variant.adjustedPrice;
+            hasNewProducts = true;
+          }
+
+          // Khởi tạo giá cho các tổ hợp biến thể
+          if (variant.combinations && variant.combinations.length > 0) {
+            variant.combinations.forEach(combination => {
+              const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
+
+              if (localPrices[combinationKey] === undefined) {
+                newProductsPrice[combinationKey] = combination.adjustedPrice;
+                hasNewProducts = true;
+              }
+            });
+          }
+        });
       }
     });
 
@@ -145,18 +170,42 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
       newPrice
     });
 
-    // Log thông tin về sản phẩm trong products
-    const product = products.find(p => {
-      if (combinationId) {
-        return p.productId === productId && p.variantId === variantId && p.combinationId === combinationId;
-      } else if (variantId) {
-        return p.productId === productId && p.variantId === variantId && !p.combinationId;
-      } else {
-        return p.productId === productId && !p.variantId;
-      }
-    });
+    // Tìm sản phẩm trong danh sách
+    const product = products.find(p => p.productId === productId);
 
-    console.log('EventProductsTable - Sản phẩm được cập nhật giá:', JSON.stringify(product, null, 2));
+    if (!product) {
+      console.error('Không tìm thấy sản phẩm với ID:', productId);
+      return;
+    }
+
+    // Log thông tin chi tiết về thay đổi giá
+    if (combinationId && variantId) {
+      // Tìm biến thể và tổ hợp
+      const variant = product.variants?.find(v => v.variantId === variantId);
+      const combination = variant?.combinations?.find(c => c.combinationId === combinationId);
+      console.log('Cập nhật giá cho tổ hợp biến thể:', {
+        productName: product.name,
+        variantName: variant?.variantName,
+        combinationAttributes: combination?.attributes,
+        oldPrice: combination?.adjustedPrice,
+        newPrice
+      });
+    } else if (variantId) {
+      // Tìm biến thể
+      const variant = product.variants?.find(v => v.variantId === variantId);
+      console.log('Cập nhật giá cho biến thể:', {
+        productName: product.name,
+        variantName: variant?.variantName,
+        oldPrice: variant?.adjustedPrice,
+        newPrice
+      });
+    } else {
+      console.log('Cập nhật giá cho sản phẩm:', {
+        productName: product.name,
+        oldPrice: product.adjustedPrice,
+        newPrice
+      });
+    }
 
     // Cập nhật giá trong state local
     setLocalPrices(prev => ({
@@ -168,11 +217,17 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     // Sử dụng setTimeout để tránh việc re-render ngay lập tức
     // Điều này giúp giữ dropdown mở khi người dùng thay đổi giá
     setTimeout(() => {
+      // Thêm log để kiểm tra dữ liệu gửi đi
+      console.log('EventProductsTable - Gọi onPriceChange với dữ liệu:', {
+        productId,
+        newPrice,
+        variantId,
+        combinationId
+      });
+
       onPriceChange(productId, newPrice, variantId, combinationId);
     }, 0);
   }, [onPriceChange, products]);
-
-  // Hàm này đã được thay thế bằng handleToggleProductExpand
 
   // Hàm tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
   const createProductKey = useCallback((productId: string, variantId?: string, combinationId?: string) => {
@@ -182,48 +237,8 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
   // State để theo dõi trạng thái loading của từng sản phẩm
   const [loadingVariants, setLoadingVariants] = useState<{[key: string]: boolean}>({});
 
-  // Hàm để lấy thông tin biến thể và tổ hợp biến thể từ API
-  const fetchProductVariants = useCallback(async (productId: string) => {
-    // Đánh dấu đang loading
-    setLoadingVariants(prev => ({ ...prev, [productId]: true }));
-
-    try {
-      // Lấy token từ localStorage
-      const token = localStorage.getItem('adminToken');
-
-      // Gọi API để lấy thông tin chi tiết sản phẩm
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/admin/products/${productId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      // Lấy thông tin biến thể từ response
-      const product = response.data;
-      const variants = product.variants || [];
-
-      // Cập nhật state productVariants
-      setProductVariants(prev => ({
-        ...prev,
-        [productId]: variants
-      }));
-
-      // Không hiển thị thông báo để tránh làm đóng dropdown
-      // toast.success('Đã tải thông tin biến thể sản phẩm');
-
-      return variants;
-    } catch (error) {
-      console.error('Lỗi khi lấy thông tin biến thể:', error);
-      toast.error('Không thể tải thông tin biến thể sản phẩm');
-      return [];
-    } finally {
-      // Đánh dấu đã hoàn thành loading
-      setLoadingVariants(prev => ({ ...prev, [productId]: false }));
-    }
-  }, []);
-
   // Hàm xử lý khi mở/đóng dropdown
-  const handleToggleProductExpand = useCallback(async (productId: string, e?: React.MouseEvent) => {
+  const handleToggleProductExpand = useCallback((productId: string, e?: React.MouseEvent) => {
     // Ngăn chặn sự kiện lan truyền nếu có
     if (e) {
       e.stopPropagation();
@@ -233,15 +248,9 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     // Đảo trạng thái hiển thị dropdown
     setExpandedProducts(prev => {
       const newState = { ...prev, [productId]: !prev[productId] };
-
-      // Nếu đang mở dropdown và chưa có dữ liệu biến thể, thì lấy dữ liệu
-      if (newState[productId] && !productVariants[productId]) {
-        fetchProductVariants(productId);
-      }
-
       return newState;
     });
-  }, [fetchProductVariants, productVariants]);
+  }, []);
 
   return (
     <div className="bg-white overflow-hidden border border-gray-100 rounded-xl shadow-sm">
@@ -270,10 +279,8 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
             {displayProducts.length > 0 ? (
               // Tạo mảng mới để chứa cả sản phẩm và dropdown biến thể
               displayProducts.flatMap((product) => {
-                // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
-                const key = product.productId +
-                  (product.variantId ? `:${product.variantId}` : '') +
-                  (product.combinationId ? `:${product.combinationId}` : '');
+                // Tạo key duy nhất cho sản phẩm
+                const key = product.productId;
 
                 // Lấy giá hiển thị từ state local hoặc từ props nếu chưa có trong state
                 // Ưu tiên giá người dùng đã nhập (trong localPrices)
@@ -286,7 +293,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
 
                 // Thêm hàng sản phẩm
                 elements.push(
-                  <tr key={product.productId + (product.variantId || '') + (product.combinationId || '')} className="hover:bg-gray-50 transition-colors duration-150">
+                  <tr key={product.productId} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         {product.image ? (
@@ -340,34 +347,10 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                             </div>
                           )}
 
-                          {/* Hiển thị thông tin biến thể */}
-                          {product.variantName && (
-                            <div className="text-[10px] font-medium text-pink-600 mt-0.5">
-                              {product.variantName}
-                            </div>
-                          )}
-                          {product.variantSku && (
+                          {/* Hiển thị số lượng biến thể */}
+                          {product.variants && product.variants.length > 0 && (
                             <div className="text-[10px] text-gray-500 mt-0.5">
-                              Variant SKU: {product.variantSku}
-                            </div>
-                          )}
-                          {product.variantAttributes && Object.keys(product.variantAttributes).length > 0 && (
-                            <div className="text-[10px] text-gray-500 mt-0.5 flex flex-wrap gap-0.5">
-                              {Object.entries(product.variantAttributes).map(([key, value]) => (
-                                value && <span key={key} className="bg-gray-100 px-1 py-0.5 rounded">
-                                  {key}: {value}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {!product.variantAttributes && product.variantId && (
-                            <div className="text-[10px] text-gray-500 mt-0.5">
-                              Variant ID: {product.variantId.substring(0, 8)}...
-                            </div>
-                          )}
-                          {product.combinationId && !product.variantAttributes && (
-                            <div className="text-[10px] text-gray-500 mt-0.5">
-                              Combination ID: {product.combinationId.substring(0, 8)}...
+                              Số biến thể: {product.variants.length}
                             </div>
                           )}
                         </div>
@@ -385,21 +368,9 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div className="text-xs text-gray-900">
                         <div className="flex flex-col space-y-1">
-                          {/* Hiển thị thông tin loại giá đang nhập - nhỏ gọn hơn */}
+                          {/* Hiển thị thông tin loại giá đang nhập */}
                           <div className="text-[10px] font-medium text-gray-500">
-                            {product.combinationId ? (
-                              <span className="text-pink-600">
-                                Giá cho tổ hợp biến thể
-                                {product.combinationPrice && ` (${new Intl.NumberFormat('vi-VN').format(product.combinationPrice)} ₫)`}
-                              </span>
-                            ) : product.variantId ? (
-                              <span className="text-pink-600">
-                                Giá cho biến thể
-                                {product.variantPrice && ` (${new Intl.NumberFormat('vi-VN').format(product.variantPrice)} ₫)`}
-                              </span>
-                            ) : (
-                              <span>Giá cho sản phẩm</span>
-                            )}
+                            <span>Giá cho sản phẩm</span>
                           </div>
 
                           {/* Trường nhập giá - nhỏ gọn hơn */}
@@ -414,9 +385,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                   // Cập nhật giá trong state local
                                   handlePriceChange(
                                     product.productId,
-                                    value,
-                                    product.variantId,
-                                    product.combinationId
+                                    value
                                   );
                                 }
                               }}
@@ -449,7 +418,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
 
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                       <button
-                        onClick={() => onRemoveProduct(product.productId, product.variantId, product.combinationId)}
+                        onClick={() => onRemoveProduct(product.productId)}
                         className="text-gray-400 hover:text-pink-500 focus:outline-none transition-colors duration-150 p-1 rounded hover:bg-pink-50"
                         title="Xóa sản phẩm khỏi sự kiện"
                       >
@@ -473,90 +442,124 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                             <p className="text-xs text-gray-500">Chọn biến thể và nhập giá khuyến mãi tương ứng.</p>
                           </div>
 
-                          {/* Hiển thị trạng thái loading */}
-                          {loadingVariants[product.productId] ? (
-                            <div className="flex justify-center items-center py-4">
-                              <FiLoader className="h-5 w-5 text-pink-500 animate-spin" />
-                              <span className="ml-2 text-xs text-gray-600">Đang tải biến thể...</span>
-                            </div>
-                          ) : (
-                            <>
-                              {/* Danh sách biến thể */}
-                              {productVariants[product.productId] && productVariants[product.productId].length > 0 ? (
-                                <div className="space-y-3">
-                                  {productVariants[product.productId].map((variant: any) => (
-                                    <div
-                                      key={variant.variantId}
-                                      className="border border-gray-200 rounded-md p-3 bg-white shadow-sm"
-                                      onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                    >
-                                      <div className="flex justify-between items-center mb-2">
-                                        <div className="text-sm font-medium text-gray-800">
-                                          {variant.name || `Biến thể: ${variant.options?.color || variant.variantId.substring(0, 8)}`}
-                                        </div>
-                                        <div className="flex items-center space-x-3">
-                                          <div className="text-xs text-gray-500">
-                                            Giá gốc: {new Intl.NumberFormat('vi-VN').format(variant.price || 0)} ₫
+                          {/* Danh sách biến thể từ dữ liệu sản phẩm */}
+                          {product.variants && product.variants.length > 0 ? (
+                            <div className="space-y-3">
+                              {product.variants.map((variant) => {
+                                // Tạo key duy nhất cho biến thể
+                                const variantKey = `${product.productId}:${variant.variantId}`;
+
+                                // Lấy giá hiển thị từ state local hoặc từ props
+                                const variantDisplayPrice = localPrices[variantKey] !== undefined
+                                  ? localPrices[variantKey]
+                                  : variant.adjustedPrice;
+
+                                return (
+                                  <div
+                                    key={variant.variantId}
+                                    className="border border-gray-200 rounded-md p-3 bg-white shadow-sm"
+                                    onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
+                                  >
+                                    <div className="flex justify-between items-center mb-2">
+                                      <div className="text-sm font-medium text-gray-800">
+                                        {variant.variantName || `Biến thể: ${variant.variantId.substring(0, 8)}`}
+                                      </div>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="text-xs text-gray-500">
+                                          <div className="flex flex-col">
+                                            <span>
+                                              Giá gốc: {new Intl.NumberFormat('vi-VN').format(variant.originalPrice || 0)} ₫
+                                            </span>
+                                            {variant.variantPrice && variant.variantPrice !== variant.originalPrice && (
+                                              <span className="text-[10px] text-pink-600 font-medium">
+                                                Giá riêng: {new Intl.NumberFormat('vi-VN').format(variant.variantPrice)} ₫
+                                              </span>
+                                            )}
+                                            {/* Hiển thị % giảm giá */}
+                                            {variant.originalPrice && variantDisplayPrice && (
+                                              <span className="text-[10px] text-green-600">
+                                                Giảm: {calculateDiscount(variant.originalPrice, variantDisplayPrice)}%
+                                              </span>
+                                            )}
                                           </div>
-                                          <div className="relative">
-                                            <input
-                                              type="number"
-                                              placeholder="Giá KM"
-                                              className="w-28 border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                                              defaultValue={
-                                                localPrices[product.productId + `:${variant.variantId}`] ||
-                                                Math.round((variant.price || 0) * 0.7) // Giả sử giảm 30%
+                                        </div>
+                                        <div className="relative">
+                                          <input
+                                            type="number"
+                                            placeholder="Giá KM"
+                                            className="w-28 border border-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                                            value={variantDisplayPrice}
+                                            onChange={(e) => {
+                                              e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
+                                              const value = parseInt(e.target.value);
+                                              if (!isNaN(value) && value >= 0) {
+                                                // Cập nhật giá trong state local
+                                                handlePriceChange(
+                                                  product.productId,
+                                                  value,
+                                                  variant.variantId
+                                                );
                                               }
-                                              onChange={(e) => {
-                                                e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
-                                                const value = parseInt(e.target.value);
-                                                if (!isNaN(value) && value >= 0) {
-                                                  // Cập nhật giá trong state local
-                                                  handlePriceChange(
-                                                    product.productId,
-                                                    value,
-                                                    variant.variantId
-                                                  );
-                                                }
-                                              }}
-                                              onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
-                                            />
-                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                              <span className="text-gray-400 text-xs">₫</span>
-                                            </div>
+                                            }}
+                                            onClick={(e) => e.stopPropagation()} // Ngăn sự kiện click lan truyền
+                                          />
+                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span className="text-gray-400 text-xs">₫</span>
                                           </div>
                                         </div>
                                       </div>
+                                    </div>
 
-                                      {/* Hiển thị thông tin chi tiết biến thể */}
-                                      <div className="text-xs text-gray-500 mb-2 flex flex-wrap gap-2">
-                                        {variant.sku && (
-                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
-                                            SKU: {variant.sku}
-                                          </span>
-                                        )}
-                                        {variant.options?.color && (
-                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
-                                            Màu: {variant.options.color}
-                                          </span>
-                                        )}
-                                        {variant.options?.sizes && variant.options.sizes.length > 0 && (
-                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
-                                            Kích thước: {variant.options.sizes.join(', ')}
-                                          </span>
-                                        )}
-                                        {variant.options?.shades && variant.options.shades.length > 0 && (
-                                          <span className="bg-gray-50 px-2 py-0.5 rounded">
-                                            Tông màu: {variant.options.shades.join(', ')}
-                                          </span>
-                                        )}
-                                      </div>
+                                    {/* Hiển thị thông tin chi tiết biến thể */}
+                                    <div className="text-xs text-gray-500 mb-2 flex flex-wrap gap-2">
+                                      {variant.variantSku && (
+                                        <span className="bg-gray-50 px-2 py-0.5 rounded">
+                                          SKU: {variant.variantSku}
+                                        </span>
+                                      )}
+                                      {variant.variantAttributes && Object.entries(variant.variantAttributes).map(([key, value]) => {
+                                        // Hiển thị các thuộc tính chính của biến thể
+                                        if (key === 'Màu') {
+                                          const colorValue = String(value);
+                                          const colorCode = colorValue.match(/"(#[0-9a-fA-F]{6})"/);
+                                          const colorName = colorValue.replace(/"#[0-9a-fA-F]{6}"/, '').trim();
 
-                                      {/* Tổ hợp biến thể */}
-                                      {variant.combinations && variant.combinations.length > 0 && (
-                                        <div className="pl-4 border-l-2 border-pink-100 mt-3 space-y-2">
-                                          <div className="text-xs font-medium text-pink-600 mb-2">Tổ hợp biến thể:</div>
-                                          {variant.combinations.map((combination: any) => (
+                                          return (
+                                            <span key={key} className="bg-gray-50 px-2 py-0.5 rounded flex items-center">
+                                              <span className="mr-1">Màu:</span>
+                                              {colorCode && (
+                                                <span
+                                                  className="inline-block w-3 h-3 rounded-full mr-1 border border-gray-300"
+                                                  style={{ backgroundColor: colorCode[1] }}
+                                                ></span>
+                                              )}
+                                              <span>{colorName}</span>
+                                            </span>
+                                          );
+                                        }
+
+                                        return value && (
+                                          <span key={key} className="bg-gray-50 px-2 py-0.5 rounded">
+                                            {key}: {value}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Tổ hợp biến thể */}
+                                    {variant.combinations && variant.combinations.length > 0 && (
+                                      <div className="pl-4 border-l-2 border-pink-100 mt-3 space-y-2">
+                                        <div className="text-xs font-medium text-pink-600 mb-2">Tổ hợp biến thể:</div>
+                                        {variant.combinations.map((combination) => {
+                                          // Tạo key duy nhất cho tổ hợp
+                                          const combinationKey = `${product.productId}:${variant.variantId}:${combination.combinationId}`;
+
+                                          // Lấy giá hiển thị từ state local hoặc từ props
+                                          const combinationDisplayPrice = localPrices[combinationKey] !== undefined
+                                            ? localPrices[combinationKey]
+                                            : combination.adjustedPrice;
+
+                                          return (
                                             <div
                                               key={combination.combinationId}
                                               className="flex flex-col bg-gray-50 p-2 rounded-md"
@@ -566,14 +569,27 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                               <div className="flex justify-between items-center mb-2">
                                                 <div className="text-xs text-gray-700">
                                                   <div className="font-medium mb-1">
-                                                    Tổ hợp: {combination.combinationId.substring(0, 8)}
+                                                    {/* Hiển thị tên tổ hợp dựa trên các thuộc tính chính */}
+                                                    {combination.attributes.shade && combination.attributes.size ? (
+                                                      <span>
+                                                        {combination.attributes.shade} - {combination.attributes.size}
+                                                      </span>
+                                                    ) : (
+                                                      <span>Tổ hợp: {combination.combinationId.substring(0, 8)}</span>
+                                                    )}
                                                   </div>
                                                   <div className="flex flex-wrap gap-1">
-                                                    {Object.entries(combination.attributes || {}).map(([key, value]) => (
-                                                      <span key={key} className="bg-white px-1.5 py-0.5 rounded text-[10px] border border-gray-100">
-                                                        {key}: {String(value)}
-                                                      </span>
-                                                    ))}
+                                                    {Object.entries(combination.attributes || {}).map(([key, value]) => {
+                                                      // Bỏ qua các thuộc tính trùng lặp từ variantAttributes
+                                                      if (key === 'Màu' || key === 'Kích thước' || key === 'Tông màu') {
+                                                        return null;
+                                                      }
+                                                      return (
+                                                        <span key={key} className="bg-white px-1.5 py-0.5 rounded text-[10px] border border-gray-100">
+                                                          {key}: {String(value)}
+                                                        </span>
+                                                      );
+                                                    })}
                                                   </div>
                                                 </div>
                                               </div>
@@ -581,22 +597,29 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                               {/* Thông tin giá */}
                                               <div className="flex justify-between items-center mt-1">
                                                 <div className="text-xs text-gray-500">
-                                                  Giá gốc: {new Intl.NumberFormat('vi-VN').format(combination.price || (variant.price + (combination.additionalPrice || 0)) || 0)} ₫
-                                                  {combination.additionalPrice && !combination.price && (
-                                                    <span className="text-[10px] ml-1 text-pink-500">
-                                                      (+{new Intl.NumberFormat('vi-VN').format(combination.additionalPrice)} ₫)
+                                                  <div className="flex flex-col">
+                                                    <span>
+                                                      Giá gốc: {new Intl.NumberFormat('vi-VN').format(combination.originalPrice || 0)} ₫
                                                     </span>
-                                                  )}
+                                                    {combination.combinationPrice && (
+                                                      <span className="text-[10px] text-pink-600 font-medium">
+                                                        Giá riêng: {new Intl.NumberFormat('vi-VN').format(combination.combinationPrice)} ₫
+                                                      </span>
+                                                    )}
+                                                    {/* Hiển thị % giảm giá */}
+                                                    {combination.originalPrice && combinationDisplayPrice && (
+                                                      <span className="text-[10px] text-green-600">
+                                                        Giảm: {calculateDiscount(combination.originalPrice, combinationDisplayPrice)}%
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </div>
                                                 <div className="relative">
                                                   <input
                                                     type="number"
                                                     placeholder="Giá KM"
                                                     className="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
-                                                    defaultValue={
-                                                      localPrices[product.productId + `:${variant.variantId}:${combination.combinationId}`] ||
-                                                      Math.round((combination.price || (variant.price + (combination.additionalPrice || 0)) || 0) * 0.7) // Giả sử giảm 30%
-                                                    }
+                                                    value={combinationDisplayPrice}
                                                     onChange={(e) => {
                                                       e.stopPropagation(); // Ngăn sự kiện lan truyền lên form
                                                       const value = parseInt(e.target.value);
@@ -618,23 +641,23 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                                 </div>
                                               </div>
                                             </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="text-center py-4 text-xs text-gray-500">
-                                  Sản phẩm này không có biến thể.
-                                </div>
-                              )}
-
-                              <div className="mt-3 text-xs text-gray-500 italic">
-                                * Giá khuyến mãi sẽ áp dụng trong thời gian diễn ra sự kiện.
-                              </div>
-                            </>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-xs text-gray-500">
+                              Sản phẩm này không có biến thể.
+                            </div>
                           )}
+
+                          <div className="mt-3 text-xs text-gray-500 italic">
+                            * Giá khuyến mãi sẽ áp dụng trong thời gian diễn ra sự kiện.
+                          </div>
                         </div>
                       </td>
                     </tr>
