@@ -1,23 +1,62 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 
-export class ProductInEvent {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
-  productId: MongooseSchema.Types.ObjectId;
-
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ProductVariant' })
-  variantId: MongooseSchema.Types.ObjectId;
-
+// Định nghĩa schema cho tổ hợp biến thể trong sự kiện
+export class CombinationInEvent {
   @Prop({ type: MongooseSchema.Types.ObjectId })
   combinationId: MongooseSchema.Types.ObjectId;
+
+  @Prop({ type: Object })
+  attributes: Record<string, string>;
+
+  @Prop()
+  combinationPrice: number;
 
   @Prop({ required: true })
   adjustedPrice: number;
 
+  @Prop()
+  originalPrice: number;
+}
+
+// Định nghĩa schema cho biến thể trong sự kiện
+export class VariantInEvent {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ProductVariant' })
+  variantId: MongooseSchema.Types.ObjectId;
+
+  @Prop()
+  variantName: string;
+
+  @Prop()
+  variantSku: string;
+
   @Prop({ type: Object })
   variantAttributes: Record<string, string>;
 
-  // Thêm các trường mới
+  @Prop()
+  variantPrice: number;
+
+  @Prop({ required: true })
+  adjustedPrice: number;
+
+  @Prop()
+  originalPrice: number;
+
+  @Prop()
+  image: string;
+
+  @Prop({ type: [CombinationInEvent], default: [] })
+  combinations: CombinationInEvent[];
+}
+
+// Định nghĩa schema cho sản phẩm trong sự kiện
+export class ProductInEvent {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
+  productId: MongooseSchema.Types.ObjectId;
+
+  @Prop({ required: true })
+  adjustedPrice: number;
+
   @Prop()
   name: string;
 
@@ -39,17 +78,8 @@ export class ProductInEvent {
   @Prop()
   brand: string;
 
-  @Prop()
-  variantName: string;
-
-  @Prop()
-  variantSku: string;
-
-  @Prop()
-  variantPrice: number;
-
-  @Prop()
-  combinationPrice: number;
+  @Prop({ type: [VariantInEvent], default: [] })
+  variants: VariantInEvent[];
 }
 
 @Schema({ timestamps: true })

@@ -16,8 +16,8 @@ interface EventEditModalProps {
 // Định nghĩa kiểu dữ liệu cho các thao tác với sản phẩm
 type ProductOperation =
   | { type: 'add'; products: ProductInEvent[] }
-  | { type: 'remove'; productId: string }
-  | { type: 'update_price'; productId: string; adjustedPrice: number };
+  | { type: 'remove'; productId: string; variantId?: string; combinationId?: string }
+  | { type: 'update_price'; productId: string; adjustedPrice: number; variantId?: string; combinationId?: string };
 
 const EventEditModal: React.FC<EventEditModalProps> = ({
   isOpen,
@@ -36,7 +36,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [pendingOperations, setPendingOperations] = useState<ProductOperation[]>([]);
 
   // Sử dụng context để thao tác với API
-  const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent, fetchEventById } = useEvents();
+  const { addProductsToEvent, removeProductFromEvent, updateProductPriceInEvent } = useEvents();
 
   // Hiển thị/ẩn modal với animation
   useEffect(() => {
@@ -74,14 +74,27 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const handleAddProducts = async (products: {
     productId: string;
     variantId?: string;
+    combinationId?: string;
     adjustedPrice: number;
     name?: string;
     image?: string;
     originalPrice?: number;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
+    sku?: string;
+    status?: string;
+    brandId?: string;
+    brand?: string;
+    variantSku?: string;
+    variantPrice?: number;
+    combinationPrice?: number;
   }[]) => {
     if (!formData || !eventId) return;
 
     try {
+      // Log dữ liệu sản phẩm được thêm vào
+      console.log('EventEditModal - handleAddProducts - Dữ liệu sản phẩm:', JSON.stringify(products, null, 2));
+
       // Giới hạn số lượng sản phẩm có thể thêm vào một lần
       if (formData.products.length + products.length > 50) {
         toast.error('Số lượng sản phẩm trong sự kiện vượt quá giới hạn cho phép (50)');
@@ -89,8 +102,21 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       }
 
       // Kiểm tra sản phẩm trùng lặp
-      const existingProductIds = new Set(formData.products.map(p => p.productId));
-      const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
+      const existingProductKeys = new Set();
+      formData.products.forEach(p => {
+        const key = p.productId +
+          (p.variantId ? `:${p.variantId}` : '') +
+          (p.combinationId ? `:${p.combinationId}` : '');
+        existingProductKeys.add(key);
+      });
+
+      // Lọc ra các sản phẩm không trùng lặp
+      const uniqueProducts = products.filter(p => {
+        const key = p.productId +
+          (p.variantId ? `:${p.variantId}` : '') +
+          (p.combinationId ? `:${p.combinationId}` : '');
+        return !existingProductKeys.has(key);
+      });
 
       if (uniqueProducts.length === 0) {
         toast.error('Các sản phẩm đã tồn tại trong sự kiện');
@@ -99,6 +125,9 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       // Thêm thao tác vào danh sách các thao tác đang chờ xử lý
       setPendingOperations(prev => [...prev, { type: 'add', products: uniqueProducts }]);
+
+      // Log thao tác đang chờ xử lý
+      console.log('EventEditModal - Thao tác đang chờ xử lý:', { type: 'add', products: uniqueProducts });
 
       // Cập nhật state local mà không gọi API
       setFormData({

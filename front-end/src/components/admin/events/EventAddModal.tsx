@@ -39,14 +39,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
   }, [isOpen]);
 
   // Xử lý thêm sản phẩm vào sự kiện
-  const handleAddProducts = (products: {
-    productId: string;
-    variantId?: string;
-    adjustedPrice: number;
-    name?: string;
-    image?: string;
-    originalPrice?: number;
-  }[]) => {
+  const handleAddProducts = (products: any[]) => {
     try {
       // Giới hạn số lượng sản phẩm có thể thêm vào một lần
       if (formData.products.length + products.length > 50) {
@@ -54,9 +47,22 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
         return;
       }
 
-      // Kiểm tra sản phẩm trùng lặp
-      const existingProductIds = new Set(formData.products.map(p => p.productId));
-      const uniqueProducts = products.filter(p => !existingProductIds.has(p.productId));
+      // Tạo một danh sách sản phẩm đã được làm phẳng để kiểm tra trùng lặp
+      const existingProductKeys = new Set();
+      formData.products.forEach(p => {
+        const key = p.productId +
+          (p.variantId ? `:${p.variantId}` : '') +
+          (p.combinationId ? `:${p.combinationId}` : '');
+        existingProductKeys.add(key);
+      });
+
+      // Lọc ra các sản phẩm không trùng lặp
+      const uniqueProducts = products.filter(p => {
+        const key = p.productId +
+          (p.variantId ? `:${p.variantId}` : '') +
+          (p.combinationId ? `:${p.combinationId}` : '');
+        return !existingProductKeys.has(key);
+      });
 
       if (uniqueProducts.length === 0) {
         toast.error('Các sản phẩm đã tồn tại trong sự kiện');
@@ -101,12 +107,12 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
   };
 
   // Xử lý khi submit form
-  const handleSubmit = async (data: EventFormData) => {
+  const handleSubmit = (data: EventFormData) => {
     try {
       setIsSubmitting(true);
 
       // Gọi hàm submit từ parent component
-      await onSubmit(data);
+      onSubmit(data);
 
       // Đóng modal
       onClose();

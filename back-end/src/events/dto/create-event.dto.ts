@@ -3,87 +3,137 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { Schema as MongooseSchema } from 'mongoose';
 
+// DTO cho tổ hợp biến thể trong sự kiện
+export class CombinationInEventDto {
+  @ApiProperty({ description: 'Combination ID' })
+  @IsMongoId()
+  @IsOptional()
+  combinationId?: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Combination attributes (e.g., color, size)' })
+  @IsObject()
+  @IsOptional()
+  attributes?: Record<string, string>;
+
+  @ApiProperty({ description: 'Combination price' })
+  @IsNumber()
+  @IsOptional()
+  combinationPrice?: number;
+
+  @ApiProperty({ description: 'Adjusted price for the combination during the event' })
+  @IsNumber()
+  @IsNotEmpty()
+  adjustedPrice: number;
+
+  @ApiProperty({ description: 'Original price of the combination' })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+}
+
+// DTO cho biến thể trong sự kiện
+export class VariantInEventDto {
+  @ApiProperty({ description: 'Variant ID' })
+  @IsMongoId()
+  @IsOptional()
+  variantId?: MongooseSchema.Types.ObjectId;
+
+  @ApiProperty({ description: 'Variant name' })
+  @IsString()
+  @IsOptional()
+  variantName?: string;
+
+  @ApiProperty({ description: 'Variant SKU' })
+  @IsString()
+  @IsOptional()
+  variantSku?: string;
+
+  @ApiProperty({ description: 'Variant attributes (e.g., color, size)' })
+  @IsObject()
+  @IsOptional()
+  variantAttributes?: Record<string, string>;
+
+  @ApiProperty({ description: 'Variant price' })
+  @IsNumber()
+  @IsOptional()
+  variantPrice?: number;
+
+  @ApiProperty({ description: 'Adjusted price for the variant during the event' })
+  @IsNumber()
+  @IsNotEmpty()
+  adjustedPrice: number;
+
+  @ApiProperty({ description: 'Original price of the variant' })
+  @IsNumber()
+  @IsOptional()
+  originalPrice?: number;
+
+  @ApiProperty({ description: 'Variant image URL' })
+  @IsString()
+  @IsOptional()
+  image?: string;
+
+  @ApiProperty({ description: 'Combinations of the variant', type: [CombinationInEventDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CombinationInEventDto)
+  @IsOptional()
+  combinations?: CombinationInEventDto[];
+}
+
+// DTO cho sản phẩm trong sự kiện
 export class ProductInEventDto {
   @ApiProperty({ description: 'Product ID' })
   @IsMongoId()
   @IsNotEmpty()
   productId: MongooseSchema.Types.ObjectId;
 
-  @ApiProperty({ description: 'Product Variant ID (optional)', required: false })
-  @IsMongoId()
-  @IsOptional()
-  variantId?: MongooseSchema.Types.ObjectId;
-
-  @ApiProperty({ description: 'Product Combination ID (optional)', required: false })
-  @IsMongoId()
-  @IsOptional()
-  combinationId?: MongooseSchema.Types.ObjectId;
-
   @ApiProperty({ description: 'Adjusted price for the product during the event' })
   @IsNumber()
   @IsNotEmpty()
   adjustedPrice: number;
 
-  @ApiProperty({ description: 'Variant attributes (e.g., color, size)', required: false })
-  @IsObject()
-  @IsOptional()
-  variantAttributes?: Record<string, string>;
-
-  // Thêm các trường mới
-  @ApiProperty({ description: 'Product name', required: false })
+  @ApiProperty({ description: 'Product name' })
   @IsString()
   @IsOptional()
   name?: string;
 
-  @ApiProperty({ description: 'Product image URL', required: false })
+  @ApiProperty({ description: 'Product image URL' })
   @IsString()
   @IsOptional()
   image?: string;
 
-  @ApiProperty({ description: 'Original price of the product', required: false })
+  @ApiProperty({ description: 'Original price of the product' })
   @IsNumber()
   @IsOptional()
   originalPrice?: number;
 
-  @ApiProperty({ description: 'Product SKU', required: false })
+  @ApiProperty({ description: 'Product SKU' })
   @IsString()
   @IsOptional()
   sku?: string;
 
-  @ApiProperty({ description: 'Product status', required: false })
+  @ApiProperty({ description: 'Product status' })
   @IsString()
   @IsOptional()
   status?: string;
 
-  @ApiProperty({ description: 'Brand ID', required: false })
+  @ApiProperty({ description: 'Brand ID' })
   @IsMongoId()
   @IsOptional()
   brandId?: MongooseSchema.Types.ObjectId;
 
-  @ApiProperty({ description: 'Brand name', required: false })
+  @ApiProperty({ description: 'Brand name' })
   @IsString()
   @IsOptional()
   brand?: string;
 
-  @ApiProperty({ description: 'Variant name', required: false })
-  @IsString()
+  @ApiProperty({ description: 'Variants of the product', type: [VariantInEventDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantInEventDto)
   @IsOptional()
-  variantName?: string;
-
-  @ApiProperty({ description: 'Variant SKU', required: false })
-  @IsString()
-  @IsOptional()
-  variantSku?: string;
-
-  @ApiProperty({ description: 'Variant price', required: false })
-  @IsNumber()
-  @IsOptional()
-  variantPrice?: number;
-
-  @ApiProperty({ description: 'Combination price', required: false })
-  @IsNumber()
-  @IsOptional()
-  combinationPrice?: number;
+  variants?: VariantInEventDto[];
 }
 
 export class CreateEventDto {

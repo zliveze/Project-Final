@@ -7,25 +7,40 @@ import { toast } from 'react-hot-toast';
 // Cấu hình API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Định nghĩa interface cho tổ hợp biến thể trong event
+export interface CombinationInEvent {
+  combinationId: string;
+  attributes: Record<string, string>;
+  combinationPrice?: number;
+  adjustedPrice: number;
+  originalPrice?: number;
+}
+
+// Định nghĩa interface cho biến thể trong event
+export interface VariantInEvent {
+  variantId: string;
+  variantName?: string;
+  variantSku?: string;
+  variantAttributes?: Record<string, string>;
+  variantPrice?: number;
+  adjustedPrice: number;
+  originalPrice?: number;
+  image?: string;
+  combinations?: CombinationInEvent[];
+}
+
 // Định nghĩa interface cho sản phẩm trong event
 export interface ProductInEvent {
   productId: string;
-  variantId?: string;
-  combinationId?: string;
   adjustedPrice: number;
   name?: string;
   image?: string;
   originalPrice?: number;
-  variantName?: string;
-  variantAttributes?: Record<string, string>;
-  // Thêm các trường mới
   sku?: string;
   status?: string;
   brandId?: string;
   brand?: string;
-  variantSku?: string;
-  variantPrice?: number;
-  combinationPrice?: number;
+  variants?: VariantInEvent[];
 }
 
 // Định nghĩa interface cho event
@@ -308,15 +323,45 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
 
     try {
+      // Chuyển đổi cấu trúc dữ liệu phân cấp thành cấu trúc phân cấp mới
+      const restructuredProducts = products.map(product => {
+        // Nếu sản phẩm đã có cấu trúc phân cấp mới, sử dụng trực tiếp
+        if (product.variants) {
+          return product;
+        }
+
+        // Nếu không, tạo cấu trúc phân cấp mới
+        const newProduct: ProductInEvent = {
+          productId: product.productId,
+          adjustedPrice: product.adjustedPrice,
+          name: product.name,
+          image: product.image,
+          originalPrice: product.originalPrice,
+          sku: product.sku,
+          status: product.status,
+          brandId: product.brandId,
+          brand: product.brand,
+          variants: []
+        };
+
+        return newProduct;
+      });
+
+      // Log dữ liệu sản phẩm gửi đến backend
+      console.log('EventsContext - Dữ liệu sản phẩm gửi đến backend:', JSON.stringify(restructuredProducts, null, 2));
+
       const response = await axios.post(
         `${API_URL}/events/${eventId}/products`,
-        { products },
+        { products: restructuredProducts },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`
           }
         }
       );
+
+      // Log dữ liệu phản hồi từ backend
+      console.log('EventsContext - Dữ liệu phản hồi từ backend:', JSON.stringify(response.data, null, 2));
 
       const updatedEvent = formatEventData(response.data);
 
@@ -371,6 +416,9 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         url += `?${queryString}`;
       }
 
+      // Log thông tin xóa sản phẩm
+      console.log('EventsContext - removeProductFromEvent - URL:', url);
+
       const response = await axios.delete(
         url,
         {
@@ -379,6 +427,9 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
       );
+
+      // Log dữ liệu phản hồi từ backend
+      console.log('EventsContext - removeProductFromEvent - Phản hồi:', JSON.stringify(response.data, null, 2));
 
       const updatedEvent = formatEventData(response.data);
 
@@ -431,6 +482,10 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         payload.combinationId = combinationId;
       }
 
+      // Log dữ liệu gửi đến backend
+      console.log('EventsContext - updateProductPriceInEvent - Payload:', JSON.stringify(payload, null, 2));
+      console.log('EventsContext - updateProductPriceInEvent - URL:', `${API_URL}/events/${eventId}/products/${productId}`);
+
       const response = await axios.patch(
         `${API_URL}/events/${eventId}/products/${productId}`,
         payload,
@@ -441,6 +496,9 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       );
 
+      // Log dữ liệu phản hồi từ backend
+      console.log('EventsContext - updateProductPriceInEvent - Phản hồi:', JSON.stringify(response.data, null, 2));
+
       const updatedEvent = formatEventData(response.data);
 
       // Cập nhật state events
@@ -448,11 +506,10 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         event._id === eventId ? updatedEvent : event
       ));
 
-      // Không hiển thị thông báo để tránh làm đóng dropdown
-      // Chỉ hiển thị thông báo nếu showToast = true và không phải trong quá trình chỉnh sửa
-      // if (showToast) {
-      //   toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
-      // }
+      // Hiển thị thông báo nếu được yêu cầu
+      if (showToast) {
+        toast.success('Đã cập nhật giá sản phẩm trong sự kiện thành công');
+      }
 
       return updatedEvent;
     } catch (err: any) {

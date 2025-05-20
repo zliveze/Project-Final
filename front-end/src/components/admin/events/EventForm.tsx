@@ -12,10 +12,20 @@ export interface EventFormData {
   products: {
     productId: string;
     variantId?: string;
+    combinationId?: string;
     adjustedPrice: number;
     name?: string;
     image?: string;
     originalPrice?: number;
+    variantName?: string;
+    variantAttributes?: Record<string, string>;
+    sku?: string;
+    status?: string;
+    brandId?: string;
+    brand?: string;
+    variantSku?: string;
+    variantPrice?: number;
+    combinationPrice?: number;
   }[];
 }
 
@@ -25,8 +35,8 @@ interface EventFormProps {
   onCancel: () => void;
   loading?: boolean;
   onAddProduct: () => void;
-  onRemoveProduct: (productId: string) => void;
-  onUpdateProductPrice?: (productId: string, newPrice: number) => void;
+  onRemoveProduct: (productId: string, variantId?: string, combinationId?: string) => void;
+  onUpdateProductPrice?: (productId: string, newPrice: number, variantId?: string, combinationId?: string) => void;
 }
 
 const EventForm: React.FC<EventFormProps> = ({
@@ -148,19 +158,37 @@ const EventForm: React.FC<EventFormProps> = ({
   };
 
   // Xử lý điều chỉnh giá sản phẩm trong sự kiện
-  const handleProductPriceChange = (productId: string, newPrice: number) => {
+  const handleProductPriceChange = (productId: string, newPrice: number, variantId?: string, combinationId?: string) => {
     // Nếu có callback, gọi callback để cập nhật qua API
     if (onUpdateProductPrice) {
-      onUpdateProductPrice(productId, newPrice);
+      onUpdateProductPrice(productId, newPrice, variantId, combinationId);
     } else {
       // Nếu không, chỉ cập nhật state local
       setFormData(prev => ({
         ...prev,
-        products: prev.products.map(product =>
-          product.productId === productId
-            ? { ...product, adjustedPrice: newPrice }
-            : product
-        )
+        products: prev.products.map(product => {
+          // Nếu có combinationId, kiểm tra cả productId, variantId và combinationId
+          if (combinationId && product.combinationId) {
+            return (product.productId === productId &&
+                    product.variantId === variantId &&
+                    product.combinationId === combinationId)
+              ? { ...product, adjustedPrice: newPrice }
+              : product;
+          }
+          // Nếu có variantId nhưng không có combinationId, kiểm tra productId và variantId
+          else if (variantId && product.variantId && !product.combinationId) {
+            return (product.productId === productId && product.variantId === variantId)
+              ? { ...product, adjustedPrice: newPrice }
+              : product;
+          }
+          // Nếu chỉ có productId, kiểm tra productId
+          else if (!variantId && !product.variantId) {
+            return product.productId === productId
+              ? { ...product, adjustedPrice: newPrice }
+              : product;
+          }
+          return product;
+        })
       }));
     }
   };

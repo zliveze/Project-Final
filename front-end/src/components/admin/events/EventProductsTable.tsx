@@ -136,6 +136,28 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     // Tạo key duy nhất cho sản phẩm/biến thể/tổ hợp
     const key = productId + (variantId ? `:${variantId}` : '') + (combinationId ? `:${combinationId}` : '');
 
+    // Log thông tin về giá thay đổi
+    console.log('EventProductsTable - handlePriceChange:', {
+      productId,
+      variantId,
+      combinationId,
+      key,
+      newPrice
+    });
+
+    // Log thông tin về sản phẩm trong products
+    const product = products.find(p => {
+      if (combinationId) {
+        return p.productId === productId && p.variantId === variantId && p.combinationId === combinationId;
+      } else if (variantId) {
+        return p.productId === productId && p.variantId === variantId && !p.combinationId;
+      } else {
+        return p.productId === productId && !p.variantId;
+      }
+    });
+
+    console.log('EventProductsTable - Sản phẩm được cập nhật giá:', JSON.stringify(product, null, 2));
+
     // Cập nhật giá trong state local
     setLocalPrices(prev => ({
       ...prev,
@@ -148,7 +170,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
     setTimeout(() => {
       onPriceChange(productId, newPrice, variantId, combinationId);
     }, 0);
-  }, [onPriceChange]);
+  }, [onPriceChange, products]);
 
   // Hàm này đã được thay thế bằng handleToggleProductExpand
 
