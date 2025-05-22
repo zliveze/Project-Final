@@ -45,11 +45,11 @@ export class RecommendationsController {
     @Param('productId') productId: string,
     @Query('limit') limit?: number,
   ) {
-    const similarProducts = await this.recommendationsService.getSimilarProducts(
+    const products = await this.recommendationsService.getSimilarProducts(
       productId,
       limit || 8,
     );
-    return { similarProducts };
+    return { products };
   }
 
   @ApiOperation({ summary: 'Lấy sản phẩm dựa trên từ khóa tìm kiếm' })
@@ -198,4 +198,4 @@ export class RecommendationsController {
     );
     return { productIds };
   }
-} 
+}

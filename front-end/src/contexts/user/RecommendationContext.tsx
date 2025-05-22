@@ -105,9 +105,11 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
   const fetchSimilarProducts = async (productId: string, limit = 8) => {
     setLoadingSimilar(true);
     try {
-      const response = await axios.get<RecommendationResponse>(
-        `/products/similar/${productId}?limit=${limit}`
+      // Sửa API endpoint từ /products/similar sang /recommendations/similar
+      const response = await axios.get<{ products: RecommendedProduct[] }>( // Cập nhật kiểu response mong đợi
+        `/recommendations/similar/${productId}?limit=${limit}`
       );
+      // Backend đã được sửa để trả về { products: [] }
       setSimilarProducts(response.data.products);
     } catch (error) {
       console.error('Lỗi khi lấy sản phẩm tương tự:', error);
@@ -165,4 +167,4 @@ export const useRecommendation = () => {
     throw new Error('useRecommendation phải được sử dụng trong RecommendationProvider');
   }
   return context;
-}; 
+};
