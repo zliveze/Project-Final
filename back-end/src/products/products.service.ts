@@ -2648,63 +2648,63 @@ export class ProductsService {
         let productModified = false;
 
         // Lọc bỏ chi nhánh khỏi inventory
-        if (product.inventory && product.inventory.length > 0) {
+        if (Array.isArray(product.inventory) && product.inventory.length > 0) {
           const initialInventoryCount = product.inventory.length;
           product.inventory = product.inventory.filter(
-            inv => inv.branchId.toString() !== branchId
+            inv => inv.branchId && inv.branchId.toString() !== branchId
           );
           if (product.inventory.length !== initialInventoryCount) {
             productModified = true;
             this.logger.log(`Removed branch ${branchId} from inventory of product ${product._id}`);
           }
+        } else {
+          product.inventory = []; // Đảm bảo inventory là mảng nếu nó null/undefined
         }
 
         // Lọc bỏ chi nhánh khỏi variantInventory
-        if (product.variantInventory && product.variantInventory.length > 0) {
+        if (Array.isArray(product.variantInventory) && product.variantInventory.length > 0) {
           const initialVariantInventoryCount = product.variantInventory.length;
           product.variantInventory = product.variantInventory.filter(
-            inv => inv.branchId.toString() !== branchId
+            inv => inv.branchId && inv.branchId.toString() !== branchId
           );
           if (product.variantInventory.length !== initialVariantInventoryCount) {
             productModified = true;
             this.logger.log(`Removed branch ${branchId} from variantInventory of product ${product._id}`);
           }
+        } else {
+          product.variantInventory = []; // Đảm bảo variantInventory là mảng
         }
 
         // Lọc bỏ chi nhánh khỏi combinationInventory
-        if (product.combinationInventory && product.combinationInventory.length > 0) {
+        if (Array.isArray(product.combinationInventory) && product.combinationInventory.length > 0) {
           const initialCombinationInventoryCount = product.combinationInventory.length;
           product.combinationInventory = product.combinationInventory.filter(
-            inv => inv.branchId.toString() !== branchId
+            inv => inv.branchId && inv.branchId.toString() !== branchId
           );
           if (product.combinationInventory.length !== initialCombinationInventoryCount) {
             productModified = true;
             this.logger.log(`Removed branch ${branchId} from combinationInventory of product ${product._id}`);
           }
+        } else {
+          product.combinationInventory = []; // Đảm bảo combinationInventory là mảng
         }
 
         // Nếu có sự thay đổi, tính toán lại tổng tồn kho và cập nhật trạng thái
         if (productModified) {
           // Tính tổng tồn kho từ inventory (tồn kho chính của sản phẩm)
-          const totalProductInventory = product.inventory.reduce(
-            (sum, inv) => sum + inv.quantity,
+          const totalProductInventory = (product.inventory || []).reduce(
+            (sum, inv) => sum + (inv.quantity || 0),
             0
           );
 
           // Tính tổng tồn kho từ variantInventory (nếu sản phẩm có biến thể)
-          const totalVariantInventory = product.variantInventory.reduce(
-            (sum, inv) => sum + inv.quantity,
+          const totalVariantInventory = (product.variantInventory || []).reduce(
+            (sum, inv) => sum + (inv.quantity || 0),
             0
           );
           
-          // Tính tổng tồn kho từ combinationInventory (nếu sản phẩm có tổ hợp)
-          // Lưu ý: combinationInventory thường là chi tiết của variantInventory,
-          // nên việc tính tổng tồn kho cần cẩn thận để tránh tính trùng.
-          // Thông thường, nếu có variantInventory, tổng tồn kho của sản phẩm sẽ dựa vào đó.
-          // Nếu không có variantInventory, thì dựa vào inventory.
-
           let finalTotalInventory = 0;
-          if (product.variants && product.variants.length > 0) {
+          if (Array.isArray(product.variants) && product.variants.length > 0) {
             // Nếu có biến thể, tổng tồn kho dựa trên variantInventory
             finalTotalInventory = totalVariantInventory;
           } else {
@@ -2713,7 +2713,6 @@ export class ProductsService {
           }
           
           this.logger.log(`Product ${product._id}: Total product inventory = ${totalProductInventory}, Total variant inventory = ${totalVariantInventory}, Final total inventory = ${finalTotalInventory}`);
-
 
           if (finalTotalInventory === 0 && product.status !== 'discontinued') {
             product.status = 'out_of_stock';

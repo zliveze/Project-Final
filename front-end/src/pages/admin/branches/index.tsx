@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiAlertCircle, FiMapPin, FiPhone, FiCalendar, FiClock } from 'react-icons/fi';
+import toast from 'react-hot-toast'; // Thêm import toast
 import AdminLayout from '../../../components/admin/AdminLayout';
 import BranchList from '@/components/admin/branches/BranchList';
 import { BranchProvider, useBranches } from '@/contexts/BranchContext';
@@ -17,7 +18,8 @@ function BranchesContent() {
     pagination,
     fetchBranches,
     fetchBranch,
-    deleteBranch
+    deleteBranch,
+    forceDeleteBranch // Thêm forceDeleteBranch
   } = useBranches();
 
   // State quản lý các modal
@@ -115,15 +117,20 @@ function BranchesContent() {
     if (!selectedBranchId) return;
     
     try {
-      const success = await deleteBranch(selectedBranchId);
-      if (success) {
+      // Sử dụng forceDeleteBranch thay vì deleteBranch
+      const result = await forceDeleteBranch(selectedBranchId); 
+      if (result && result.success) {
         setShowDeleteModal(false);
         // Tải lại danh sách sau khi xóa
         fetchBranches(pagination.page, pagination.limit);
+        // Hiển thị thông báo thành công từ API (nếu có)
+        if (result.message) {
+          toast.success(result.message);
+        }
       }
-      // Không cần else - nếu có lỗi, deleteBranch đã xử lý hiển thị lỗi
+      // Không cần else - nếu có lỗi, forceDeleteBranch đã xử lý hiển thị lỗi qua toast
     } catch (error) {
-      console.error("Lỗi khi xóa chi nhánh:", error);
+      console.error("Lỗi khi xóa chi nhánh (force):", error);
       // Không cần làm gì thêm vì lỗi đã được xử lý trong BranchContext
     }
   };
