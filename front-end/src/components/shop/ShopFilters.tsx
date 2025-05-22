@@ -152,6 +152,17 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     setSearchTerm(filters.search || '');
   }, [filters.search]);
 
+  // Cập nhật searchTerm khi filters.search thay đổi từ bên ngoài (như từ header)
+  useEffect(() => {
+    // Luôn cập nhật searchTerm từ filters.search khi filters.search thay đổi
+    // bất kể là thay đổi từ đâu (header, URL, etc.)
+    console.log('ShopFilters: filters.search changed:', filters.search, 'current searchTerm:', searchTerm);
+    
+    // Sử dụng hàm setter để cập nhật state
+    setSearchTerm(filters.search || '');
+    
+  }, [filters.search]);
+
   // Function to toggle section visibility
   const toggleSection = (index: number) => {
     setSectionsState(prevSections => {
@@ -299,6 +310,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   // Handle search submission (e.g., on Enter key press or button click)
   const handleSearchSubmit = () => {
     if (searchTerm.trim()) {
+      console.log('ShopFilters: Submitting search term:', searchTerm.trim());
       onSearch(searchTerm);
       
       // Ghi lại hoạt động tìm kiếm

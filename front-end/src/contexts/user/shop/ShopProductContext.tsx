@@ -208,6 +208,16 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     // Luôn refresh khi có tìm kiếm để đảm bảo hiển thị kết quả mới nhất
     if (currentFilters.search) {
       forceRefresh = true;
+      console.log('Tìm kiếm phát hiện, bắt buộc refresh dữ liệu:', currentFilters.search);
+    }
+    
+    // Thêm logic đặc biệt: Khi URL chứa search parameter, luôn force refresh
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('search')) {
+        console.log('Phát hiện search param trong URL, force refresh');
+        forceRefresh = true;
+      }
     }
     
     // Sử dụng JSON.stringify với sắp xếp key để đảm bảo tạo chuỗi nhất quán
@@ -480,7 +490,8 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
       // Nếu giá trị mới khác giá trị cũ (kể cả undefined vs giá trị thực)
       if (String(oldValue ?? '') !== String(newValue ?? '')) {
-        finalUpdatedFilters[filterKey] = newValue;
+        // Sửa lỗi TypeScript bằng cách chỉ định kiểu rõ ràng
+        finalUpdatedFilters[filterKey] = newValue as any;
         hasChanged = true;
       }
     }

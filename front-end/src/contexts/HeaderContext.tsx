@@ -213,14 +213,41 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  // Add useEffect to reset search results when router pathname changes
+  useEffect(() => {
+    if (router.pathname === '/shop') {
+      // Delay clearing search results to prevent flickering
+      const timer = setTimeout(() => {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [router.pathname, router.query]);
+
   // Hàm xử lý khi người dùng muốn xem tất cả kết quả tìm kiếm
   const handleViewAllResults = useCallback(() => {
     if (searchTerm) {
       const encodedTerm = encodeURIComponent(searchTerm.trim());
       console.log('Chuyển hướng đến trang shop với từ khóa:', searchTerm);
 
-      router.push(`/shop?search=${encodedTerm}`);
-      setShowSearchResults(false);
+      // Thêm random query param để đảm bảo router phát hiện thay đổi
+      const timestamp = new Date().getTime();
+      
+      // Sử dụng router.push với options và callback để đảm bảo chuyển hướng hoàn tất
+      router.push({
+        pathname: '/shop',
+        query: { 
+          search: encodedTerm,
+          _: timestamp 
+        }
+      }, undefined, { shallow: false }).then(() => {
+        console.log('Đã chuyển hướng đến trang shop thành công');
+        // Reset state
+        setShowSearchResults(false);
+      }).catch(err => {
+        console.error('Lỗi khi chuyển hướng:', err);
+      });
     }
   }, [searchTerm, router]);
 

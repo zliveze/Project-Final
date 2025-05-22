@@ -87,13 +87,19 @@ export default function Shop() {
 
   // Khai báo hàm xử lý URL parameters ở mức component để có thể sử dụng ở nhiều nơi
   const handleUrlParams = useCallback(() => {
+    console.log('Shop: handleUrlParams được gọi');
+    
     // Ngăn chặn xử lý nếu đang trong quá trình cập nhật từ URL để tránh vòng lặp
     if (isUpdatingFromUrl.current) {
+      console.log('Shop: handleUrlParams - bỏ qua do isUpdatingFromUrl = true');
       return;
     }
 
     const searchParams = new URLSearchParams(window.location.search);
     const newFiltersFromUrl: Partial<ShopProductFilters> = {};
+
+    // Loại bỏ tham số ngẫu nhiên "_" nếu có
+    searchParams.delete('_');
 
     // Danh sách các key filter có thể có trên URL và trong ShopProductFilters
     const possibleFilterKeys: (keyof ShopProductFilters)[] = [
@@ -102,6 +108,9 @@ export default function Shop() {
       'concerns', 'isBestSeller', 'isNew', 'isOnSale', 'hasGifts',
       'sortBy', 'sortOrder'
     ];
+
+    // Debug
+    console.log('Shop: handleUrlParams - URL params:', Object.fromEntries(searchParams.entries()));
 
     possibleFilterKeys.forEach(key => {
       const value = searchParams.get(key);
@@ -178,20 +187,56 @@ export default function Shop() {
   }, [filters, setFilters]); 
 
   // Khai báo handleRouteChange ở mức component để có thể sử dụng ở nhiều nơi
-  const handleRouteChange = useCallback(() => handleUrlParams(), [handleUrlParams]);
+  const handleRouteChange = useCallback(() => {
+    console.log('Shop: handleRouteChange được gọi');
+    // Force reset isUpdatingFromUrl để đảm bảo URL params được xử lý
+    isUpdatingFromUrl.current = false;
+    // Gọi handleUrlParams
+    handleUrlParams();
+  }, [handleUrlParams]);
 
   // Xử lý URL parameters khi component mount và khi URL thay đổi
   useEffect(() => {
+    console.log('Shop: useEffect cho router.events');
+    
     // Xử lý params ngay khi component được mount
     handleUrlParams();
 
     // Lắng nghe sự kiện route change
     router.events.on('routeChangeComplete', handleRouteChange);
 
+    // Thêm lắng nghe popstate để xử lý khi người dùng nhấn nút back/forward của trình duyệt
+    window.addEventListener('popstate', handleRouteChange);
+
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
+      window.removeEventListener('popstate', handleRouteChange);
     };
-  }, [router, handleUrlParams, handleRouteChange]); // Chỉ phụ thuộc vào router và các hàm callback
+  }, [router, handleUrlParams, handleRouteChange]);
+
+  // Thêm useEffect mới để theo dõi router.query thay đổi
+  useEffect(() => {
+    if (!isUpdatingFromUrl.current) {
+      console.log('Router query changed, updating filters', router.query);
+      // Force reset isUpdatingFromUrl để đảm bảo xử lý URL params
+      isUpdatingFromUrl.current = false;
+      
+      // Nếu thay đổi từ khóa tìm kiếm, cần xử lý đặc biệt
+      if ('search' in router.query) {
+        const searchQuery = router.query.search as string;
+        console.log('Search query changed to:', searchQuery);
+        
+        // Gọi trực tiếp setFilters để cập nhật từ khóa tìm kiếm
+        setFilters({ search: searchQuery }, false);
+        
+        // Gọi fetchProducts để lấy kết quả mới
+        fetchProducts(1, itemsPerPage, { ...filters, search: searchQuery }, true);
+      } else {
+        // Xử lý các tham số khác
+        handleUrlParams();
+      }
+    }
+  }, [router.query, handleUrlParams, fetchProducts, filters, itemsPerPage, setFilters]);
 
   // Đếm số bộ lọc đang hoạt động - sử dụng useMemo thay vì useEffect
   const activeFiltersCount = React.useMemo(() => {
