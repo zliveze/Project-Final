@@ -2159,9 +2159,11 @@ export class ProductsService {
           categoryIds: product.categoryIds?.map(id => id.toString()) || [],
           brand: product.brandName || '',
           brandId: product.brandId?.toString() || '',
-          image: product.mainImage || '',
+          image: product.mainImage || '', // Giữ lại mainImage cho các mục đích hiển thị khác nếu cần
+          images: product.images || [], // Trả về toàn bộ mảng images
           stock: product.totalStock || 0,
           status: product.status,
+          description: product.description, // Thêm description đầy đủ
           flags: product.flags || {
             isBestSeller: false,
             isNew: false,
@@ -2182,6 +2184,169 @@ export class ProductsService {
       };
     } catch (error) {
       this.logger.error(`Error in findAllForAdmin: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  async findAllForExport(queryDto: QueryProductDto): Promise<any[]> {
+    try {
+      this.logger.log('Bắt đầu lấy tất cả sản phẩm để xuất Excel');
+      const {
+        search,
+        brandId,
+        categoryId,
+        status,
+        minPrice,
+        maxPrice,
+        tags,
+        skinTypes,
+        concerns,
+        isBestSeller,
+        isNew,
+        isOnSale,
+        hasGifts,
+        sortBy = 'createdAt',
+        sortOrder = 'desc',
+      } = queryDto;
+
+      const pipeline: any[] = [];
+      const matchStage: any = {};
+
+      if (search) {
+        const processedSearch = search.trim();
+        if (this.hasTextIndex) {
+          matchStage.$text = { $search: processedSearch };
+        } else {
+          const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
+          matchStage.$or = [
+            { name: { $regex: regexSearch, $options: 'i' } },
+            { sku: { $regex: regexSearch, $options: 'i' } },
+            { slug: { $regex: regexSearch, $options: 'i' } },
+            { tags: { $regex: regexSearch, $options: 'i' } },
+            { 'description.short': { $regex: regexSearch, $options: 'i' } },
+            { 'description.full': { $regex: regexSearch, $options: 'i' } },
+          ];
+        }
+      }
+      if (brandId) matchStage.brandId = new Types.ObjectId(brandId);
+      if (categoryId) matchStage.categoryIds = new Types.ObjectId(categoryId);
+      if (status) matchStage.status = status;
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        matchStage.price = {};
+        if (minPrice !== undefined) matchStage.price.$gte = Number(minPrice);
+        if (maxPrice !== undefined) matchStage.price.$lte = Number(maxPrice);
+      }
+      if (tags) matchStage.tags = { $in: tags.split(',').map(tag => tag.trim()) };
+      if (skinTypes) matchStage['cosmetic_info.skinType'] = { $in: skinTypes.split(',').map(type => type.trim()) };
+      if (concerns) matchStage['cosmetic_info.concerns'] = { $in: concerns.split(',').map(concern => concern.trim()) };
+      
+      // Sửa lỗi TypeScript: Xử lý đúng kiểu cho các flag boolean
+      if (isBestSeller !== undefined) {
+        matchStage['flags.isBestSeller'] = typeof isBestSeller === 'string' ? isBestSeller === 'true' : Boolean(isBestSeller);
+      }
+      if (isNew !== undefined) {
+        matchStage['flags.isNew'] = typeof isNew === 'string' ? isNew === 'true' : Boolean(isNew);
+      }
+      if (isOnSale !== undefined) {
+        matchStage['flags.isOnSale'] = typeof isOnSale === 'string' ? isOnSale === 'true' : Boolean(isOnSale);
+      }
+      if (hasGifts !== undefined) {
+        matchStage['flags.hasGifts'] = typeof hasGifts === 'string' ? hasGifts === 'true' : Boolean(hasGifts);
+      }
+
+      if (Object.keys(matchStage).length > 0) {
+        pipeline.push({ $match: matchStage });
+      }
+
+      pipeline.push(
+        { $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } },
+        {
+          $lookup: {
+            from: 'brands',
+            localField: 'brandId',
+            foreignField: '_id',
+            as: 'brandInfo'
+          }
+        },
+        {
+          $lookup: {
+            from: 'categories',
+            localField: 'categoryIds',
+            foreignField: '_id',
+            as: 'categoryInfo'
+          }
+        },
+        {
+          $addFields: {
+            brandName: { $ifNull: [{ $arrayElemAt: ['$brandInfo.name', 0] }, ''] },
+            // Lấy tên của category đầu tiên, hoặc mảng tên nếu có nhiều
+            categoryNames: '$categoryInfo.name',
+            totalStock: { $sum: '$inventory.quantity' },
+            // Thêm các trường khác bạn muốn lấy trực tiếp từ schema Product
+            barcode: '$barcode',
+            weightValue: '$weightValue',
+            weightUnit: '$weightUnit',
+            loyaltyPoints: '$loyaltyPoints',
+            // Lấy lowStockThreshold từ inventory của chi nhánh đầu tiên (nếu có)
+            firstBranchLowStock: { $ifNull: [{ $arrayElemAt: ['$inventory.lowStockThreshold', 0] }, null] },
+          }
+        },
+        // Project để chọn các trường cuối cùng, bao gồm cả mảng images đầy đủ
+        {
+          $project: {
+            // Giữ lại các trường cần thiết
+            _id: 1,
+            sku: 1,
+            name: 1,
+            slug: 1,
+            description: 1, 
+            price: 1,
+            currentPrice: 1,
+            status: 1,
+            brandId: 1,
+            brandName: 1, 
+            categoryIds: 1,
+            categoryNames: 1, // Mảng tên danh mục
+            tags: 1,
+            cosmetic_info: 1,
+            variants: 1,
+            images: 1, 
+            inventory: 1, // Giữ lại để có thể lấy lowStockThreshold nếu cần xử lý phức tạp hơn
+            // variantInventory: 1, // Có thể bỏ nếu không dùng trực tiếp
+            // combinationInventory: 1, // Có thể bỏ nếu không dùng trực tiếp
+            reviews: 1,
+            flags: 1,
+            // gifts: 1, // Bỏ qua nếu không cần cho export này
+            // relatedProducts: 1, // Bỏ qua nếu không cần
+            // relatedEvents: 1, // Bỏ qua
+            // relatedCampaigns: 1, // Bỏ qua
+            createdAt: 1,
+            updatedAt: 1,
+            soldCount: 1,
+            totalStock: 1,
+            barcode: 1,
+            weightValue: 1,
+            weightUnit: 1,
+            loyaltyPoints: 1,
+            lowStockThreshold: '$firstBranchLowStock', // Gán giá trị đã lấy
+          }
+        }
+      );
+
+      const products = await this.productModel.aggregate(pipeline);
+      this.logger.log(`Lấy được ${products.length} sản phẩm cho việc xuất Excel`);
+
+      // Map lại để đảm bảo ID là string và các định dạng khác nếu cần
+      return products.map(p => ({
+        ...p, // Giữ lại tất cả các trường đã project từ aggregation
+        id: p._id.toString(),
+        brandId: p.brandId?.toString(),
+        categoryIds: p.categoryIds?.map((id: Types.ObjectId) => id.toString()),
+        // categoryNames đã là mảng string từ aggregation
+      }));
+
+    } catch (error) {
+      this.logger.error(`Lỗi khi lấy tất cả sản phẩm để xuất: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -2464,35 +2629,108 @@ export class ProductsService {
   // Phương thức để xóa chi nhánh khỏi tất cả các sản phẩm
   async removeBranchFromProducts(branchId: string): Promise<{ success: boolean; count: number }> {
     try {
-      // Tìm tất cả sản phẩm có tham chiếu đến chi nhánh này
+      const branchObjectId = new Types.ObjectId(branchId);
+
+      // Tìm tất cả sản phẩm có tham chiếu đến chi nhánh này trong inventory, variantInventory, hoặc combinationInventory
       const products = await this.productModel.find({
-        'inventory.branchId': branchId
+        $or: [
+          { 'inventory.branchId': branchObjectId },
+          { 'variantInventory.branchId': branchObjectId },
+          { 'combinationInventory.branchId': branchObjectId }
+        ]
       });
 
       let count = 0;
+      this.logger.log(`Found ${products.length} products referencing branch ID: ${branchId}`);
 
       // Xử lý từng sản phẩm
       for (const product of products) {
+        let productModified = false;
+
         // Lọc bỏ chi nhánh khỏi inventory
-        product.inventory = product.inventory.filter(
-          inv => inv.branchId.toString() !== branchId
-        );
-
-        // Cập nhật trạng thái sản phẩm dựa trên tổng inventory còn lại
-        const totalInventory = product.inventory.reduce(
-          (sum, inv) => sum + inv.quantity,
-          0
-        );
-
-        if (totalInventory === 0 && product.status !== 'discontinued') {
-          product.status = 'out_of_stock';
+        if (product.inventory && product.inventory.length > 0) {
+          const initialInventoryCount = product.inventory.length;
+          product.inventory = product.inventory.filter(
+            inv => inv.branchId.toString() !== branchId
+          );
+          if (product.inventory.length !== initialInventoryCount) {
+            productModified = true;
+            this.logger.log(`Removed branch ${branchId} from inventory of product ${product._id}`);
+          }
         }
 
-        // Lưu sản phẩm
-        await product.save();
-        count++;
+        // Lọc bỏ chi nhánh khỏi variantInventory
+        if (product.variantInventory && product.variantInventory.length > 0) {
+          const initialVariantInventoryCount = product.variantInventory.length;
+          product.variantInventory = product.variantInventory.filter(
+            inv => inv.branchId.toString() !== branchId
+          );
+          if (product.variantInventory.length !== initialVariantInventoryCount) {
+            productModified = true;
+            this.logger.log(`Removed branch ${branchId} from variantInventory of product ${product._id}`);
+          }
+        }
+
+        // Lọc bỏ chi nhánh khỏi combinationInventory
+        if (product.combinationInventory && product.combinationInventory.length > 0) {
+          const initialCombinationInventoryCount = product.combinationInventory.length;
+          product.combinationInventory = product.combinationInventory.filter(
+            inv => inv.branchId.toString() !== branchId
+          );
+          if (product.combinationInventory.length !== initialCombinationInventoryCount) {
+            productModified = true;
+            this.logger.log(`Removed branch ${branchId} from combinationInventory of product ${product._id}`);
+          }
+        }
+
+        // Nếu có sự thay đổi, tính toán lại tổng tồn kho và cập nhật trạng thái
+        if (productModified) {
+          // Tính tổng tồn kho từ inventory (tồn kho chính của sản phẩm)
+          const totalProductInventory = product.inventory.reduce(
+            (sum, inv) => sum + inv.quantity,
+            0
+          );
+
+          // Tính tổng tồn kho từ variantInventory (nếu sản phẩm có biến thể)
+          const totalVariantInventory = product.variantInventory.reduce(
+            (sum, inv) => sum + inv.quantity,
+            0
+          );
+          
+          // Tính tổng tồn kho từ combinationInventory (nếu sản phẩm có tổ hợp)
+          // Lưu ý: combinationInventory thường là chi tiết của variantInventory,
+          // nên việc tính tổng tồn kho cần cẩn thận để tránh tính trùng.
+          // Thông thường, nếu có variantInventory, tổng tồn kho của sản phẩm sẽ dựa vào đó.
+          // Nếu không có variantInventory, thì dựa vào inventory.
+
+          let finalTotalInventory = 0;
+          if (product.variants && product.variants.length > 0) {
+            // Nếu có biến thể, tổng tồn kho dựa trên variantInventory
+            finalTotalInventory = totalVariantInventory;
+          } else {
+            // Nếu không có biến thể, tổng tồn kho dựa trên inventory chính
+            finalTotalInventory = totalProductInventory;
+          }
+          
+          this.logger.log(`Product ${product._id}: Total product inventory = ${totalProductInventory}, Total variant inventory = ${totalVariantInventory}, Final total inventory = ${finalTotalInventory}`);
+
+
+          if (finalTotalInventory === 0 && product.status !== 'discontinued') {
+            product.status = 'out_of_stock';
+            this.logger.log(`Product ${product._id} status updated to 'out_of_stock' as total inventory is 0.`);
+          } else if (finalTotalInventory > 0 && product.status === 'out_of_stock') {
+            product.status = 'active';
+            this.logger.log(`Product ${product._id} status updated to 'active' as total inventory is ${finalTotalInventory}.`);
+          }
+
+          // Lưu sản phẩm
+          await product.save();
+          count++;
+          this.logger.log(`Product ${product._id} saved after removing branch ${branchId}.`);
+        }
       }
 
+      this.logger.log(`Successfully processed ${count} products for branch removal.`);
       return {
         success: true,
         count
@@ -2506,8 +2744,13 @@ export class ProductsService {
   // Phương thức để kiểm tra có bao nhiêu sản phẩm tham chiếu đến một chi nhánh
   async countProductsReferencingBranch(branchId: string): Promise<number> {
     try {
+      const branchObjectId = new Types.ObjectId(branchId);
       return await this.productModel.countDocuments({
-        'inventory.branchId': branchId
+        $or: [
+          { 'inventory.branchId': branchObjectId },
+          { 'variantInventory.branchId': branchObjectId },
+          { 'combinationInventory.branchId': branchObjectId }
+        ]
       });
     } catch (error) {
       this.logger.error(`Error counting products with branch reference: ${error.message}`, error.stack);
@@ -2716,7 +2959,16 @@ export class ProductsService {
           const imageUrls = this.parseImageUrls(row[18]); // Cột 19: Hình ảnh (url1,url2...)
 
           // Tạo slug từ tên sản phẩm
-          const slug = this.generateSlug(name);
+          let slug = this.generateSlug(name);
+          if (!slug && sku) { // Nếu slug rỗng và có SKU, tạo slug từ SKU
+            this.logger.warn(`Tên sản phẩm "${name}" (dòng ${i + 2}) không tạo được slug, thử tạo từ SKU: ${sku}`);
+            slug = this.generateSlug(sku);
+          }
+
+          if (!slug) { // Nếu vẫn không có slug (cả name và sku đều không tạo được slug)
+            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${sku}): Không thể tạo slug từ tên hoặc SKU.`);
+            continue;
+          }
 
           // Chuẩn bị mô tả đầy đủ với mã vạch
           let fullDescription = '';
@@ -2858,14 +3110,40 @@ export class ProductsService {
             // Chuyển đổi ObjectId cho branchId
             productDto.inventory[0].branchId = new Types.ObjectId(branchId);
 
-            const newProduct = new this.productModel(productDto);
-            await newProduct.save();
+            // Kiểm tra và đảm bảo slug là unique trước khi tạo mới
+            let uniqueSlug = slug; // slug đã được tạo từ name hoặc sku ở trên
+            let counter = 1;
+            // Vòng lặp để tìm slug duy nhất, chỉ áp dụng cho sản phẩm mới
+            while (await this.productModel.findOne({ slug: uniqueSlug })) {
+              uniqueSlug = `${slug}-${counter}`;
+              counter++;
+            }
+            if (slug !== uniqueSlug) {
+              this.logger.log(`Slug "${slug}" đã tồn tại, đổi thành "${uniqueSlug}" cho sản phẩm mới SKU: ${sku}`);
+            }
+            productDto.slug = uniqueSlug; // Gán slug duy nhất (hoặc slug gốc nếu nó đã duy nhất)
+            
+            const newProductInstance = new this.productModel(productDto);
+            await newProductInstance.save();
 
             result.created++;
           }
-        } catch (error) {
-          this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2}:`, error.stack);
-          result.errors.push(`Sản phẩm dòng ${i + 2}: ${error.message}`);
+        } catch (error: any) {
+          const currentSkuForRow = String(row[2] || 'N/A').trim(); // Lấy SKU từ dòng hiện tại cho thông báo lỗi
+          this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`, error.stack);
+          // Cung cấp thông báo lỗi chi tiết hơn
+          if (error.code === 11000) { // Lỗi duplicate key
+             const field = Object.keys(error.keyValue)[0];
+             result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): Lỗi trùng lặp giá trị cho trường '${field}'. Giá trị '${error.keyValue[field]}' đã tồn tại.`);
+          } else if (error.name === 'ValidationError') {
+            let validationErrors = '';
+            for (const field in error.errors) {
+              validationErrors += `${field}: ${error.errors[field].message}; `;
+            }
+            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): Lỗi xác thực - ${validationErrors}`);
+          } else {
+            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`);
+          }
         }
       }
 

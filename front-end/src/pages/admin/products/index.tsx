@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import * as XLSX from 'xlsx'; // Import thư viện xlsx
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Toaster, toast } from 'react-hot-toast';
 import { FiAlertCircle, FiUpload, FiDownload, FiX, FiCheck, FiEdit, FiEye, FiPlus } from 'react-icons/fi';
@@ -117,7 +118,8 @@ function AdminProducts({
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState('');
   // Sử dụng hook useBranches để lấy thông tin chi nhánh
-  const { branches, loading: branchesLoading } = useBranches();
+  // Đổi tên fetchBranches từ useBranches để tránh xung đột với fetchProducts từ useProductAdmin
+  const { branches, loading: branchesLoading, fetchBranches: fetchBranchesList } = useBranches(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -446,6 +448,7 @@ function AdminProducts({
   };
 
   const handleImportClick = () => {
+    fetchBranchesList(true); // Gọi fetchBranches với force=true để làm mới danh sách
     setShowImportModal(true);
   };
 
@@ -586,33 +589,141 @@ function AdminProducts({
     }
   };
 
-  const handleExportData = () => {
+  const handleExportData = async () => { // Chuyển thành async function
     // Hiển thị thông báo đang xử lý
-    const loadingToast = toast.loading('Đang xuất dữ liệu ra file Excel...');
+    const loadingToast = toast.loading('Đang chuẩn bị dữ liệu để xuất Excel...');
 
     try {
-      // Xử lý export dữ liệu ra file Excel
-      console.log('Đang xuất dữ liệu ra file Excel');
+      // Gọi API mới để lấy tất cả sản phẩm
+      // Sử dụng filters hiện tại (không bao gồm page và limit) để lấy danh sách đã lọc nếu có
+      const exportFilters: Partial<ProductAdminFilter> = { ...filters };
+      delete exportFilters.page;
+      delete exportFilters.limit;
 
-      // Mô phỏng delay của API call
-      setTimeout(() => {
-        // Thông báo thành công
+      const params = new URLSearchParams();
+      Object.entries(exportFilters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '' && value !== false) {
+          params.append(key, String(value));
+        }
+      });
+      
+      const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/export-data?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
         toast.dismiss(loadingToast);
-        toast.success('Xuất dữ liệu thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-      }, 1500);
-      setTimeout(() => {
-        // Thông báo thành công
+        const errorData = await response.json().catch(() => ({ message: `Lỗi ${response.status} khi lấy dữ liệu xuất.` }));
+        toast.error(errorData.message || `Lỗi ${response.status} khi lấy dữ liệu xuất.`);
+        return;
+      }
+
+      const allProductsToExport: AdminProduct[] = await response.json();
+
+      if (!allProductsToExport || allProductsToExport.length === 0) {
+        toast.error('Không có dữ liệu sản phẩm để xuất.', { duration: 3000 });
         toast.dismiss(loadingToast);
-        toast.success('Xuất dữ liệu thành công!', {
-          duration: 3000,
-          icon: <FiCheck className="text-green-500" />
-        });
-      }, 1500);
+        return;
+      }
+      
+      toast.loading(`Đang tạo file Excel với ${allProductsToExport.length} sản phẩm...`, { id: loadingToast });
+
+
+      // Chuẩn bị dữ liệu cho Excel theo mẫu mới, thêm "Loại hàng" và "Nhóm hàng"
+      const header = [
+        "Loại hàng", "Nhóm hàng", // Thêm 2 cột này vào đầu
+        "Mã hàng", "Mã vạch", "Tên hàng", "Thương hiệu", "Giá bán", "Giá vốn", "Tồn kho",
+        "KH đặt", "Dự kiến hết hàng", "Tồn nhỏ nhất", "Tồn lớn nhất", "ĐVT",
+        "Mã ĐVT Cơ bản", "Quy đổi", "Thuộc tính", "Mã HH Liên quan",
+        "Hình ảnh (url1,url2...)", "Trọng lượng", "Tích điểm", "Đang kinh doanh",
+        "Được bán trực tiếp", "Mô tả", "Mẫu ghi chú", "Vị trí",
+        "Hàng thành phần", "Bảo hành", "Bảo trì định kỳ"
+      ];
+
+      const dataToExport = allProductsToExport.map(product => {
+        // Sử dụng product.description đã được cập nhật (nếu có)
+        const descriptionText = product.description?.full || product.description?.short || '';
+        
+        // Xử lý mảng images (nếu có) để lấy chuỗi URL
+        let imageUrlsString = '';
+        if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+          imageUrlsString = product.images.map(img => img.url).join(', ');
+        } else if (product.image) { // Fallback cho trường image cũ nếu images không có
+          imageUrlsString = product.image;
+        }
+
+        // Xử lý Nhóm hàng
+        const categoryDisplay = product.categoryNames && product.categoryNames.length > 0 
+                                ? product.categoryNames.join(', ') 
+                                : (product.category || '');
+
+        // Xử lý Trọng lượng
+        const weightDisplay = product.weightValue ? `${product.weightValue}${product.weightUnit || ''}` : '';
+
+        return [
+          "Hàng hóa", // Loại hàng (Giá trị mặc định)
+          categoryDisplay, // Nhóm hàng
+          product.sku || '', // Mã hàng
+          product.barcode || '', // Mã vạch
+          product.name || '', // Tên hàng
+          product.brand || '', // Thương hiệu
+          product.currentPrice || 0, // Giá bán
+          product.originalPrice || 0, // Giá vốn
+          product.stock || 0, // Tồn kho
+          '', // KH đặt - Chưa có dữ liệu
+          '', // Dự kiến hết hàng - Chưa có dữ liệu
+          product.lowStockThreshold || '', // Tồn nhỏ nhất
+          '', // Tồn lớn nhất - Chưa có dữ liệu
+          '', // ĐVT - Chưa có dữ liệu (Cần thêm logic nếu có trường unit trong product)
+          '', // Mã ĐVT Cơ bản - Chưa có dữ liệu
+          '', // Quy đổi - Chưa có dữ liệu
+          '', // Thuộc tính - Chưa có dữ liệu
+          '', // Mã HH Liên quan - Chưa có dữ liệu
+          imageUrlsString, // Hình ảnh (url1,url2...)
+          weightDisplay, // Trọng lượng
+          product.loyaltyPoints || 0, // Tích điểm
+          product.status === 'active' ? 'Có' : 'Không', // Đang kinh doanh
+          '', // Được bán trực tiếp - Chưa có dữ liệu
+          descriptionText, // Mô tả
+          '', // Mẫu ghi chú - Chưa có dữ liệu
+          '', // Vị trí - Chưa có dữ liệu
+          '', // Hàng thành phần - Chưa có dữ liệu
+          '', // Bảo hành - Chưa có dữ liệu
+          ''  // Bảo trì định kỳ - Chưa có dữ liệu
+        ];
+      });
+
+      // Tạo worksheet từ mảng dữ liệu (bao gồm header)
+      const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataToExport]);
+
+      // Điều chỉnh độ rộng cột tự động (tùy chọn, có thể ảnh hưởng hiệu suất với nhiều dữ liệu)
+      const cols = header.map((_, i) => ({
+        wch: Math.max(...dataToExport.map(row => row[i] ? String(row[i]).length : 0), header[i].length) + 2
+      }));
+      worksheet['!cols'] = cols;
+
+      // Tạo workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sản phẩm');
+
+      // Đặt tên file
+      const fileName = `danh_sach_san_pham_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Xuất file
+      XLSX.writeFile(workbook, fileName);
+
+      toast.dismiss(loadingToast);
+      toast.success('Xuất dữ liệu thành công!', {
+        duration: 3000,
+        icon: <FiCheck className="text-green-500" />
+      });
+
     } catch (error) {
-      // Xử lý lỗi
+      console.error('Lỗi khi xuất Excel:', error);
       toast.dismiss(loadingToast);
       toast.error('Có lỗi xảy ra khi xuất dữ liệu!', {
         duration: 3000

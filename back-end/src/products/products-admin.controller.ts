@@ -111,6 +111,26 @@ export class ProductsAdminController {
     return this.productsService.checkProductsInPromotions(data.productIds);
   }
 
+  @Get('export-data') // Endpoint mới để xuất tất cả dữ liệu sản phẩm
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Export all products data to Excel' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all products data for export',
+    // Kiểu trả về có thể là một mảng các đối tượng sản phẩm đầy đủ
+    // Ví dụ: type: [ProductResponseDto] hoặc một DTO mới cho export
+  })
+  async exportAllProducts(@Query() queryDto: QueryProductDto) {
+    try {
+      this.logger.log('Yêu cầu xuất tất cả dữ liệu sản phẩm');
+      // queryDto có thể chứa các filter nếu người dùng muốn xuất danh sách đã lọc
+      return this.productsService.findAllForExport(queryDto);
+    } catch (error) {
+      this.logger.error(`Lỗi khi xuất tất cả dữ liệu sản phẩm: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   @Get(':id')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Get a product by ID' })
@@ -477,4 +497,5 @@ export class ProductsAdminController {
       throw error;
     }
   }
+  // Đã di chuyển exportAllProducts lên trên, không cần định nghĩa lại ở đây.
 }

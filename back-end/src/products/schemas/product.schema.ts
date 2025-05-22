@@ -370,6 +370,18 @@ export class Product {
 
   @Prop({ type: Number, default: 0 })
   soldCount: number;
+
+  @Prop({ sparse: true }) // Mã vạch, có thể không phải sản phẩm nào cũng có
+  barcode?: string;
+
+  @Prop({ type: Number }) // Trọng lượng
+  weightValue?: number;
+
+  @Prop() // Đơn vị trọng lượng, ví dụ: 'g', 'kg'
+  weightUnit?: string;
+
+  @Prop({ type: Number, default: 0 }) // Điểm tích lũy
+  loyaltyPoints?: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

@@ -1,20 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
 import Cookies from 'js-cookie';
 
+// Định nghĩa interface cho ProductImage (tương tự backend)
+export interface ProductImageAdmin {
+  url: string;
+  alt?: string;
+  isPrimary?: boolean;
+  publicId?: string;
+}
+
+// Định nghĩa interface cho ProductDescription (tương tự backend)
+export interface ProductDescriptionAdmin {
+  short?: string;
+  full?: string;
+}
+
 // Định nghĩa interface cho AdminProduct
 export interface AdminProduct {
   id: string;
   name: string;
   slug: string;
   sku: string;
-  price: string;
-  originalPrice: number;
-  currentPrice: number;
-  category: string;
+  price: string; // Giá đã định dạng chuỗi (ví dụ: "100.000đ")
+  originalPrice: number; // Giá gốc dạng số
+  currentPrice: number; // Giá hiện tại dạng số
+  category?: string; // Tên danh mục đầu tiên (vẫn giữ nếu cần)
+  categoryNames?: string[]; // Mảng tên tất cả danh mục
   categoryIds: string[];
   brand: string;
   brandId: string;
-  image: string;
+  image: string; // URL ảnh chính (vẫn giữ lại nếu UI đang dùng)
+  images?: ProductImageAdmin[]; // Mảng tất cả hình ảnh
+  description?: ProductDescriptionAdmin; // Thêm mô tả
+  barcode?: string; // Thêm mã vạch
+  weightValue?: number; // Thêm trọng lượng
+  weightUnit?: string; // Thêm đơn vị trọng lượng
+  loyaltyPoints?: number; // Thêm điểm tích lũy
+  lowStockThreshold?: number; // Thêm tồn kho nhỏ nhất
   stock: number;
   status: string;
   flags: {
