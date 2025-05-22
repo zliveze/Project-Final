@@ -293,32 +293,63 @@ export class ProductsService {
         this.logger.log(`Tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
 
         if (this.hasTextIndex) {
-          // Sử dụng text search nếu có text index
-          filter.$text = { $search: processedSearch };
-          this.logger.log(`Sử dụng text index search với từ khóa: "${processedSearch}"`);
+          // Cải thiện: Sử dụng text search với phrase match cho cụm từ chính xác
+          // Thêm dấu ngoặc kép để tìm kiếm chính xác cụm từ
+          if (processedSearch.includes(" ")) {
+            // Nếu là cụm từ nhiều từ, tìm kiếm cả cụm từ chính xác và từng từ riêng lẻ
+            // với ưu tiên cao hơn cho cụm từ chính xác
+            filter.$text = { $search: `"${processedSearch}" ${processedSearch}` };
+            this.logger.log(`Sử dụng text index search với cụm từ chính xác: "${processedSearch}"`);
+          } else {
+            // Nếu chỉ có một từ, tìm kiếm bình thường
+            filter.$text = { $search: processedSearch };
+            this.logger.log(`Sử dụng text index search với từ khóa đơn: "${processedSearch}"`);
+          }
         } else {
           // Chuẩn bị từ khóa cho regex search
-          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-
-          // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
-
-          // Tạo regex đặc biệt cho việc tìm kiếm phần của từ chứa dấu gạch dưới
-          // Ví dụ: tìm kiếm "Foe" sẽ tìm thấy "Foellie_Venus"
+          
+          // Escape các ký tự đặc biệt trong regex
           const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-
+          
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           filter.$or = [
-            { name: { $regex: regexSearch, $options: 'i' } },
+            // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
+            { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
+            
+            // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
+            { name: { $regex: regexPattern, $options: 'i' } },
+            
+            // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
             { tags: { $regex: regexSearch, $options: 'i' } },
-            { 'description.short': { $regex: regexSearch, $options: 'i' } },
-            { 'description.full': { $regex: regexSearch, $options: 'i' } },
-            // Thêm tìm kiếm theo phần của từ
-            { name: { $regex: regexPattern, $options: 'i' } },
+            { 'description.short': { $regex: regexPattern, $options: 'i' } },
+            { 'description.full': { $regex: regexPattern, $options: 'i' } },
           ];
+
+          // Nếu từ khóa có nhiều từ, thêm logic tìm kiếm đặc biệt cho cụm từ
+          if (processedSearch.includes(' ')) {
+            // Tạo phiên bản không có khoảng trắng của regex pattern
+            const nonSpacePattern = regexPattern.replace(/\s+/g, '');
+            
+            // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
+            const words = processedSearch.split(' ').map(word => 
+              word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+            );
+            
+            if (words.length > 1) {
+              // Tìm kiếm với các từ theo đúng thứ tự
+              const orderedWordsPattern = words.join('.*');
+              
+              // Thêm các điều kiện tìm kiếm chính xác hơn
+              filter.$or.unshift(
+                // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
+                { name: { $regex: orderedWordsPattern, $options: 'i' } },
+              );
+            }
+          }
 
           // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
           if (processedSearch.includes('_')) {
@@ -333,7 +364,7 @@ export class ProductsService {
             );
           }
 
-          this.logger.log(`Sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
+          this.logger.log(`Sử dụng regex search với pattern: "${regexPattern}" (từ khóa gốc: "${processedSearch}")`);
         }
       }
 
@@ -1503,32 +1534,63 @@ export class ProductsService {
         this.logger.log(`Tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
 
         if (this.hasTextIndex) {
-          // Sử dụng text search nếu có text index
-          filter.$text = { $search: processedSearch };
-          this.logger.log(`Sử dụng text index search với từ khóa: "${processedSearch}"`);
+          // Cải thiện: Sử dụng text search với phrase match cho cụm từ chính xác
+          // Thêm dấu ngoặc kép để tìm kiếm chính xác cụm từ
+          if (processedSearch.includes(" ")) {
+            // Nếu là cụm từ nhiều từ, tìm kiếm cả cụm từ chính xác và từng từ riêng lẻ
+            // với ưu tiên cao hơn cho cụm từ chính xác
+            filter.$text = { $search: `"${processedSearch}" ${processedSearch}` };
+            this.logger.log(`Sử dụng text index search với cụm từ chính xác: "${processedSearch}"`);
+          } else {
+            // Nếu chỉ có một từ, tìm kiếm bình thường
+            filter.$text = { $search: processedSearch };
+            this.logger.log(`Sử dụng text index search với từ khóa đơn: "${processedSearch}"`);
+          }
         } else {
           // Chuẩn bị từ khóa cho regex search
-          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-
-          // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
-
-          // Tạo regex đặc biệt cho việc tìm kiếm phần của từ chứa dấu gạch dưới
-          // Ví dụ: tìm kiếm "Foe" sẽ tìm thấy "Foellie_Venus"
+          
+          // Escape các ký tự đặc biệt trong regex
           const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-
+          
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           filter.$or = [
-            { name: { $regex: regexSearch, $options: 'i' } },
+            // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
+            { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
+            
+            // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
+            { name: { $regex: regexPattern, $options: 'i' } },
+            
+            // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
             { tags: { $regex: regexSearch, $options: 'i' } },
-            { 'description.short': { $regex: regexSearch, $options: 'i' } },
-            { 'description.full': { $regex: regexSearch, $options: 'i' } },
-            // Thêm tìm kiếm theo phần của từ
-            { name: { $regex: regexPattern, $options: 'i' } },
+            { 'description.short': { $regex: regexPattern, $options: 'i' } },
+            { 'description.full': { $regex: regexPattern, $options: 'i' } },
           ];
+
+          // Nếu từ khóa có nhiều từ, thêm logic tìm kiếm đặc biệt cho cụm từ
+          if (processedSearch.includes(' ')) {
+            // Tạo phiên bản không có khoảng trắng của regex pattern
+            const nonSpacePattern = regexPattern.replace(/\s+/g, '');
+            
+            // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
+            const words = processedSearch.split(' ').map(word => 
+              word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+            );
+            
+            if (words.length > 1) {
+              // Tìm kiếm với các từ theo đúng thứ tự
+              const orderedWordsPattern = words.join('.*');
+              
+              // Thêm các điều kiện tìm kiếm chính xác hơn
+              filter.$or.unshift(
+                // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
+                { name: { $regex: orderedWordsPattern, $options: 'i' } },
+              );
+            }
+          }
 
           // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
           if (processedSearch.includes('_')) {
@@ -1543,7 +1605,7 @@ export class ProductsService {
             );
           }
 
-          this.logger.log(`Sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
+          this.logger.log(`Sử dụng regex search với pattern: "${regexPattern}" (từ khóa gốc: "${processedSearch}")`);
         }
       }
 
@@ -1834,25 +1896,79 @@ export class ProductsService {
         this.logger.log(`Admin tìm kiếm sản phẩm với từ khóa: "${processedSearch}"`);
 
         if (this.hasTextIndex) {
-          // Sử dụng text search nếu có text index
-          matchStage.$text = { $search: processedSearch };
-          this.logger.log(`Admin sử dụng text index search với từ khóa: "${processedSearch}"`);
+          // Cải thiện: Sử dụng text search với phrase match cho cụm từ chính xác
+          if (processedSearch.includes(" ")) {
+            // Nếu là cụm từ nhiều từ, tìm kiếm cả cụm từ chính xác và từng từ riêng lẻ
+            // với ưu tiên cao hơn cho cụm từ chính xác
+            matchStage.$text = { $search: `"${processedSearch}" ${processedSearch}` };
+            this.logger.log(`Admin sử dụng text index search với cụm từ chính xác: "${processedSearch}"`);
+          } else {
+            // Nếu chỉ có một từ, tìm kiếm bình thường
+            matchStage.$text = { $search: processedSearch };
+            this.logger.log(`Admin sử dụng text index search với từ khóa đơn: "${processedSearch}"`);
+          }
         } else {
           // Chuẩn bị từ khóa cho regex search
-          // Thay thế dấu gạch dưới bằng khoảng trắng hoặc không có gì để tìm kiếm linh hoạt hơn
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-
+          
+          // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
+          const alternativeSearch = processedSearch.replace(/_/g, ' ');
+          
+          // Escape các ký tự đặc biệt trong regex
+          const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           matchStage.$or = [
-            { name: { $regex: regexSearch, $options: 'i' } },
+            // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
+            { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
+            
+            // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
+            { name: { $regex: regexPattern, $options: 'i' } },
+            
+            // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
             { tags: { $regex: regexSearch, $options: 'i' } },
-            { 'description.short': { $regex: regexSearch, $options: 'i' } },
-            { 'description.full': { $regex: regexSearch, $options: 'i' } },
+            { 'description.short': { $regex: regexPattern, $options: 'i' } },
+            { 'description.full': { $regex: regexPattern, $options: 'i' } },
           ];
 
-          this.logger.log(`Admin sử dụng regex search với pattern: "${regexSearch}" (từ khóa gốc: "${processedSearch}")`);
+          // Nếu từ khóa có nhiều từ, thêm logic tìm kiếm đặc biệt cho cụm từ
+          if (processedSearch.includes(' ')) {
+            // Tạo phiên bản không có khoảng trắng của regex pattern
+            const nonSpacePattern = regexPattern.replace(/\s+/g, '');
+            
+            // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
+            const words = processedSearch.split(' ').map(word => 
+              word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+            );
+            
+            if (words.length > 1) {
+              // Tìm kiếm với các từ theo đúng thứ tự
+              const orderedWordsPattern = words.join('.*');
+              
+              // Thêm các điều kiện tìm kiếm chính xác hơn
+              matchStage.$or.unshift(
+                // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
+                { name: { $regex: orderedWordsPattern, $options: 'i' } },
+              );
+            }
+          }
+
+          // Nếu từ khóa tìm kiếm có dấu gạch dưới, thêm điều kiện tìm kiếm với khoảng trắng
+          if (processedSearch.includes('_')) {
+            this.logger.log(`Admin tìm kiếm bổ sung với từ khóa thay thế: "${alternativeSearch}"`);
+            matchStage.$or.push(
+              { name: { $regex: alternativeSearch, $options: 'i' } },
+              { sku: { $regex: alternativeSearch, $options: 'i' } },
+              { slug: { $regex: alternativeSearch, $options: 'i' } },
+              { tags: { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.short': { $regex: alternativeSearch, $options: 'i' } },
+              { 'description.full': { $regex: alternativeSearch, $options: 'i' } }
+            );
+          }
+
+          this.logger.log(`Admin sử dụng regex search với pattern: "${regexPattern}" (từ khóa gốc: "${processedSearch}")`);
         }
       }
 

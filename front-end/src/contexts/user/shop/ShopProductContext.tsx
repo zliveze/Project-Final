@@ -188,6 +188,11 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     currentFilters: ShopProductFilters = filters,
     forceRefresh: boolean = false
   ) => {
+    // Luôn refresh khi có tìm kiếm để đảm bảo hiển thị kết quả mới nhất
+    if (currentFilters.search) {
+      forceRefresh = true;
+    }
+
     // Thêm kiểm tra để tránh gọi API liên tục khi tham số giống với lần gọi trước
     const filterString = JSON.stringify(currentFilters);
     const requestKey = `${page}-${limit}-${filterString}`;
@@ -198,14 +203,13 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       return;
     }
 
-    // Kiểm tra đặc biệt cho trường hợp search
-    // Nếu search là undefined hoặc empty string, và lastRequestKey có chứa search, bỏ qua
-    if (!forceRefresh &&
-        (!currentFilters.search || currentFilters.search === '') &&
-        lastRequestKey.includes('"search":')) {
-      console.log('Bỏ qua yêu cầu khi xóa search term');
-      return;
-    }
+    // Bỏ kiểm tra đặc biệt cho trường hợp search rỗng vì có thể gây bỏ sót request
+    // if (!forceRefresh &&
+    //     (!currentFilters.search || currentFilters.search === '') &&
+    //     lastRequestKey.includes('"search":')) {
+    //   console.log('Bỏ qua yêu cầu khi xóa search term');
+    //   return;
+    // }
 
     // Kiểm tra cache
     if (!forceRefresh && resultsCache[requestKey] &&
@@ -246,6 +250,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     // Lưu yêu cầu hiện tại
     lastRequestKey = requestKey;
+
+    // Giảm thời gian debounce cho tìm kiếm để cải thiện trải nghiệm người dùng
+    const debounceTime = currentFilters.search ? 100 : 200;
 
     // Thêm debounce trước khi thực sự gọi API
     debounceTimer = setTimeout(async () => {
@@ -295,24 +302,29 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         const requestURL = `${API_URL}/products/light?${params.toString()}`;
 
-        // Chỉ log trong môi trường development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Gửi request API đến:', requestURL);
+        // Log trong cả môi trường development và production khi có search để debug vấn đề
+        if (currentFilters.search || process.env.NODE_ENV === 'development') {
+          console.log('Gửi request API tìm kiếm đến:', requestURL);
           console.log('Chi tiết params:', Object.fromEntries(params.entries()));
         }
 
         const response = await axios.get<LightProductsApiResponse>(`${API_URL}/products/light`, { params });
 
-        if (process.env.NODE_ENV === 'development') {
+        if (currentFilters.search || process.env.NODE_ENV === 'development') {
           console.log('Nhận response từ API:', response.status, response.statusText);
+          if (response.data && response.data.products) {
+            console.log(`Tìm thấy ${response.data.products.length} sản phẩm từ API`);
+          }
         }
 
         if (response.data && response.data.products) {
-           // Lưu kết quả vào cache
-           resultsCache[requestKey] = {
-             timestamp: Date.now(),
-             data: response.data
-           };
+           // Lưu kết quả vào cache chỉ khi không phải request tìm kiếm
+           if (!currentFilters.search) {
+             resultsCache[requestKey] = {
+               timestamp: Date.now(),
+               data: response.data
+             };
+           }
 
            // Đảm bảo sản phẩm có thông tin chi tiết promotion đầy đủ
            const productsWithId = response.data.products.map(p => {
@@ -337,15 +349,21 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
              return product;
            });
 
+           // Log kết quả tìm kiếm cho debugging
+           if (currentFilters.search) {
+             console.log(`Kết quả tìm kiếm cho "${currentFilters.search}": Tìm thấy ${productsWithId.length} sản phẩm`);
+             if (productsWithId.length > 0) {
+               console.log('Danh sách sản phẩm tìm thấy:', productsWithId.map(p => p.name));
+             } else {
+               console.log(`Không tìm thấy sản phẩm nào với từ khóa "${currentFilters.search}"`);
+             }
+           }
+
            setProducts(productsWithId);
            setTotalProducts(response.data.total);
            setCurrentPage(response.data.page);
            setItemsPerPage(response.data.limit);
            setTotalPages(response.data.totalPages);
-
-           // Chỉ log trong môi trường development
-           if (process.env.NODE_ENV === 'development') {
-           }
 
            // Kiểm tra sản phẩm có campaign không
            if (currentFilters.campaignId) {
@@ -397,7 +415,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       } finally {
         setLoading(false);
       }
-    }, 200); // Giảm debounce xuống 200ms để cải thiện tốc độ phản hồi
+    }, debounceTime); // Giảm debounce cho tìm kiếm
   }, [currentPage, itemsPerPage, filters]);
 
   // Thêm biến để theo dõi timer debounce cho setFilters
@@ -409,38 +427,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (process.env.NODE_ENV === 'development') {
       console.log('setFilters called with:', newFilters, 'skipFetch:', skipFetch);
       console.log('Current filters before update:', filters);
-
-      // Xử lý đặc biệt cho các key có giá trị undefined
-      Object.keys(newFilters).forEach(key => {
-        if (newFilters[key as keyof ShopProductFilters] === undefined) {
-          console.log(`Removing ${key} from filters`);
-        }
-      });
     }
 
-    // Kiểm tra xem có thay đổi thực sự không
-    let hasRealChanges = false;
-    Object.entries(newFilters).forEach(([key, value]) => {
-      const currentValue = filters[key as keyof ShopProductFilters];
-
-      // Xử lý đặc biệt cho trường hợp search
-      if (key === 'search') {
-        // Nếu cả hai đều undefined hoặc empty string, coi như không có thay đổi
-        if ((!value || value === '') && (!currentValue || currentValue === '')) {
-          return;
-        }
-      }
-
-      if (currentValue !== value) {
-        hasRealChanges = true;
-      }
-    });
-
-    // Nếu không có thay đổi thực sự, bỏ qua
-    if (!hasRealChanges && !skipFetch) {
-      console.log('Không có thay đổi thực sự trong filters, bỏ qua');
-      return;
-    }
+    // Force refresh khi có tìm kiếm
+    const hasSearchChange = 'search' in newFilters && newFilters.search !== filters.search;
 
     const updatedFilters = { ...filters, ...newFilters };
 
@@ -466,9 +456,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       // Sử dụng debounce để tránh gọi API liên tục
       const timer = setTimeout(() => {
         // Fetch products with the new filters and reset page
-        fetchProducts(1, itemsPerPage, updatedFilters, true); // Force refresh to ensure data is reloaded
+        // Force refresh khi có thay đổi về tìm kiếm
+        fetchProducts(1, itemsPerPage, updatedFilters, hasSearchChange);
         setSetFiltersDebounceTimer(null);
-      }, 300); // Debounce 300ms
+      }, hasSearchChange ? 100 : 300); // Giảm debounce khi tìm kiếm
 
       setSetFiltersDebounceTimer(timer);
     }

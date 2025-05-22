@@ -276,14 +276,6 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     const processedTerm = searchTerm.trim();
     console.log('Submitting search with term:', processedTerm);
 
-    // Kiểm tra nếu từ khóa có chứa dấu gạch dưới
-    if (processedTerm.includes('_')) {
-      console.log('Search term contains underscore, handling special case');
-
-      // Chúng ta không cần hiển thị alert nữa - việc tìm kiếm đã được cải thiện ở backend
-      // Chỉ cần gửi từ khóa gốc lên server, server sẽ tự động xử lý
-    }
-
     // Gửi từ khóa tìm kiếm lên server, server đã được cải thiện để xử lý từ khóa có dấu gạch dưới
     onSearch(processedTerm);
   };
@@ -296,45 +288,35 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     }
   };
 
-  // Debounce search submission
+  // Debounce search submission - cải tiến xử lý debounce tìm kiếm
   useEffect(() => {
-    // Chỉ áp dụng debounce nếu từ khóa tìm kiếm có ít nhất 2 ký tự
-    if (searchTerm.trim().length >= 2) {
-      const handler = setTimeout(() => {
-        // Only call onSearch if the searchTerm in state differs from the filter in context
-        if (searchTerm.trim() !== filters.search) {
-          console.log('Debounced search triggered with term:', searchTerm.trim());
+    // Tạo timeout cho debounce
+    const handler = setTimeout(() => {
+      // Chỉ gọi onSearch nếu searchTerm khác với filters.search
+      // Bỏ điều kiện 2 ký tự để mọi từ khóa đều được tìm kiếm
+      if (searchTerm.trim() !== filters.search) {
+        console.log('Debounced search triggered with term:', searchTerm.trim());
 
-          // Cập nhật URL trước khi gọi onSearch
-          const url = new URL(window.location.href);
+        // Cập nhật URL trước khi gọi onSearch
+        const url = new URL(window.location.href);
+        if (searchTerm.trim()) {
           url.searchParams.set('search', searchTerm.trim());
-
-          // Cập nhật URL mà không gây reload trang
-          window.history.replaceState({}, '', url.toString());
-
-          // Sau đó gọi onSearch
-          onSearch(searchTerm.trim());
+        } else {
+          url.searchParams.delete('search');
         }
-      }, 500); // Adjust debounce time as needed (e.g., 500ms)
 
-      return () => {
-        clearTimeout(handler);
-      };
-    } else if (searchTerm.trim() === '' && filters.search) {
-      // Nếu người dùng xóa hết từ khóa tìm kiếm, reset tìm kiếm và xóa tham số search từ URL
-      console.log('Search term cleared, resetting search');
+        // Cập nhật URL mà không gây reload trang
+        window.history.replaceState({}, '', url.toString());
 
-      // Xóa tham số search từ URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('search');
+        // Sau đó gọi onSearch
+        onSearch(searchTerm.trim());
+      }
+    }, 500); // Giữ debounce 500ms cho tất cả trường hợp
 
-      // Cập nhật URL mà không gây reload trang
-      window.history.replaceState({}, '', url.toString());
-
-      // Sau đó gọi onSearch
-      onSearch('');
-    }
-  }, [searchTerm, onSearch, filters.search, router]);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm, onSearch, filters.search]);
 
 
   // Updated Reset Filters Handler

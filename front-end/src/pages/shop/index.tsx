@@ -216,8 +216,34 @@ export default function Shop() {
 
   // Hàm xử lý tìm kiếm (sử dụng setFilters từ context)
   const handleSearch = (searchTerm: string) => {
-    console.log('handleSearch called with:', searchTerm);
-    setFilters({ search: searchTerm });
+    console.log('Shop page handleSearch called with:', searchTerm);
+    
+    // Cập nhật URL trực tiếp với searchTerm mới
+    const currentQuery = { ...router.query };
+    
+    if (searchTerm) {
+      currentQuery.search = searchTerm;
+    } else {
+      delete currentQuery.search;
+    }
+    
+    // Xóa page khi tìm kiếm để quay về trang 1
+    delete currentQuery.page;
+    
+    // Cập nhật URL
+    router.push({
+      pathname: router.pathname,
+      query: currentQuery
+    }, undefined, { shallow: true });
+    
+    // Cập nhật filters trực tiếp mà không chờ URL thay đổi
+    // Đây là điểm quan trọng để đảm bảo tìm kiếm hoạt động ngay lập tức
+    setFilters({ search: searchTerm }, false);
+    
+    // Force fetch products để đảm bảo luôn có kết quả mới nhất
+    setTimeout(() => {
+      fetchProducts(1, itemsPerPage, { ...filters, search: searchTerm }, true);
+    }, 100);
   };
 
   // Breadcrumb cho trang
