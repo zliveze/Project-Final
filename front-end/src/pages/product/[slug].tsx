@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { FiArrowLeft, FiMapPin } from 'react-icons/fi';
 // Toast container is now in DefaultLayout
 import { formatImageUrl } from '@/utils/imageUtils';
+import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 
 // Components
 import ProductSEO from '@/components/product/ProductSEO';
@@ -17,7 +18,6 @@ import ProductInventory from '@/components/product/ProductInventory';
 import ProductCategories, { CategoryWithImage } from '@/components/product/ProductCategories'; // Import CategoryWithImage
 import ProductPromotions from '@/components/product/ProductPromotions';
 import DefaultLayout from '@/layout/DefaultLayout';
-// import { useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { BrandWithLogo } from '@/components/product/ProductInfo'; // Import BrandWithLogo
 
 interface ProductPageProps {
@@ -52,8 +52,32 @@ const ProductPage: React.FC<ProductPageProps> = ({
 }) => {
   // ... (rest of component logic remains the same for now)
   const router = useRouter();
-  // We'll use the ShopProductContext if needed in the future
-  // const shopProductContext = useShopProduct();
+  const shopProductContext = useShopProduct();
+  const { logProductView } = shopProductContext || {};
+
+  // Theo dõi thời gian xem sản phẩm
+  const [startViewTime, setStartViewTime] = useState<number>(0);
+
+  // Ghi lại hoạt động xem sản phẩm khi component được mount
+  useEffect(() => {
+    if (isAuthenticated && product?._id && logProductView) {
+      // Ghi lại thời điểm bắt đầu xem
+      setStartViewTime(Date.now());
+      
+      // Ghi lại hoạt động xem sản phẩm
+      logProductView(product._id);
+    }
+    
+    // Khi component unmount, ghi lại thời gian đã xem
+    return () => {
+      if (isAuthenticated && product?._id && logProductView && startViewTime > 0) {
+        const timeSpent = Math.floor((Date.now() - startViewTime) / 1000); // Thời gian xem tính bằng giây
+        if (timeSpent > 5) { // Chỉ ghi lại nếu xem ít nhất 5 giây
+          logProductView(product._id, timeSpent);
+        }
+      }
+    };
+  }, [isAuthenticated, product?._id, logProductView]);
 
   // Process variants to include total stock information and combination inventory
   const processedVariants = React.useMemo(() => {
@@ -407,7 +431,12 @@ const ProductPage: React.FC<ProductPageProps> = ({
             </div>
             <div className="p-6">
               <RecommendedProducts
-                products={recommendedProducts}
+                type="similar"
+                productId={product._id}
+                title="Sản phẩm tương tự"
+                seeMoreLink="/shop"
+                seeMoreText="Xem thêm sản phẩm"
+                limit={8}
               />
             </div>
           </div>

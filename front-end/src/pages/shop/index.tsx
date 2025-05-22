@@ -82,8 +82,16 @@ export default function Shop() {
   const { categories } = useCategories();
   const { brands } = useBrands();
 
+  // Khai báo biến để ngăn chặn vòng lặp
+  const isUpdatingFromUrl = React.useRef(false);
+
   // Khai báo hàm xử lý URL parameters ở mức component để có thể sử dụng ở nhiều nơi
   const handleUrlParams = useCallback(() => {
+    // Ngăn chặn xử lý nếu đang trong quá trình cập nhật từ URL để tránh vòng lặp
+    if (isUpdatingFromUrl.current) {
+      return;
+    }
+
     const searchParams = new URLSearchParams(window.location.search);
     const newFiltersFromUrl: Partial<ShopProductFilters> = {};
 
@@ -114,17 +122,20 @@ export default function Shop() {
           newFiltersFromUrl[key] = value;
         }
       } else {
-        // Nếu tham số không có trên URL, đặt là undefined để có thể xóa khỏi state
-        newFiltersFromUrl[key] = undefined;
+        // Đặc biệt xử lý search rỗng
+        if (key === 'search' && searchParams.has(key)) {
+          newFiltersFromUrl[key] = '';
+        } else {
+          // Nếu tham số không có trên URL, đặt là undefined để có thể xóa khỏi state
+          newFiltersFromUrl[key] = undefined;
+        }
       }
     });
     
     // Logic đặc biệt: Nếu có campaignId hoặc eventId, chúng có thể cần được ưu tiên hoặc loại trừ lẫn nhau
-    // Ví dụ: nếu có campaignId, eventId có thể bị bỏ qua.
     if (newFiltersFromUrl.campaignId) {
         newFiltersFromUrl.eventId = undefined; // Campaign ưu tiên
     }
-    // (Logic tương tự có thể áp dụng nếu eventId ưu tiên hơn campaignId, hoặc nếu chúng có thể tồn tại song song)
 
     // So sánh newFiltersFromUrl với filters hiện tại trong context
     let hasChanged = false;
@@ -132,14 +143,20 @@ export default function Shop() {
     const allKeysToCheck = Array.from(new Set([...Object.keys(newFiltersFromUrl), ...Object.keys(filters)])) as (keyof ShopProductFilters)[];
 
     for (const key of allKeysToCheck) {
-      const oldValue = filters[key];
-      const newValue = newFiltersFromUrl[key];
-
-      // Xử lý trường hợp search: nếu cả hai đều là empty/undefined thì không coi là thay đổi
-      if (key === 'search' && (oldValue === undefined || oldValue === '') && (newValue === undefined || newValue === '')) {
+      // Xử lý đặc biệt cho search: chuỗi rỗng và undefined đều được coi là trống
+      if (key === 'search') {
+        const oldValueEmpty = !filters[key] || filters[key] === '';
+        const newValueEmpty = !newFiltersFromUrl[key] || newFiltersFromUrl[key] === '';
+        
+        if (oldValueEmpty !== newValueEmpty) {
+          hasChanged = true;
+          break;
+        }
         continue;
       }
-      if (String(oldValue ?? '') !== String(newValue ?? '')) { // So sánh giá trị dạng string để xử lý undefined/null/empty string
+      
+      // Các trường dữ liệu khác
+      if (String(filters[key] ?? '') !== String(newFiltersFromUrl[key] ?? '')) {
         hasChanged = true;
         break;
       }
@@ -149,8 +166,14 @@ export default function Shop() {
       if (process.env.NODE_ENV === 'development') {
         console.log('URL params changed or initial load. Updating filters from URL:', newFiltersFromUrl);
       }
-      // false = không bỏ qua fetch, để context tự quyết định fetch dựa trên logic debounce/cache của nó
+      // Đánh dấu là đang cập nhật từ URL
+      isUpdatingFromUrl.current = true;
       setFilters(newFiltersFromUrl, false); 
+      
+      // Reset cờ báo sau 300ms để cho phép các thay đổi hoàn thành
+      setTimeout(() => {
+        isUpdatingFromUrl.current = false;
+      }, 300);
     }
   }, [filters, setFilters]); 
 
@@ -183,30 +206,56 @@ export default function Shop() {
   }, [filters]);
 
   // Hàm xử lý thay đổi bộ lọc
-  const handleFilterChange = (newFiltersFromShopFilters: Partial<ShopProductFilters>) => {
-    const currentRouterQuery = { ...router.query };
-    const combinedQuery: Record<string, any> = { ...currentRouterQuery };
+  const handleFilterChange = useCallback((newFiltersFromShopFilters: Partial<ShopProductFilters>) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Shop.tsx: handleFilterChange called with:', newFiltersFromShopFilters);
+    }
+    isUpdatingFromUrl.current = true; // Đánh dấu để handleUrlParams không chạy lại ngay
 
-    Object.entries(newFiltersFromShopFilters).forEach(([key, value]) => {
+    // Gọi setFilters từ context để cập nhật state và có thể trigger fetch (context sẽ debounce)
+    // false nghĩa là không skipFetch, context sẽ quyết định có fetch hay không
+    setFilters(newFiltersFromShopFilters, false);
+
+    // Tạo query mới cho URL
+    const currentRouterQuery = { ...router.query };
+    const combinedQuery: Record<string, any> = {}; // Bắt đầu với object rỗng để chỉ chứa các filter active
+
+    // Merge newFiltersFromShopFilters vào filters hiện tại của context để có bộ filter đầy đủ nhất
+    const effectiveFilters = { ...filters, ...newFiltersFromShopFilters };
+
+    Object.entries(effectiveFilters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && String(value).trim() !== '') {
         combinedQuery[key] = String(value);
-      } else {
-        delete combinedQuery[key];
       }
     });
+    
+    // Xóa các filter đã bị clear (value là undefined hoặc rỗng) trong newFiltersFromShopFilters
+    Object.entries(newFiltersFromShopFilters).forEach(([key, value]) => {
+        if (value === undefined || value === null || String(value).trim() === '') {
+            delete combinedQuery[key];
+        }
+    });
 
-    // Xóa page query param khi filter thay đổi để bắt đầu từ trang 1
+
+    // Luôn reset về trang 1 khi filter thay đổi
     delete combinedQuery.page;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Shop.tsx: Pushing to router with query:', combinedQuery);
+    }
 
     router.push({
       pathname: router.pathname,
       query: combinedQuery,
-    }, undefined, { shallow: true });
-    
-    // Không gọi setFilters trực tiếp ở đây nữa,
-    // useEffect sẽ lắng nghe routeChangeComplete và gọi handleUrlParams,
-    // handleUrlParams sẽ gọi setFilters từ context.
-  };
+    }, undefined, { shallow: true })
+    .finally(() => {
+        // Đảm bảo isUpdatingFromUrl được reset sau một khoảng thời gian ngắn
+        // để cho phép handleUrlParams hoạt động trở lại sau khi push hoàn tất.
+        setTimeout(() => {
+            isUpdatingFromUrl.current = false;
+        }, 50); // Thời gian chờ ngắn
+    });
+
+  }, [router, setFilters, itemsPerPage, filters]); // Thêm filters vào dependencies
 
   // Hàm xử lý thay đổi trang (sử dụng changePage từ context)
   const handlePageChange = (page: number) => {
@@ -215,36 +264,36 @@ export default function Shop() {
   };
 
   // Hàm xử lý tìm kiếm (sử dụng setFilters từ context)
-  const handleSearch = (searchTerm: string) => {
-    console.log('Shop page handleSearch called with:', searchTerm);
-    
-    // Cập nhật URL trực tiếp với searchTerm mới
-    const currentQuery = { ...router.query };
-    
-    if (searchTerm) {
-      currentQuery.search = searchTerm;
-    } else {
-      delete currentQuery.search;
+  const handleSearch = useCallback((searchTerm: string) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Shop.tsx: handleSearch called with:', searchTerm);
     }
-    
-    // Xóa page khi tìm kiếm để quay về trang 1
-    delete currentQuery.page;
-    
+    isUpdatingFromUrl.current = true;
+
+    // Gọi setFilters của context. Context sẽ tự động chuẩn hóa search term ('' thành undefined)
+    // và trigger fetchProducts với forceRefresh nếu search term thay đổi.
+    // false = không skipFetch
+    setFilters({ search: searchTerm }, false);
+
     // Cập nhật URL
+    const currentRouterQuery = { ...router.query };
+    if (searchTerm.trim()) {
+      currentRouterQuery.search = searchTerm.trim();
+    } else {
+      delete currentRouterQuery.search;
+    }
+    delete currentRouterQuery.page; // Reset về trang 1
+
     router.push({
       pathname: router.pathname,
-      query: currentQuery
-    }, undefined, { shallow: true });
-    
-    // Cập nhật filters trực tiếp mà không chờ URL thay đổi
-    // Đây là điểm quan trọng để đảm bảo tìm kiếm hoạt động ngay lập tức
-    setFilters({ search: searchTerm }, false);
-    
-    // Force fetch products để đảm bảo luôn có kết quả mới nhất
-    setTimeout(() => {
-      fetchProducts(1, itemsPerPage, { ...filters, search: searchTerm }, true);
-    }, 100);
-  };
+      query: currentRouterQuery,
+    }, undefined, { shallow: true })
+    .finally(() => {
+      setTimeout(() => {
+        isUpdatingFromUrl.current = false;
+      }, 50);
+    });
+  }, [router, setFilters, itemsPerPage]); // loại bỏ filters và fetchProducts khỏi dependencies
 
   // Breadcrumb cho trang
   // Breadcrumb cho trang
@@ -471,48 +520,33 @@ export default function Shop() {
                 <button
                   className="text-[#d53f8c] hover:underline text-sm"
                   onClick={() => {
-                    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
-                    const url = new URL(window.location.href);
-                    const pathname = url.pathname;
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('Shop.tsx: "Xóa tất cả bộ lọc" (active filters) clicked');
+                    }
+                    isUpdatingFromUrl.current = true;
 
-                    // Tạm thời tắt lắng nghe sự kiện route change để tránh gọi lại handleUrlParams
-                    router.events.off('routeChangeComplete', handleRouteChange);
+                    const allFiltersResetPayload: ShopProductFilters = {
+                      search: undefined, brandId: undefined, categoryId: undefined,
+                      eventId: undefined, campaignId: undefined, status: undefined,
+                      minPrice: undefined, maxPrice: undefined, tags: undefined,
+                      skinTypes: undefined, concerns: undefined, isBestSeller: undefined,
+                      isNew: undefined, isOnSale: undefined, hasGifts: undefined,
+                      sortBy: undefined, sortOrder: undefined,
+                    };
+                    
+                    // Gọi setFilters của context, không skip fetch để context tự xử lý
+                    setFilters(allFiltersResetPayload, false);
 
-                    // Xóa tất cả tham số query và đợi hoàn thành
-                    router.replace(pathname, undefined, { shallow: true })
-                      .then(() => {
-                        // Reset tất cả filter về undefined
-                        setFilters({
-                          search: undefined,
-                          brandId: undefined,
-                          categoryId: undefined,
-                          status: undefined,
-                          minPrice: undefined,
-                          maxPrice: undefined,
-                          tags: undefined,
-                          skinTypes: undefined,
-                          concerns: undefined,
-                          isBestSeller: undefined,
-                          isNew: undefined,
-                          isOnSale: undefined,
-                          hasGifts: undefined,
-                          eventId: undefined,
-                          campaignId: undefined,
-                          sortBy: undefined,
-                          sortOrder: undefined
-                        }, true); // Thêm tham số skipFetch=true để tránh gọi API ngay lập tức
-
-                        // Sau đó gọi fetchProducts để cập nhật dữ liệu
+                    // Xóa tất cả query params khỏi URL
+                    router.replace(router.pathname, undefined, { shallow: true })
+                    .finally(() => {
                         setTimeout(() => {
-                          // Bật lại lắng nghe sự kiện route change
-                          router.events.on('routeChangeComplete', handleRouteChange);
-                          // Fetch products với filters đã reset
-                          fetchProducts(1, itemsPerPage, {}, true);
-                        }, 0);
-                      });
+                            isUpdatingFromUrl.current = false;
+                        }, 50);
+                    });
                   }}
                 >
-                  Xóa tất cả bộ lọc
+                  Xóa tất cả
                 </button>
               </div>
             )}
@@ -552,48 +586,32 @@ export default function Shop() {
                 <button
                   className="bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1] text-white px-4 py-2 rounded-md transition-colors"
                   onClick={() => {
-                    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
-                    const url = new URL(window.location.href);
-                    const pathname = url.pathname;
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('Shop.tsx: "Xóa tất cả bộ lọc" (no products) clicked');
+                    }
+                    isUpdatingFromUrl.current = true;
+                    const allFiltersResetPayload: ShopProductFilters = {
+                      search: undefined, brandId: undefined, categoryId: undefined,
+                      eventId: undefined, campaignId: undefined, status: undefined,
+                      minPrice: undefined, maxPrice: undefined, tags: undefined,
+                      skinTypes: undefined, concerns: undefined, isBestSeller: undefined,
+                      isNew: undefined, isOnSale: undefined, hasGifts: undefined,
+                      sortBy: undefined, sortOrder: undefined,
+                    };
+                    
+                    // Gọi setFilters của context, không skip fetch
+                    setFilters(allFiltersResetPayload, false);
 
-                    // Tạm thời tắt lắng nghe sự kiện route change để tránh gọi lại handleUrlParams
-                    router.events.off('routeChangeComplete', handleRouteChange);
-
-                    // Xóa tất cả tham số query và đợi hoàn thành
-                    router.replace(pathname, undefined, { shallow: true })
-                      .then(() => {
-                        // Reset tất cả filter về undefined
-                        setFilters({
-                          search: undefined,
-                          brandId: undefined,
-                          categoryId: undefined,
-                          status: undefined,
-                          minPrice: undefined,
-                          maxPrice: undefined,
-                          tags: undefined,
-                          skinTypes: undefined,
-                          concerns: undefined,
-                          isBestSeller: undefined,
-                          isNew: undefined,
-                          isOnSale: undefined,
-                          hasGifts: undefined,
-                          eventId: undefined,
-                          campaignId: undefined,
-                          sortBy: undefined,
-                          sortOrder: undefined
-                        }, true); // Thêm tham số skipFetch=true để tránh gọi API ngay lập tức
-
-                        // Sau đó gọi fetchProducts để cập nhật dữ liệu
+                    // Xóa tất cả query params khỏi URL
+                    router.replace(router.pathname, undefined, { shallow: true })
+                    .finally(() => {
                         setTimeout(() => {
-                          // Bật lại lắng nghe sự kiện route change
-                          router.events.on('routeChangeComplete', handleRouteChange);
-                          // Fetch products với filters đã reset
-                          fetchProducts(1, itemsPerPage, {}, true);
-                        }, 0);
-                      });
+                            isUpdatingFromUrl.current = false;
+                        }, 50);
+                    });
                   }}
                 >
-                  Xóa tất cả bộ lọc
+                  Xóa tất cả
                 </button>
               </div>
             ) : (

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -12,6 +12,7 @@ import { CloudinaryModule } from '../cloudinary';
 import { EventsModule } from '../events/events.module'; // Import EventsModule
 import { WebsocketModule } from '../websocket/websocket.module'; // Import WebsocketModule
 import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
+import { RecommendationsModule } from '../recommendations/recommendations.module'; // Import RecommendationsModule
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module'; // Import Campa
     EventsModule, // Add EventsModule here
     WebsocketModule, // Add WebsocketModule here
     CampaignsModule, // Add CampaignsModule here
+    forwardRef(() => RecommendationsModule), // Add RecommendationsModule with circular dependency protection
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {

@@ -14,6 +14,7 @@ import { EventsProvider } from './EventsContext';
 import { CampaignProvider } from './CampaignContext'; // Import CampaignProvider
 import { AdminOrderProvider } from './AdminOrderContext'; // Import AdminOrderProvider
 import { UserContextProvider } from './user/UserContextProvider';
+import { RecommendationProvider } from './user/RecommendationContext'; // Import RecommendationProvider
 
 export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -87,7 +88,8 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   }, [router]);
 
   // --- Cấu trúc provider cơ bản ---
-  let providers = (
+  // Các provider này áp dụng cho tất cả các trang
+  const baseProviders = (
     <AuthProvider>
       <AdminAuthProvider>
         <NotificationProvider>
@@ -96,9 +98,11 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
               <CategoryProvider>
                 <BranchProvider>
                   <CampaignProvider>
-                    <UserContextProvider>
-                      {children}
-                    </UserContextProvider>
+                    <RecommendationProvider>
+                      <UserContextProvider>
+                        {children}
+                      </UserContextProvider>
+                    </RecommendationProvider>
                   </CampaignProvider>
                 </BranchProvider>
               </CategoryProvider>
@@ -109,71 +113,58 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthProvider>
   );
 
-  // --- Áp dụng các provider theo nhu cầu ---
-  // Đảm bảo EventsProvider luôn có AdminAuthProvider phía trên
-  if (currentPageType === 'event') {
-    providers = (
-      <AuthProvider>
-        <AdminAuthProvider>
-          <NotificationProvider>
-            <BannerProvider>
-              <BrandProvider>
-                <CategoryProvider>
-                  <BranchProvider>
-                    <CampaignProvider>
-                      <ProductProvider>
-                        <EventsProvider>
-                          <UserContextProvider>
-                            {children}
-                          </UserContextProvider>
-                        </EventsProvider>
-                      </ProductProvider>
-                    </CampaignProvider>
-                  </BranchProvider>
-                </CategoryProvider>
-              </BrandProvider>
-            </BannerProvider>
-          </NotificationProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
-    );
-    return providers;
+  // Xác định các provider cụ thể cho từng trang
+  // Sử dụng router.pathname để xác định trang hiện tại một cách trực tiếp hơn
+  const currentPath = router.pathname;
+  let pageSpecificProviders = baseProviders; // Bắt đầu với base providers
+
+  if (currentPath.startsWith('/admin/products') || currentPath.startsWith('/admin/campaigns')) {
+    pageSpecificProviders = <ProductProvider>{pageSpecificProviders}</ProductProvider>;
+  }
+  
+  if (currentPath.startsWith('/admin/events')) {
+     // Logic cho trang admin/events, có thể cần ProductProvider và EventsProvider
+     pageSpecificProviders = (
+        <ProductProvider>
+            <EventsProvider>
+                {pageSpecificProviders}
+            </EventsProvider>
+        </ProductProvider>
+     );
   }
 
-  // Các trang khác sử dụng cấu trúc provider theo điều kiện
-  if (currentPageType === 'admin' || currentPageType === 'campaign') {
-    providers = <ProductProvider>{providers}</ProductProvider>;
-  }
 
-  if (currentPageType === 'shop' || currentPageType === 'product_detail') {
-    providers = (
+  if (currentPath.startsWith('/shop') || currentPath.startsWith('/product')) {
+    pageSpecificProviders = (
       <EventsProvider>
         <ShopProductProvider>
-          {providers}
+          {pageSpecificProviders}
         </ShopProductProvider>
       </EventsProvider>
     );
   }
 
-  if (currentPageType === 'voucher') {
-    providers = (
-      <EventsProvider>
+  if (currentPath.startsWith('/admin/vouchers')) {
+    pageSpecificProviders = (
+      <EventsProvider> {/* EventsProvider có thể cần thiết cho VoucherProvider */}
         <VoucherProvider>
-          {providers}
+          {pageSpecificProviders}
         </VoucherProvider>
       </EventsProvider>
     );
   }
 
-  if (currentPageType === 'order') {
-    providers = (
+  if (currentPath.startsWith('/admin/orders')) {
+    pageSpecificProviders = (
       <AdminOrderProvider>
-        {providers}
+        {pageSpecificProviders}
       </AdminOrderProvider>
     );
   }
+  
+  // Các trường hợp khác có thể được thêm vào đây
 
-  return providers;
+  return pageSpecificProviders;
 };
 
 export { useAuth } from './AuthContext';
@@ -194,6 +185,7 @@ export { useUserPayment } from './user/UserPaymentContext'; // Export useUserPay
 export { useOrder } from './user/OrderContext'; // Export useOrder
 export { useUserReview } from './user/UserReviewContext'; // Export useUserReview
 export { useAdminUserReview } from './AdminUserReviewContext'; // Export useAdminUserReview
+export { useRecommendation } from './user/RecommendationContext'; // Export useRecommendation hook
 
 // Alias cho useBrands (để tương thích ngược)
 export const useBrand = useBrands;

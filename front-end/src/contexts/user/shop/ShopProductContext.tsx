@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../AuthContext';
 
 // Định nghĩa thêm campaign và event cho sản phẩm
 export interface ProductPromotion {
@@ -112,6 +113,17 @@ interface ShopProductContextType {
   concernOptions: string[]; // Updated type
   addToWishlist?: (productId: string) => Promise<boolean>;
   addToCart?: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
+  logSearch: (searchQuery: string) => Promise<void>;
+  logProductView: (productId: string, timeSpent?: number) => Promise<void>;
+  logProductClick: (productId: string) => Promise<void>;
+  logFilterUse: (filters: {
+    price?: { min?: number; max?: number };
+    categoryIds?: string[];
+    brandIds?: string[];
+    tags?: string[];
+    skinType?: string[];
+    concerns?: string[];
+  }) => Promise<void>;
 }
 
 // API configuration
@@ -148,7 +160,11 @@ export const useShopProduct = (): ShopProductContextType => {
       skinTypeOptions: [], // Updated type
       concernOptions: [], // Updated type
       addToWishlist: async () => { console.warn('ShopProductProvider not available.'); return false; },
-      addToCart: async () => { console.warn('ShopProductProvider not available.'); return false; }
+      addToCart: async () => { console.warn('ShopProductProvider not available.'); return false; },
+      logSearch: async () => { console.warn('ShopProductProvider not available.'); },
+      logProductView: async () => { console.warn('ShopProductProvider not available.'); },
+      logProductClick: async () => { console.warn('ShopProductProvider not available.'); },
+      logFilterUse: async () => { console.warn('ShopProductProvider not available.'); }
     };
   }
   return context;
@@ -181,6 +197,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [selectedCampaign, setSelectedCampaign] = useState<UserCampaign | null>(null);
   const [skinTypeOptions, setSkinTypeOptions] = useState<string[]>([]); // Updated type
   const [concernOptions, setConcernOptions] = useState<string[]>([]); // Updated type
+  const { isAuthenticated, user } = useAuth();
 
   const fetchProducts = useCallback(async (
     page: number = currentPage,
@@ -192,25 +209,36 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (currentFilters.search) {
       forceRefresh = true;
     }
-
-    // Thêm kiểm tra để tránh gọi API liên tục khi tham số giống với lần gọi trước
-    const filterString = JSON.stringify(currentFilters);
+    
+    // Sử dụng JSON.stringify với sắp xếp key để đảm bảo tạo chuỗi nhất quán
+    const sortedFilters = { ...currentFilters };
+    const filterString = JSON.stringify(sortedFilters, Object.keys(sortedFilters).sort());
     const requestKey = `${page}-${limit}-${filterString}`;
+    
+    // Kiểm tra nếu filters trống (trường hợp reset)
+    const isEmptyFilters = Object.values(currentFilters).every(val => val === undefined || val === null || val === '');
+    
+    // Thêm log để debug
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`fetchProducts gọi với key: ${requestKey}`);
+      console.log(`Last request key: ${lastRequestKey}`);
+      console.log(`Force refresh: ${forceRefresh}`);
+      console.log(`Is empty filters: ${isEmptyFilters}`);
+    }
 
     // Kiểm tra nếu yêu cầu này giống với yêu cầu cuối cùng và không yêu cầu refresh
     if (!forceRefresh && requestKey === lastRequestKey) {
       console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
       return;
     }
-
-    // Bỏ kiểm tra đặc biệt cho trường hợp search rỗng vì có thể gây bỏ sót request
-    // if (!forceRefresh &&
-    //     (!currentFilters.search || currentFilters.search === '') &&
-    //     lastRequestKey.includes('"search":')) {
-    //   console.log('Bỏ qua yêu cầu khi xóa search term');
-    //   return;
-    // }
-
+    
+    // Lưu request key hiện tại cho lần so sánh tiếp theo
+    // Điều này giúp ngăn chặn vòng lặp vô hạn
+    const previousRequestKey = lastRequestKey;
+    lastRequestKey = requestKey;
+    
+    // Lưu ý: Không kiểm tra đặc biệt cho empty filters nữa vì đã kiểm tra requestKey
+    
     // Kiểm tra cache
     if (!forceRefresh && resultsCache[requestKey] &&
         (Date.now() - resultsCache[requestKey].timestamp) < CACHE_TTL) {
@@ -248,9 +276,6 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       debounceTimer = null;
     }
 
-    // Lưu yêu cầu hiện tại
-    lastRequestKey = requestKey;
-
     // Giảm thời gian debounce cho tìm kiếm để cải thiện trải nghiệm người dùng
     const debounceTime = currentFilters.search ? 100 : 200;
 
@@ -262,6 +287,13 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       // Chỉ log trong môi trường development
       if (process.env.NODE_ENV === 'development') {
         console.log(`Fetching products for page ${page}, limit ${limit} with filters:`, currentFilters);
+        
+        // Check các giá trị undefined/null để debug
+        Object.entries(currentFilters).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === '') {
+            console.log(`Filter ${key} có giá trị trống:`, value);
+          }
+        });
 
         // Kiểm tra và log thông tin campaignId nếu có
         if (currentFilters.campaignId) {
@@ -423,45 +455,87 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Function to update filters and trigger fetch
   const setFilters = useCallback((newFilters: Partial<ShopProductFilters>, skipFetch: boolean = false) => {
-    // Chỉ log trong môi trường development
     if (process.env.NODE_ENV === 'development') {
-      console.log('setFilters called with:', newFilters, 'skipFetch:', skipFetch);
-      console.log('Current filters before update:', filters);
+      console.log('[ShopProductContext] setFilters called with:', newFilters, 'skipFetch:', skipFetch);
+      console.log('[ShopProductContext] Current filters before update:', filters);
     }
 
-    // Force refresh khi có tìm kiếm
-    const hasSearchChange = 'search' in newFilters && newFilters.search !== filters.search;
+    const isResettingAll = Object.values(newFilters).every(v => v === undefined);
+    const isSettingEmptySearch = 'search' in newFilters && newFilters.search === '';
 
-    const updatedFilters = { ...filters, ...newFilters };
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Updated filters after merge:', updatedFilters);
+    // Tạo một bản sao của newFilters để chuẩn hóa
+    const normalizedNewFilters = { ...newFilters };
+    if (isSettingEmptySearch) {
+      normalizedNewFilters.search = undefined; // Chuẩn hóa search rỗng thành undefined
     }
 
-    // Reset page to 1 when filters change
-    setCurrentPage(1);
-    setFiltersState(updatedFilters);
+    // Kiểm tra sự thay đổi thực sự
+    let hasChanged = false;
+    const finalUpdatedFilters = { ...filters }; // Bắt đầu với filters hiện tại
 
-    // Hủy timer debounce cũ nếu có
+    for (const key in normalizedNewFilters) {
+      const filterKey = key as keyof ShopProductFilters;
+      const newValue = normalizedNewFilters[filterKey];
+      const oldValue = filters[filterKey];
+
+      // Nếu giá trị mới khác giá trị cũ (kể cả undefined vs giá trị thực)
+      if (String(oldValue ?? '') !== String(newValue ?? '')) {
+        finalUpdatedFilters[filterKey] = newValue;
+        hasChanged = true;
+      }
+    }
+    
+    let filtersToSet = { ...finalUpdatedFilters }; // Sử dụng bản sao để tránh thay đổi finalUpdatedFilters nếu không cần thiết
+
+    // Nếu đang reset tất cả và không có thay đổi nào khác, vẫn coi là có thay đổi
+    if (isResettingAll && !hasChanged && Object.keys(filters).some(k => filters[k as keyof ShopProductFilters] !== undefined)) {
+        hasChanged = true;
+        // Tạo một object hoàn toàn mới với tất cả các key có giá trị undefined
+        const allKeys = Object.keys(filters) as Array<keyof ShopProductFilters>;
+        const completelyResetFilters: Partial<ShopProductFilters> = {};
+        allKeys.forEach(key => {
+            completelyResetFilters[key] = undefined;
+        });
+        // Gán thêm các key từ newFilters (nếu có, mặc dù trong trường hợp reset thì newFilters cũng là undefined)
+        Object.keys(normalizedNewFilters).forEach(key => {
+            completelyResetFilters[key as keyof ShopProductFilters] = undefined;
+        });
+        filtersToSet = completelyResetFilters;
+    }
+
+
+    if (!hasChanged) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ShopProductContext] No actual change in filters, skipping update.');
+      }
+      return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ShopProductContext] Filters to set state with:', filtersToSet);
+    }
+
+    setCurrentPage(1); // Luôn reset về trang 1 khi filter thay đổi
+    setFiltersState(filtersToSet);
+
     if (setFiltersDebounceTimer) {
       clearTimeout(setFiltersDebounceTimer);
     }
 
-    // Chỉ gọi fetchProducts nếu không được yêu cầu bỏ qua
     if (!skipFetch) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Calling fetchProducts with new filters (debounced)');
+        console.log('[ShopProductContext] Calling fetchProducts with new filters (debounced)');
       }
+      
+      const searchChanged = 'search' in normalizedNewFilters; // Kiểm tra search có trong payload không, kể cả khi là undefined
 
-      // Sử dụng debounce để tránh gọi API liên tục
-      const timer = setTimeout(() => {
-        // Fetch products with the new filters and reset page
-        // Force refresh khi có thay đổi về tìm kiếm
-        fetchProducts(1, itemsPerPage, updatedFilters, hasSearchChange);
+      const newTimer = setTimeout(() => {
+        // Quan trọng: Truyền filtersToSet (là state đã được tính toán mới nhất) vào fetchProducts
+        fetchProducts(1, itemsPerPage, filtersToSet, searchChanged || isResettingAll);
         setSetFiltersDebounceTimer(null);
-      }, hasSearchChange ? 100 : 300); // Giảm debounce khi tìm kiếm
+      }, searchChanged ? 100 : 300); // Debounce ngắn hơn nếu search thay đổi
 
-      setSetFiltersDebounceTimer(timer);
+      setSetFiltersDebounceTimer(newTimer);
     }
   }, [filters, itemsPerPage, fetchProducts, setFiltersDebounceTimer]);
 
@@ -690,6 +764,168 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [filters.campaignId, fetchCampaign]);
 
+  // Ghi lại hoạt động tìm kiếm
+  const logSearch = async (searchQuery: string) => {
+    if (!isAuthenticated) return;
+
+    try {
+      // Sử dụng endpoint recommendations để log search
+      await axios.get(`${API_URL}/recommendations/search?query=${encodeURIComponent(searchQuery)}&limit=0`);
+    } catch (error) {
+      console.error('Error logging search activity:', error);
+    }
+  };
+
+  // Thêm vào giỏ hàng và đồng thời ghi lại hoạt động
+  const addToCart = async (productId: string, quantity: number = 1, variantId?: string): Promise<boolean> => {
+    if (!isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      return false;
+    }
+
+    try {
+      // Gọi API thêm vào giỏ hàng
+      const response = await axios.post(`${API_URL}/cart/items`, {
+        productId,
+        quantity,
+        variantId
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        toast.success('Đã thêm sản phẩm vào giỏ hàng', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light"
+        });
+
+        // Ghi lại hoạt động thêm vào giỏ hàng
+        try {
+          await axios.post(`${API_URL}/recommendations/log/add-to-cart/${productId}`, {
+            variantId
+          });
+        } catch (error) {
+          console.error('Error logging add to cart activity:', error);
+        }
+
+        return true;
+      } else {
+        toast.error('Không thể thêm sản phẩm vào giỏ hàng', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light"
+        });
+        return false;
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
+      toast.error(errorMessage, {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      console.error('Error adding product to cart:', error);
+      return false;
+    }
+  };
+
+  // Thêm vào danh sách yêu thích và đồng thời ghi lại hoạt động
+  const addToWishlist = async (productId: string): Promise<boolean> => {
+    if (!isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập để thêm sản phẩm vào danh sách yêu thích', {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      return false;
+    }
+
+    try {
+      // Gọi API thêm vào wishlist
+      const response = await axios.post(`${API_URL}/wishlist/items`, {
+        productId
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        toast.success('Đã thêm sản phẩm vào danh sách yêu thích', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light"
+        });
+
+        // Ghi lại hoạt động thêm vào wishlist (không có endpoint riêng, có thể bỏ qua hoặc dùng click)
+        try {
+          await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {});
+        } catch (error) {
+          console.error('Error logging wishlist activity:', error);
+        }
+
+        return true;
+      } else {
+        toast.error('Không thể thêm sản phẩm vào danh sách yêu thích', {
+          position: "bottom-right",
+          autoClose: 3000,
+          theme: "light"
+        });
+        return false;
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Không thể thêm sản phẩm vào danh sách yêu thích';
+      toast.error(errorMessage, {
+        position: "bottom-right",
+        autoClose: 3000,
+        theme: "light"
+      });
+      console.error('Error adding product to wishlist:', error);
+      return false;
+    }
+  };
+
+  // Ghi lại hoạt động xem sản phẩm
+  const logProductView = async (productId: string, timeSpent?: number) => {
+    if (!isAuthenticated) return;
+
+    try {
+      await axios.post(`${API_URL}/recommendations/log/view/${productId}`, {
+        timeSpent
+      });
+    } catch (error) {
+      console.error('Error logging product view activity:', error);
+    }
+  };
+
+  // Ghi lại hoạt động click vào sản phẩm
+  const logProductClick = async (productId: string) => {
+    if (!isAuthenticated) return;
+
+    try {
+      await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {});
+    } catch (error) {
+      console.error('Error logging product click activity:', error);
+    }
+  };
+
+  // Ghi lại hoạt động sử dụng bộ lọc
+  const logFilterUse = async (filters: {
+    price?: { min?: number; max?: number };
+    categoryIds?: string[];
+    brandIds?: string[];
+    tags?: string[];
+    skinType?: string[];
+    concerns?: string[];
+  }) => {
+    if (!isAuthenticated) return;
+
+    try {
+      await axios.post(`${API_URL}/recommendations/log/filter`, filters);
+    } catch (error) {
+      console.error('Error logging filter use activity:', error);
+    }
+  };
+
   const contextValue: ShopProductContextType = {
     products,
     loading,
@@ -709,16 +945,12 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     fetchConcernOptions,
     skinTypeOptions,
     concernOptions,
-    addToWishlist: async (productId: string) => {
-      // Tạm thời implement giả cho method này
-      console.warn('addToWishlist chưa được triển khai. ProductId:', productId);
-      return Promise.resolve(false);
-    },
-    addToCart: async (productId: string, quantity: number, variantId?: string) => {
-      // Tạm thời implement giả cho method này
-      console.warn('addToCart chưa được triển khai. ProductId:', productId, 'quantity:', quantity, 'variantId:', variantId);
-      return Promise.resolve(false);
-    }
+    addToWishlist,
+    addToCart,
+    logSearch,
+    logProductView,
+    logProductClick,
+    logFilterUse
   };
 
   return (

@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { toast } from 'react-toastify';
 import { UserApiService } from '../UserApiService'; // Assuming correct path
 import { useAuth } from '../../AuthContext'; // Assuming correct path
+import axios from 'axios';
+
+// Define API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Define the structure of variant options
 export interface VariantOptions {
@@ -65,7 +69,14 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
             const items = await UserApiService.getWishlist();
             // console.log('Wishlist fetched successfully:', items);
-            setWishlistItems(items || []); // Ensure it's always an array
+
+            // Ensure variantId is always a string (not null)
+            const processedItems = items.map((item: any) => ({
+                ...item,
+                variantId: item.variantId || ''
+            }));
+
+            setWishlistItems(processedItems || []); // Ensure it's always an array
         } catch (err) {
             console.error('Error fetching wishlist:', err);
             const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách yêu thích.';
@@ -86,7 +97,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         fetchWishlist();
     }, [fetchWishlist]); // fetchWishlist includes dependencies
 
-    const addToWishlist = async (productId: string, variantId: string) => {
+    const addToWishlist = async (productId: string, variantId?: string) => {
         if (!isAuthenticated) {
             toast.error('Vui lòng đăng nhập để thêm vào danh sách yêu thích.', {
                 position: "bottom-right"
@@ -129,6 +140,15 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
             toast.success('Đã thêm vào danh sách yêu thích!', {
                  style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
             });
+
+            // Ghi lại hoạt động thêm vào danh sách yêu thích (sử dụng click endpoint)
+            try {
+                await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {
+                    variantId: variantIdToUse || undefined
+                });
+            } catch (error) {
+                console.error('Error logging wishlist activity:', error);
+            }
 
         } catch (err) {
             console.error('Error adding to wishlist:', err);

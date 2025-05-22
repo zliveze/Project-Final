@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 // Import dependencies thực tế
 import { useAuth } from '@/contexts/AuthContext'; // Điều chỉnh đường dẫn nếu cần
 import { useUserVoucher, VoucherApplyResult } from '@/hooks/useUserVoucher';
+import axios from 'axios';
 
 // Define API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -463,6 +464,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // API thành công, fetch lại toàn bộ giỏ hàng để cập nhật UI với dữ liệu mới nhất
       await fetchAndPopulateCart();
       toast.success('Đã thêm sản phẩm vào giỏ hàng');
+
+      // Ghi lại hoạt động thêm vào giỏ hàng
+      try {
+        await axios.post(`${API_URL}/recommendations/log/add-to-cart/${productId}`, {
+          variantId: variantId || undefined
+        });
+      } catch (error) {
+        console.error('Error logging add to cart activity:', error);
+      }
+
       return true;
 
      } catch (err: any) {

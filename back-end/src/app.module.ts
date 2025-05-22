@@ -24,6 +24,9 @@ import { PaymentsModule } from './payments/payments.module'; // Import PaymentsM
 import { CommonModule } from './common/common.module';
 import { WebsocketModule } from './websocket/websocket.module'; // Import WebsocketModule
 import { SharedModule } from './shared/shared.module'; // Import SharedModule
+import { RecommendationsModule } from './recommendations/recommendations.module'; // Import RecommendationsModule
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { UserActivityInterceptor } from './recommendations/interceptors/user-activity.interceptor';
 
 @Module({
   imports: [
@@ -58,8 +61,15 @@ import { SharedModule } from './shared/shared.module'; // Import SharedModule
     CommonModule,
     WebsocketModule, // Add WebsocketModule here
     SharedModule, // Add SharedModule here
+    RecommendationsModule, // Add RecommendationsModule here
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: UserActivityInterceptor,
+    },
+  ],
 })
 export class AppModule {}

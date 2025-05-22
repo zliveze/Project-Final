@@ -12,12 +12,10 @@ const axiosInstance = axios.create({
   },
 });
 
-// You can also add interceptors for requests or responses if needed
-// For example, to automatically add an auth token to requests:
-/*
+// Thêm interceptor để tự động đính kèm token xác thực vào mỗi request
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken'); // Or however you store your token
+    const token = localStorage.getItem('accessToken'); // Lấy token từ localStorage
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,7 +25,6 @@ axiosInstance.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-*/
 
 // Example for response interceptor to handle errors globally or refresh tokens:
 /*

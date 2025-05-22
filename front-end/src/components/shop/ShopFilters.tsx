@@ -8,6 +8,7 @@ import { ShopProductFilters, useShopProduct } from '@/contexts/user/shop/ShopPro
 import { useCategories } from '@/contexts/user/categories/CategoryContext'; // Import Category context hook mới
 import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
 import { useRouter } from 'next/router';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Simplified FilterSection
 interface FilterSection {
@@ -35,8 +36,9 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
   const { categories, loading: loadingCategories } = useCategories(); // Use categories
   const { brands, loading: loadingBrands } = useBrands(); // Use brands
-  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, fetchProducts, itemsPerPage } = useShopProduct(); // Get skin type and concern options from context
+  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, fetchProducts, itemsPerPage, logFilterUse, logSearch } = useShopProduct(); // Get skin type and concern options from context
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
   // No need for helper functions as we're using the raw data directly
 
@@ -189,6 +191,14 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
       // Gọi callback update filter
       onFilterChange(updateObj);
+      
+      // Ghi lại hoạt động sử dụng bộ lọc
+      if (isAuthenticated) {
+        const filterData = {
+          [filterKey]: newFilterValue
+        };
+        logFilterUse(filterData);
+      }
     } else if (filterKey === 'skinTypes' || filterKey === 'concerns') {
       // Multi-select for skinTypes and concerns (comma-separated string)
       const currentValues = filters[filterKey]?.split(',') || [];
@@ -200,13 +210,29 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       }
       newFilterValue = updatedValues.length > 0 ? updatedValues.join(',') : undefined;
       onFilterChange({ [filterKey]: newFilterValue });
+      
+      // Ghi lại hoạt động sử dụng bộ lọc
+      if (isAuthenticated) {
+        const filterData = {
+          [filterKey]: newFilterValue
+        };
+        logFilterUse(filterData);
+      }
     }
   };
 
   // Updated Price Range Handler
   const handlePriceRangeChange = useCallback((values: [number | undefined, number | undefined]) => {
     onFilterChange({ minPrice: values[0], maxPrice: values[1] });
-  }, [onFilterChange]);
+    
+    // Ghi lại hoạt động sử dụng bộ lọc giá
+    if (isAuthenticated) {
+      const filterData = {
+        price: { min: values[0], max: values[1] }
+      };
+      logFilterUse(filterData);
+    }
+  }, [onFilterChange, isAuthenticated, logFilterUse]);
 
   const handleMinPriceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMinPriceInput(e.target.value);
@@ -272,12 +298,14 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Handle search submission (e.g., on Enter key press or button click)
   const handleSearchSubmit = () => {
-    // Xử lý từ khóa tìm kiếm
-    const processedTerm = searchTerm.trim();
-    console.log('Submitting search with term:', processedTerm);
-
-    // Gửi từ khóa tìm kiếm lên server, server đã được cải thiện để xử lý từ khóa có dấu gạch dưới
-    onSearch(processedTerm);
+    if (searchTerm.trim()) {
+      onSearch(searchTerm);
+      
+      // Ghi lại hoạt động tìm kiếm
+      if (isAuthenticated && searchTerm.trim()) {
+        logSearch(searchTerm.trim());
+      }
+    }
   };
 
   // Handle Enter key press in search input
@@ -290,28 +318,33 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Debounce search submission - cải tiến xử lý debounce tìm kiếm
   useEffect(() => {
-    // Tạo timeout cho debounce
     const handler = setTimeout(() => {
-      // Chỉ gọi onSearch nếu searchTerm khác với filters.search
-      // Bỏ điều kiện 2 ký tự để mọi từ khóa đều được tìm kiếm
-      if (searchTerm.trim() !== filters.search) {
-        console.log('Debounced search triggered with term:', searchTerm.trim());
+      const trimmedSearchTerm = searchTerm.trim();
+      // Chuẩn hóa filters.search: coi undefined là chuỗi rỗng để so sánh
+      const currentContextSearch = filters.search ?? '';
+
+      if (trimmedSearchTerm !== currentContextSearch) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('ShopFilters: Debounced search triggered with term:', trimmedSearchTerm);
+          console.log('ShopFilters: Context search was:', currentContextSearch);
+        }
 
         // Cập nhật URL trước khi gọi onSearch
         const url = new URL(window.location.href);
-        if (searchTerm.trim()) {
-          url.searchParams.set('search', searchTerm.trim());
+        if (trimmedSearchTerm) {
+          url.searchParams.set('search', trimmedSearchTerm);
         } else {
           url.searchParams.delete('search');
         }
-
         // Cập nhật URL mà không gây reload trang
-        window.history.replaceState({}, '', url.toString());
-
-        // Sau đó gọi onSearch
-        onSearch(searchTerm.trim());
+        // Chỉ cập nhật nếu URL thực sự thay đổi để tránh kích hoạt routeChangeComplete không cần thiết
+        if (url.href !== window.location.href) {
+          window.history.replaceState({}, '', url.toString());
+        }
+        
+        onSearch(trimmedSearchTerm);
       }
-    }, 500); // Giữ debounce 500ms cho tất cả trường hợp
+    }, 500); 
 
     return () => {
       clearTimeout(handler);
@@ -321,56 +354,43 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
   // Updated Reset Filters Handler
   const handleResetFilters = () => {
-    console.log('Resetting all filters');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('ShopFilters: handleResetFilters called');
+    }
 
-    // Cập nhật URL để xóa tất cả tham số trước khi reset filters
-    const url = new URL(window.location.href);
-    const pathname = url.pathname;
+    // Reset local state for input fields
+    setSearchTerm('');
+    setMinPriceInput('0');
+    setMaxPriceInput('5000000');
 
-    // Sử dụng router.replace để cập nhật URL và đợi hoàn thành
-    router.replace(pathname, undefined, { shallow: true })
-      .then(() => {
-        // Thực hiện reset filters
-        const resetFilters = {
-          categoryId: undefined,
-          brandId: undefined,
-          minPrice: undefined,
-          maxPrice: undefined,
-          skinTypes: undefined,
-          concerns: undefined,
-          isOnSale: undefined,
-          hasGifts: undefined,
-          // Reset search term
-          search: undefined,
-          // Reset sorting if needed
-          // sortBy: 'createdAt',
-          // sortOrder: 'desc',
-          // Thêm các trường khác nếu cần
-          eventId: undefined,
-          campaignId: undefined,
-        };
+    // Define a complete reset payload.
+    // This ensures all filter keys are explicitly reset.
+    const resetPayload: Partial<ShopProductFilters> = {
+      search: undefined,
+      brandId: undefined,
+      categoryId: undefined,
+      eventId: undefined,
+      campaignId: undefined,
+      status: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      tags: undefined,
+      skinTypes: undefined,
+      concerns: undefined,
+      isBestSeller: undefined,
+      isNew: undefined,
+      isOnSale: undefined,
+      hasGifts: undefined,
+      sortBy: undefined, // Reset sortBy if it's part of filters
+      sortOrder: undefined // Reset sortOrder if it's part of filters
+    };
 
-        console.log('Applying reset filters:', resetFilters);
-        onFilterChange(resetFilters);
-
-        // Reset các trạng thái local
-        setSearchTerm(''); // Reset local search term state
-        setMinPriceInput('0');
-        setMaxPriceInput('5000000');
-
-        // Thông báo cho người dùng
-        console.log('All filters have been reset');
-
-        // Gọi fetchProducts để cập nhật dữ liệu
-        setTimeout(() => {
-          // Fetch products với filters đã reset
-          console.log('Fetching products with reset filters');
-          fetchProducts(1, itemsPerPage, {}, true);
-        }, 0);
-      })
-      .catch(error => {
-        console.error('Error resetting filters:', error);
-      });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('ShopFilters: Calling onFilterChange with resetPayload:', resetPayload);
+    }
+    onFilterChange(resetPayload);
+    // The responsibility of updating the URL and fetching products
+    // is now delegated to the parent component (Shop.tsx) and the context.
   };
 
 

@@ -1,21 +1,29 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Logger, Req, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { 
   QueryProductDto,
   ProductResponseDto,
   PaginatedProductsResponseDto,
   LightProductResponseDto,
-  SkinTypesResponseDto, // Thêm import
-  ConcernsResponseDto // Thêm import
+  LightProductDto,
+  SkinTypesResponseDto,
+  ConcernsResponseDto
 } from './dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RecommendationsService } from '../recommendations/services/recommendations.service';
+import { UserActivityService } from '../recommendations/services/user-activity.service';
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
   private readonly logger = new Logger(ProductsController.name);
 
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly recommendationsService: RecommendationsService,
+    private readonly userActivityService: UserActivityService
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all products with filtering and pagination' })
@@ -24,7 +32,47 @@ export class ProductsController {
     description: 'Returns paginated products', 
     type: PaginatedProductsResponseDto 
   })
-  async findAll(@Query() queryDto: QueryProductDto): Promise<PaginatedProductsResponseDto> {
+  async findAll(@Query() queryDto: QueryProductDto, @Request() req): Promise<PaginatedProductsResponseDto> {
+    // Ghi lại hoạt động sử dụng bộ lọc nếu người dùng đã đăng nhập
+    if (req.user?.userId && (
+      queryDto.minPrice || queryDto.maxPrice || queryDto.categoryId || 
+      queryDto.brandId || queryDto.tags || queryDto.skinTypes || queryDto.concerns
+    )) {
+      const filters = {};
+      
+      if (queryDto.minPrice || queryDto.maxPrice) {
+        filters['price'] = {
+          min: queryDto.minPrice ? Number(queryDto.minPrice) : undefined,
+          max: queryDto.maxPrice ? Number(queryDto.maxPrice) : undefined,
+        };
+      }
+      
+      if (queryDto.categoryId) {
+        filters['categoryIds'] = [queryDto.categoryId];
+      }
+      
+      if (queryDto.brandId) {
+        filters['brandIds'] = [queryDto.brandId];
+      }
+      
+      if (queryDto.tags) {
+        const tagsArray = queryDto.tags.split(',').map(tag => tag.trim());
+        filters['tags'] = tagsArray;
+      }
+      
+      if (queryDto.skinTypes) {
+        const skinTypesArray = queryDto.skinTypes.split(',').map(type => type.trim());
+        filters['skinType'] = skinTypesArray;
+      }
+      
+      if (queryDto.concerns) {
+        const concernsArray = queryDto.concerns.split(',').map(concern => concern.trim());
+        filters['concerns'] = concernsArray;
+      }
+      
+      this.userActivityService.logFilterUse(req.user.userId, filters);
+    }
+    
     return this.productsService.findAll(queryDto);
   }
 
@@ -58,6 +106,99 @@ export class ProductsController {
     });
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('personalized')
+  @ApiOperation({ summary: 'Get personalized product recommendations for the current user' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns personalized recommended products',
+    type: LightProductResponseDto 
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getPersonalizedRecommendations(
+    @Request() req,
+    @Query('limit') limit?: number,
+  ): Promise<LightProductResponseDto> {
+    this.logger.log('Request received for personalized recommendations');
+    
+    const products = await this.recommendationsService.getPersonalizedRecommendations(
+      req.user.userId,
+      limit || 8,
+    );
+    
+    // Format the response to match LightProductResponseDto
+    const formattedProducts = products.map(p => ({
+      _id: (p as any)._id?.toString(),
+      name: p.name,
+      slug: p.slug,
+      sku: p.sku,
+      price: p.price,
+      currentPrice: p.currentPrice || p.price,
+      imageUrl: p.images?.find(img => img.isPrimary)?.url || (p.images?.[0]?.url || ''),
+      brandId: p.brandId?.toString(),
+      flags: p.flags,
+      status: p.status,
+      reviews: p.reviews
+    }));
+    
+    return {
+      products: formattedProducts as LightProductDto[],
+      total: formattedProducts.length,
+      page: 1,
+      limit: limit || 8,
+      totalPages: 1
+    };
+  }
+
+  @Get('similar/:productId')
+  @ApiOperation({ summary: 'Get similar products based on the current product' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Returns similar products', 
+    type: LightProductResponseDto 
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getSimilarProducts(
+    @Param('productId') productId: string,
+    @Query('limit') limit?: number,
+    @Request() req?,
+  ): Promise<LightProductResponseDto> {
+    this.logger.log(`Request received for similar products to: ${productId}`);
+    
+    // Ghi lại hoạt động click vào sản phẩm nếu người dùng đã đăng nhập
+    if (req?.user?.userId) {
+      this.userActivityService.logProductClick(req.user.userId, productId);
+    }
+    
+    const products = await this.recommendationsService.getSimilarProducts(
+      productId,
+      limit || 8,
+    );
+    
+    // Format the response to match LightProductResponseDto
+    const formattedProducts = products.map(p => ({
+      _id: (p as any)._id?.toString(),
+      name: p.name,
+      slug: p.slug,
+      sku: p.sku,
+      price: p.price,
+      currentPrice: p.currentPrice || p.price,
+      imageUrl: p.images?.find(img => img.isPrimary)?.url || (p.images?.[0]?.url || ''),
+      brandId: p.brandId?.toString(),
+      flags: p.flags,
+      status: p.status,
+      reviews: p.reviews
+    }));
+    
+    return {
+      products: formattedProducts as LightProductDto[],
+      total: formattedProducts.length,
+      page: 1,
+      limit: limit || 8,
+      totalPages: 1
+    };
+  }
+
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get a product by slug' })
   @ApiResponse({ 
@@ -66,8 +207,19 @@ export class ProductsController {
     type: ProductResponseDto 
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async findBySlug(@Param('slug') slug: string): Promise<ProductResponseDto> {
-    return this.productsService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string, @Request() req): Promise<ProductResponseDto> {
+    const product = await this.productsService.findBySlug(slug);
+    
+    // Ghi lại hoạt động xem sản phẩm nếu người dùng đã đăng nhập
+    if (req.user?.userId && product) {
+      // Sử dụng thuộc tính id hoặc mã sản phẩm từ product
+      const productId = product.id || (product as any)._id?.toString();
+      if (productId) {
+        this.userActivityService.logProductView(req.user.userId, productId);
+      }
+    }
+    
+    return product;
   }
 
   @Get('filters/skin-types')
@@ -102,7 +254,14 @@ export class ProductsController {
     type: ProductResponseDto 
   })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
-    return this.productsService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req): Promise<ProductResponseDto> {
+    const product = await this.productsService.findOne(id);
+    
+    // Ghi lại hoạt động xem sản phẩm nếu người dùng đã đăng nhập
+    if (req.user?.userId && product) {
+      this.userActivityService.logProductView(req.user.userId, id);
+    }
+    
+    return product;
   }
 }
