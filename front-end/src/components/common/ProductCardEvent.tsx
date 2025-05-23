@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatImageUrl } from '@/utils/imageUtils';
@@ -26,6 +26,19 @@ const ProductCardEvent = React.memo(({
   soldCount = 234,
   remainingCount = 20
 }: ProductCardEventProps) => {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'decimal',
+      maximumFractionDigits: 0
+    }).format(price)
+  }
+
   return (
     <Link
       href={`/product/${id}`}
@@ -33,12 +46,15 @@ const ProductCardEvent = React.memo(({
     >
       <div className="aspect-square relative mb-3">
         <Image
-          src={formatImageUrl(image)}
+          src={imageError ? '/404.png' : formatImageUrl(image)}
           alt={name}
           fill
           className="object-contain"
           sizes="(max-width: 768px) 50vw, 20vw"
           priority={false}
+          onError={handleImageError}
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
         />
         <div className="absolute top-0 left-0 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[11px] px-2 py-1 rounded-br-lg font-medium">
          Online 24/7 {remainingTime}
@@ -54,13 +70,13 @@ const ProductCardEvent = React.memo(({
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-pink-600">
-              {price?.toLocaleString('vi-VN')}
+              {formatPrice(price)}
             </span>
             <span className="text-[11px] text-pink-600">đ</span>
           </div>
           {oldPrice && (
             <span className="text-[11px] text-gray-400 line-through">
-              {oldPrice?.toLocaleString('vi-VN')}đ
+              {formatPrice(oldPrice)}đ
             </span>
           )}
         </div>

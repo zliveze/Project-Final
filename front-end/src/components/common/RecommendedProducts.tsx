@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart, FiStar, FiArrowRight } from 'react-icons/fi';
@@ -43,6 +43,19 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
     fetchPersonalizedProducts,
     fetchSimilarProducts 
   } = useRecommendation();
+
+  // State để track image errors
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+
+  // Handle image error
+  const handleImageError = (productId: string) => {
+    setImageErrors(prev => new Set(prev).add(productId));
+  };
+
+  // Check if image has error
+  const isImageError = (productId: string) => {
+    return imageErrors.has(productId);
+  };
 
   // Xác định danh sách sản phẩm hiển thị
   let displayProducts: RecommendedProduct[] = propProducts || [];
@@ -110,6 +123,14 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
 
   // Lấy ảnh đại diện cho sản phẩm
   const getProductImage = (product: RecommendedProduct) => {
+    // Nếu có lỗi image, trả về 404.png ngay
+    if (isImageError(product._id)) {
+      return {
+        url: '/404.png',
+        alt: 'Không có ảnh'
+      };
+    }
+
     // Nếu sản phẩm có imageUrl (từ API mới)
     if (product.imageUrl) {
       return {
@@ -143,9 +164,9 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
       };
     }
 
-    // Ảnh mặc định nếu không có ảnh
+    // Ảnh mặc định nếu không có ảnh - sử dụng /404.png thay vì via.placeholder.com
     return {
-      url: 'https://via.placeholder.com/300x300?text=No+Image',
+      url: '/404.png',
       alt: 'Không có ảnh'
     };
   };
@@ -216,10 +237,13 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
                     onClick={() => handleProductClick(product._id)}
                   >
                     <Image
-                      src={formatImageUrl(imageData.url)}
+                      src={imageData.url === '/404.png' ? '/404.png' : formatImageUrl(imageData.url)}
                       alt={imageData.alt}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={() => handleImageError(product._id)}
+                      placeholder="blur"
+                      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                     />
                   </Link>
 

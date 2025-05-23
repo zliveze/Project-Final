@@ -17,6 +17,17 @@ export default function BrandSection() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+
+  // Handle image error
+  const handleImageError = (brandId: string) => {
+    setImageErrors(prev => new Set(prev).add(brandId));
+  };
+
+  // Check if image has error
+  const isImageError = (brandId: string) => {
+    return imageErrors.has(brandId);
+  };
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
@@ -123,17 +134,26 @@ export default function BrandSection() {
                 <div key={brand.id} className="bg-white rounded-xl p-4 flex flex-col items-center justify-between h-full shadow-sm hover:shadow-md transition-shadow group">
                   <div className="w-full h-24 relative flex items-center justify-center mb-3">
                     <a href={`/brands/${brand.slug}`} className="block w-full h-full flex items-center justify-center">
-                      {brand.logo?.url ? (
+                      {brand.logo?.url && !isImageError(`featured-${brand.id}`) ? (
                         <Image 
                           src={brand.logo.url} 
                           alt={brand.logo.alt || brand.name}
                           width={120}
                           height={60}
                           className="object-contain max-h-full transition-transform group-hover:scale-105"
+                          onError={() => handleImageError(`featured-${brand.id}`)}
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                          No Logo
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm rounded-lg">
+                          <Image 
+                            src="/404.png"
+                            alt={brand.name}
+                            width={60}
+                            height={30}
+                            className="object-contain opacity-50"
+                          />
                         </div>
                       )}
                     </a>
@@ -181,17 +201,26 @@ export default function BrandSection() {
                     <div className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col items-center">
                       <a href={`/brands/${brand.slug}`} className="block w-full">
                         <div className="w-full h-16 flex items-center justify-center mb-3">
-                          {brand.logo?.url ? (
+                          {brand.logo?.url && !isImageError(`active-${brand.id}-${index}`) ? (
                             <Image 
                               src={brand.logo.url} 
                               alt={brand.logo.alt || brand.name}
                               width={100}
                               height={50}
                               className="object-contain max-h-full"
+                              onError={() => handleImageError(`active-${brand.id}-${index}`)}
+                              placeholder="blur"
+                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
-                              No Logo
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-lg">
+                              <Image 
+                                src="/404.png"
+                                alt={brand.name}
+                                width={50}
+                                height={25}
+                                className="object-contain opacity-50"
+                              />
                             </div>
                           )}
                         </div>

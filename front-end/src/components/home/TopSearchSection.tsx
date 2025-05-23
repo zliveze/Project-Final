@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { FiSearch, FiTrendingUp, FiArrowRight, FiZap } from 'react-icons/fi'
 
 interface TopSearch {
-  id: number;
+  id: string;
   name: string;
   image: string;
   slug: string;
@@ -13,63 +13,35 @@ interface TopSearch {
   trending?: boolean;
 }
 
-const topSearches: TopSearch[] = [
-  {
-    id: 1,
-    name: "Kem chống nắng",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "kem-chong-nang",
-    searchCount: "2.5M lượt tìm",
-    trending: true
-  },
-  {
-    id: 2,
-    name: "Son dưỡng",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "son-duong",
-    searchCount: "1.8M lượt tìm",
-    trending: true
-  },
-  {
-    id: 3,
-    name: "Sữa Rửa Mặt",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "sua-rua-mat",
-    searchCount: "1.7M lượt tìm"
-  },
-  {
-    id: 4,
-    name: "Kem Dưỡng Da",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "kem-duong-da",
-    searchCount: "1.6M lượt tìm"
-  },
-  {
-    id: 5,
-    name: "Serum Vitamin C",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "serum-vitamin-c",
-    searchCount: "1.5M lượt tìm",
-    trending: true
-  },
-  {
-    id: 6,
-    name: "Mặt nạ dưỡng da",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "mat-na-duong-da",
-    searchCount: "1.4M lượt tìm"
-  }
-];
-
-// Tạo thêm một số từ khóa phổ biến để hiển thị ở phần popular tags
-const popularTags = [
-  "Mỹ phẩm Hàn Quốc", "Kem dưỡng ẩm", "Nước tẩy trang", 
-  "Phấn phủ kiềm dầu", "Sữa rửa mặt trị mụn", "Kem nền cushion",
-  "Tẩy tế bào chết", "Bảng phấn mắt", "Son lì", "Xịt khoáng"
-];
+// Loading skeleton component
+const TopSearchSkeleton = ({ index }: { index: number }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse"
+    >
+      <div className="relative">
+        <div className="absolute top-3 right-3 z-10">
+          <div className="bg-gray-200 h-6 w-20 rounded-full"></div>
+        </div>
+        <div className="aspect-square bg-gray-200"></div>
+      </div>
+      <div className="p-3">
+        <div className="h-4 bg-gray-200 rounded w-full"></div>
+      </div>
+    </motion.div>
+  );
+};
 
 const TopSearchCard = ({ product, index }: { product: TopSearch; index: number }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
   
   return (
     <motion.div
@@ -125,11 +97,14 @@ const TopSearchCard = ({ product, index }: { product: TopSearch; index: number }
               transition={{ duration: 0.5 }}
             >
               <Image 
-                src={product.image} 
+                src={imageError ? '/404.png' : product.image} 
                 alt={product.name}
                 width={200}
                 height={200}
                 className="object-contain w-full h-full"
+                onError={handleImageError}
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
               />
             </motion.div>
             
@@ -162,6 +137,44 @@ const TopSearchCard = ({ product, index }: { product: TopSearch; index: number }
 
 export default function TopSearchSection() {
   const [searchValue, setSearchValue] = useState('');
+  const [topSearches, setTopSearches] = useState<TopSearch[]>([]);
+  const [popularTags, setPopularTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch top searches and popular tags
+  useEffect(() => {
+    const fetchTopSearchData = async () => {
+      try {
+        setLoading(true);
+        // TODO: Thay thế bằng API calls thực tế
+        // const [searchesResponse, tagsResponse] = await Promise.all([
+        //   fetch('/api/searches/top?limit=6'),
+        //   fetch('/api/searches/popular-tags?limit=10')
+        // ]);
+        // 
+        // const searches = await searchesResponse.json();
+        // const tags = await tagsResponse.json();
+        // 
+        // setTopSearches(searches);
+        // setPopularTags(tags);
+        
+        // Tạm thời set empty để không hiển thị gì
+        setTopSearches([]);
+        setPopularTags([]);
+        setError(null);
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu tìm kiếm:', err);
+        setError('Không thể tải dữ liệu tìm kiếm');
+        setTopSearches([]);
+        setPopularTags([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTopSearchData();
+  }, []);
   
   // Animation variants
   const containerVariants = {
@@ -182,6 +195,43 @@ export default function TopSearchSection() {
       color: "#be185d"
     }
   };
+
+  // Không hiển thị section nếu đang loading
+  if (loading) {
+    return (
+      <section className="py-10 relative overflow-hidden">
+        <div className="max-w-[1200px] mx-auto px-4 relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 text-center"
+          >
+            <h2 className="text-3xl font-bold text-gray-800 mb-3">Từ Khóa Tìm Kiếm Hàng Đầu</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">Khám phá những từ khóa và sản phẩm được quan tâm nhiều nhất tại Yumin</p>
+            
+            <motion.div 
+              className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            ></motion.div>
+          </motion.div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-8">
+            {[...Array(6)].map((_, index) => (
+              <TopSearchSkeleton key={index} index={index} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Không hiển thị section nếu có lỗi hoặc không có dữ liệu
+  if (error || (topSearches.length === 0 && popularTags.length === 0)) {
+    return null;
+  }
   
   return (
     <section className="py-10 relative overflow-hidden">
@@ -206,17 +256,19 @@ export default function TopSearchSection() {
           ></motion.div>
         </motion.div>
 
-        <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-8"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-        >
-          {topSearches.map((product, index) => (
-            <TopSearchCard key={product.id} product={product} index={index} />
-          ))}
-        </motion.div>
+        {topSearches.length > 0 && (
+          <motion.div 
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-8"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.2 }}
+          >
+            {topSearches.map((product, index) => (
+              <TopSearchCard key={product.id} product={product} index={index} />
+            ))}
+          </motion.div>
+        )}
         
         {/* Phần tìm kiếm nhanh nâng cấp */}
         <motion.div 
@@ -288,58 +340,62 @@ export default function TopSearchSection() {
                   </motion.button>
                 </motion.div>
                 
-                <motion.div 
-                  className="mt-5"
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                >
-                  <div className="flex items-center mb-2">
-                    <h4 className="text-sm font-medium text-gray-700 mr-2">Từ khóa phổ biến:</h4>
-                    <div className="h-px bg-gray-200 flex-grow"></div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {popularTags.slice(0, 8).map((tag, index) => (
-                      <motion.div
-                        key={`tag-${index}`}
-                        variants={tagVariants}
-                        whileHover="hover"
-                      >
-                        <Link 
-                          href={`/tim-kiem?query=${encodeURIComponent(tag)}`}
-                          className="text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full hover:bg-pink-100 hover:text-pink-600 transition-colors"
+                {popularTags.length > 0 && (
+                  <motion.div 
+                    className="mt-5"
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.5 }}
+                  >
+                    <div className="flex items-center mb-2">
+                      <h4 className="text-sm font-medium text-gray-700 mr-2">Từ khóa phổ biến:</h4>
+                      <div className="h-px bg-gray-200 flex-grow"></div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {popularTags.slice(0, 8).map((tag, index) => (
+                        <motion.div
+                          key={`tag-${index}`}
+                          variants={tagVariants}
+                          whileHover="hover"
                         >
-                          {tag}
-                        </Link>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
+                          <Link 
+                            href={`/tim-kiem?query=${encodeURIComponent(tag)}`}
+                            className="text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full hover:bg-pink-100 hover:text-pink-600 transition-colors"
+                          >
+                            {tag}
+                          </Link>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
           </div>
         </motion.div>
         
         {/* Nút xem tất cả */}
-        <div className="flex justify-center mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Link 
-              href="/tim-kiem-pho-bien" 
-              className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm flex items-center"
+        {(topSearches.length > 0 || popularTags.length > 0) && (
+          <div className="flex justify-center mt-8">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Xem tất cả từ khóa phổ biến
-              <FiArrowRight className="ml-2" />
-            </Link>
-          </motion.div>
-        </div>
+              <Link 
+                href="/tim-kiem-pho-bien" 
+                className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm flex items-center"
+              >
+                Xem tất cả từ khóa phổ biến
+                <FiArrowRight className="ml-2" />
+              </Link>
+            </motion.div>
+          </div>
+        )}
       </div>
     </section>
   );

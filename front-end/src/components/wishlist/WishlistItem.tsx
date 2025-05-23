@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiTrash2, FiShoppingCart, FiEye } from 'react-icons/fi';
+import { FiTrash2, FiShoppingCart, FiEye, FiStar } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { formatImageUrl } from '@/utils/imageUtils';
 import { useCart } from '@/contexts/user/cart/CartContext'; // Import useCart
@@ -27,6 +27,10 @@ interface WishlistItemProps {
   inStock: boolean;
   onRemove: (productId: string, variantId: string) => void; // Updated onRemove signature
   variantOptions?: VariantOptions; // Optional variant options
+  originalPrice?: number;
+  rating?: number;
+  reviewCount?: number;
+  isOnSale?: boolean;
 }
 
 const WishlistItem: React.FC<WishlistItemProps> = ({
@@ -40,9 +44,14 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
   brand,
   inStock,
   onRemove,
-  variantOptions // Destructure variantOptions
+  variantOptions, // Destructure variantOptions
+  originalPrice,
+  rating,
+  reviewCount,
+  isOnSale
 }) => {
   const { addItemToCart } = useCart(); // Use cart context
+  const [imageError, setImageError] = useState(false);
 
   // Xử lý thêm vào giỏ hàng
   const handleAddToCart = async () => { // Make async
@@ -77,6 +86,18 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
     // Toast messages are handled by the context
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN').format(price);
+  };
+
+  const discountPercentage = originalPrice && originalPrice > price 
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
+    : 0;
+
   // Determine display name (potentially include variant info)
   // Example: "Product Name - Red, 50ml"
   const displayName = name; // Keep it simple for now, or construct based on variantOptions
@@ -88,16 +109,34 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
         <Link href={`/product/${slug}`}>
           <div className="w-full h-full relative">
             <Image
-              src={formatImageUrl(image.url)}
+              src={imageError ? '/404.png' : formatImageUrl(image.url)}
               alt={image.alt}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={handleImageError}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
             />
 
             {/* Badge giảm giá nếu có */}
             {currentPrice < price && (
               <div className="absolute top-1 right-1 bg-pink-500 text-white text-[10px] font-medium px-1 py-0.5 rounded">
                 -{Math.round((1 - currentPrice / price) * 100)}%
+              </div>
+            )}
+
+            {/* Badges */}
+            {isOnSale && (
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                Sale
+              </div>
+            )}
+            
+            {!inStock && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <span className="bg-white text-gray-800 text-xs px-2 py-1 rounded">
+                  Hết hàng
+                </span>
               </div>
             )}
           </div>
@@ -187,17 +226,48 @@ const WishlistItem: React.FC<WishlistItemProps> = ({
             </div>
         )}
 
+        {/* Đánh giá */}
+        {rating && rating > 0 && (
+          <div className="flex items-center mt-2">
+            <div className="flex items-center text-yellow-400">
+              {[...Array(5)].map((_, i) => (
+                <FiStar
+                  key={i}
+                  className={`w-3 h-3 ${i < Math.floor(rating) ? 'fill-current' : ''}`}
+                />
+              ))}
+            </div>
+            {reviewCount && (
+              <span className="ml-1 text-xs text-gray-500">
+                ({reviewCount})
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Giá */}
-        <div className="mt-1 flex items-center justify-center sm:justify-start">
-          <span className="text-pink-600 font-semibold text-sm sm:text-base">
-            {new Intl.NumberFormat('vi-VN').format(currentPrice)}đ
-          </span>
-
-          {currentPrice < price && (
-            <span className="ml-2 text-gray-400 line-through text-xs sm:text-sm">
-              {new Intl.NumberFormat('vi-VN').format(price)}đ
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold text-pink-600">
+              {formatPrice(currentPrice)}đ
             </span>
+            
+            {originalPrice && originalPrice > currentPrice && (
+              <>
+                <span className="text-sm text-gray-400 line-through">
+                  {formatPrice(originalPrice)}đ
+                </span>
+                <span className="text-xs font-medium text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-full">
+                  -{discountPercentage}%
+                </span>
+              </>
+            )}
+          </div>
+          
+          {originalPrice && originalPrice > currentPrice && (
+            <div className="text-xs text-green-600 mt-1">
+              Tiết kiệm: {formatPrice(originalPrice - currentPrice)}đ
+            </div>
           )}
         </div>
 

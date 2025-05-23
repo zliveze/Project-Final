@@ -28,166 +28,6 @@ interface CustomerReview {
   };
 }
 
-// Dữ liệu fallback khi API không khả dụng
-const fallbackReviews: CustomerReview[] = [
-  {
-    _id: "fallback-1",
-    customerName: "Nguyễn Thị Hương",
-    avatar: "",
-    rating: 5,
-    date: "2023-03-15",
-    content: "Tôi đã sử dụng kem dưỡng ẩm này được 2 tuần và đã thấy sự khác biệt rõ rệt. Da tôi mềm mại hơn và ít khô hơn rất nhiều.",
-    productId: "101",
-    productName: "Laneige Water Bank Blue Hyaluronic Cream",
-    productImage: "",
-    verified: true,
-    helpful: 42
-  },
-  {
-    _id: "fallback-2",
-    customerName: "Trần Minh Đức",
-    avatar: "",
-    rating: 4.5,
-    date: "2023-03-10",
-    content: "Sản phẩm dễ sử dụng, không gây kích ứng và làm sạch tốt. Giá cả hợp lý so với chất lượng, sẽ mua lại.",
-    productId: "102",
-    productName: "Bioderma Sensibio H2O Micellar Water",
-    productImage: "",
-    verified: true,
-    helpful: 35
-  },
-  {
-    _id: "fallback-3",
-    customerName: "Phạm Thu Trang",
-    avatar: "",
-    rating: 5,
-    date: "2023-03-05",
-    content: "Serum vitamin C này thật sự đáng đồng tiền! Da sáng hơn, các vết thâm mờ đi rõ rệt. Chắc chắn sẽ mua lại!",
-    productId: "103",
-    productName: "Klairs Freshly Juiced Vitamin C Serum",
-    productImage: "",
-    verified: true,
-    helpful: 27
-  },
-  {
-    _id: "fallback-4",
-    customerName: "Lê Văn An",
-    avatar: "",
-    rating: 4,
-    date: "2023-02-28",
-    content: "Chất lượng tốt, giao hàng nhanh. Vợ tôi rất hài lòng với sản phẩm này.",
-    productId: "104",
-    productName: "The Ordinary Niacinamide",
-    productImage: "",
-    verified: false,
-    helpful: 19
-  },
-  {
-    _id: "fallback-5",
-    customerName: "Vũ Quỳnh Anh",
-    avatar: "",
-    rating: 5,
-    date: "2023-02-20",
-    content: "Son dưỡng tuyệt vời! Mềm mịn và giữ ẩm lâu. Sẽ tiếp tục mua lại!",
-    productId: "105",
-    productName: "Laneige Lip Sleeping Mask",
-    productImage: "",
-    verified: true,
-    helpful: 31
-  },
-  {
-    _id: "fallback-6",
-    customerName: "Hoàng Mai Linh",
-    avatar: "",
-    rating: 4.5,
-    date: "2023-02-15",
-    content: "Kem chống nắng này rất tốt, không gây nhờn và bảo vệ da hiệu quả.",
-    productId: "106",
-    productName: "La Roche Posay Anthelios",
-    productImage: "",
-    verified: true,
-    helpful: 28
-  },
-  {
-    _id: "fallback-7",
-    customerName: "Đỗ Thanh Hà",
-    avatar: "",
-    rating: 4.5,
-    date: "2023-02-10",
-    content: "Tẩy trang rất nhẹ nhàng, không gây khô căng da. Phù hợp với da nhạy cảm như tôi.",
-    productId: "107",
-    productName: "Cetaphil Gentle Makeup Remover",
-    productImage: "",
-    verified: true,
-    helpful: 24
-  },
-  {
-    _id: "fallback-8",
-    customerName: "Bùi Quang Minh",
-    avatar: "",
-    rating: 5,
-    date: "2023-02-05",
-    content: "Mặt nạ giấy này làm da sáng lên ngay sau lần đầu sử dụng. Gói hàng cũng rất đẹp.",
-    productId: "108",
-    productName: "Innisfree My Real Squeeze Mask",
-    productImage: "",
-    verified: true,
-    helpful: 33
-  },
-  {
-    _id: "fallback-9",
-    customerName: "Ngô Thị Lan",
-    avatar: "",
-    rating: 4,
-    date: "2023-01-28",
-    content: "Kem dưỡng mắt làm giảm thâm quầng hiệu quả. Texture mịn, thấm nhanh.",
-    productId: "109",
-    productName: "Olay Regenerist Eye Cream",
-    productImage: "",
-    verified: true,
-    helpful: 18
-  },
-  {
-    _id: "fallback-10",
-    customerName: "Phan Văn Thắng",
-    avatar: "",
-    rating: 4.5,
-    date: "2023-01-20",
-    content: "Sữa rửa mặt tạo bọt mịn, làm sạch tốt mà không gây khô da. Mùi hương dễ chịu.",
-    productId: "110",
-    productName: "CeraVe Foaming Facial Cleanser",
-    productImage: "",
-    verified: false,
-    helpful: 22
-  },
-  {
-    _id: "fallback-11",
-    customerName: "Tạ Thu Thủy",
-    avatar: "",
-    rating: 5,
-    date: "2023-01-15",
-    content: "Essence này thấm rất nhanh và làm da mượt mịn. Đóng gói cẩn thận, giao hàng đúng hẹn.",
-    productId: "111",
-    productName: "SK-II Facial Treatment Essence",
-    productImage: "",
-    verified: true,
-    helpful: 40
-  },
-  {
-    _id: "fallback-12",
-    customerName: "Lý Hoàng Nam",
-    avatar: "",
-    rating: 4,
-    date: "2023-01-10",
-    content: "Toner không chứa cồn, dịu nhẹ với da. Chai to, dùng được lâu, giá tốt.",
-    productId: "112",
-    productName: "Hada Labo Gokujyun Lotion",
-    productImage: "",
-    verified: true,
-    helpful: 26
-  }
-];
-
 // Component loading skeleton
 const ReviewCardSkeleton: React.FC = () => {
   return (
@@ -251,6 +91,12 @@ const RatingStars: React.FC<{ rating: number; size?: 'sm' | 'md' }> = ({ rating,
 
 // Component hiển thị card đánh giá tối giản
 const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
     <motion.div
       className="bg-white border border-gray-200 rounded-xl p-6 h-full flex flex-col"
@@ -297,14 +143,13 @@ const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
         >
           <div className="relative w-8 h-8 flex-shrink-0">
             <Image
-              src={review.productImage || '/404.png'}
+              src={imageError ? '/404.png' : (review.productImage || '/404.png')}
               alt={review.productName}
               className="rounded-lg object-cover"
               fill
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/404.png';
-              }}
+              onError={handleImageError}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -354,7 +199,7 @@ const CustomerReviewsSection: React.FC = () => {
         setCustomerReviews(convertedReviews);
       } catch (error) {
         console.error('Lỗi khi tải đánh giá nổi bật:', error);
-        setCustomerReviews(fallbackReviews);
+        setCustomerReviews([]); // Set empty array nếu có lỗi
       }
     };
 
@@ -402,6 +247,17 @@ const CustomerReviewsSection: React.FC = () => {
 
   const visibleReviews = getVisibleReviews();
 
+  // Không hiển thị section nếu có lỗi hoặc không có dữ liệu
+  if (error && customerReviews.length === 0) {
+    console.error('Lỗi khi tải đánh giá:', error);
+    return null;
+  }
+
+  // Không hiển thị section nếu không có đánh giá nào
+  if (!loading && customerReviews.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-20 relative">
       {/* Background decoration */}
@@ -431,13 +287,6 @@ const CustomerReviewsSection: React.FC = () => {
             {[...Array(6)].map((_, i) => (
               <ReviewCardSkeleton key={i} />
             ))}
-          </div>
-        )}
-
-        {/* Error state */}
-        {error && !loading && customerReviews.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-gray-500">Đang sử dụng dữ liệu mẫu</p>
           </div>
         )}
 

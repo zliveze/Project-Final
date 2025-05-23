@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { formatImageUrl } from '@/utils/imageUtils'
@@ -8,7 +8,7 @@ interface ProductCardSmallProps {
   name: string
   image: string
   price: number
-  originalPrice: number
+  originalPrice?: number
   discount?: number
   slug: string
   flashSale?: {
@@ -16,6 +16,8 @@ interface ProductCardSmallProps {
     endTime: string
     soldPercent: number
   }
+  rating?: number
+  onClick?: () => void
 }
 
 const formatPrice = (price: number) => {
@@ -33,8 +35,16 @@ export default function ProductCardSmall({
   originalPrice,
   discount,
   slug,
-  flashSale
+  flashSale,
+  rating,
+  onClick
 }: ProductCardSmallProps) {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
     <Link href={`/product/${slug}`} className="block">
       <div className="bg-gradient-to-b from-pink-500 to-purple-600 rounded-lg overflow-hidden">
@@ -53,11 +63,14 @@ export default function ProductCardSmall({
         {/* Product Image */}
         <div className="relative aspect-square bg-white p-2">
           <Image
-            src={formatImageUrl(image)}
+            src={imageError ? '/404.png' : formatImageUrl(image)}
             alt={name}
             fill
             className="object-contain p-2"
             sizes="(max-width: 768px) 40vw, 20vw"
+            onError={handleImageError}
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
           />
 
           {/* SL Badge */}
@@ -75,7 +88,7 @@ export default function ProductCardSmall({
             <span className="text-base font-bold text-pink-600">
               {formatPrice(price)}đ
             </span>
-            {originalPrice > price && (
+            {originalPrice && originalPrice > price && (
               <span className="text-[10px] text-gray-400 line-through">
                 {formatPrice(originalPrice)}đ
               </span>
@@ -99,6 +112,20 @@ export default function ProductCardSmall({
               <div className="text-[10px] text-pink-500 mt-1">
                 {flashSale.soldPercent}%
               </div>
+            </div>
+          )}
+
+          {/* Rating */}
+          {rating && (
+            <div className="flex items-center mt-1">
+              <div className="flex text-yellow-400 text-xs">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className={i < Math.floor(rating) ? '' : 'text-gray-300'}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <span className="text-xs text-gray-500 ml-1">({rating})</span>
             </div>
           )}
         </div>

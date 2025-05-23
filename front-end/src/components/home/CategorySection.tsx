@@ -35,29 +35,43 @@ interface CategoriesApiResponse {
   pages: number;
 }
 
-// Mảng màu nền ngẫu nhiên để thay thế backgroundColor
-const backgroundGradients = [
-  "from-pink-200 to-pink-100",
-  "from-green-200 to-green-100",
-  "from-orange-200 to-orange-100",
-  "from-blue-200 to-blue-100",
-  "from-purple-200 to-purple-100",
-  "from-yellow-200 to-yellow-100",
-  "from-indigo-200 to-indigo-100",
-  "from-rose-200 to-rose-100",
-  "from-teal-200 to-teal-100",
-  "from-cyan-200 to-cyan-100",
-];
+// Function để tạo gradient background dựa trên index
+const getBackgroundGradient = (index: number) => {
+  const gradients = [
+    "from-pink-200 to-pink-100",
+    "from-green-200 to-green-100", 
+    "from-orange-200 to-orange-100",
+    "from-blue-200 to-blue-100",
+    "from-purple-200 to-purple-100",
+    "from-yellow-200 to-yellow-100",
+    "from-indigo-200 to-indigo-100",
+    "from-rose-200 to-rose-100",
+    "from-teal-200 to-teal-100",
+    "from-cyan-200 to-cyan-100"
+  ];
+  return gradients[index % gradients.length];
+};
 
-// Mảng icon ngẫu nhiên để thay thế icon
-const categoryIcons = ["💄", "🧖‍♀️", "🧴", "🫧", "👁️", "☀️", "💦", "💧", "🌿", "✨"];
-
+// Function để tạo icon dự phòng dựa trên tên danh mục
+const getFallbackIcon = (categoryName: string) => {
+  const name = categoryName.toLowerCase();
+  if (name.includes('son') || name.includes('môi')) return "💄";
+  if (name.includes('mắt') || name.includes('mascara') || name.includes('phấn mắt')) return "👁️";
+  if (name.includes('dưỉ') || name.includes('chăm sóc') || name.includes('serum')) return "🧴";
+  if (name.includes('tẩy') || name.includes('rửa mặt')) return "🫧";
+  if (name.includes('chống nắng') || name.includes('sunscreen')) return "☀️";
+  if (name.includes('nước') || name.includes('toner')) return "💦";
+  if (name.includes('kem') || name.includes('cream')) return "💧";
+  if (name.includes('tự nhiên') || name.includes('organic')) return "🌿";
+  return "✨"; // Default icon
+};
 
 export default function CategorySection() {
   const [isClient, setIsClient] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setIsClient(true);
@@ -79,7 +93,6 @@ export default function CategorySection() {
           setCategories(response.data.items);
         } else {
           setCategories([]); // Nếu không có items, đặt là mảng rỗng
-          // console.warn("API did not return items for categories.");
         }
       } catch (err) {
         console.error("Lỗi khi tải danh mục:", err);
@@ -91,7 +104,17 @@ export default function CategorySection() {
     };
 
     fetchCategories();
-  }, []);
+  }, []); // Empty dependency array để tránh gọi vô hạn
+
+  // Function để handle image error
+  const handleImageError = (categoryId: string) => {
+    setImageErrors(prev => new Set(prev).add(categoryId));
+  };
+
+  // Function để kiểm tra image có lỗi không
+  const isImageError = (categoryId: string) => {
+    return imageErrors.has(categoryId);
+  };
 
   // Animation variants
   const containerVariants = {
@@ -153,6 +176,22 @@ export default function CategorySection() {
     }
   };
 
+  // Skeleton loading component
+  const CategorySkeleton = ({ index }: { index: number }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="bg-gray-200 rounded-xl p-5 h-64 animate-pulse flex flex-col items-center justify-center"
+    >
+      <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
+      <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+      <div className="h-3 bg-gray-300 rounded w-full mx-auto mb-1"></div>
+      <div className="h-3 bg-gray-300 rounded w-5/6 mx-auto mb-3"></div>
+      <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto mt-auto"></div>
+    </motion.div>
+  );
+
   return (
     <section className="py-12 bg-gradient-to-b from-white to-pink-50 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -202,19 +241,9 @@ export default function CategorySection() {
           viewport={{ once: true, amount: 0.2 }}
         >
           {loading && (
-            // Hiển thị skeleton loader hoặc thông báo loading
+            // Hiển thị skeleton loader
             Array.from({ length: 8 }).map((_, index) => (
-              <motion.div
-                key={`skeleton-${index}`}
-                className="bg-gray-200 rounded-xl p-5 h-64 animate-pulse flex flex-col items-center justify-center"
-                variants={itemVariants}
-              >
-                <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
-                <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded w-full mx-auto mb-1"></div>
-                <div className="h-3 bg-gray-300 rounded w-5/6 mx-auto mb-3"></div>
-                <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto mt-auto"></div>
-              </motion.div>
+              <CategorySkeleton key={`skeleton-${index}`} index={index} />
             ))
           )}
 
@@ -240,14 +269,14 @@ export default function CategorySection() {
                 href={`/shop?categoryId=${category._id}`}
                 className="block h-full"
               >
-                <div className={`bg-gradient-to-br ${backgroundGradients[index % backgroundGradients.length]} rounded-xl p-5 flex flex-col items-center text-center h-full relative overflow-hidden group transition-all duration-300`}>
+                <div className={`bg-gradient-to-br ${getBackgroundGradient(index)} rounded-xl p-5 flex flex-col items-center text-center h-full relative overflow-hidden group transition-all duration-300`}>
                   {/* Shine effect overlay on hover */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none">
                     <div className="absolute inset-0 bg-white opacity-10"></div>
                     <div className="absolute -inset-full top-0 block h-full w-1/2 transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine"></div>
                   </div>
                   
-                  {category.image && category.image.url ? (
+                  {category.image && category.image.url && !isImageError(category._id) ? (
                     <motion.div 
                       className="w-20 h-20 flex items-center justify-center mb-4 relative"
                       variants={iconVariants}
@@ -258,6 +287,9 @@ export default function CategorySection() {
                         width={80}
                         height={80}
                         className="object-contain rounded-full"
+                        onError={() => handleImageError(category._id)}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                       />
                     </motion.div>
                   ) : (
@@ -266,7 +298,7 @@ export default function CategorySection() {
                       variants={iconVariants}
                     >
                       <div className="absolute inset-0 bg-white bg-opacity-70 rounded-full filter blur-md"></div>
-                      <span className="relative z-10">{categoryIcons[index % categoryIcons.length]}</span>
+                      <span className="relative z-10">{getFallbackIcon(category.name)}</span>
                     </motion.div>
                   )}
                   
@@ -288,23 +320,25 @@ export default function CategorySection() {
           ))}
         </motion.div>
         
-        <div className="flex justify-center mt-12">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Link 
-              href="/categories" 
-              className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm"
+        {!loading && !error && categories.length > 0 && (
+          <div className="flex justify-center mt-12">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Xem tất cả danh mục
-            </Link>
-          </motion.div>
-        </div>
+              <Link 
+                href="/categories" 
+                className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm"
+              >
+                Xem tất cả danh mục
+              </Link>
+            </motion.div>
+          </div>
+        )}
       </div>
 
       <style jsx>{`

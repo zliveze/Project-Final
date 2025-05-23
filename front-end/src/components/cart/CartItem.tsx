@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FiTrash2, FiMinus, FiPlus, FiMapPin } from 'react-icons/fi';
@@ -52,8 +52,15 @@ const CartItem: React.FC<CartItemProps> = ({
 }) => {
   // State for branch selection modal
   const [showBranchModal, setShowBranchModal] = React.useState(false);
+  const [imageError, setImageError] = useState(false);
+  
   // Use the branches hook to get branch information
   const { getBranchName, error: branchError, preloadBranches } = useBranches();
+
+  // Handle image error
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
   // Preload branches when component mounts
   React.useEffect(() => {
@@ -151,10 +158,13 @@ const CartItem: React.FC<CartItemProps> = ({
         <Link href={`/product/${slug}`}>
           <div className="relative w-full h-full">
             <Image
-              src={formatImageUrl(image.url)}
+              src={imageError ? '/404.png' : formatImageUrl(image.url)}
               alt={image.alt}
               fill
               className="object-cover rounded-md"
+              onError={handleImageError}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
             />
           </div>
         </Link>

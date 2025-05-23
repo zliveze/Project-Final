@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -6,7 +6,7 @@ import { FiArrowRight, FiShoppingCart } from 'react-icons/fi'
 import { FaStar, FaStarHalfAlt, FaFireAlt } from 'react-icons/fa'
 
 interface BestSeller {
-  id: number;
+  id: string;
   name: string;
   image: string;
   slug: string;
@@ -16,108 +16,6 @@ interface BestSeller {
   rating: number;
   ratingCount: number;
 }
-
-const bestSellers: BestSeller[] = [
-  {
-    id: 1,
-    name: "Tẩy Tế Bào Chết Body Dove Exfoliating 225ml",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "tay-te-bao-chet-body-dove",
-    soldCount: "1.62M đã bán",
-    price: 178000,
-    discountedPrice: 145000,
-    rating: 4.8,
-    ratingCount: 2541
-  },
-  {
-    id: 2,
-    name: "Son Kem Lì Romand Juicy Lasting Tint 5.5g",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "son-kem-tint",
-    soldCount: "1.5M đã bán",
-    price: 195000,
-    discountedPrice: 150000,
-    rating: 4.9,
-    ratingCount: 3218
-  },
-  {
-    id: 3,
-    name: "Bộ Chăm Sóc Da Mặt Innisfree Green Tea Special Kit (4 Món)",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "bo-cham-soc-da-mat",
-    soldCount: "1.35M đã bán",
-    price: 320000,
-    discountedPrice: 260000,
-    rating: 4.7,
-    ratingCount: 1876
-  },
-  {
-    id: 4,
-    name: "Gel Trị Mụn Some By Mi AHA-BHA-PHA 30 Days Miracle 50ml",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "ho-tro-tri-mun",
-    soldCount: "1.28M đã bán",
-    price: 265000,
-    discountedPrice: 210000,
-    rating: 4.6,
-    ratingCount: 2085
-  },
-  {
-    id: 5,
-    name: "Phấn Phủ Kiềm Dầu Innisfree No Sebum Mineral Powder 5g",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "phan-phu",
-    soldCount: "1.15M đã bán",
-    price: 120000,
-    discountedPrice: 95000,
-    rating: 4.5,
-    ratingCount: 1629
-  },
-  {
-    id: 6,
-    name: "Kem Chống Nắng Anessa Perfect UV Sunscreen Skincare Milk SPF50+ PA++++ 60ml",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "kem-chong-nang",
-    soldCount: "1.05M đã bán",
-    price: 435000,
-    discountedPrice: 390000,
-    rating: 4.9,
-    ratingCount: 5421
-  },
-  {
-    id: 7,
-    name: "Sữa Rửa Mặt CeraVe Foaming Facial Cleanser 236ml",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "sua-rua-mat",
-    soldCount: "980K đã bán",
-    price: 340000,
-    discountedPrice: 280000,
-    rating: 4.7,
-    ratingCount: 1345
-  },
-  {
-    id: 8,
-    name: "Mặt Nạ Ngủ Môi Laneige Lip Sleeping Mask 20g",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "mat-na-duong-da",
-    soldCount: "920K đã bán",
-    price: 290000,
-    discountedPrice: 250000,
-    rating: 4.8,
-    ratingCount: 2987
-  },
-  {
-    id: 9,
-    name: "Serum Vitamin C Klairs Freshly Juiced Vitamin Drop 35ml",
-    image: "https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png",
-    slug: "serum-vitamin-c",
-    soldCount: "850K đã bán",
-    price: 280000,
-    discountedPrice: 225000,
-    rating: 4.6,
-    ratingCount: 1534
-  }
-];
 
 // Component hiển thị rating
 const RatingStars = ({ rating }: { rating: number }) => {
@@ -141,6 +39,7 @@ const RatingStars = ({ rating }: { rating: number }) => {
 // Component hiển thị sản phẩm bán chạy
 const BestSellerCard = ({ product, index }: { product: BestSeller; index: number }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   // Tính phần trăm giảm giá
   const discountPercentage = product.discountedPrice 
@@ -155,6 +54,11 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
+  };
+
+  // Handle image error
+  const handleImageError = () => {
+    setImageError(true);
   };
   
   return (
@@ -202,11 +106,14 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
               transition={{ duration: 0.5 }}
             >
               <Image 
-                src={product.image} 
+                src={imageError ? '/404.png' : product.image} 
                 alt={product.name}
                 width={200}
                 height={200}
                 className="object-contain w-full h-full"
+                onError={handleImageError}
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
               />
             </motion.div>
             
@@ -256,10 +163,58 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
   );
 };
 
+// Loading skeleton component
+const BestSellerSkeleton = ({ index }: { index: number }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden"
+    >
+      <div className="aspect-square bg-gray-200 animate-pulse"></div>
+      <div className="p-3 space-y-2">
+        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+        <div className="flex justify-between items-center">
+          <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+          <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 export default function BestSellerSection() {
-  // Giới hạn số sản phẩm hiển thị
-  const displayedProducts = bestSellers.slice(0, 6);
-  
+  const [bestSellers, setBestSellers] = useState<BestSeller[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch best seller products
+  useEffect(() => {
+    const fetchBestSellers = async () => {
+      try {
+        setLoading(true);
+        // TODO: Thay thế bằng API call thực tế
+        // const response = await fetch('/api/products/best-sellers?limit=6');
+        // const data = await response.json();
+        // setBestSellers(data);
+        
+        // Tạm thời set empty để không hiển thị gì
+        setBestSellers([]);
+        setError(null);
+      } catch (err) {
+        console.error('Lỗi khi tải sản phẩm bán chạy:', err);
+        setError('Không thể tải sản phẩm bán chạy');
+        setBestSellers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBestSellers();
+  }, []);
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -270,6 +225,43 @@ export default function BestSellerSection() {
       }
     }
   };
+
+  // Không hiển thị section nếu đang loading hoặc không có dữ liệu
+  if (loading) {
+    return (
+      <section className="py-10 relative overflow-hidden">
+        <div className="max-w-[1200px] mx-auto px-4 relative z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 text-center"
+          >
+            <h2 className="text-3xl font-bold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">Những sản phẩm được khách hàng ưa chuộng và đánh giá cao nhất tại Yumin</p>
+            
+            <motion.div 
+              className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            ></motion.div>
+          </motion.div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            {[...Array(6)].map((_, index) => (
+              <BestSellerSkeleton key={index} index={index} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Không hiển thị section nếu có lỗi hoặc không có sản phẩm
+  if (error || bestSellers.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-10 relative overflow-hidden">
@@ -284,7 +276,6 @@ export default function BestSellerSection() {
           <h2 className="text-3xl font-bold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">Những sản phẩm được khách hàng ưa chuộng và đánh giá cao nhất tại Yumin</p>
           
-          {/* Decorative line */}
           <motion.div 
             className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
             initial={{ scale: 0, opacity: 0 }}
@@ -301,7 +292,7 @@ export default function BestSellerSection() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
         >
-          {displayedProducts.map((product, index) => (
+          {bestSellers.map((product, index) => (
             <BestSellerCard key={product.id} product={product} index={index} />
           ))}
         </motion.div>
@@ -370,7 +361,7 @@ export default function BestSellerSection() {
                   <div className="absolute right-0 bottom-0 w-24 h-24 bg-pink-400 rounded-full opacity-30 blur-2xl"></div>
                   <div className="relative h-full w-full flex items-center justify-center">
                     <Image 
-                      src="https://media.hcdn.vn/catalog/product/p/r/promotions-auto-sua-rua-mat-cerave-sach-sau-cho-da-thuong-den-da-dau-473ml_zmJwd76vYd8vtRRY_img_220x220_0dff4c_fit_center.png" 
+                      src="/404.png" 
                       alt="Best seller product" 
                       width={160} 
                       height={160}

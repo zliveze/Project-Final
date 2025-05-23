@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FiStar } from 'react-icons/fi'
@@ -48,6 +48,12 @@ export default function ProductCardShop({
   flashSale,
   promotion // Destructure promotion prop
 }: ProductCardProps) {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
     <Link href={`/product/${slug}`} className="block group h-full">
       <div className="bg-white rounded-sm shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col h-full">
@@ -55,11 +61,14 @@ export default function ProductCardShop({
         <div className="relative pt-[100%]">
           {/* Product Image */}
           <Image
-            src={formatImageUrl(image)}
+            src={imageError ? '/404.png' : formatImageUrl(image)}
             alt={name}
             fill
             className="object-cover rounded-t-sm"
             sizes="(max-width: 768px) 50vw, 33vw"
+            onError={handleImageError}
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
           />
 
           {/* Discount Badge */}
