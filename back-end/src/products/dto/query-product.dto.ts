@@ -9,9 +9,39 @@ import {
   IsMongoId,
   Min,
   Max,
-  IsIn
+  IsIn,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  Validate,
+  ValidationArguments
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Types } from 'mongoose';
+
+// Custom validator for comma-separated MongoDB ObjectIds
+@ValidatorConstraint({ name: 'IsCommaSeparatedMongoIds', async: false })
+export class IsCommaSeparatedMongoIds implements ValidatorConstraintInterface {
+  validate(value: string, args: ValidationArguments) {
+    if (!value || typeof value !== 'string') {
+      return false;
+    }
+
+    // Split by comma and check each ID
+    const ids = value.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    
+    // Must have at least one ID
+    if (ids.length === 0) {
+      return false;
+    }
+
+    // Check if all IDs are valid MongoDB ObjectIds
+    return ids.every(id => Types.ObjectId.isValid(id));
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return `${args.property} must be a valid MongoDB ObjectId or comma-separated list of valid MongoDB ObjectIds`;
+  }
+}
 
 export class QueryProductDto {
   @ApiPropertyOptional({ description: 'Search term' })
@@ -19,14 +49,22 @@ export class QueryProductDto {
   @IsOptional()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Brand ID' })
-  @IsMongoId()
+  @ApiPropertyOptional({ 
+    description: 'Brand ID or comma-separated Brand IDs', 
+    example: '507f1f77bcf86cd799439011' 
+  })
+  @IsString()
   @IsOptional()
+  @Validate(IsCommaSeparatedMongoIds)
   brandId?: string;
 
-  @ApiPropertyOptional({ description: 'Category ID' })
-  @IsMongoId()
+  @ApiPropertyOptional({ 
+    description: 'Category ID or comma-separated Category IDs', 
+    example: '507f1f77bcf86cd799439011,507f1f77bcf86cd799439012' 
+  })
+  @IsString()
   @IsOptional()
+  @Validate(IsCommaSeparatedMongoIds)
   categoryId?: string;
 
   @ApiPropertyOptional({ description: 'Event ID để lấy sản phẩm trong sự kiện cụ thể' })

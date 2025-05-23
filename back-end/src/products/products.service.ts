@@ -1609,20 +1609,44 @@ export class ProductsService {
         }
       }
 
-      // Chuyển đổi brandId sang ObjectId nếu hợp lệ
+      // Chuyển đổi brandId sang ObjectId nếu hợp lệ - hỗ trợ multiple IDs
       if (brandId) {
         try {
-          filter.brandId = new Types.ObjectId(brandId);
+          // Parse comma-separated brandIds
+          const brandIds = brandId.split(',').map(id => id.trim()).filter(id => id.length > 0);
+          const validBrandIds = brandIds.filter(id => Types.ObjectId.isValid(id));
+          
+          if (validBrandIds.length > 0) {
+            if (validBrandIds.length === 1) {
+              // Single brand
+              filter.brandId = new Types.ObjectId(validBrandIds[0]);
+            } else {
+              // Multiple brands
+              filter.brandId = { $in: validBrandIds.map(id => new Types.ObjectId(id)) };
+            }
+            this.logger.log(`Filtering by ${validBrandIds.length} brand(s): ${validBrandIds.join(', ')}`);
+          } else {
+            this.logger.warn(`No valid brandIds found in: ${brandId}`);
+          }
         } catch (e) {
           this.logger.warn(`Invalid brandId format: ${brandId}`);
         }
       }
 
-      // Chuyển đổi categoryId sang ObjectId nếu hợp lệ
+      // Chuyển đổi categoryId sang ObjectId nếu hợp lệ - hỗ trợ multiple IDs  
       if (categoryId) {
         try {
-          // Sử dụng $in để tìm sản phẩm nếu categoryIds là mảng
-          filter.categoryIds = { $in: [new Types.ObjectId(categoryId)] };
+          // Parse comma-separated categoryIds
+          const categoryIds = categoryId.split(',').map(id => id.trim()).filter(id => id.length > 0);
+          const validCategoryIds = categoryIds.filter(id => Types.ObjectId.isValid(id));
+          
+          if (validCategoryIds.length > 0) {
+            // Sử dụng $in để tìm sản phẩm có ít nhất một trong các category được chọn
+            filter.categoryIds = { $in: validCategoryIds.map(id => new Types.ObjectId(id)) };
+            this.logger.log(`Filtering by ${validCategoryIds.length} category(s): ${validCategoryIds.join(', ')}`);
+          } else {
+            this.logger.warn(`No valid categoryIds found in: ${categoryId}`);
+          }
         } catch (e) {
           this.logger.warn(`Invalid categoryId format: ${categoryId}`);
         }
@@ -1679,12 +1703,6 @@ export class ProductsService {
         filter['flags.isOnSale'] = isOnSaleBool;
       }
 
-      if (hasGifts !== undefined) {
-        const hasGiftsBool = typeof hasGifts === 'string'
-          ? hasGifts === 'true'
-          : Boolean(hasGifts);
-        filter['flags.hasGifts'] = hasGiftsBool;
-      }
 
       // Build sorting
       const sort: any = {};
@@ -1972,19 +1990,44 @@ export class ProductsService {
         }
       }
 
-      // Thêm filter thương hiệu
+      // Thêm filter thương hiệu - hỗ trợ multiple IDs
       if (brandId) {
         try {
-          matchStage.brandId = new Types.ObjectId(brandId);
+          // Parse comma-separated brandIds
+          const brandIds = brandId.split(',').map(id => id.trim()).filter(id => id.length > 0);
+          const validBrandIds = brandIds.filter(id => Types.ObjectId.isValid(id));
+          
+          if (validBrandIds.length > 0) {
+            if (validBrandIds.length === 1) {
+              // Single brand
+              matchStage.brandId = new Types.ObjectId(validBrandIds[0]);
+            } else {
+              // Multiple brands
+              matchStage.brandId = { $in: validBrandIds.map(id => new Types.ObjectId(id)) };
+            }
+            this.logger.log(`Admin filtering by ${validBrandIds.length} brand(s): ${validBrandIds.join(', ')}`);
+          } else {
+            this.logger.warn(`Admin: No valid brandIds found in: ${brandId}`);
+          }
         } catch (e) {
           this.logger.warn(`Invalid brandId format: ${brandId}`);
         }
       }
 
-      // Thêm filter danh mục
+      // Thêm filter danh mục - hỗ trợ multiple IDs
       if (categoryId) {
         try {
-          matchStage.categoryIds = new Types.ObjectId(categoryId);
+          // Parse comma-separated categoryIds
+          const categoryIds = categoryId.split(',').map(id => id.trim()).filter(id => id.length > 0);
+          const validCategoryIds = categoryIds.filter(id => Types.ObjectId.isValid(id));
+          
+          if (validCategoryIds.length > 0) {
+            // Sử dụng $in để tìm sản phẩm có ít nhất một trong các category được chọn
+            matchStage.categoryIds = { $in: validCategoryIds.map(id => new Types.ObjectId(id)) };
+            this.logger.log(`Admin filtering by ${validCategoryIds.length} category(s): ${validCategoryIds.join(', ')}`);
+          } else {
+            this.logger.warn(`Admin: No valid categoryIds found in: ${categoryId}`);
+          }
         } catch (e) {
           this.logger.warn(`Invalid categoryId format: ${categoryId}`);
         }
