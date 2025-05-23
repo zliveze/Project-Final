@@ -122,6 +122,8 @@ function AdminProducts({
   const { branches, loading: branchesLoading, fetchBranches: fetchBranchesList } = useBranches(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showExportBranchModal, setShowExportBranchModal] = useState(false);
+  const [selectedBranchForExport, setSelectedBranchForExport] = useState<string>('');
 
   // Sử dụng hook useImportProgress để theo dõi tiến trình import
   const { progress, resetProgress } = useImportProgress();
@@ -589,23 +591,33 @@ function AdminProducts({
     }
   };
 
-  const handleExportData = async () => { // Chuyển thành async function
-    // Hiển thị thông báo đang xử lý
-    const loadingToast = toast.loading('Đang chuẩn bị dữ liệu để xuất Excel...');
+  const handleOpenExportModal = () => {
+    fetchBranchesList(true); // Lấy danh sách chi nhánh mới nhất
+    setShowExportBranchModal(true);
+  };
+
+  const handleConfirmExportByBranch = async () => {
+    if (!selectedBranchForExport) {
+      toast.error('Vui lòng chọn một chi nhánh để xuất.');
+      return;
+    }
+
+    setShowExportBranchModal(false);
+    const loadingToast = toast.loading(`Đang chuẩn bị dữ liệu xuất Excel cho chi nhánh...`);
 
     try {
-      // Gọi API mới để lấy tất cả sản phẩm
-      // Sử dụng filters hiện tại (không bao gồm page và limit) để lấy danh sách đã lọc nếu có
       const exportFilters: Partial<ProductAdminFilter> = { ...filters };
       delete exportFilters.page;
       delete exportFilters.limit;
-
+      
       const params = new URLSearchParams();
       Object.entries(exportFilters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '' && value !== false) {
           params.append(key, String(value));
         }
       });
+      // Thêm branchId vào params
+      params.append('branchId', selectedBranchForExport);
       
       const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/export-data?${params.toString()}`, {
@@ -1210,9 +1222,9 @@ function AdminProducts({
 
         {/* Phần thanh công cụ và nút thêm sản phẩm */}
         <div className="flex justify-between items-center">
-          <div className="flex space-x-3">
+            <div className="flex space-x-3">
             <button
-              onClick={handleExportData}
+              onClick={handleOpenExportModal}
               className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <FiDownload className="mr-2" />
@@ -1672,6 +1684,59 @@ function AdminProducts({
           } : undefined
         } : null}
       />
+
+      {/* Modal chọn chi nhánh để Export Excel */}
+      {showExportBranchModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Chọn chi nhánh để xuất Excel
+                </h3>
+                <select
+                  value={selectedBranchForExport}
+                  onChange={(e) => setSelectedBranchForExport(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  disabled={branchesLoading}
+                >
+                  <option value="">-- Tất cả chi nhánh (Mặc định) --</option>
+                  {branchesLoading ? (
+                    <option disabled>Đang tải chi nhánh...</option>
+                  ) : (
+                    branches.map((branch) => (
+                      <option key={branch._id} value={branch._id}>
+                        {branch.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Nếu không chọn, hệ thống sẽ xuất sản phẩm từ tất cả chi nhánh.</p>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={handleConfirmExportByBranch}
+                  disabled={!selectedBranchForExport && branches.length > 0} // Disable if no branch selected but branches are available
+                >
+                  Xuất Excel
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowExportBranchModal(false)}
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

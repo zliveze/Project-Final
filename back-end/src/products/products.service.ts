@@ -2250,10 +2250,27 @@ export class ProductsService {
         hasGifts,
         sortBy = 'createdAt',
         sortOrder = 'desc',
+        branchId: queryBranchId // Lấy branchId từ queryDto
       } = queryDto;
 
       const pipeline: any[] = [];
       const matchStage: any = {};
+
+      // Lọc theo branchId nếu được cung cấp
+      if (queryBranchId) {
+        try {
+          const objectIdBranchId = new Types.ObjectId(queryBranchId);
+          // Sản phẩm phải có ít nhất một mục inventory thuộc về chi nhánh này
+          matchStage.$or = [
+            { 'inventory.branchId': objectIdBranchId },
+            { 'variantInventory.branchId': objectIdBranchId } // Cân nhắc nếu sản phẩm có biến thể
+          ];
+          this.logger.log(`Exporting products for branchId: ${queryBranchId}`);
+        } catch (e) {
+          this.logger.warn(`Invalid branchId for export: ${queryBranchId}`);
+          // Có thể quyết định không lọc hoặc báo lỗi tùy theo yêu cầu
+        }
+      }
 
       if (search) {
         const processedSearch = search.trim();
@@ -2332,46 +2349,83 @@ export class ProductsService {
             loyaltyPoints: '$loyaltyPoints',
             // Lấy lowStockThreshold từ inventory của chi nhánh đầu tiên (nếu có)
             firstBranchLowStock: { $ifNull: [{ $arrayElemAt: ['$inventory.lowStockThreshold', 0] }, null] },
+            originalPrice: '$price', // Giả sử price ban đầu là giá vốn.
+            // Tạo một mảng các URL hình ảnh, chuyển các giá trị null/undefined thành chuỗi rỗng
+            imageUrls: {
+              $map: {
+                input: { $ifNull: ['$images', []] }, // Đảm bảo 'images' là một mảng
+                as: 'img',
+                in: { $ifNull: ['$$img.url', ''] } // Nếu url là null, trả về chuỗi rỗng
+              }
+            },
+            // Lấy tồn kho cho chi nhánh cụ thể nếu queryBranchId được cung cấp
+            branchSpecificStock: queryBranchId ? {
+              $let: {
+                vars: {
+                  branchInv: {
+                    $filter: {
+                      input: '$inventory',
+                      as: 'item',
+                      cond: { $eq: ['$$item.branchId', new Types.ObjectId(queryBranchId)] }
+                    }
+                  }
+                },
+                in: { $ifNull: [{ $arrayElemAt: ['$$branchInv.quantity', 0] }, 0] }
+              }
+            } : '$totalStock' // Nếu không có branchId, lấy totalStock
           }
         },
         // Project để chọn các trường cuối cùng, bao gồm cả mảng images đầy đủ
         {
           $project: {
             // Giữ lại các trường cần thiết
-            _id: 1,
-            sku: 1,
-            name: 1,
-            slug: 1,
-            description: 1, 
-            price: 1,
-            currentPrice: 1,
-            status: 1,
-            brandId: 1,
-            brandName: 1, 
-            categoryIds: 1,
-            categoryNames: 1, // Mảng tên danh mục
-            tags: 1,
-            cosmetic_info: 1,
-            variants: 1,
-            images: 1, 
-            inventory: 1, // Giữ lại để có thể lấy lowStockThreshold nếu cần xử lý phức tạp hơn
-            // variantInventory: 1, // Có thể bỏ nếu không dùng trực tiếp
-            // combinationInventory: 1, // Có thể bỏ nếu không dùng trực tiếp
-            reviews: 1,
-            flags: 1,
-            // gifts: 1, // Bỏ qua nếu không cần cho export này
-            // relatedProducts: 1, // Bỏ qua nếu không cần
-            // relatedEvents: 1, // Bỏ qua
-            // relatedCampaigns: 1, // Bỏ qua
-            createdAt: 1,
-            updatedAt: 1,
-            soldCount: 1,
-            totalStock: 1,
-            barcode: 1,
-            weightValue: 1,
-            weightUnit: 1,
-            loyaltyPoints: 1,
-            lowStockThreshold: '$firstBranchLowStock', // Gán giá trị đã lấy
+            _id: 0, // Không cần _id cho export
+            'Loại hàng': '$brandName',
+            'Nhóm hàng(3 Cấp)': { $ifNull: [{ $arrayElemAt: ['$categoryNames', 0] }, ''] }, // Lấy category đầu tiên
+            'Mã hàng': '$sku',
+            'Mã vạch': { $ifNull: ['$barcode', ''] },
+            'Tên hàng': '$name',
+            'Giá bán': { $ifNull: ['$currentPrice', { $ifNull: ['$price', 0] }] }, // Ưu tiên currentPrice, nếu không có thì price, nếu không có thì 0
+            'Giá vốn': { $ifNull: ['$originalPrice', 0] }, // originalPrice được tạo từ price ở $addFields
+            'Tồn kho': '$branchSpecificStock', // Sử dụng tồn kho đã tính toán
+            'Hình ảnh (url1,url2...)': {
+              $reduce: {
+                input: { // Lọc ra các URL rỗng trước khi nối chuỗi
+                  $filter: {
+                    input: '$imageUrls',
+                    as: 'url',
+                    cond: { $ne: ['$$url', ''] }
+                  }
+                },
+                initialValue: '',
+                in: {
+                  $cond: {
+                    if: { $eq: ['$$value', ''] },
+                    then: '$$this',
+                    else: { $concat: ['$$value', ',', '$$this'] }
+                  }
+                }
+              }
+            }
+            // Các trường khác có thể bỏ qua nếu không có trong yêu cầu export
+            // slug: 1,
+            // description: 1,
+            // status: 1,
+            // brandId: 1,
+            // categoryIds: 1,
+            // tags: 1,
+            // cosmetic_info: 1,
+            // variants: 1,
+            // inventory: 1,
+            // reviews: 1,
+            // flags: 1,
+            // createdAt: 1,
+            // updatedAt: 1,
+            // soldCount: 1,
+            // weightValue: 1,
+            // weightUnit: 1,
+            // loyaltyPoints: 1,
+            // lowStockThreshold: '$firstBranchLowStock',
           }
         }
       );
@@ -2379,14 +2433,8 @@ export class ProductsService {
       const products = await this.productModel.aggregate(pipeline);
       this.logger.log(`Lấy được ${products.length} sản phẩm cho việc xuất Excel`);
 
-      // Map lại để đảm bảo ID là string và các định dạng khác nếu cần
-      return products.map(p => ({
-        ...p, // Giữ lại tất cả các trường đã project từ aggregation
-        id: p._id.toString(),
-        brandId: p.brandId?.toString(),
-        categoryIds: p.categoryIds?.map((id: Types.ObjectId) => id.toString()),
-        // categoryNames đã là mảng string từ aggregation
-      }));
+      // Dữ liệu đã được định dạng trong $project, không cần map lại ở đây nữa
+      return products;
 
     } catch (error) {
       this.logger.error(`Lỗi khi lấy tất cả sản phẩm để xuất: ${error.message}`, error.stack);
@@ -3013,10 +3061,11 @@ export class ProductsService {
           }
 
           // Chuẩn bị mô tả đầy đủ với mã vạch
-          let fullDescription = '';
-          if (barcode) {
-            fullDescription = `Mã vạch: ${barcode}\n\n`;
-          }
+          // let fullDescription = ''; // Bỏ dòng này
+          // if (barcode) { // Bỏ điều kiện này
+          //   fullDescription = `Mã vạch: ${barcode}\n\n`; // Bỏ dòng này
+          // }
+          const fullDescription = ''; // description.full sẽ là chuỗi rỗng
 
           // Chuẩn bị dữ liệu sản phẩm
           const productDto: any = {
@@ -3032,7 +3081,8 @@ export class ProductsService {
             description: {
               short: '',
               full: fullDescription
-            }
+            },
+            barcode // Thêm mã vạch vào DTO
           };
 
           // Xử lý hình ảnh
@@ -3110,7 +3160,8 @@ export class ProductsService {
                 originalPrice: productDto.originalPrice,
                 currentPrice: productDto.currentPrice,
                 'description.full': productDto.description.full,
-                status: newStatus
+                status: newStatus,
+                barcode // Thêm mã vạch khi cập nhật
               };
 
               // Cập nhật hình ảnh nếu có
@@ -3130,7 +3181,8 @@ export class ProductsService {
                 price: productDto.price,
                 originalPrice: productDto.originalPrice,
                 currentPrice: productDto.currentPrice,
-                'description.full': productDto.description.full
+                'description.full': productDto.description.full,
+                barcode // Thêm mã vạch khi cập nhật (trường hợp không lấy lại được sản phẩm)
               };
 
               // Cập nhật hình ảnh nếu có

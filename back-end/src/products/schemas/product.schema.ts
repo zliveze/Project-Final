@@ -302,6 +302,9 @@ export class Product {
   @Prop({ required: true, unique: true })
   slug: string;
 
+  @Prop({ sparse: true }) // Mã vạch, có thể không phải sản phẩm nào cũng có
+  barcode?: string;
+
   @Prop({ type: ProductDescription })
   description: ProductDescription;
 
@@ -370,9 +373,6 @@ export class Product {
 
   @Prop({ type: Number, default: 0 })
   soldCount: number;
-
-  @Prop({ sparse: true }) // Mã vạch, có thể không phải sản phẩm nào cũng có
-  barcode?: string;
 
   @Prop({ type: Number }) // Trọng lượng
   weightValue?: number;

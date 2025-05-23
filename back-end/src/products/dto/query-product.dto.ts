@@ -159,4 +159,9 @@ export class QueryProductDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number = 10;
+
+  @ApiPropertyOptional({ description: 'Branch ID to filter products for export' })
+  @IsMongoId()
+  @IsOptional()
+  branchId?: string; // Thêm branchId để lọc khi xuất Excel
 }
