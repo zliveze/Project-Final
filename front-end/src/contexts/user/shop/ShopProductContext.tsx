@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '@/lib/axiosInstance';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../AuthContext';
 
@@ -210,7 +210,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       forceRefresh = true;
       console.log('Tìm kiếm phát hiện, bắt buộc refresh dữ liệu:', currentFilters.search);
     }
-    
+
     // Thêm logic đặc biệt: Khi URL chứa search parameter, luôn force refresh
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -219,15 +219,15 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         forceRefresh = true;
       }
     }
-    
+
     // Sử dụng JSON.stringify với sắp xếp key để đảm bảo tạo chuỗi nhất quán
     const sortedFilters = { ...currentFilters };
     const filterString = JSON.stringify(sortedFilters, Object.keys(sortedFilters).sort());
     const requestKey = `${page}-${limit}-${filterString}`;
-    
+
     // Kiểm tra nếu filters trống (trường hợp reset)
     const isEmptyFilters = Object.values(currentFilters).every(val => val === undefined || val === null || val === '');
-    
+
     // Thêm log để debug
     if (process.env.NODE_ENV === 'development') {
       console.log(`fetchProducts gọi với key: ${requestKey}`);
@@ -241,14 +241,14 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.log('Bỏ qua yêu cầu trùng lặp:', requestKey);
       return;
     }
-    
+
     // Lưu request key hiện tại cho lần so sánh tiếp theo
     // Điều này giúp ngăn chặn vòng lặp vô hạn
     const previousRequestKey = lastRequestKey;
     lastRequestKey = requestKey;
-    
+
     // Lưu ý: Không kiểm tra đặc biệt cho empty filters nữa vì đã kiểm tra requestKey
-    
+
     // Kiểm tra cache
     if (!forceRefresh && resultsCache[requestKey] &&
         (Date.now() - resultsCache[requestKey].timestamp) < CACHE_TTL) {
@@ -297,7 +297,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       // Chỉ log trong môi trường development
       if (process.env.NODE_ENV === 'development') {
         console.log(`Fetching products for page ${page}, limit ${limit} with filters:`, currentFilters);
-        
+
         // Check các giá trị undefined/null để debug
         Object.entries(currentFilters).forEach(([key, value]) => {
           if (value === undefined || value === null || value === '') {
@@ -350,7 +350,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
           console.log('Chi tiết params:', Object.fromEntries(params.entries()));
         }
 
-        const response = await axios.get<LightProductsApiResponse>(`${API_URL}/products/light`, { params });
+        const response = await axiosInstance.get<LightProductsApiResponse>('/products/light', { params });
 
         if (currentFilters.search || process.env.NODE_ENV === 'development') {
           console.log('Nhận response từ API:', response.status, response.statusText);
@@ -495,7 +495,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         hasChanged = true;
       }
     }
-    
+
     let filtersToSet = { ...finalUpdatedFilters }; // Sử dụng bản sao để tránh thay đổi finalUpdatedFilters nếu không cần thiết
 
     // Nếu đang reset tất cả và không có thay đổi nào khác, vẫn coi là có thay đổi
@@ -537,7 +537,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       if (process.env.NODE_ENV === 'development') {
         console.log('[ShopProductContext] Calling fetchProducts with new filters (debounced)');
       }
-      
+
       const searchChanged = 'search' in normalizedNewFilters; // Kiểm tra search có trong payload không, kể cả khi là undefined
 
       const newTimer = setTimeout(() => {
@@ -619,7 +619,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.log(`API_URL được sử dụng: ${API_URL}`);
       console.log(`BASE_URL từ env: ${process.env.NEXT_PUBLIC_API_URL || 'Không có'}`);
 
-      const response = await axios.get(campaignUrl);
+      const response = await axiosInstance.get(`/campaigns/public/${campaignId}`);
       console.log('Status response chiến dịch:', response.status, response.statusText);
       console.log('Kết quả lấy thông tin chiến dịch:', response.data);
 
@@ -674,7 +674,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
 
       // Gọi API để lấy dữ liệu từ database
-      const response = await axios.get<{ skinTypes: string[] }>(`${API_URL}/products/filters/skin-types`);
+      const response = await axiosInstance.get<{ skinTypes: string[] }>('/products/filters/skin-types');
       if (response.data && response.data.skinTypes && Array.isArray(response.data.skinTypes)) {
         const apiSkinTypes = response.data.skinTypes; // Directly use the string array
 
@@ -725,8 +725,8 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
 
       // Gọi API để lấy dữ liệu từ database
-      console.log(`[fetchConcernOptions] Calling API: ${API_URL}/products/filters/concerns`); // Thêm log
-      const response = await axios.get<{ concerns: string[] }>(`${API_URL}/products/filters/concerns`);
+      console.log(`[fetchConcernOptions] Calling API: /products/filters/concerns`); // Thêm log
+      const response = await axiosInstance.get<{ concerns: string[] }>('/products/filters/concerns');
       console.log('[fetchConcernOptions] API Response:', response); // Thêm log chi tiết response
 
       if (response.data && response.data.concerns && Array.isArray(response.data.concerns)) {
@@ -780,8 +780,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!isAuthenticated) return;
 
     try {
-      // Sử dụng endpoint recommendations để log search
-      await axios.get(`${API_URL}/recommendations/search?query=${encodeURIComponent(searchQuery)}&limit=0`);
+      // Sử dụng endpoint POST để log search
+      await axiosInstance.post('/recommendations/log/search', {
+        searchQuery: searchQuery
+      });
     } catch (error) {
       console.error('Error logging search activity:', error);
     }
@@ -800,7 +802,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     try {
       // Gọi API thêm vào giỏ hàng
-      const response = await axios.post(`${API_URL}/cart/items`, {
+      const response = await axiosInstance.post('/cart/items', {
         productId,
         quantity,
         variantId
@@ -815,7 +817,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         // Ghi lại hoạt động thêm vào giỏ hàng
         try {
-          await axios.post(`${API_URL}/recommendations/log/add-to-cart/${productId}`, {
+          await axiosInstance.post(`/recommendations/log/add-to-cart/${productId}`, {
             variantId
           });
         } catch (error) {
@@ -856,7 +858,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     try {
       // Gọi API thêm vào wishlist
-      const response = await axios.post(`${API_URL}/wishlist/items`, {
+      const response = await axiosInstance.post('/wishlist/items', {
         productId
       });
 
@@ -869,7 +871,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         // Ghi lại hoạt động thêm vào wishlist (không có endpoint riêng, có thể bỏ qua hoặc dùng click)
         try {
-          await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {});
+          await axiosInstance.post(`/recommendations/log/click/${productId}`, {});
         } catch (error) {
           console.error('Error logging wishlist activity:', error);
         }
@@ -900,7 +902,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!isAuthenticated) return;
 
     try {
-      await axios.post(`${API_URL}/recommendations/log/view/${productId}`, {
+      await axiosInstance.post(`/recommendations/log/view/${productId}`, {
         timeSpent
       });
     } catch (error) {
@@ -913,7 +915,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!isAuthenticated) return;
 
     try {
-      await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {});
+      await axiosInstance.post(`/recommendations/log/click/${productId}`, {});
     } catch (error) {
       console.error('Error logging product click activity:', error);
     }
@@ -931,7 +933,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!isAuthenticated) return;
 
     try {
-      await axios.post(`${API_URL}/recommendations/log/filter`, filters);
+      await axiosInstance.post('/recommendations/log/filter', filters);
     } catch (error) {
       console.error('Error logging filter use activity:', error);
     }

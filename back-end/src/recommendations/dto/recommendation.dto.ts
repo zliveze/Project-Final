@@ -22,6 +22,12 @@ export class LogProductInteractionDto {
   variantId?: string;
 }
 
+export class LogSearchDto {
+  @ApiProperty({ description: 'Từ khóa tìm kiếm' })
+  @IsString()
+  searchQuery: string;
+}
+
 export class PriceFilterDto {
   @ApiPropertyOptional({ description: 'Giá tối thiểu' })
   @IsOptional()
@@ -91,4 +97,4 @@ export class UserActivityDto {
   @IsOptional()
   @IsObject()
   metadata?: any;
-} 
+}

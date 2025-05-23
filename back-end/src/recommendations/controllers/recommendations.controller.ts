@@ -12,6 +12,7 @@ import { RecommendationsService } from '../services/recommendations.service';
 import { UserActivityService } from '../services/user-activity.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { LogSearchDto, ProductFilterDto } from '../dto/recommendation.dto';
 
 @ApiTags('recommendations')
 @Controller('recommendations')
@@ -152,20 +153,24 @@ export class RecommendationsController {
     return { success: true };
   }
 
+  @ApiOperation({ summary: 'Ghi lại hoạt động tìm kiếm' })
+  @UseGuards(JwtAuthGuard)
+  @Post('log/search')
+  async logSearch(
+    @Request() req,
+    @Body() body: LogSearchDto,
+  ) {
+    const userId = req.user.userId;
+    await this.userActivityService.logSearch(userId, body.searchQuery);
+    return { success: true };
+  }
+
   @ApiOperation({ summary: 'Ghi lại hoạt động sử dụng bộ lọc' })
   @UseGuards(JwtAuthGuard)
   @Post('log/filter')
   async logFilterUse(
     @Request() req,
-    @Body()
-    filters: {
-      price?: { min?: number; max?: number };
-      categoryIds?: string[];
-      brandIds?: string[];
-      tags?: string[];
-      skinType?: string[];
-      concerns?: string[];
-    },
+    @Body() filters: ProductFilterDto,
   ) {
     const userId = req.user.userId;
     await this.userActivityService.logFilterUse(userId, filters);

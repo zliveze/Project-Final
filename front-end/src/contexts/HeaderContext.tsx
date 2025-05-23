@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from 'next/router';
 import { useCart } from './user/cart/CartContext';
 import { useWishlist } from './user/wishlist/WishlistContext';
+import { useAuth } from './AuthContext';
+import axiosInstance from '@/lib/axiosInstance';
 
 // Định nghĩa các kiểu dữ liệu
 export interface CategoryItem {
@@ -64,6 +66,7 @@ const HeaderContext = createContext<HeaderContextType | undefined>(undefined);
 
 export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<Brand[]>([]);
@@ -165,6 +168,17 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('Processed search results:', products.length);
       setSearchResults(products);
 
+      // Ghi lại hoạt động tìm kiếm nếu người dùng đã đăng nhập
+      if (isAuthenticated && term.trim()) {
+        try {
+          await axiosInstance.post('/recommendations/log/search', {
+            searchQuery: term.trim()
+          });
+        } catch (trackingError) {
+          console.error('Error logging search activity:', trackingError);
+        }
+      }
+
     } catch (error) {
       console.error('Lỗi khi tìm kiếm sản phẩm:', error);
       setSearchResults([]);
@@ -211,7 +225,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Add useEffect to reset search results when router pathname changes
   useEffect(() => {
@@ -233,13 +247,13 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Thêm random query param để đảm bảo router phát hiện thay đổi
       const timestamp = new Date().getTime();
-      
+
       // Sử dụng router.push với options và callback để đảm bảo chuyển hướng hoàn tất
       router.push({
         pathname: '/shop',
-        query: { 
+        query: {
           search: encodedTerm,
-          _: timestamp 
+          _: timestamp
         }
       }, undefined, { shallow: false }).then(() => {
         console.log('Đã chuyển hướng đến trang shop thành công');

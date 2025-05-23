@@ -9,6 +9,7 @@ import { useCategories } from '@/contexts/user/categories/CategoryContext'; // I
 import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
+import axiosInstance from '@/lib/axiosInstance';
 
 // Simplified FilterSection
 interface FilterSection {
@@ -30,6 +31,8 @@ interface ShopFiltersProps {
 }
 
 const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSearch }) => {
+  const { isAuthenticated } = useAuth();
+
   // State for price inputs, initialized from filters.minPrice/maxPrice
   const [minPriceInput, setMinPriceInput] = useState<string>(filters.minPrice?.toString() ?? '0');
   const [maxPriceInput, setMaxPriceInput] = useState<string>(filters.maxPrice?.toString() ?? '5000000');
@@ -38,9 +41,19 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const { brands, loading: loadingBrands } = useBrands(); // Use brands
   const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, fetchProducts, itemsPerPage, logFilterUse, logSearch } = useShopProduct(); // Get skin type and concern options from context
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
 
   // No need for helper functions as we're using the raw data directly
+
+  // Hàm tracking filter usage
+  const trackFilterUsage = async (filterData: any) => {
+    if (!isAuthenticated) return;
+
+    try {
+      await axiosInstance.post('/recommendations/log/filter', filterData);
+    } catch (error) {
+      console.error('Error logging filter usage:', error);
+    }
+  };
 
   // Define sections with mapping to new filter keys
   // Use useMemo to prevent re-calculating sections on every render unless dependencies change
@@ -111,7 +124,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         options: concernOptions.map(concern => ({ id: concern, label: concern }))
       },
     ];
-    
+
     // Chỉ cập nhật nếu có sự thay đổi thực sự về cấu trúc hoặc số lượng options
     // để tránh vòng lặp render không cần thiết nếu chỉ isOpen thay đổi.
     // Tuy nhiên, việc kiểm tra sâu này có thể phức tạp.
@@ -121,11 +134,11 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     setSectionsState(updatedFullSections);
 
   }, [
-    categories, 
-    brands, 
-    skinTypeOptions, 
-    concernOptions, 
-    fetchSkinTypeOptions, 
+    categories,
+    brands,
+    skinTypeOptions,
+    concernOptions,
+    fetchSkinTypeOptions,
     fetchConcernOptions
     // Không thêm sectionsState vào đây để tránh vòng lặp, vì chúng ta đang set nó.
     // Trạng thái isOpen được đọc từ sectionsState cũ khi xây dựng updatedFullSections.
@@ -157,10 +170,10 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     // Luôn cập nhật searchTerm từ filters.search khi filters.search thay đổi
     // bất kể là thay đổi từ đâu (header, URL, etc.)
     console.log('ShopFilters: filters.search changed:', filters.search, 'current searchTerm:', searchTerm);
-    
+
     // Sử dụng hàm setter để cập nhật state
     setSearchTerm(filters.search || '');
-    
+
   }, [filters.search]);
 
   // Function to toggle section visibility
@@ -202,7 +215,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
 
       // Gọi callback update filter
       onFilterChange(updateObj);
-      
+
       // Ghi lại hoạt động sử dụng bộ lọc
       if (isAuthenticated) {
         const filterData = {
@@ -221,7 +234,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       }
       newFilterValue = updatedValues.length > 0 ? updatedValues.join(',') : undefined;
       onFilterChange({ [filterKey]: newFilterValue });
-      
+
       // Ghi lại hoạt động sử dụng bộ lọc
       if (isAuthenticated) {
         const filterData = {
@@ -235,7 +248,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   // Updated Price Range Handler
   const handlePriceRangeChange = useCallback((values: [number | undefined, number | undefined]) => {
     onFilterChange({ minPrice: values[0], maxPrice: values[1] });
-    
+
     // Ghi lại hoạt động sử dụng bộ lọc giá
     if (isAuthenticated) {
       const filterData = {
@@ -286,6 +299,14 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
       console.log(`Promotion change: ${type} - ${checked}`);
     }
     onFilterChange({ [type]: checked ? true : undefined }); // Set to undefined if unchecked
+
+    // Ghi lại hoạt động sử dụng bộ lọc khuyến mãi
+    if (isAuthenticated) {
+      const filterData = {
+        [type]: checked ? true : undefined
+      };
+      trackFilterUsage(filterData);
+    }
   };
 
   const formatPrice = (price: number): string => {
@@ -312,7 +333,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     if (searchTerm.trim()) {
       console.log('ShopFilters: Submitting search term:', searchTerm.trim());
       onSearch(searchTerm);
-      
+
       // Ghi lại hoạt động tìm kiếm
       if (isAuthenticated && searchTerm.trim()) {
         logSearch(searchTerm.trim());
@@ -353,10 +374,10 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         if (url.href !== window.location.href) {
           window.history.replaceState({}, '', url.toString());
         }
-        
+
         onSearch(trimmedSearchTerm);
       }
-    }, 500); 
+    }, 500);
 
     return () => {
       clearTimeout(handler);
