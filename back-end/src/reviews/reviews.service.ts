@@ -564,13 +564,46 @@ export class ReviewsService {
   // Toggle thích/bỏ thích một đánh giá
   async toggleLikeReview(id: string, userId: string): Promise<ReviewDocument> {
     try {
-      const review = await this.findOne(id);
+      this.logger.debug(`Toggle like review: reviewId=${id}, userId=${userId}`);
+      
+      // Validate input parameters
+      if (!id || id.trim() === '') {
+        throw new BadRequestException('Review ID không hợp lệ');
+      }
+      
+      if (!userId || userId.trim() === '') {
+        throw new BadRequestException('User ID không hợp lệ');
+      }
+
+      // Validate ObjectId format
+      if (!Types.ObjectId.isValid(id)) {
+        throw new BadRequestException(`Review ID "${id}" không đúng định dạng ObjectId`);
+      }
+      
+      if (!Types.ObjectId.isValid(userId)) {
+        throw new BadRequestException(`User ID "${userId}" không đúng định dạng ObjectId`);
+      }
+
+      // Tìm review
+      const review = await this.reviewModel.findOne({
+        _id: new Types.ObjectId(id),
+        isDeleted: false
+      }).exec();
+
+      if (!review) {
+        throw new NotFoundException(`Không tìm thấy đánh giá với ID ${id}`);
+      }
+
+      this.logger.debug(`Found review: ${review._id}, current likes: ${review.likes}`);
+
       const userObjectId = new Types.ObjectId(userId);
 
       // Kiểm tra xem người dùng đã thích đánh giá này chưa
       const userIndex = review.likedBy ? review.likedBy.findIndex(
         id => id.toString() === userObjectId.toString()
       ) : -1;
+
+      this.logger.debug(`User like status: ${userIndex !== -1 ? 'liked' : 'not liked'}`);
 
       if (userIndex === -1) {
         // Người dùng chưa thích đánh giá này => thêm vào danh sách likedBy và tăng số lượt thích
@@ -579,18 +612,30 @@ export class ReviewsService {
         }
         review.likedBy.push(userObjectId);
         review.likes += 1;
+        this.logger.debug(`Added like: new likes count = ${review.likes}`);
       } else {
         // Người dùng đã thích đánh giá này => xóa khỏi danh sách likedBy và giảm số lượt thích
         review.likedBy.splice(userIndex, 1);
         if (review.likes > 0) {
           review.likes -= 1;
         }
+        this.logger.debug(`Removed like: new likes count = ${review.likes}`);
       }
 
-      return review.save();
+      const savedReview = await review.save();
+      this.logger.debug(`Successfully saved review with ${savedReview.likes} likes`);
+      
+      return savedReview;
     } catch (error) {
       this.logger.error(`Lỗi khi toggle like đánh giá: ${error.message}`, error.stack);
-      throw error;
+      
+      // Rethrow với thông tin chi tiết hơn
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      // Nếu là lỗi MongoDB hoặc lỗi khác, wrap trong InternalServerErrorException
+      throw new BadRequestException(`Không thể thực hiện thao tác thích/bỏ thích: ${error.message}`);
     }
   }
 

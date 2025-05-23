@@ -1,195 +1,319 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { FiStar, FiChevronLeft, FiChevronRight, FiUser, FiCheck, FiMessageCircle } from 'react-icons/fi';
-import { FaStar, FaStarHalfAlt, FaQuoteLeft } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiStar, FiChevronLeft, FiChevronRight, FiCheck, FiArrowRight } from 'react-icons/fi';
+import { FaStar, FaStarHalfAlt } from 'react-icons/fa';
+import { useUserReview, Review } from '../../contexts/user/UserReviewContext';
+import Avatar from '../ui/Avatar';
 
-// Định nghĩa interface cho đánh giá của khách hàng
+// Định nghĩa interface cho đánh giá của khách hàng (tương thích với API)
 interface CustomerReview {
-  id: number;
+  _id: string;
   customerName: string;
   avatar: string;
   rating: number;
   date: string;
   content: string;
-  productId: number;
+  productId: string;
   productName: string;
   productImage: string;
   verified: boolean;
   helpful: number;
+  user?: {
+    _id: string;
+    name: string;
+  };
 }
 
-// Danh sách các đánh giá khách hàng mẫu
-const customerReviews: CustomerReview[] = [
+// Dữ liệu fallback khi API không khả dụng
+const fallbackReviews: CustomerReview[] = [
   {
-    id: 1,
+    _id: "fallback-1",
     customerName: "Nguyễn Thị Hương",
     avatar: "",
     rating: 5,
     date: "2023-03-15",
-    content: "Tôi đã sử dụng kem dưỡng ẩm này được 2 tuần và đã thấy sự khác biệt rõ rệt. Da tôi mềm mại hơn và ít khô hơn rất nhiều. Cảm ơn Yumin vì đã giới thiệu sản phẩm tuyệt vời này!",
-    productId: 101,
+    content: "Tôi đã sử dụng kem dưỡng ẩm này được 2 tuần và đã thấy sự khác biệt rõ rệt. Da tôi mềm mại hơn và ít khô hơn rất nhiều.",
+    productId: "101",
     productName: "Laneige Water Bank Blue Hyaluronic Cream",
     productImage: "",
     verified: true,
     helpful: 42
   },
   {
-    id: 2,
+    _id: "fallback-2",
     customerName: "Trần Minh Đức",
     avatar: "",
     rating: 4.5,
     date: "2023-03-10",
-    content: "Mua nước tẩy trang này cho vợ và cô ấy rất thích. Sản phẩm dễ sử dụng, không gây kích ứng và làm sạch tốt. Giá cả hợp lý so với chất lượng, sẽ mua lại.",
-    productId: 102,
+    content: "Sản phẩm dễ sử dụng, không gây kích ứng và làm sạch tốt. Giá cả hợp lý so với chất lượng, sẽ mua lại.",
+    productId: "102",
     productName: "Bioderma Sensibio H2O Micellar Water",
     productImage: "",
     verified: true,
     helpful: 35
   },
   {
-    id: 3,
+    _id: "fallback-3",
     customerName: "Phạm Thu Trang",
     avatar: "",
     rating: 5,
     date: "2023-03-05",
-    content: "Serum vitamin C này thật sự đáng đồng tiền! Tôi đã dùng được 1 tháng và thấy da sáng hơn, các vết thâm mờ đi rõ rệt. Kết cấu sản phẩm rất dễ thẩm thấu và không gây nhờn. Chắc chắn sẽ mua lại!",
-    productId: 103,
+    content: "Serum vitamin C này thật sự đáng đồng tiền! Da sáng hơn, các vết thâm mờ đi rõ rệt. Chắc chắn sẽ mua lại!",
+    productId: "103",
     productName: "Klairs Freshly Juiced Vitamin C Serum",
     productImage: "",
     verified: true,
     helpful: 27
   },
   {
-    id: 4,
-    customerName: "Lê Thanh Hà",
+    _id: "fallback-4",
+    customerName: "Lê Văn An",
     avatar: "",
     rating: 4,
     date: "2023-02-28",
-    content: "Mặt nạ ngủ này thật sự giúp da tôi được phục hồi qua đêm. Mỗi khi thức dậy, da mặt tôi căng mọng và rạng rỡ hơn. Mùi hương dễ chịu, thư giãn. Tuy nhiên, có thể hơi dính một chút nếu bạn có da dầu.",
-    productId: 104,
-    productName: "Laneige Cica Sleeping Mask",
+    content: "Chất lượng tốt, giao hàng nhanh. Vợ tôi rất hài lòng với sản phẩm này.",
+    productId: "104",
+    productName: "The Ordinary Niacinamide",
     productImage: "",
-    verified: true,
+    verified: false,
     helpful: 19
   },
   {
-    id: 5,
+    _id: "fallback-5",
     customerName: "Vũ Quỳnh Anh",
     avatar: "",
     rating: 5,
     date: "2023-02-20",
-    content: "Son dưỡng này là cứu tinh cho môi khô của tôi trong mùa đông. Nó dưỡng ẩm tốt, không có cảm giác bết dính và giữ ẩm lâu. Mình đặc biệt thích mùi hương nhẹ nhàng của nó. Sẽ tiếp tục mua lại!",
-    productId: 105,
+    content: "Son dưỡng tuyệt vời! Mềm mịn và giữ ẩm lâu. Sẽ tiếp tục mua lại!",
+    productId: "105",
     productName: "Laneige Lip Sleeping Mask",
     productImage: "",
     verified: true,
     helpful: 31
+  },
+  {
+    _id: "fallback-6",
+    customerName: "Hoàng Mai Linh",
+    avatar: "",
+    rating: 4.5,
+    date: "2023-02-15",
+    content: "Kem chống nắng này rất tốt, không gây nhờn và bảo vệ da hiệu quả.",
+    productId: "106",
+    productName: "La Roche Posay Anthelios",
+    productImage: "",
+    verified: true,
+    helpful: 28
+  },
+  {
+    _id: "fallback-7",
+    customerName: "Đỗ Thanh Hà",
+    avatar: "",
+    rating: 4.5,
+    date: "2023-02-10",
+    content: "Tẩy trang rất nhẹ nhàng, không gây khô căng da. Phù hợp với da nhạy cảm như tôi.",
+    productId: "107",
+    productName: "Cetaphil Gentle Makeup Remover",
+    productImage: "",
+    verified: true,
+    helpful: 24
+  },
+  {
+    _id: "fallback-8",
+    customerName: "Bùi Quang Minh",
+    avatar: "",
+    rating: 5,
+    date: "2023-02-05",
+    content: "Mặt nạ giấy này làm da sáng lên ngay sau lần đầu sử dụng. Gói hàng cũng rất đẹp.",
+    productId: "108",
+    productName: "Innisfree My Real Squeeze Mask",
+    productImage: "",
+    verified: true,
+    helpful: 33
+  },
+  {
+    _id: "fallback-9",
+    customerName: "Ngô Thị Lan",
+    avatar: "",
+    rating: 4,
+    date: "2023-01-28",
+    content: "Kem dưỡng mắt làm giảm thâm quầng hiệu quả. Texture mịn, thấm nhanh.",
+    productId: "109",
+    productName: "Olay Regenerist Eye Cream",
+    productImage: "",
+    verified: true,
+    helpful: 18
+  },
+  {
+    _id: "fallback-10",
+    customerName: "Phan Văn Thắng",
+    avatar: "",
+    rating: 4.5,
+    date: "2023-01-20",
+    content: "Sữa rửa mặt tạo bọt mịn, làm sạch tốt mà không gây khô da. Mùi hương dễ chịu.",
+    productId: "110",
+    productName: "CeraVe Foaming Facial Cleanser",
+    productImage: "",
+    verified: false,
+    helpful: 22
+  },
+  {
+    _id: "fallback-11",
+    customerName: "Tạ Thu Thủy",
+    avatar: "",
+    rating: 5,
+    date: "2023-01-15",
+    content: "Essence này thấm rất nhanh và làm da mượt mịn. Đóng gói cẩn thận, giao hàng đúng hẹn.",
+    productId: "111",
+    productName: "SK-II Facial Treatment Essence",
+    productImage: "",
+    verified: true,
+    helpful: 40
+  },
+  {
+    _id: "fallback-12",
+    customerName: "Lý Hoàng Nam",
+    avatar: "",
+    rating: 4,
+    date: "2023-01-10",
+    content: "Toner không chứa cồn, dịu nhẹ với da. Chai to, dùng được lâu, giá tốt.",
+    productId: "112",
+    productName: "Hada Labo Gokujyun Lotion",
+    productImage: "",
+    verified: true,
+    helpful: 26
   }
 ];
 
-// Component hiển thị đánh giá sao
-const RatingStars: React.FC<{ rating: number }> = ({ rating }) => {
+// Component loading skeleton
+const ReviewCardSkeleton: React.FC = () => {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 h-full animate-pulse">
+      {/* Header skeleton */}
+      <div className="flex items-start gap-4 mb-4">
+        <div className="w-12 h-12 bg-gray-300 rounded-full flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="h-4 bg-gray-200 rounded w-24 mb-2" />
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-4 h-4 bg-gray-200 rounded" />
+              ))}
+            </div>
+            <div className="h-3 bg-gray-200 rounded w-16" />
+          </div>
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div className="space-y-2 mb-4">
+        <div className="h-4 bg-gray-200 rounded w-full" />
+        <div className="h-4 bg-gray-200 rounded w-5/6" />
+        <div className="h-4 bg-gray-200 rounded w-4/6" />
+      </div>
+
+      {/* Product info skeleton */}
+      <div className="pt-4 border-t border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gray-200 rounded-lg flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="h-3 bg-gray-200 rounded w-16 mb-1" />
+            <div className="h-4 bg-gray-200 rounded w-32" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Component hiển thị đánh giá sao tối giản
+const RatingStars: React.FC<{ rating: number; size?: 'sm' | 'md' }> = ({ rating, size = 'sm' }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 !== 0;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+  const starSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
 
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-0.5">
       {[...Array(fullStars)].map((_, i) => (
-        <FaStar key={`full-${i}`} className="text-yellow-400 mr-1" />
+        <FaStar key={`full-${i}`} className={`text-amber-400 ${starSize}`} />
       ))}
-      {hasHalfStar && <FaStarHalfAlt className="text-yellow-400 mr-1" />}
+      {hasHalfStar && <FaStarHalfAlt className={`text-amber-400 ${starSize}`} />}
       {[...Array(emptyStars)].map((_, i) => (
-        <FiStar key={`empty-${i}`} className="text-gray-300 mr-1" />
+        <FiStar key={`empty-${i}`} className={`text-gray-300 ${starSize}`} />
       ))}
     </div>
   );
 };
 
-// Component hiển thị card đánh giá
-const ReviewCard: React.FC<{ review: CustomerReview; isActive: boolean }> = ({ review, isActive }) => {
+// Component hiển thị card đánh giá tối giản
+const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
   return (
     <motion.div
-      className={`bg-white rounded-xl p-6 shadow-lg ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-50'} h-full flex flex-col relative overflow-hidden`}
+      className="bg-white border border-gray-200 rounded-xl p-6 h-full flex flex-col"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      whileHover={{ scale: isActive ? 1.03 : 1, boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}
+      whileHover={{ y: -2, transition: { duration: 0.2 } }}
     >
-      {/* Dấu quote */}
-      <FaQuoteLeft className="absolute top-6 right-6 text-pink-100 text-4xl opacity-50" />
-
-      {/* Người đánh giá */}
-      <div className="flex items-center mb-4">
-        <div className="relative w-14 h-14 mr-4">
-          <Image
-            src={review.avatar}
-            alt={review.customerName}
-            className="rounded-full border-2 border-pink-300 object-cover"
-            fill
-            onError={(e) => {
-              // Fallback khi ảnh không tồn tại
-              e.currentTarget.src = '/images/default-avatar.png';
-            }}
-          />
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-800 flex items-center">
-            {review.customerName}
+      {/* Header với avatar và thông tin */}
+      <div className="flex items-start gap-4 mb-4">
+        <Avatar name={review.customerName} size="md" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-medium text-gray-900 text-sm truncate">
+              {review.customerName}
+            </h4>
             {review.verified && (
-              <span className="ml-2 bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full flex items-center">
-                <FiCheck className="mr-1" />
-                Đã xác minh
-              </span>
+              <div className="flex-shrink-0">
+                <FiCheck className="w-4 h-4 text-emerald-500" />
+              </div>
             )}
-          </h4>
-          <div className="flex items-center text-sm text-gray-500">
-            <RatingStars rating={review.rating} />
-            <span className="ml-2">{new Date(review.date).toLocaleDateString('vi-VN')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <RatingStars rating={review.rating} size="sm" />
+            <span className="text-xs text-gray-500">
+              {new Date(review.date).toLocaleDateString('vi-VN')}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Nội dung đánh giá */}
-      <div className="mb-4 text-gray-700 italic flex-grow">
-        "{review.content}"
+      <div className="flex-1 mb-4">
+        <p className="text-gray-700 text-sm leading-relaxed line-clamp-4">
+          {review.content}
+        </p>
       </div>
 
       {/* Thông tin sản phẩm */}
-      <div className="flex items-center p-3 bg-gray-50 rounded-lg mt-2">
-        <div className="relative w-12 h-12 mr-3">
-          <Image
-            src={review.productImage}
-            alt={review.productName}
-            className="rounded-md object-cover"
-            fill
-            onError={(e) => {
-              // Fallback khi ảnh không tồn tại
-              e.currentTarget.src = '/404.png';
-            }}
-          />
-        </div>
-        <div>
-          <p className="text-xs text-gray-500">Đánh giá cho</p>
-          <Link href={`/product/${review.productId}`}>
-            <span className="text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors">
+      <div className="pt-4 border-t border-gray-100">
+        <Link 
+          href={`/product/${review.productId}`}
+          className="flex items-center gap-3 group"
+        >
+          <div className="relative w-8 h-8 flex-shrink-0">
+            <Image
+              src={review.productImage || '/404.png'}
+              alt={review.productName}
+              className="rounded-lg object-cover"
+              fill
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/404.png';
+              }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-500 mb-0.5">Sản phẩm</p>
+            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-pink-500 transition-colors">
               {review.productName}
-            </span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Bottom actions */}
-      <div className="flex justify-between items-center mt-4 text-sm">
-        <div className="flex items-center text-gray-500">
-          <FiMessageCircle className="mr-1" />
-          <span>{review.helpful} người thấy hữu ích</span>
-        </div>
-        <button className="text-pink-500 hover:text-pink-700 font-medium">
-          Hữu ích
-        </button>
+            </p>
+          </div>
+        </Link>
       </div>
     </motion.div>
   );
@@ -197,163 +321,204 @@ const ReviewCard: React.FC<{ review: CustomerReview; isActive: boolean }> = ({ r
 
 const CustomerReviewsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
   const reviewsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sử dụng UserReviewContext
+  const { fetchFeaturedReviews, loading, error } = useUserReview();
+  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
+
+  // Hàm chuyển đổi từ Review API sang CustomerReview interface
+  const convertReviewToCustomerReview = (review: Review): CustomerReview => {
+    return {
+      _id: review._id,
+      customerName: review.user?.name || 'Khách hàng ẩn danh',
+      avatar: '',
+      rating: review.rating,
+      date: review.createdAt,
+      content: review.content,
+      productId: review.productId,
+      productName: review.productName,
+      productImage: review.productImage,
+      verified: review.verified,
+      helpful: review.likes || 0,
+      user: review.user
+    };
+  };
+
+  // Lấy đánh giá nổi bật khi component mount
+  useEffect(() => {
+    const loadFeaturedReviews = async () => {
+      try {
+        const reviews = await fetchFeaturedReviews(12); // Tăng lên 12 để có đủ data cho animation
+        const convertedReviews = reviews.map(convertReviewToCustomerReview);
+        setCustomerReviews(convertedReviews);
+      } catch (error) {
+        console.error('Lỗi khi tải đánh giá nổi bật:', error);
+        setCustomerReviews(fallbackReviews);
+      }
+    };
+
+    loadFeaturedReviews();
+  }, [fetchFeaturedReviews]);
 
   // Xử lý navigation
   const showPrev = () => {
     setActiveIndex((prevIndex) =>
-      prevIndex > 0 ? prevIndex - 1 : customerReviews.length - 1
+      prevIndex > 0 ? prevIndex - 6 : Math.max(0, customerReviews.length - 6)
     );
   };
 
   const showNext = () => {
     setActiveIndex((prevIndex) =>
-      prevIndex < customerReviews.length - 1 ? prevIndex + 1 : 0
+      prevIndex + 6 < customerReviews.length ? prevIndex + 6 : 0
     );
   };
 
-  // Xử lý auto slide
+  // Auto slide với animation mượt mà
   useEffect(() => {
+    if (customerReviews.length <= 6) return;
+    
     const timer = setInterval(() => {
-      if (!isDragging) {
-        showNext();
-      }
-    }, 5000);
+      showNext();
+    }, 8000); // Tăng thời gian để người dùng có thể đọc hết
 
     return () => clearInterval(timer);
-  }, [isDragging, activeIndex]);
+  }, [customerReviews.length]);
 
-  // Xử lý sự kiện drag
-  const handleDragStart = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStartX(e.clientX);
-  };
-
-  const handleDragMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      const dragDistance = e.clientX - dragStartX;
-
-      if (Math.abs(dragDistance) > 100) {
-        if (dragDistance > 0) {
-          showPrev();
-        } else {
-          showNext();
-        }
-        setIsDragging(false);
-      }
+  // Tính toán reviews hiển thị - 6 reviews
+  const getVisibleReviews = () => {
+    if (customerReviews.length === 0) return [];
+    
+    const reviewsToShow = 6;
+    const visible = [];
+    
+    for (let i = 0; i < reviewsToShow; i++) {
+      const index = (activeIndex + i) % customerReviews.length;
+      visible.push(customerReviews[index]);
     }
+    
+    return visible;
   };
 
-  const handleDragEnd = () => {
-    setIsDragging(false);
-  };
+  const visibleReviews = getVisibleReviews();
 
   return (
-    <section className="py-16 relative overflow-hidden mb-10">
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Heading */}
-        <div className="text-center mb-12">
-          <motion.h2
-            className="text-3xl md:text-4xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600"
+    <section className="py-20 relative">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-gray-50" />
+      
+      <div className="container mx-auto px-4 relative">
+        {/* Header section */}
+        <div className="text-center mb-16">
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
+            transition={{ duration: 0.6 }}
           >
-            Khách Hàng Nói Gì Về Chúng Tôi
-          </motion.h2>
-          <motion.p
-            className="text-gray-600 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-          >
-            Hơn 10.000 khách hàng hài lòng chia sẻ trải nghiệm của họ về sản phẩm và dịch vụ của Yumin Cosmetics
-          </motion.p>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+              Khách hàng nói gì về chúng tôi
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+              Trải nghiệm thực tế từ hơn 10,000+ khách hàng tin tưởng
+            </p>
+          </motion.div>
         </div>
 
-        {/* Reviews cards container */}
-        <div
-          className="relative"
-          onMouseDown={handleDragStart}
-          onMouseMove={handleDragMove}
-          onMouseUp={handleDragEnd}
-          onMouseLeave={handleDragEnd}
-        >
-          {/* Navigation buttons */}
-          <button
-            onClick={showPrev}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white p-3 rounded-full shadow-lg text-pink-500 hover:text-pink-700 transition-colors focus:outline-none"
-            aria-label="Previous review"
-          >
-            <FiChevronLeft className="text-xl" />
-          </button>
-
-          <button
-            onClick={showNext}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white p-3 rounded-full shadow-lg text-pink-500 hover:text-pink-700 transition-colors focus:outline-none"
-            aria-label="Next review"
-          >
-            <FiChevronRight className="text-xl" />
-          </button>
-
-          {/* Reviews slider */}
-          <div
-            ref={reviewsContainerRef}
-            className="py-8 px-10 overflow-visible relative"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
-              {customerReviews.map((review, index) => {
-                // Calculate relative position based on activeIndex
-                const position = (index - activeIndex + customerReviews.length) % customerReviews.length;
-                const isActive = position === 0;
-                const isVisible = position <= 2 && position >= 0;
-
-                if (!isVisible && window.innerWidth >= 768) return null;
-
-                return (
-                  <div key={review.id} style={{ order: position }}>
-                    <ReviewCard review={review} isActive={isActive} />
-                  </div>
-                );
-              })}
-            </div>
+        {/* Loading state */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <ReviewCardSkeleton key={i} />
+            ))}
           </div>
-        </div>
+        )}
 
-        {/* Indicators */}
-        <div className="flex justify-center mt-8">
-          {customerReviews.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveIndex(index)}
-              className={`w-3 h-3 mx-1 rounded-full transition-all duration-300 ${
-                activeIndex === index ? 'bg-pink-500 w-6' : 'bg-gray-300'
-              }`}
-              aria-label={`Go to review ${index + 1}`}
-            />
-          ))}
-        </div>
+        {/* Error state */}
+        {error && !loading && customerReviews.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-gray-500">Đang sử dụng dữ liệu mẫu</p>
+          </div>
+        )}
 
-        {/* CTA */}
-        <motion.div
-          className="text-center mt-12"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7, delay: 0.4 }}
-        >
-          <Link
-            href="/reviews"
-            className="inline-block px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300"
-          >
-            Xem tất cả đánh giá
-          </Link>
-          <p className="text-sm text-gray-500 mt-2">Hơn 2,500+ đánh giá từ khách hàng thực</p>
-        </motion.div>
+        {/* Reviews container */}
+        {!loading && customerReviews.length > 0 && (
+          <div className="relative">
+            {/* Navigation buttons */}
+            {customerReviews.length > 6 && (
+              <>
+                <button
+                  onClick={showPrev}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white shadow-md rounded-full flex items-center justify-center text-gray-600 hover:text-pink-600 hover:shadow-lg transition-all duration-300 -ml-6"
+                  aria-label="Previous reviews"
+                >
+                  <FiChevronLeft className="w-6 h-6" />
+                </button>
+
+                <button
+                  onClick={showNext}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white shadow-md rounded-full flex items-center justify-center text-gray-600 hover:text-pink-600 hover:shadow-lg transition-all duration-300 -mr-6"
+                  aria-label="Next reviews"
+                >
+                  <FiChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Reviews grid */}
+            <div 
+              ref={reviewsContainerRef}
+              className="overflow-hidden"
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeIndex}
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ 
+                    duration: 0.6,
+                    ease: "easeInOut"
+                  }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  {visibleReviews.map((review, index) => (
+                    <motion.div
+                      key={`${review._id}-${activeIndex}-${index}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ 
+                        duration: 0.5,
+                        delay: index * 0.1,
+                        ease: "easeOut"
+                      }}
+                    >
+                      <ReviewCard review={review} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Indicators */}
+            {customerReviews.length > 6 && (
+              <div className="flex justify-center mt-8 gap-2">
+                {Array.from({ length: Math.ceil(customerReviews.length / 6) }).map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveIndex(index * 6)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      Math.floor(activeIndex / 6) === index 
+                        ? 'bg-pink-500 w-8' 
+                        : 'bg-gray-300 hover:bg-pink-300 w-2'
+                    }`}
+                    aria-label={`Go to review group ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

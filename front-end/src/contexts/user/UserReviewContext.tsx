@@ -56,6 +56,7 @@ export interface UserReviewContextType {
   // Phương thức quản lý đánh giá
   fetchMyReviews: (page?: number, limit?: number, status?: string) => Promise<void>;
   fetchProductReviews: (productId: string, status?: string) => Promise<void>;
+  fetchFeaturedReviews: (limit?: number) => Promise<Review[]>;
   createReview: (reviewData: FormData, onProgress?: (progress: number) => void) => Promise<boolean>;
   updateReview: (reviewId: string, reviewData: any, onProgress?: (progress: number) => void) => Promise<boolean>;
   deleteReview: (reviewId: string) => Promise<boolean>;
@@ -351,6 +352,39 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [api, isAuthenticated, user?._id]);
 
+  // Lấy đánh giá nổi bật cho trang chủ
+  const fetchFeaturedReviews = useCallback(async (limit: number = 10): Promise<Review[]> => {
+    try {
+      setError(null);
+
+      // Lấy đánh giá đã được phê duyệt với rating cao (4-5 sao)
+      const params = new URLSearchParams();
+      params.append('status', 'approved');
+      params.append('limit', limit.toString());
+      params.append('page', '1');
+
+      const response = await api().get(`/reviews?${params.toString()}`);
+
+      if (response.data && response.data.reviews && Array.isArray(response.data.reviews)) {
+        // Lọc chỉ lấy đánh giá có rating >= 4 và có nội dung
+        const featuredReviews = response.data.reviews
+          .filter((review: Review) => review.rating >= 4 && review.content && review.content.trim().length > 0)
+          .map((review: Review) => ({
+            ...review,
+            isLiked: false // Không cần trạng thái like cho trang chủ
+          }));
+
+        return featuredReviews;
+      }
+
+      return [];
+    } catch (error: any) {
+      console.error('Lỗi khi lấy đánh giá nổi bật:', error);
+      setError(error.response?.data?.message || 'Không thể lấy đánh giá nổi bật.');
+      return [];
+    }
+  }, [api]);
+
   // Tạo đánh giá mới
   const createReview = useCallback(async (reviewData: FormData, onProgress?: (progress: number) => void): Promise<boolean> => {
     if (!isAuthenticated) {
@@ -548,14 +582,22 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       return false;
     }
 
+    // Kiểm tra reviewId hợp lệ
+    if (!reviewId || reviewId.trim() === '') {
+      toast.error('ID đánh giá không hợp lệ');
+      return false;
+    }
+
     // Lưu lại trạng thái hiện tại trước khi gọi API để phục vụ cho việc khôi phục nếu gặp lỗi
     const currentIsLiked = isLiked;
 
     try {
+      console.log(`Đang toggle like cho review ID: ${reviewId}, trạng thái hiện tại: ${isLiked}`);
+      
       // Cập nhật UI trước để người dùng nhận được phản hồi ngay lập tức
       // Đảo ngược trạng thái isLiked từ false -> true hoặc true -> false
       const newClientIsLiked = !currentIsLiked;
-      
+
       setReviews(prevReviews =>
         prevReviews.map(review =>
           review._id === reviewId
@@ -568,13 +610,23 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
         )
       );
 
+      // Kiểm tra token trước khi gọi API
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực. Vui lòng đăng nhập lại.');
+      }
+
+      console.log(`Gọi API: POST /reviews/${reviewId}/toggle-like với token: ${token.substring(0, 10)}...`);
+
       // Gọi API toggle-like
       const response = await api().post(`/reviews/${reviewId}/toggle-like`);
+
+      console.log('Phản hồi từ API toggle-like:', response.data);
 
       if (response.data) {
         // Trạng thái isLiked trong response.data là trạng thái MỚI từ server
         const serverIsLiked = response.data.isLiked;
-        
+
         // Cập nhật lại chính xác dữ liệu từ phản hồi của server
         setReviews(prevReviews =>
           prevReviews.map(review =>
@@ -599,10 +651,12 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
           return newSet;
         });
 
+        toast.success(serverIsLiked ? 'Đã thích đánh giá' : 'Đã bỏ thích đánh giá');
         return true;
       }
 
       // Nếu không có response.data, khôi phục trạng thái ban đầu
+      console.warn('API trả về thành công nhưng không có dữ liệu');
       setReviews(prevReviews =>
         prevReviews.map(review =>
           review._id === reviewId
@@ -618,7 +672,18 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       return false;
     } catch (error: any) {
       console.error('Lỗi khi toggle thích/bỏ thích đánh giá:', error);
-      
+
+      // Log chi tiết hơn về lỗi
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+        console.error('Response headers:', error.response.headers);
+      } else if (error.request) {
+        console.error('Request được gửi nhưng không nhận được phản hồi:', error.request);
+      } else {
+        console.error('Lỗi trong quá trình thiết lập request:', error.message);
+      }
+
       // Khôi phục trạng thái ban đầu khi gặp lỗi
       setReviews(prevReviews =>
         prevReviews.map(review =>
@@ -631,8 +696,29 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
             : review
         )
       );
+
+      // Hiển thị thông báo lỗi chi tiết hơn
+      let errorMessage = 'Có lỗi xảy ra. Vui lòng thử lại.';
       
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+      if (error.response) {
+        switch (error.response.status) {
+          case 401:
+            errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+            break;
+          case 404:
+            errorMessage = 'Không tìm thấy đánh giá này.';
+            break;
+          case 500:
+            errorMessage = 'Lỗi server. Vui lòng thử lại sau hoặc liên hệ admin.';
+            break;
+          default:
+            errorMessage = error.response.data?.message || `Lỗi ${error.response.status}`;
+        }
+      } else if (error.request) {
+        errorMessage = 'Không thể kết nối tới server. Kiểm tra kết nối mạng.';
+      }
+
+      toast.error(errorMessage);
       return false;
     }
   }, [api, isAuthenticated]);
@@ -647,6 +733,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     currentPage,
     fetchMyReviews,
     fetchProductReviews,
+    fetchFeaturedReviews,
     createReview,
     updateReview,
     deleteReview,
