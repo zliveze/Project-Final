@@ -63,6 +63,49 @@ export class CampaignsService {
         }
       }
 
+      // Lấy thông tin chi tiết sản phẩm từ database (bao gồm tất cả productIds để kiểm tra tên)
+      const allProductDetailsForCheck = await this.productModel
+        .find({ _id: { $in: productIds.map(id => new Types.ObjectId(id)) } })
+        .select('_id name')
+        .lean()
+        .exec();
+
+      const productDetailsMapForCheck = new Map<string, any>();
+      allProductDetailsForCheck.forEach(product => {
+        productDetailsMapForCheck.set(product._id.toString(), product);
+      });
+
+      // Kiểm tra xem sản phẩm đã thuộc về Campaign nào khác chưa
+      // Vì đây là create, không cần loại trừ campaign hiện tại (_id: { $ne: campaign._id })
+      const otherActiveCampaigns = await this.campaignModel.find({
+        'products.productId': { $in: productIds.map(id => new Types.ObjectId(id)) }
+      }).select('products.productId title').lean().exec();
+
+      const productInOtherCampaignMap = new Map<string, string>();
+      otherActiveCampaigns.forEach(otherCampaign => {
+        if (otherCampaign.products) {
+          otherCampaign.products.forEach(p => {
+            if (p && p.productId) {
+              const pIdStr = p.productId.toString();
+              if (productIds.includes(pIdStr) && !productInOtherCampaignMap.has(pIdStr)) {
+                productInOtherCampaignMap.set(pIdStr, otherCampaign.title || 'Không có tên');
+              }
+            }
+          });
+        }
+      });
+
+      const productsInAnotherCampaign = productIds.filter(productId => productInOtherCampaignMap.has(productId));
+
+      if (productsInAnotherCampaign.length > 0) {
+        const firstProductIdInAnotherCampaign = productsInAnotherCampaign[0];
+        const campaignName = productInOtherCampaignMap.get(firstProductIdInAnotherCampaign);
+        const productName = productDetailsMapForCheck.get(firstProductIdInAnotherCampaign)?.name || firstProductIdInAnotherCampaign;
+        throw new BadRequestException(
+          `Sản phẩm ${productName} (ID: ${firstProductIdInAnotherCampaign}) đã thuộc về Campaign "${campaignName}". Một sản phẩm chỉ có thể thuộc về một Campaign duy nhất.`
+        );
+      }
+
       // Làm phong phú dữ liệu sản phẩm với thông tin chi tiết
       const enrichedProducts = await this.enrichProductsData(createCampaignDto.products);
       createCampaignDto.products = enrichedProducts;
@@ -291,6 +334,49 @@ export class CampaignsService {
             );
           }
         }
+
+        // Lấy thông tin chi tiết sản phẩm từ database (bao gồm tất cả newProductIds để kiểm tra tên)
+        const allNewProductDetailsForCheck = await this.productModel
+          .find({ _id: { $in: newProductIds.map(id => new Types.ObjectId(id)) } })
+          .select('_id name')
+          .lean()
+          .exec();
+
+        const newProductDetailsMapForCheck = new Map<string, any>();
+        allNewProductDetailsForCheck.forEach(product => {
+          newProductDetailsMapForCheck.set(product._id.toString(), product);
+        });
+
+        // Kiểm tra xem các sản phẩm mới này đã thuộc về Campaign nào khác chưa
+        const otherActiveCampaigns = await this.campaignModel.find({
+          _id: { $ne: existingCampaign._id }, // Loại trừ campaign hiện tại
+          'products.productId': { $in: newProductIds.map(id => new Types.ObjectId(id)) }
+        }).select('products.productId title').lean().exec();
+
+        const productInOtherCampaignMap = new Map<string, string>();
+        otherActiveCampaigns.forEach(otherCampaign => {
+          if (otherCampaign.products) {
+            otherCampaign.products.forEach(p => {
+              if (p && p.productId) {
+                const pIdStr = p.productId.toString();
+                if (newProductIds.includes(pIdStr) && !productInOtherCampaignMap.has(pIdStr)) {
+                  productInOtherCampaignMap.set(pIdStr, otherCampaign.title || 'Không có tên');
+                }
+              }
+            });
+          }
+        });
+
+        const newProductsInAnotherCampaign = newProductIds.filter(productId => productInOtherCampaignMap.has(productId));
+
+        if (newProductsInAnotherCampaign.length > 0) {
+          const firstProductIdInAnotherCampaign = newProductsInAnotherCampaign[0];
+          const campaignName = productInOtherCampaignMap.get(firstProductIdInAnotherCampaign);
+          const productName = newProductDetailsMapForCheck.get(firstProductIdInAnotherCampaign)?.name || firstProductIdInAnotherCampaign;
+          throw new BadRequestException(
+            `Sản phẩm mới ${productName} (ID: ${firstProductIdInAnotherCampaign}) đã thuộc về Campaign "${campaignName}". Một sản phẩm chỉ có thể thuộc về một Campaign duy nhất.`
+          );
+        }
       }
 
       // Làm phong phú dữ liệu sản phẩm mới với thông tin chi tiết
@@ -387,6 +473,49 @@ export class CampaignsService {
           `Sản phẩm đã thuộc về một Event. Vui lòng xóa sản phẩm khỏi Event trước khi thêm vào Campaign.`
         );
       }
+    }
+
+    // Lấy thông tin chi tiết sản phẩm từ database (bao gồm tất cả productIds để kiểm tra tên)
+    const allProductDetailsForCheck = await this.productModel
+      .find({ _id: { $in: productIds.map(id => new Types.ObjectId(id)) } })
+      .select('_id name')
+      .lean()
+      .exec();
+
+    const productDetailsMapForCheck = new Map<string, any>();
+    allProductDetailsForCheck.forEach(product => {
+      productDetailsMapForCheck.set(product._id.toString(), product);
+    });
+
+    // Kiểm tra xem sản phẩm đã thuộc về Campaign nào khác chưa
+    const otherActiveCampaigns = await this.campaignModel.find({
+      _id: { $ne: campaign._id }, // Loại trừ campaign hiện tại
+      'products.productId': { $in: productIds.map(id => new Types.ObjectId(id)) }
+    }).select('products.productId title').lean().exec();
+
+    const productInOtherCampaignMap = new Map<string, string>();
+    otherActiveCampaigns.forEach(otherCampaign => {
+      if (otherCampaign.products) {
+        otherCampaign.products.forEach(p => {
+          if (p && p.productId) {
+            const pIdStr = p.productId.toString();
+            if (productIds.includes(pIdStr) && !productInOtherCampaignMap.has(pIdStr)) {
+              productInOtherCampaignMap.set(pIdStr, otherCampaign.title || 'Không có tên');
+            }
+          }
+        });
+      }
+    });
+
+    const productsInAnotherCampaign = productIds.filter(productId => productInOtherCampaignMap.has(productId));
+
+    if (productsInAnotherCampaign.length > 0) {
+      const firstProductIdInAnotherCampaign = productsInAnotherCampaign[0];
+      const campaignName = productInOtherCampaignMap.get(firstProductIdInAnotherCampaign);
+      const productName = productDetailsMapForCheck.get(firstProductIdInAnotherCampaign)?.name || firstProductIdInAnotherCampaign;
+      throw new BadRequestException(
+        `Sản phẩm ${productName} (ID: ${firstProductIdInAnotherCampaign}) đã thuộc về Campaign "${campaignName}". Một sản phẩm chỉ có thể thuộc về một Campaign duy nhất.`
+      );
     }
 
     // Kiểm tra trùng lặp sản phẩm
