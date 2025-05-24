@@ -3,9 +3,11 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination, Navigation, EffectFade, Parallax } from 'swiper/modules'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { motion } from 'framer-motion'
+import { useGSAP, animations, gsapUtils } from '../../hooks/useGSAP'
 import { useBanner } from '../../contexts'
 import type { Banner } from '../../contexts/BannerContext'
+import { FiArrowRight, FiStar } from 'react-icons/fi'
+import { HiSparkles } from 'react-icons/hi'
 
 // Import Swiper styles
 import 'swiper/css'
@@ -14,31 +16,125 @@ import 'swiper/css/navigation'
 import 'swiper/css/effect-fade'
 import 'swiper/css/parallax'
 
-// Định nghĩa các giá trị cố định cho animation
-const decorativeElements = [
-  { type: 'heart', left: "15%", top: "20%", delay: "0.5s", duration: "18s", size: "16px" },
-  { type: 'heart', left: "30%", top: "50%", delay: "1.2s", duration: "22s", size: "20px" },
-  { type: 'heart', left: "45%", top: "15%", delay: "2.1s", duration: "20s", size: "14px" },
-  { type: 'heart', left: "60%", top: "40%", delay: "1.5s", duration: "19s", size: "18px" },
-  { type: 'heart', left: "75%", top: "30%", delay: "0.8s", duration: "21s", size: "22px" },
-  { type: 'heart', left: "90%", top: "60%", delay: "1.7s", duration: "23s", size: "16px" },
-  { type: 'circle', left: "20%", top: "30%", delay: "0.5s", size: "80px", color: "rgba(255,182,193,0.3)" },
-  { type: 'circle', left: "40%", top: "60%", delay: "1.2s", size: "60px", color: "rgba(255,220,220,0.2)" },
-  { type: 'circle', left: "60%", top: "40%", delay: "1.8s", size: "100px", color: "rgba(255,192,203,0.15)" },
-  { type: 'circle', left: "80%", top: "70%", delay: "0.9s", size: "70px", color: "rgba(255,105,180,0.1)" },
-  { type: 'dot', left: "25%", top: "25%", delay: "0.3s", size: "6px", color: "rgba(219,112,147,0.6)" },
-  { type: 'dot', left: "35%", top: "65%", delay: "1.0s", size: "8px", color: "rgba(255,105,180,0.5)" },
-  { type: 'dot', left: "65%", top: "35%", delay: "1.5s", size: "5px", color: "rgba(255,20,147,0.4)" },
-  { type: 'dot', left: "85%", top: "15%", delay: "0.7s", size: "7px", color: "rgba(219,112,147,0.5)" }
-];
-
 export default function Herobanners() {
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const swiperRef = useRef(null)
+  const bannerRef = useRef<HTMLDivElement>(null)
   const { banners, loading, error, fetchActiveBanners } = useBanner()
+
+  // Track mouse movement for parallax effect
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const { clientX, clientY } = e
+      const { innerWidth, innerHeight } = window
+      const x = (clientX / innerWidth - 0.5) * 2
+      const y = (clientY / innerHeight - 0.5) * 2
+      setMousePosition({ x, y })
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  // GSAP Timeline for banner animations - Enhanced with parallax
+  useGSAP(({ gsap }) => {
+    if (!bannerRef.current || loading) return
+
+    const tl = gsapUtils.timeline()
+    
+    // Initial setup with more dramatic entrance
+    gsap.set(".banner-wrapper", { opacity: 0, scale: 1.05 })
+    gsap.set(".hero-swiper", { opacity: 0, y: 30, rotationX: 2 })
+    gsap.set(".floating-elements", { opacity: 0, scale: 0.8 })
+    
+    // Main entrance animation - More cinematic
+    tl.to(".banner-wrapper", {
+      opacity: 1,
+      scale: 1,
+      duration: 0.8,
+      ease: "power3.out"
+    })
+    .to(".hero-swiper", {
+      opacity: 1,
+      y: 0,
+      rotationX: 0,
+      duration: 1,
+      ease: "power3.out"
+    }, "-=0.4")
+    .to(".floating-elements", {
+      opacity: 1,
+      scale: 1,
+      duration: 0.6,
+      stagger: 0.1,
+      ease: "back.out(1.7)"
+    }, "-=0.6")
+
+  }, [loading, isClient, banners])
+
+  // Enhanced content animation for each slide
+  useGSAP(({ gsap }) => {
+    const slideContent = document.querySelectorAll('.swiper-slide-content')
+    
+    slideContent.forEach((content, index) => {
+      if (index === activeIndex) {
+        const tl = gsapUtils.timeline()
+        const title = content.querySelector('h2')
+        const subtitle = content.querySelector('p')
+        const button = content.querySelector('button')
+        const decorativeElements = content.querySelectorAll('.decorative-element')
+        
+        // Set initial states
+        gsap.set([title, subtitle, button], { y: 30, opacity: 0 })
+        gsap.set(decorativeElements, { scale: 0, opacity: 0 })
+        
+        // Animate entrance with stagger
+        tl.to(title, {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: "power3.out"
+        })
+        .to(subtitle, {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: "power3.out"
+        }, "-=0.5")
+        .to(decorativeElements, {
+          scale: 1,
+          opacity: 1,
+          duration: 0.6,
+          stagger: 0.1,
+          ease: "back.out(1.7)"
+        }, "-=0.6")
+        .to(button, {
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: "power3.out"
+        }, "-=0.4")
+      }
+    })
+  }, [activeIndex])
+
+  // Parallax effect for floating elements
+  useGSAP(({ gsap }) => {
+    const floatingElements = document.querySelectorAll('.floating-element')
+    
+    floatingElements.forEach((element, index) => {
+      const speed = 0.5 + (index * 0.2)
+      gsap.to(element, {
+        x: mousePosition.x * speed * 10,
+        y: mousePosition.y * speed * 10,
+        duration: 2,
+        ease: "power2.out"
+      })
+    })
+  }, [mousePosition])
 
   // Fetch banners khi component được mount
   useEffect(() => {
@@ -66,58 +162,50 @@ export default function Herobanners() {
     router.replace(href)
   }
 
-  // Cấu hình animation cho các phần tử văn bản
-  const textVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (index: number) => ({
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        delay: 0.1 * index, 
-        duration: 0.8, 
-        ease: "easeOut" 
-      }
-    }),
-  }
-
-  // Tạo subtitle cho banner nếu không có
+  // Enhanced subtitle generation
   const getSubtitle = (banner: Banner) => {
-    // Nếu banner có alt text, sử dụng nó như là subtitle
     if (banner.alt) return banner.alt;
     
-    // Nếu không, tạo subtitle theo campaignId
     if (banner.campaignId?.includes('valentine')) {
-      return 'Ưu đãi đặc biệt cho những món quà tình yêu';
+      return '✨ Ưu đãi đặc biệt cho những món quà tình yêu';
     } else if (banner.campaignId?.includes('tet') || banner.campaignId?.includes('lunar-new-year')) {
-      return 'Tỏa sáng đón năm mới với ưu đãi hấp dẫn';
+      return '🌟 Tỏa sáng đón năm mới với ưu đãi hấp dẫn';
     } else if (banner.campaignId?.includes('new-year')) {
-      return 'Làm mới diện mạo với bộ sưu tập đầu năm';
+      return '💫 Làm mới diện mạo với bộ sưu tập đầu năm';
     }
     
-    return 'Khám phá ngay bộ sưu tập mới nhất của chúng tôi';
+    return '🌸 Khám phá ngay bộ sưu tập mới nhất của chúng tôi';
   }
 
-  // Tạo nội dung button cho banner
+  // Enhanced button text
   const getButtonText = (banner: Banner) => {
     if (banner.campaignId?.includes('sale') || banner.campaignId?.includes('deal')) {
-      return 'Mua ngay';
+      return 'Mua ngay - Ưu đãi hot';
     } else if (banner.campaignId?.includes('collection')) {
-      return 'Xem bộ sưu tập';
+      return 'Khám phá bộ sưu tập';
     }
     
     return 'Khám phá ngay';
   }
 
-  // Hiển thị placeholder khi loading
+  // Enhanced loading state
   if (loading) {
     return (
-      <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
-        <div className="container mx-auto px-4 h-[320px] md:h-[500px] flex items-center justify-center">
-          <div className="animate-pulse w-full h-full rounded-lg bg-gray-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-300 rounded-full mx-auto mb-4 animate-pulse"></div>
-              <div className="h-4 bg-gray-300 rounded w-32 mx-auto mb-2"></div>
-              <div className="h-3 bg-gray-300 rounded w-48 mx-auto"></div>
+      <div className="banner-wrapper relative overflow-hidden py-4 md:py-8">
+        {/* Floating elements while loading */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="floating-element absolute top-20 right-20 w-16 h-16 bg-gradient-to-r from-rose-300/20 to-pink-300/20 rounded-full blur-xl animate-pulse"></div>
+          <div className="floating-element absolute top-40 left-20 w-12 h-12 bg-gradient-to-r from-purple-300/20 to-violet-300/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        
+        <div className="container mx-auto px-4 h-[300px] md:h-[450px] flex items-center justify-center">
+          <div className="animate-pulse w-full h-full rounded-3xl bg-gradient-to-r from-rose-100 to-pink-100 flex items-center justify-center relative overflow-hidden">
+            {/* Loading shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-ping" style={{ animationDuration: '2s' }}></div>
+            <div className="text-center z-10">
+              <div className="w-16 h-16 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full mx-auto mb-4 animate-spin shadow-lg"></div>
+              <div className="h-4 bg-white/50 rounded-full w-32 mx-auto mb-2"></div>
+              <div className="h-3 bg-white/30 rounded-full w-48 mx-auto"></div>
             </div>
           </div>
         </div>
@@ -137,230 +225,186 @@ export default function Herobanners() {
   }
 
   return (
-    <div className="banner-wrapper relative overflow-hidden bg-gradient-to-b from-pink-50 to-white py-1 md:py-6">
-      {/* Decorative elements - chỉ hiển thị trên desktop và chỉ ở phía client */}
-      {isClient && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Floating elements */}
-          {decorativeElements.map((elem, i) => (
-            <div 
-              key={i} 
-              className={`decorative-element decorative-${elem.type}`}
-              style={{
-                left: elem.left,
-                top: elem.top,
-                animationDelay: elem.delay,
-                animationDuration: elem.duration || "4s",
-                width: elem.size,
-                height: elem.size,
-                background: elem.type === 'circle' || elem.type === 'dot' ? elem.color : 'transparent'
-              }}
-            />
-          ))}
+    <div className="banner-wrapper relative overflow-hidden py-4 md:py-8" ref={bannerRef}>
+      {/* Enhanced Floating Decorative Elements */}
+      <div className="floating-elements absolute inset-0 pointer-events-none z-10">
+        <div className="floating-element absolute top-16 right-16 w-20 h-20 bg-gradient-to-r from-rose-400/15 to-pink-400/15 rounded-full blur-2xl"></div>
+        <div className="floating-element absolute top-32 left-16 w-16 h-16 bg-gradient-to-r from-purple-400/15 to-violet-400/15 rounded-full blur-xl"></div>
+        <div className="floating-element absolute bottom-32 right-1/4 w-24 h-24 bg-gradient-to-r from-amber-400/10 to-orange-400/10 rounded-full blur-2xl"></div>
+        
+        {/* Sparkle elements */}
+        <div className="floating-element absolute top-24 left-1/3">
+          <HiSparkles className="w-6 h-6 text-rose-400/40 animate-pulse" />
         </div>
-      )}
+        <div className="floating-element absolute bottom-24 right-1/3">
+          <FiStar className="w-4 h-4 text-pink-400/40 animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
+      </div>
 
-      <div className="container mx-auto px-0 md:px-4 relative">
+      <div className="container mx-auto px-4 md:px-6 relative">
         <style jsx global>{`
           .banner-wrapper {
-            perspective: 1000px;
+            will-change: opacity, transform;
           }
           
-          /* Decorative elements animations */
-          .decorative-element {
-            position: absolute;
-            opacity: 0;
-            z-index: 1;
-          }
-          
-          .decorative-heart {
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF69B4' opacity='0.4'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E") no-repeat center/contain;
-            animation: floatHeart linear infinite;
-          }
-
-          .decorative-circle {
-            border-radius: 50%;
-            animation: glowPulse 4s ease-in-out infinite;
-          }
-          
-          .decorative-dot {
-            border-radius: 50%;
-            animation: floatDot 5s ease-in-out infinite;
-          }
-
-          @keyframes floatHeart {
-            0% {
-              transform: translateY(100vh) scale(0.5) rotate(0deg);
-              opacity: 0;
-            }
-            10% {
-              opacity: 0.6;
-            }
-            90% {
-              opacity: 0.6;
-            }
-            100% {
-              transform: translateY(-100px) scale(1.2) rotate(360deg);
-              opacity: 0;
-            }
-          }
-
-          @keyframes glowPulse {
-            0%, 100% {
-              transform: scale(0.8);
-              opacity: 0;
-            }
-            50% {
-              transform: scale(1.1);
-              opacity: 0.4;
-            }
-          }
-          
-          @keyframes floatDot {
-            0% {
-              transform: translate(0, 0);
-              opacity: 0;
-            }
-            25% {
-              opacity: 1;
-            }
-            50% {
-              transform: translate(10px, -10px);
-            }
-            75% {
-              transform: translate(-10px, 10px);
-              opacity: 1;
-            }
-            100% {
-              transform: translate(0, 0);
-              opacity: 0;
-            }
-          }
-
-          /* Enhanced Swiper styles */
           .hero-swiper {
             border-radius: 0;
             transform-style: preserve-3d;
-            animation: slideIn 0.8s ease-out;
+            will-change: transform, opacity;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            position: relative;
+            overflow: hidden;
+          }
+
+          .hero-swiper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(255,255,255,0.1) 100%);
+            pointer-events: none;
+            z-index: 10;
           }
           
           .swiper-slide-content {
             position: absolute;
-            z-index: 10;
+            z-index: 15;
             left: 0;
             bottom: 0;
             width: 100%;
             padding: 2rem;
             color: white;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+            background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0.3), transparent);
           }
           
           @media (min-width: 768px) {
             .swiper-slide-content {
               bottom: 10%;
-              left: 10%;
+              left: 8%;
               width: 50%;
               padding: 0;
               background: none;
+              text-shadow: 0 4px 12px rgba(0,0,0,0.4);
             }
-          }
-
-          @keyframes slideIn {
-            from {
-              transform: translateY(20px);
-              opacity: 0;
-            }
-            to {
-              transform: translateY(0);
-              opacity: 1;
-            }
-          }
-
-          @media (min-width: 768px) {
+            
             .hero-swiper {
-              border-radius: 16px;
+              border-radius: 24px;
               overflow: hidden;
-              box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-              transition: transform 0.3s ease, box-shadow 0.3s ease;
+              transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             }
+            
             .hero-swiper:hover {
-              transform: translateY(-4px);
-              box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+              transform: translateY(-4px) scale(1.01);
+              box-shadow: 0 32px 80px rgba(0,0,0,0.12);
             }
           }
 
-          /* Pagination styles - optimized */
+          /* Enhanced Pagination with glassmorphism */
           .hero-swiper .swiper-pagination {
-            bottom: 20px !important;
+            bottom: 24px !important;
+            z-index: 20;
           }
 
           .hero-swiper .swiper-pagination-bullet {
             width: 8px;
             height: 8px;
             margin: 0 6px;
-            background: white;
-            opacity: 0.6;
-            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.6);
+            opacity: 0.7;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 4px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
           }
 
           .hero-swiper .swiper-pagination-bullet-active {
             opacity: 1;
-            background: #FF1493;
-            transform: scale(1.3);
+            background: linear-gradient(45deg, #ff6b9d, #c44569);
+            width: 32px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
           }
 
-          /* Navigation buttons - optimized */
+          /* Premium Navigation Buttons */
           .hero-swiper .swiper-button-next,
           .hero-swiper .swiper-button-prev {
             color: white;
-            background: rgba(0,0,0,0.15);
-            width: 40px;
-            height: 40px;
+            background: rgba(255,255,255,0.1);
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(4px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 20;
           }
 
           .hero-swiper .swiper-button-next:hover,
           .hero-swiper .swiper-button-prev:hover {
-            background: rgba(255,20,147,0.7);
+            background: linear-gradient(45deg, rgba(255, 107, 157, 0.9), rgba(196, 69, 105, 0.9));
             transform: scale(1.1);
+            box-shadow: 0 8px 24px rgba(255, 107, 157, 0.3);
           }
 
           .hero-swiper .swiper-button-next:after,
           .hero-swiper .swiper-button-prev:after {
-            font-size: 18px;
-            font-weight: bold;
+            font-size: 16px;
+            font-weight: 700;
           }
           
-          /* Banner button styles */
+          /* Premium Button with enhanced effects */
           .banner-btn {
             position: relative;
             overflow: hidden;
-            transition: all 0.3s ease;
-            z-index: 1;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(45deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85)) !important;
+            color: #2D2D2D !important;
+            border: 1px solid rgba(255,255,255,0.8);
+            backdrop-filter: blur(12px);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 20px rgba(255,255,255,0.2);
           }
-          
-          .banner-btn:before {
+
+          .banner-btn::before {
             content: '';
             position: absolute;
             top: 0;
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: all 0.6s ease;
-            z-index: -1;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
           }
-          
-          .banner-btn:hover:before {
+
+          .banner-btn:hover::before {
             left: 100%;
           }
           
           .banner-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(255,20,147,0.15);
+            background: linear-gradient(45deg, #ff6b9d, #c44569) !important;
+            color: white !important;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 12px 32px rgba(255, 107, 157, 0.4);
+            border-color: rgba(255, 107, 157, 0.8);
+          }
+
+          /* Enhanced decorative elements */
+          .decorative-element {
+            position: absolute;
+            pointer-events: none;
+          }
+
+          .floating-element {
+            animation: float 8s ease-in-out infinite;
+          }
+
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-10px) rotate(2deg); }
+            66% { transform: translateY(5px) rotate(-1deg); }
           }
         `}</style>
 
@@ -368,16 +412,16 @@ export default function Herobanners() {
           spaceBetween={0}
           centeredSlides={true}
           autoplay={{
-            delay: 5000,
+            delay: 7000,
             disableOnInteraction: false,
           }}
           pagination={{
             clickable: true,
           }}
-          parallax={true}
           navigation={true}
           effect="fade"
           fadeEffect={{ crossFade: true }}
+          parallax={true}
           onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
           modules={[Autoplay, Pagination, Navigation, EffectFade, Parallax]}
           className="hero-swiper"
@@ -385,77 +429,57 @@ export default function Herobanners() {
         >
           {banners.map((banner: Banner, index: number) => (
             <SwiperSlide key={banner._id} className="relative">
-              {/* Desktop Image */}
-              <div className="hidden md:block w-full h-[500px] relative">
+              {/* Desktop Image with parallax */}
+              <div className="hidden md:block w-full h-[450px] relative" data-swiper-parallax="30%">
                 <Image
                   src={isImageError(`${banner._id}-desktop`) ? '/404.png' : banner.desktopImage}
                   alt={banner.alt || banner.title}
                   fill
                   style={{ objectFit: 'cover' }}
                   priority={index === 0}
-                  data-swiper-parallax="-300"
-                  quality={90}
+                  quality={95}
                   onError={() => handleImageError(`${banner._id}-desktop`)}
                   placeholder="blur"
                   blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                 />
               </div>
               
-              {/* Mobile Image */}
-              <div className="block md:hidden w-full h-[320px] relative">
+              {/* Mobile Image with parallax */}
+              <div className="block md:hidden w-full h-[350px] relative" data-swiper-parallax="20%">
                 <Image
                   src={isImageError(`${banner._id}-mobile`) ? '/404.png' : banner.mobileImage}
                   alt={banner.alt || banner.title}
                   fill
                   style={{ objectFit: 'cover' }}
                   priority={index === 0}
-                  data-swiper-parallax="-200"
-                  quality={85}
+                  quality={90}
                   onError={() => handleImageError(`${banner._id}-mobile`)}
                   placeholder="blur"
                   blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                 />
               </div>
               
-              {/* Content với animation */}
-              <div className="swiper-slide-content">
-                {activeIndex === index && (
-                  <>
-                    <motion.h2 
-                      custom={1}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                      className="text-2xl md:text-4xl font-bold mb-2 md:mb-4"
-                    >
-                      {banner.title}
-                    </motion.h2>
-                    
-                    <motion.p 
-                      custom={2}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                      className="text-sm md:text-lg mb-4 md:mb-6 max-w-md opacity-90"
-                    >
-                      {getSubtitle(banner)}
-                    </motion.p>
-                    
-                    <motion.div
-                      custom={3}
-                      initial="hidden"
-                      animate="visible"
-                      variants={textVariants}
-                    >
-                      <button 
-                        onClick={() => handleBannerClick(banner.href || '/shop', banner.campaignId || '')}
-                        className="banner-btn bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-full font-medium text-sm md:text-base"
-                      >
-                        {getButtonText(banner)}
-                      </button>
-                    </motion.div>
-                  </>
-                )}
+              {/* Enhanced Content với decorative elements */}
+              <div className="swiper-slide-content" data-swiper-parallax="-100">
+                {/* Decorative elements */}
+                <div className="decorative-element absolute -top-4 -left-4 w-8 h-8 border-2 border-white/30 rounded-full"></div>
+                <div className="decorative-element absolute -bottom-4 -right-4 w-6 h-6 bg-white/20 rounded-full blur-sm"></div>
+                
+                <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 tracking-wide leading-tight">
+                  {banner.title}
+                </h2>
+                
+                <p className="text-sm md:text-lg mb-6 md:mb-8 max-w-lg opacity-95 font-light leading-relaxed">
+                  {getSubtitle(banner)}
+                </p>
+                
+                <button 
+                  onClick={() => handleBannerClick(banner.href || '/shop', banner.campaignId || '')}
+                  className="banner-btn group px-6 py-3 md:px-8 md:py-4 rounded-full font-medium text-sm md:text-base inline-flex items-center gap-2 transform-gpu"
+                >
+                  <span className="relative z-10">{getButtonText(banner)}</span>
+                  <FiArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform duration-300 relative z-10" />
+                </button>
               </div>
             </SwiperSlide>
           ))}

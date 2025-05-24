@@ -1,22 +1,15 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import Image from 'next/image';
-// Comment out or remove unused social media icons if not present in API data
-// import { FaFacebook, FaInstagram, FaYoutube, FaGlobe } from 'react-icons/fa'; 
-import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
 import { useBrands, Brand } from '@/contexts/user/brands/BrandContext';
 
 export default function BrandSection() {
-  const { 
-    brands: activeBrands, 
-    featuredBrands, 
-    loading, 
-    error 
+  const {
+    brands: activeBrands,
+    featuredBrands,
+    loading,
+    error
   } = useBrands();
-  
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
+
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // Handle image error
@@ -29,82 +22,23 @@ export default function BrandSection() {
     return imageErrors.has(brandId);
   };
 
-  const handleScroll = () => {
-    if (!scrollContainerRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-    setShowLeftArrow(scrollLeft > 0);
-    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
-  };
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return;
-    const { clientWidth } = scrollContainerRef.current;
-    const scrollAmount = direction === 'left' ? -clientWidth / 2 : clientWidth / 2;
-    scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    // Ensure activeBrands is not null or undefined before checking its length
-    if (!scrollContainer || !activeBrands || activeBrands.length === 0) return;
-
-    let animationFrameId: number;
-    let lastTimestamp = 0;
-    const speed = 0.05; 
-
-    const autoScroll = (timestamp: number) => {
-      if (!scrollContainer) return;
-      if (!isPaused) {
-        if (lastTimestamp) {
-          const delta = timestamp - lastTimestamp;
-          scrollContainer.scrollLeft += speed * delta;
-          if (scrollContainer.scrollLeft >= scrollContainer.scrollWidth - scrollContainer.clientWidth) {
-            scrollContainer.scrollLeft = 0;
-          }
-        }
-        lastTimestamp = timestamp;
-      } else {
-        lastTimestamp = 0;
-      }
-      animationFrameId = requestAnimationFrame(autoScroll);
-    };
-
-    animationFrameId = requestAnimationFrame(autoScroll);
-
-    const pauseScroll = () => setIsPaused(true);
-    const resumeScroll = () => setIsPaused(false);
-
-    scrollContainer.addEventListener('mouseenter', pauseScroll);
-    scrollContainer.addEventListener('mouseleave', resumeScroll);
-    scrollContainer.addEventListener('touchstart', pauseScroll, { passive: true });
-    scrollContainer.addEventListener('touchend', resumeScroll);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      scrollContainer.removeEventListener('mouseenter', pauseScroll);
-      scrollContainer.removeEventListener('mouseleave', resumeScroll);
-      scrollContainer.removeEventListener('touchstart', pauseScroll);
-      scrollContainer.removeEventListener('touchend', resumeScroll);
-    };
-  }, [isPaused, activeBrands]);
-
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      handleScroll(); 
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }
-  }, [activeBrands]); 
-
-  // Ensure activeBrands is not null or undefined before spreading
-  const repeatedBrands = activeBrands && activeBrands.length > 0 ? [...activeBrands, ...activeBrands] : [];
-
   if (loading) {
     return (
-      <section className="py-10 bg-gray-50">
-        <div className="max-w-[1200px] mx-auto px-4 text-center">
-          <p className="text-gray-600">Đang tải danh sách thương hiệu...</p>
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="animate-pulse">
+            <div className="text-center mb-12">
+              <div className="h-6 bg-gradient-to-r from-blue-200 to-purple-200 rounded-full w-48 mx-auto mb-4"></div>
+              <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full w-96 mx-auto"></div>
+            </div>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mb-12">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl p-4 h-24 shadow-md border border-gray-100">
+                  <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -112,156 +46,168 @@ export default function BrandSection() {
 
   if (error) {
     return (
-      <section className="py-10 bg-gray-50">
-        <div className="max-w-[1200px] mx-auto px-4 text-center">
-          <p className="text-red-600">Lỗi: {error}</p>
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <div className="bg-white rounded-xl p-8 shadow-lg border border-red-100">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-gray-700 font-medium">Đã xảy ra lỗi: {error}</p>
+          </div>
         </div>
       </section>
     );
   }
-  
+
   return (
-    <section className="py-10 bg-gray-50">
-      <div className="max-w-[1200px] mx-auto px-4">
+    <section className="py-16 bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4">
         {featuredBrands && featuredBrands.length > 0 && (
           <>
-            <div className="flex flex-col items-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Thương Hiệu Nổi Bật</h2>
-              <p className="text-gray-600 text-center max-w-2xl">Khám phá các thương hiệu mỹ phẩm hàng đầu với sản phẩm chất lượng và uy tín trên toàn thế giới</p>
+            <div className="text-center mb-12">
+              <div className="inline-block mb-4">
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg">
+                  ⭐ Thương Hiệu Nổi Bật
+                </span>
+              </div>
+              
+              <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">
+                Khám Phá Những Thương Hiệu 
+                <span className="text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text"> Hàng Đầu</span>
+              </h2>
+              <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                Trải nghiệm các thương hiệu mỹ phẩm đẳng cấp thế giới với sản phẩm chất lượng cao
+              </p>
+              
+              {/* Decorative line */}
+              <div className="flex items-center justify-center mt-6">
+                <div className="h-0.5 w-16 bg-gradient-to-r from-transparent to-blue-300"></div>
+                <div className="mx-3 w-2 h-2 bg-blue-500 rounded-full"></div>
+                <div className="h-0.5 w-16 bg-gradient-to-l from-transparent to-purple-300"></div>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-10">
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-16 pt-3">
               {featuredBrands.map((brand: Brand) => (
-                <div key={brand.id} className="bg-white rounded-xl p-4 flex flex-col items-center justify-between h-full shadow-sm hover:shadow-md transition-shadow group">
-                  <div className="w-full h-24 relative flex items-center justify-center mb-3">
-                    <a href={`/brands/${brand.slug}`} className="block w-full h-full flex items-center justify-center">
-                      {brand.logo?.url && !isImageError(`featured-${brand.id}`) ? (
-                        <Image 
-                          src={brand.logo.url} 
-                          alt={brand.logo.alt || brand.name}
-                          width={120}
-                          height={60}
-                          className="object-contain max-h-full transition-transform group-hover:scale-105"
-                          onError={() => handleImageError(`featured-${brand.id}`)}
-                          placeholder="blur"
-                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm rounded-lg">
-                          <Image 
-                            src="/404.png"
-                            alt={brand.name}
-                            width={60}
-                            height={30}
-                            className="object-contain opacity-50"
-                          />
+                <div key={brand.id} className="relative group">
+                  <a href={`/brands/${brand.slug}`} className="block">
+                    <div className="relative bg-white rounded-xl p-4 h-32 flex flex-col items-center justify-center shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 group overflow-visible">
+                      {/* Featured badge */}
+                      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
+                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-md">
+                          🏆 Nổi bật
                         </div>
-                      )}
-                    </a>
-                  </div>
-                  
-                  <div className="text-center w-full">
-                    <a href={`/brands/${brand.slug}`} className="block">
-                      <h3 className="font-medium text-gray-800 mb-1 truncate" title={brand.name}>{brand.name}</h3>
-                    </a>
-                  </div>
+                      </div>
+
+                      {/* Subtle gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-purple-50/0 group-hover:from-blue-50/30 group-hover:to-purple-50/30 rounded-xl transition-all duration-300"></div>
+
+                      {/* Logo container */}
+                      <div className="flex-1 flex items-center justify-center mb-2 relative z-10">
+                        {brand.logo?.url && !isImageError(`featured-${brand.id}`) ? (
+                          <Image
+                            src={brand.logo.url}
+                            alt={brand.logo.alt || brand.name}
+                            width={80}
+                            height={40}
+                            className="object-contain max-h-full max-w-full filter grayscale group-hover:grayscale-0 transition-all duration-300"
+                            onError={() => handleImageError(`featured-${brand.id}`)}
+                          />
+                        ) : (
+                          <div className="w-full h-12 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 rounded-lg text-sm font-medium">
+                            {brand.name}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Brand name */}
+                      <div className="text-center relative z-10">
+                        <h4 className="text-xs font-semibold text-gray-700 group-hover:text-blue-600 transition-colors duration-300 line-clamp-2">
+                          {brand.name}
+                        </h4>
+                      </div>
+
+                      {/* Subtle border glow */}
+                      <div className="absolute inset-0 rounded-xl border border-transparent group-hover:border-blue-200/50 transition-all duration-300"></div>
+                    </div>
+                  </a>
                 </div>
               ))}
             </div>
           </>
         )}
-        
+
         {activeBrands && activeBrands.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Tất Cả Thương Hiệu</h3>
-              <a href="/brands" className="text-sm font-medium text-teal-600 hover:text-teal-700 flex items-center">
+          <div>
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">Tất Cả Thương Hiệu</h3>
+                <p className="text-gray-600 text-sm">Khám phá bộ sưu tập đầy đủ của chúng tôi</p>
+              </div>
+              <a
+                href="/brands"
+                className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center"
+              >
                 Xem tất cả
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </a>
             </div>
-            
-            <div className="relative overflow-hidden">
-              {showLeftArrow && activeBrands && activeBrands.length > 5 && ( 
-                <button 
-                  onClick={() => scroll('left')}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-2 shadow-md"
-                  aria-label="Scroll left"
-                >
-                  <IoChevronBack size={24} className="text-gray-700" />
-                </button>
-              )}
-              <div 
-                ref={scrollContainerRef}
-                className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar auto-scroll-container"
-              >
-                {repeatedBrands.map((brand: Brand, index: number) => ( 
-                  <div key={`${brand.id}-${index}`} className="flex-shrink-0 w-[180px]">
-                    <div className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col items-center">
-                      <a href={`/brands/${brand.slug}`} className="block w-full">
-                        <div className="w-full h-16 flex items-center justify-center mb-3">
-                          {brand.logo?.url && !isImageError(`active-${brand.id}-${index}`) ? (
-                            <Image 
-                              src={brand.logo.url} 
-                              alt={brand.logo.alt || brand.name}
-                              width={100}
-                              height={50}
-                              className="object-contain max-h-full"
-                              onError={() => handleImageError(`active-${brand.id}-${index}`)}
-                              placeholder="blur"
-                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs rounded-lg">
-                              <Image 
-                                src="/404.png"
-                                alt={brand.name}
-                                width={50}
-                                height={25}
-                                className="object-contain opacity-50"
-                              />
-                            </div>
-                          )}
+
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+              {activeBrands.slice(0, 16).map((brand: Brand) => (
+                <div key={brand.id} className="relative group">
+                  <a href={`/brands/${brand.slug}`} className="block">
+                    <div className="relative bg-white rounded-lg p-3 h-16 flex items-center justify-center shadow-md border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all duration-300 group">
+                      {/* Special indicator for featured brands */}
+                      {brand.featured && (
+                        <div className="absolute top-1 right-1 z-10">
+                          <div className="w-2 h-2 bg-gradient-to-br from-red-400 to-pink-500 rounded-full shadow-sm"></div>
                         </div>
-                        <div className="text-center">
-                          <h4 className="font-medium text-sm text-gray-800 mb-1 truncate" title={brand.name}>{brand.name}</h4>
+                      )}
+
+                      {/* Subtle gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-purple-50/0 group-hover:from-blue-50/20 group-hover:to-purple-50/20 rounded-lg transition-all duration-300"></div>
+
+                      {brand.logo?.url && !isImageError(`active-${brand.id}`) ? (
+                        <Image
+                          src={brand.logo.url}
+                          alt={brand.logo.alt || brand.name}
+                          width={60}
+                          height={30}
+                          className="object-contain max-h-full max-w-full filter grayscale group-hover:grayscale-0 transition-all duration-300 relative z-10"
+                          onError={() => handleImageError(`active-${brand.id}`)}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-500 rounded text-xs relative z-10">
+                          <span className="truncate px-1 font-medium">{brand.name}</span>
                         </div>
-                      </a>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-              {showRightArrow && activeBrands && activeBrands.length > 5 && ( 
-                <button 
-                  onClick={() => scroll('right')}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-2 shadow-md"
-                  aria-label="Scroll right"
-                >
-                  <IoChevronForward size={24} className="text-gray-700" />
-                </button>
-              )}
+                  </a>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         {(!featuredBrands || featuredBrands.length === 0) && (!activeBrands || activeBrands.length === 0) && !loading && (
-           <div className="text-center py-10">
-             <p className="text-gray-600">Hiện chưa có thương hiệu nào.</p>
+           <div className="text-center py-12">
+             <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
+               <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                 </svg>
+               </div>
+               <p className="text-gray-700 font-semibold">Hiện chưa có thương hiệu nào.</p>
+               <p className="text-gray-500 text-sm mt-1">Vui lòng quay lại sau.</p>
+             </div>
            </div>
         )}
       </div>
-      
-      <style jsx>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        
-        .auto-scroll-container {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </section>
   )
 }

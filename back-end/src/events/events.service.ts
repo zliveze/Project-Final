@@ -145,7 +145,7 @@ export class EventsService {
     // Lấy thông tin chi tiết sản phẩm từ database
     const productDetails = await this.productModel
       .find({ _id: { $in: newProductIds } })
-      .select('_id name images price variants sku status brandId brand')
+      .select('_id name slug images price variants sku status brandId brand reviews soldCount')
       .populate('brandId', 'name')
       .lean()
       .exec();
@@ -174,6 +174,7 @@ export class EventsService {
       const enrichedProduct: any = {
         productId: product.productId,
         name: product.name || productInfo.name,
+        slug: product.slug || productInfo.slug,
         image: product.image || imageUrl,
         originalPrice: product.originalPrice || productInfo.price,
         adjustedPrice: product.adjustedPrice,
@@ -481,7 +482,7 @@ export class EventsService {
     // Lấy thông tin sản phẩm từ database với variants và combinations
     const products = await this.productModel
       .find({ _id: { $in: Array.from(productIds) } })
-      .select('_id name images price variants sku status brandId brand')
+      .select('_id name slug images price variants sku status brandId brand reviews soldCount')
       .populate('brandId', 'name')
       .lean()
       .exec();
@@ -515,12 +516,17 @@ export class EventsService {
         const updatedProduct = {
           ...product,
           name: product.name || productInfo.name,
+          slug: product.slug || productInfo.slug,
           image: product.image || imageUrl,
           originalPrice: product.originalPrice || productInfo.price,
           sku: product.sku || productInfo.sku,
           status: product.status || productInfo.status,
           brandId: product.brandId || productInfo.brandId,
-          brand: product.brand || (productInfo.brand?.name || (productInfo.brandId && typeof productInfo.brandId === 'object' && productInfo.brandId.name) || '')
+          brand: product.brand || (productInfo.brand?.name || (productInfo.brandId && typeof productInfo.brandId === 'object' && productInfo.brandId.name) || ''),
+          reviews: productInfo.reviews || {},
+          averageRating: productInfo.reviews?.averageRating || 0,
+          reviewCount: productInfo.reviews?.reviewCount || 0,
+          soldCount: productInfo.soldCount || 0
         };
 
         // Nếu sản phẩm có biến thể, cập nhật thông tin biến thể
@@ -547,7 +553,11 @@ export class EventsService {
               variantSku: variant.variantSku || variantInfo.sku || '',
               variantPrice: variant.variantPrice || variantInfo.price || 0,
               originalPrice: variant.originalPrice || variantInfo.price || productInfo.price,
-              image: variant.image || variantImageUrl
+              image: variant.image || variantImageUrl,
+              reviews: variantInfo.reviews || {},
+              averageRating: variantInfo.reviews?.averageRating || productInfo.reviews?.averageRating || 0,
+              reviewCount: variantInfo.reviews?.reviewCount || productInfo.reviews?.reviewCount || 0,
+              soldCount: variantInfo.soldCount || 0
             };
 
             // Nếu biến thể có tổ hợp, cập nhật thông tin tổ hợp

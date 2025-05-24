@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import axios from '../../lib/axios';
 import { useAuth } from '../AuthContext';
 
@@ -82,8 +82,8 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState<boolean>(false);
 
-  // Lấy sản phẩm gợi ý cá nhân hóa (yêu cầu đăng nhập)
-  const fetchPersonalizedProducts = async (limit = 8) => {
+  // Memoize fetch functions để tránh re-render
+  const fetchPersonalizedProducts = useCallback(async (limit = 20) => {
     if (!isAuthenticated) {
       return;
     }
@@ -96,30 +96,29 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
       setPersonalizedProducts(response.data.products);
     } catch (error) {
       console.error('Lỗi khi lấy sản phẩm gợi ý cá nhân hóa:', error);
+      setPersonalizedProducts([]);
     } finally {
       setLoadingPersonalized(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  // Lấy sản phẩm tương tự dựa trên sản phẩm hiện tại
-  const fetchSimilarProducts = async (productId: string, limit = 8) => {
+  const fetchSimilarProducts = useCallback(async (productId: string, limit = 20) => {
     setLoadingSimilar(true);
     try {
-      // Sửa API endpoint từ /products/similar sang /recommendations/similar
-      const response = await axios.get<{ products: RecommendedProduct[] }>( // Cập nhật kiểu response mong đợi
-        `/recommendations/similar/${productId}?limit=${limit}`
+      // Sử dụng products controller endpoint thay vì recommendations
+      const response = await axios.get<RecommendationResponse>(
+        `/products/similar/${productId}?limit=${limit}`
       );
-      // Backend đã được sửa để trả về { products: [] }
       setSimilarProducts(response.data.products);
     } catch (error) {
       console.error('Lỗi khi lấy sản phẩm tương tự:', error);
+      setSimilarProducts([]);
     } finally {
       setLoadingSimilar(false);
     }
-  };
+  }, []);
 
-  // Lấy sản phẩm được đề xuất (không yêu cầu đăng nhập, dựa trên sản phẩm mới/phổ biến)
-  const fetchRecommendedProducts = async (limit = 8) => {
+  const fetchRecommendedProducts = useCallback(async (limit = 20) => {
     setLoadingRecommended(true);
     try {
       const response = await axios.get<RecommendationResponse>(
@@ -128,20 +127,29 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
       setRecommendedProducts(response.data.products);
     } catch (error) {
       console.error('Lỗi khi lấy sản phẩm đề xuất:', error);
+      setRecommendedProducts([]);
     } finally {
       setLoadingRecommended(false);
     }
-  };
+  }, []);
 
   // Tải dữ liệu ban đầu
   useEffect(() => {
-    fetchRecommendedProducts();
-    if (isAuthenticated) {
+    // Fetch recommended products cho tất cả user (không yêu cầu đăng nhập)
+    if (recommendedProducts.length === 0 && !loadingRecommended) {
+      fetchRecommendedProducts();
+    }
+  }, []); // Chỉ chạy một lần khi component mount
+
+  // Fetch personalized products khi user đăng nhập
+  useEffect(() => {
+    if (isAuthenticated && personalizedProducts.length === 0 && !loadingPersonalized) {
       fetchPersonalizedProducts();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated]); // Chỉ chạy khi authentication status thay đổi
 
-  const value = {
+  // Memoize context value để tránh re-render
+  const value = useMemo(() => ({
     personalizedProducts,
     loadingPersonalized,
     similarProducts,
@@ -151,7 +159,17 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
     fetchPersonalizedProducts,
     fetchSimilarProducts,
     fetchRecommendedProducts,
-  };
+  }), [
+    personalizedProducts,
+    loadingPersonalized,
+    similarProducts,
+    loadingSimilar,
+    recommendedProducts,
+    loadingRecommended,
+    fetchPersonalizedProducts,
+    fetchSimilarProducts,
+    fetchRecommendedProducts,
+  ]);
 
   return (
     <RecommendationContext.Provider value={value}>

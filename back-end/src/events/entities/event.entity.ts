@@ -61,6 +61,9 @@ export class ProductInEvent {
   name: string;
 
   @Prop()
+  slug: string;
+
+  @Prop()
   image: string;
 
   @Prop()

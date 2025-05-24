@@ -96,13 +96,13 @@ export class ProductsController {
   })
   async getRecommended(@Query() queryDto: QueryProductDto): Promise<LightProductResponseDto> {
     this.logger.log('Request received for recommended products');
-    // Gọi findAllLight với các tham số phù hợp để lấy các sản phẩm mới nhất
+    // Lấy sản phẩm gợi ý thông minh hơn, không chỉ sản phẩm mới
+    // Ưu tiên: Bestseller > Đánh giá cao > Sản phẩm mới > Bán chạy
     return this.productsService.findAllLight({
       ...queryDto,
-      sortBy: 'createdAt', // Sắp xếp theo ngày tạo
-      sortOrder: 'desc',   // Mới nhất trước
-      isNew: true,         // Chỉ lấy sản phẩm mới
-      limit: queryDto.limit || 4 // Mặc định lấy 4 sản phẩm nếu không có limit
+      sortBy: 'reviews.averageRating', // Sắp xếp theo đánh giá
+      sortOrder: 'desc',   // Cao nhất trước
+      limit: queryDto.limit || 20 // Mặc định lấy 20 sản phẩm nếu không có limit
     });
   }
 
@@ -123,7 +123,7 @@ export class ProductsController {
     
     const products = await this.recommendationsService.getPersonalizedRecommendations(
       req.user.userId,
-      limit || 8,
+      limit || 20,
     );
     
     // Format the response to match LightProductResponseDto
@@ -145,7 +145,7 @@ export class ProductsController {
       products: formattedProducts as LightProductDto[],
       total: formattedProducts.length,
       page: 1,
-      limit: limit || 8,
+      limit: limit || 20,
       totalPages: 1
     };
   }
@@ -172,7 +172,7 @@ export class ProductsController {
     
     const products = await this.recommendationsService.getSimilarProducts(
       productId,
-      limit || 8,
+      limit || 20,
     );
     
     // Format the response to match LightProductResponseDto
@@ -194,7 +194,7 @@ export class ProductsController {
       products: formattedProducts as LightProductDto[],
       total: formattedProducts.length,
       page: 1,
-      limit: limit || 8,
+      limit: limit || 20,
       totalPages: 1
     };
   }

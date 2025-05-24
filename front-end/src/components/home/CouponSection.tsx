@@ -1,22 +1,21 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiCopy, FiCheck, FiFilter } from 'react-icons/fi';
+import { FiCopy, FiCheck, FiFilter, FiTag, FiPercent, FiDollarSign, FiGift } from 'react-icons/fi';
 import { RiScissorsFill } from 'react-icons/ri';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { motion } from 'framer-motion';
 
-// Interface cho Coupon, khớp với dữ liệu từ Voucher schema của backend
+// Interface cho Coupon
 interface Coupon {
   _id: string;
   code: string;
   description: string;
-  discountType: 'percentage' | 'fixed'; // Đảm bảo kiểu dữ liệu khớp
+  discountType: 'percentage' | 'fixed';
   discountValue: number;
   minimumOrderValue: number;
-  endDate: string; // Backend sẽ trả về Date dưới dạng string ISO
+  endDate: string;
   startDate: string;
-  isActive?: boolean; // Thêm isActive để có thể lọc
+  isActive?: boolean;
   usageLimit?: number;
   usedCount?: number;
 }
@@ -38,8 +37,8 @@ const CouponSection = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [activeFilter, setActiveFilter] = useState(COUPON_FILTERS.ALL);
   
-  const [allCoupons, setAllCoupons] = useState<Coupon[]>([]); // State để lưu tất cả coupon từ API
-  const [filteredCoupons, setFilteredCoupons] = useState<Coupon[]>([]); // State cho coupon đã lọc và lặp lại
+  const [allCoupons, setAllCoupons] = useState<Coupon[]>([]);
+  const [filteredCoupons, setFilteredCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +48,6 @@ const CouponSection = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Giả định endpoint là /vouchers/public-active để lấy các voucher công khai, đang hoạt động
         const response = await fetch(`${API_URL}/vouchers/public-active`); 
         if (!response.ok) {
           throw new Error(`Lỗi API: ${response.statusText}`);
@@ -67,7 +65,6 @@ const CouponSection = () => {
         });
 
         setAllCoupons(validCoupons);
-        // Lặp lại mảng đã lọc để tạo hiệu ứng cuộn vô hạn, chỉ khi có coupons
         setFilteredCoupons(validCoupons.length > 0 ? [...validCoupons, ...validCoupons] : []);
       } catch (err: any) {
         console.error("Lỗi khi tải mã giảm giá:", err);
@@ -87,28 +84,28 @@ const CouponSection = () => {
     navigator.clipboard.writeText(code)
       .then(() => {
         setCopiedCode(code);
-        toast.success(`Đã sao chép mã "${code}" vào clipboard`, {
+        toast.success(`Đã sao chép mã "${code}"`, {
           position: "bottom-right",
-          autoClose: 3000,
-          hideProgressBar: false,
+          autoClose: 2000,
+          hideProgressBar: true,
           closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
+          pauseOnHover: false,
+          draggable: false,
           theme: "light",
-          style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
+          style: { 
+            background: '#fef7ff', 
+            color: '#a21caf', 
+            borderLeft: '3px solid #c026d3',
+            borderRadius: '8px',
+            fontSize: '14px'
+          }
         });
         setTimeout(() => setCopiedCode(null), 2000);
       })
       .catch(error => {
-        toast.error('Không thể sao chép mã. Vui lòng thử lại.', {
+        toast.error('Không thể sao chép mã', {
           position: "bottom-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
+          autoClose: 2000,
           theme: "light"
         });
       });
@@ -139,11 +136,11 @@ const CouponSection = () => {
   // Tự động cuộn
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || filteredCoupons.length === 0) return; // Không cuộn nếu không có item
+    if (!scrollContainer || filteredCoupons.length === 0) return;
 
     let animationFrameId: number;
     let lastTimestamp = 0;
-    const speed = 0.1; 
+    const speed = 0.08; 
 
     const autoScroll = (timestamp: number) => {
       if (!scrollContainer) return;
@@ -153,7 +150,7 @@ const CouponSection = () => {
           const delta = timestamp - lastTimestamp;
           scrollContainer.scrollLeft += speed * delta;
           
-          if (scrollContainer.scrollLeft >= scrollContainer.scrollWidth / 2) { // Cuộn đến giữa (vì mảng lặp lại)
+          if (scrollContainer.scrollLeft >= scrollContainer.scrollWidth / 2) {
             scrollContainer.scrollLeft = 0;
           }
         }
@@ -194,217 +191,217 @@ const CouponSection = () => {
     }
   };
 
-  // Animation variants
-  const couponVariants = {
-    hover: {
-      y: -5,
-      boxShadow: '0 12px 20px rgba(219, 39, 119, 0.1)',
-      transition: { duration: 0.3 }
+  // Get filter icon
+  const getFilterIcon = (filter: string) => {
+    switch(filter) {
+      case COUPON_FILTERS.PERCENTAGE:
+        return <FiPercent className="w-3 h-3" />;
+      case COUPON_FILTERS.FIXED:
+        return <FiDollarSign className="w-3 h-3" />;
+      case COUPON_FILTERS.NO_MINIMUM:
+        return <FiGift className="w-3 h-3" />;
+      default:
+        return <FiTag className="w-3 h-3" />;
     }
   };
 
+  // Coupon themes
+  const getCouponTheme = (index: number) => {
+    const themes = [
+      { bg: 'bg-orange-500', light: 'bg-orange-50', border: 'border-orange-200' },
+      { bg: 'bg-pink-500', light: 'bg-pink-50', border: 'border-pink-200' },
+      { bg: 'bg-purple-500', light: 'bg-purple-50', border: 'border-purple-200' },
+      { bg: 'bg-blue-500', light: 'bg-blue-50', border: 'border-blue-200' },
+      { bg: 'bg-emerald-500', light: 'bg-emerald-50', border: 'border-emerald-200' },
+    ];
+    return themes[index % themes.length];
+  };
+
   return (
-    <section className="relative py-8 bg-gradient-to-r from-pink-50 to-white overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-50">
-        <div className="absolute top-10 left-1/4 w-32 h-32 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-20 right-1/3 w-40 h-40 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-10 right-1/4 w-36 h-36 bg-yellow-100 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
-      </div>
+    <section className="relative overflow-hidden">
+      {/* Subtle background consistent with main theme */}
+      <div className="absolute inset-0 bg-gradient-to-r from-rose-50/20 via-pink-50/15 to-rose-50/20 pointer-events-none"></div>
       
-      <div className="max-w-[1200px] mx-auto px-4 relative z-10">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">Mã Giảm Giá</h2>
-            <p className="text-sm text-gray-600">Sử dụng mã để nhận ưu đãi đặc biệt khi mua sắm</p>
+      <div className="max-w-6xl mx-auto px-3 relative z-10">
+        {/* Header */}
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full text-sm font-medium text-rose-600 mb-3 shadow-sm border border-rose-200/50">
+            <FiTag className="w-3 h-3" />
+            <span>Mã giảm giá</span>
           </div>
           
-          {!isLoading && !error && allCoupons.length > 0 && (
-            <div className="flex space-x-2 mt-3 md:mt-0 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-              <button 
-                onClick={() => setActiveFilter(COUPON_FILTERS.ALL)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  activeFilter === COUPON_FILTERS.ALL 
-                    ? 'bg-pink-500 text-white' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-pink-50'
-                }`}
-              >
-                Tất cả
-              </button>
-              <button 
-                onClick={() => setActiveFilter(COUPON_FILTERS.PERCENTAGE)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  activeFilter === COUPON_FILTERS.PERCENTAGE 
-                    ? 'bg-pink-500 text-white' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-pink-50'
-                }`}
-              >
-                Giảm %
-              </button>
-              <button 
-                onClick={() => setActiveFilter(COUPON_FILTERS.FIXED)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  activeFilter === COUPON_FILTERS.FIXED 
-                    ? 'bg-pink-500 text-white' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-pink-50'
-                }`}
-              >
-                Giảm tiền
-              </button>
-              <button 
-                onClick={() => setActiveFilter(COUPON_FILTERS.NO_MINIMUM)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  activeFilter === COUPON_FILTERS.NO_MINIMUM 
-                    ? 'bg-pink-500 text-white' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-pink-50'
-                }`}
-              >
-                Không tối thiểu
-              </button>
-            </div>
-          )}
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            🎉 Ưu Đãi Tuyệt Vời
+          </h2>
+          
+          <p className="text-gray-600 text-sm max-w-md mx-auto">
+            Sao chép ngay để tiết kiệm cho đơn hàng của bạn
+          </p>
         </div>
 
-        {isLoading && (
-          <div className="flex justify-center items-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-500"></div>
-            <p className="ml-3 text-gray-600">Đang tải mã giảm giá...</p>
+        {/* Filter Buttons (trái) và View All Button (phải) - Khoảng cách gọn hơn */}
+        {!isLoading && !error && allCoupons.length > 0 && (
+          <div className="flex items-center justify-between mb-5 gap-4">
+            {/* Filter Buttons bên trái */}
+            <div className="flex gap-1.5">
+              {[
+                { key: COUPON_FILTERS.ALL, label: 'Tất cả' },
+                { key: COUPON_FILTERS.PERCENTAGE, label: 'Giảm %' },
+                { key: COUPON_FILTERS.FIXED, label: 'Giảm tiền' },
+                { key: COUPON_FILTERS.NO_MINIMUM, label: 'Miễn phí ship' }
+              ].map((filter) => (
+                <button
+                  key={filter.key}
+                  onClick={() => setActiveFilter(filter.key)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeFilter === filter.key
+                      ? 'bg-rose-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  {getFilterIcon(filter.key)}
+                  <span>{filter.label}</span>
+                </button>
+              ))}
+            </div>
+            
+            {/* View All Button bên phải */}
+            <Link href="/coupons">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-rose-500 text-white rounded-lg font-medium text-xs hover:bg-rose-600 transition-all whitespace-nowrap">
+                <FiTag className="w-3 h-3" />
+                <span>Xem tất cả</span>
+              </div>
+            </Link>
           </div>
         )}
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-rose-200 border-t-rose-500"></div>
+            <span className="ml-3 text-gray-600 text-sm">Đang tải ưu đãi...</span>
+          </div>
+        )}
+
+        {/* Error State */}
         {!isLoading && error && (
-          <div className="text-center py-10 px-4">
-            <div className="mx-auto w-16 h-16 text-red-400 bg-red-50 rounded-full flex items-center justify-center mb-3">
-              <FiFilter size={30} />
-            </div>
-            <p className="text-red-500 font-medium">Không thể tải mã giảm giá</p>
-            <p className="text-sm text-gray-500 mt-1">{error}</p>
-            <button 
-              onClick={() => { 
-                // Gọi lại fetchCoupons để thử lại
-                // Cần đảm bảo fetchCoupons được định nghĩa hoặc có thể truy cập ở đây
-                // Hoặc đơn giản là reload trang
-                window.location.reload(); 
-              }}
-              className="mt-4 px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 text-sm"
-            >
-              Thử lại
-            </button>
+          <div className="text-center py-8">
+            <FiFilter className="w-8 h-8 text-red-400 mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">{error}</p>
           </div>
         )}
         
+        {/* Empty States */}
         {!isLoading && !error && filteredCoupons.length === 0 && allCoupons.length > 0 && (
-           <div className="text-center py-10 text-gray-500">
-            <FiFilter size={30} className="mx-auto mb-2 text-gray-400" />
-            Không tìm thấy mã giảm giá phù hợp với bộ lọc hiện tại.
+          <div className="text-center py-8">
+            <FiFilter className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">Không tìm thấy mã phù hợp</p>
           </div>
         )}
 
         {!isLoading && !error && allCoupons.length === 0 && (
-          <div className="text-center py-10 text-gray-500">
-            <FiFilter size={30} className="mx-auto mb-2 text-gray-400" />
-            Hiện chưa có mã giảm giá nào. Vui lòng quay lại sau!
+          <div className="text-center py-8">
+            <FiGift className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">Chưa có ưu đãi nào</p>
           </div>
         )}
 
+        {/* Coupons Scroll ngang */}
         {!isLoading && !error && filteredCoupons.length > 0 && (
-          <>
-            <div 
-              ref={scrollContainerRef}
-              className="overflow-x-auto hide-scrollbar auto-scroll-container pt-2 pb-4"
-            >
-              <div className="flex space-x-3">
-                {filteredCoupons.map((coupon, index) => (
-                  <motion.div 
+          <div 
+            ref={scrollContainerRef}
+            className="overflow-x-auto hide-scrollbar pb-4"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <div className="flex space-x-3 px-1">
+              {filteredCoupons.map((coupon, index) => {
+                const theme = getCouponTheme(index);
+                return (
+                  <div 
                     key={`${coupon._id}-${index}`}
-                    className="flex-shrink-0 w-[240px]"
-                    variants={couponVariants}
-                    whileHover="hover"
+                    className="flex-shrink-0 w-[180px]"
                   >
-                    <div className="bg-white rounded-lg overflow-hidden h-full flex flex-col relative shadow-sm">
-                      <div className="absolute left-0 top-0 w-full flex justify-between z-10 -mt-2">
-                        <div className="w-3 h-3 bg-gray-100 rounded-full -ml-1.5"></div>
-                        <div className="w-3 h-3 bg-gray-100 rounded-full -mr-1.5"></div>
-                      </div>
-                      <div className="bg-gradient-to-r from-pink-500 to-rose-400 p-3 text-white relative">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-xl font-bold">
+                    <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-100 h-full group hover:shadow-md transition-all duration-300">
+                      {/* Header */}
+                      <div className={`${theme.bg} p-3 text-white relative`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-xs font-medium opacity-90">
+                            {coupon.discountType === 'percentage' ? 'Giảm %' : 'Giảm tiền'}
+                          </div>
+                        </div>
+                        
+                        <div className="text-center">
+                          <div className="text-xl font-bold mb-1">
                             {formatDiscount(coupon)}
-                          </h3>
-                          <div className="text-xs bg-white/20 px-2 py-1 rounded-full">
+                          </div>
+                          <div className="text-xs opacity-90">
                             {coupon.minimumOrderValue > 0 
-                              ? `Đơn ≥ ${new Intl.NumberFormat('vi-VN').format(coupon.minimumOrderValue)}đ`
+                              ? `Từ ${new Intl.NumberFormat('vi-VN').format(coupon.minimumOrderValue)}đ`
                               : 'Không giới hạn'
                             }
                           </div>
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white text-pink-500 rounded-full p-1">
-                          <RiScissorsFill className="w-4 h-4" />
+                        
+                        {/* Cut */}
+                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white rounded-full p-1">
+                          <RiScissorsFill className="w-3 h-3 text-gray-400" />
                         </div>
                       </div>
-                      <div className="border-dashed border-t border-gray-200 relative"></div>
-                      <div className="absolute left-0 bottom-0 w-full flex justify-between z-10 -mb-1.5">
-                        <div className="w-3 h-3 bg-gray-100 rounded-full -ml-1.5"></div>
-                        <div className="w-3 h-3 bg-gray-100 rounded-full -mr-1.5"></div>
-                      </div>
-                      <div className="p-3 flex-1 flex flex-col justify-between">
-                        <p className="text-gray-700 text-sm font-medium line-clamp-2 min-h-[40px]">
+
+                      {/* Content */}
+                      <div className="p-3">
+                        <p className="text-gray-700 text-xs mb-3 line-clamp-2 h-8">
                           {coupon.description}
                         </p>
-                        <div className="flex items-center mt-3">
-                          <div className="flex-1 bg-gray-50 rounded px-3 py-2 mr-2 border border-dashed border-pink-200">
-                            <span className="font-mono font-bold text-pink-600 text-sm tracking-wider">{coupon.code}</span>
+                        
+                        {/* Coupon code */}
+                        <div className={`${theme.light} ${theme.border} border rounded-lg p-2`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-500 mb-0.5">Mã giảm giá</p>
+                              <p className="font-mono font-bold text-xs text-gray-800 truncate">
+                                {coupon.code}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleCopyCode(coupon.code)}
+                              className={`ml-2 p-1.5 rounded-lg text-xs transition-all ${
+                                copiedCode === coupon.code
+                                  ? 'bg-green-500 text-white'
+                                  : `${theme.bg} text-white hover:opacity-90`
+                              }`}
+                            >
+                              {copiedCode === coupon.code ? (
+                                <FiCheck className="w-3 h-3" />
+                              ) : (
+                                <FiCopy className="w-3 h-3" />
+                              )}
+                            </button>
                           </div>
-                          <motion.button
-                            onClick={() => handleCopyCode(coupon.code)}
-                            className={`p-2 rounded-full ${
-                              copiedCode === coupon.code 
-                                ? 'bg-green-500 text-white' 
-                                : 'bg-pink-500 hover:bg-pink-600 text-white'
-                            }`}
-                            whileTap={{ scale: 0.9 }}
-                            initial={{ scale: 1 }}
-                            animate={copiedCode === coupon.code ? { 
-                              scale: [1, 1.2, 1],
-                              transition: { duration: 0.3 }
-                            } : {}}
-                          >
-                            {copiedCode === coupon.code ? (
-                              <FiCheck className="w-4 h-4" />
-                            ) : (
-                              <FiCopy className="w-4 h-4" />
-                            )}
-                          </motion.button>
                         </div>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="flex justify-center mt-6">
-              <Link 
-                href="/coupons" 
-                className="inline-block text-center px-6 py-2.5 bg-white hover:bg-pink-50 text-pink-600 rounded-full font-medium text-sm border border-pink-200 shadow-sm hover:shadow transition-all"
-              >
-                Xem tất cả mã giảm giá
-              </Link>
-            </div>
-          </>
+          </div>
         )}
       </div>
       
+      {/* Toast Container */}
       <ToastContainer
         position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
+        autoClose={2000}
+        hideProgressBar={true}
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
+        pauseOnFocusLoss={false}
+        draggable={false}
+        pauseOnHover={false}
         theme="light"
+        toastClassName="!rounded-lg !text-sm"
       />
       
       <style jsx>{`
@@ -412,45 +409,16 @@ const CouponSection = () => {
           display: none;
         }
         
-        .auto-scroll-container {
+        .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
         
-        @keyframes marquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
-        
-        @keyframes blob {
-          0% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-        }
-        
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        
-        .animation-delay-4000 {
-          animation-delay: 4s;
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </section>

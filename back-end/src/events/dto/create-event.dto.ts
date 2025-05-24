@@ -98,6 +98,11 @@ export class ProductInEventDto {
   @IsOptional()
   name?: string;
 
+  @ApiProperty({ description: 'Product slug' })
+  @IsString()
+  @IsOptional()
+  slug?: string;
+
   @ApiProperty({ description: 'Product image URL' })
   @IsString()
   @IsOptional()

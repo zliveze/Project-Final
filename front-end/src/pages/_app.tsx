@@ -76,14 +76,14 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
   const getLayout = Component.getLayout ?? ((page) => page);
 
   return (
-    <AppProviders>
-      <AdminAuthProvider>
+    <AdminAuthProvider>
+      <AppProviders>
         <AdminWrapper>
           {getLayout(<Component {...pageProps} />)}
           <LoadingOverlay />
         </AdminWrapper>
-      </AdminAuthProvider>
+      </AppProviders>
       <Toaster position="top-right" />
-    </AppProviders>
+    </AdminAuthProvider>
   );
 }

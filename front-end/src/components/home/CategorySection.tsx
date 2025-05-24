@@ -1,110 +1,163 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { FiArrowRight, FiLoader } from 'react-icons/fi';
-import axiosInstance from '../../lib/axios'; // Sửa đường dẫn import
-
-// Cấu trúc dữ liệu danh mục theo API response
-interface Category {
-  _id: string; // Thay đổi từ id: number
-  name: string;
-  description: string;
-  slug: string;
-  parentId?: string; // Thay đổi từ number
-  level: number;
-  image?: { // Image có thể không tồn tại
-    url: string;
-    alt: string;
-    publicId?: string;
-  };
-  status: 'active' | 'inactive'; // Kiểu cụ thể hơn
-  featured: boolean;
-  order: number;
-  createdAt: string;
-  updatedAt: string;
-  childrenCount?: number;
-}
-
-// Interface cho API response (nếu API trả về dạng object có items)
-interface CategoriesApiResponse {
-  items: Category[];
-  total: number;
-  page: number;
-  limit: number;
-  pages: number;
-}
-
-// Function để tạo gradient background dựa trên index
-const getBackgroundGradient = (index: number) => {
-  const gradients = [
-    "from-pink-200 to-pink-100",
-    "from-green-200 to-green-100", 
-    "from-orange-200 to-orange-100",
-    "from-blue-200 to-blue-100",
-    "from-purple-200 to-purple-100",
-    "from-yellow-200 to-yellow-100",
-    "from-indigo-200 to-indigo-100",
-    "from-rose-200 to-rose-100",
-    "from-teal-200 to-teal-100",
-    "from-cyan-200 to-cyan-100"
-  ];
-  return gradients[index % gradients.length];
-};
+import { FiArrowRight, FiStar } from 'react-icons/fi';
+import { useGSAP, gsapUtils } from '../../hooks/useGSAP';
+import { useCategories } from '../../contexts/user/categories/CategoryContext';
 
 // Function để tạo icon dự phòng dựa trên tên danh mục
 const getFallbackIcon = (categoryName: string) => {
   const name = categoryName.toLowerCase();
   if (name.includes('son') || name.includes('môi')) return "💄";
   if (name.includes('mắt') || name.includes('mascara') || name.includes('phấn mắt')) return "👁️";
-  if (name.includes('dưỉ') || name.includes('chăm sóc') || name.includes('serum')) return "🧴";
+  if (name.includes('dưỡng') || name.includes('chăm sóc') || name.includes('serum')) return "🧴";
   if (name.includes('tẩy') || name.includes('rửa mặt')) return "🫧";
   if (name.includes('chống nắng') || name.includes('sunscreen')) return "☀️";
   if (name.includes('nước') || name.includes('toner')) return "💦";
   if (name.includes('kem') || name.includes('cream')) return "💧";
   if (name.includes('tự nhiên') || name.includes('organic')) return "🌿";
-  return "✨"; // Default icon
+  return "✨";
 };
 
 export default function CategorySection() {
-  const [isClient, setIsClient] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const sectionRef = React.useRef<HTMLDivElement>(null);
+  const { featuredCategories, loading, error, fetchFeaturedCategories } = useCategories();
+  const [displayCategories, setDisplayCategories] = useState<any[]>([]);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
+  // GSAP animations for section entrance - Minimalist approach
+  useGSAP(({ gsap }) => {
+    if (!sectionRef.current || loading) return;
+
+    const tl = gsapUtils.timeline();
+
+    // Set initial states - Simplified
+    gsap.set('.category-section', { opacity: 0 });
+    gsap.set('.category-header', { y: 30, opacity: 0 });
+    gsap.set('.enhanced-title', { y: 20, opacity: 0 });
+    gsap.set('.enhanced-description', { y: 15, opacity: 0 });
+    gsap.set('.enhanced-decorative', { y: 10, opacity: 0, scale: 0.8 });
+    gsap.set('.category-item', { y: 40, opacity: 0 });
+    gsap.set('.view-all-section', { y: 20, opacity: 0 });
+
+    // Main entrance animation - Clean and elegant
+    tl.to('.category-section', {
+      opacity: 1,
+      duration: 0.6,
+      ease: "power2.out"
+    })
+    .to('.category-header', {
+      y: 0,
+      opacity: 1,
+      duration: 0.6,
+      ease: "power2.out"
+    }, "-=0.3")
+    .to('.enhanced-title', {
+      y: 0,
+      opacity: 1,
+      duration: 0.7,
+      ease: "power3.out"
+    }, "-=0.4")
+    .to('.enhanced-description', {
+      y: 0,
+      opacity: 1,
+      duration: 0.6,
+      ease: "power2.out"
+    }, "-=0.3")
+    .to('.enhanced-decorative', {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      duration: 0.5,
+      ease: "back.out(1.7)"
+    }, "-=0.2")
+    .to('.category-item', {
+      y: 0,
+      opacity: 1,
+      duration: 0.8,
+      stagger: {
+        amount: 0.4,
+        grid: "auto",
+        from: "start"
+      },
+      ease: "power2.out"
+    }, "-=0.2")
+    .to('.view-all-section', {
+      y: 0,
+      opacity: 1,
+      duration: 0.5,
+      ease: "power2.out"
+    }, "-=0.1");
+
+  }, [loading, displayCategories]);
+
+  // GSAP animations for hover interactions - Subtle effects
+  useGSAP(() => {
+    const categoryItems = document.querySelectorAll('.category-item');
+
+    categoryItems.forEach((item) => {
+      const content = item.querySelector('.category-content');
+      const arrow = item.querySelector('.category-arrow');
+
+      const handleMouseEnter = () => {
+        const tl = gsapUtils.timeline();
+
+        tl.to(item, {
+          y: -4,
+          boxShadow: "0 12px 24px rgba(0,0,0,0.08)",
+          duration: 0.3,
+          ease: "power2.out"
+        })
+        .to(content, {
+          y: -2,
+          duration: 0.2,
+          ease: "power2.out"
+        }, "-=0.2")
+        .to(arrow, {
+          x: 4,
+          duration: 0.2,
+          ease: "power2.out"
+        }, "-=0.2");
+      };
+
+      const handleMouseLeave = () => {
+        const tl = gsapUtils.timeline();
+
+        tl.to(item, {
+          y: 0,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          duration: 0.4,
+          ease: "power2.out"
+        })
+        .to([content, arrow], {
+          y: 0,
+          x: 0,
+          duration: 0.3,
+          ease: "power2.out"
+        }, "-=0.3");
+      };
+
+      item.addEventListener('mouseenter', handleMouseEnter);
+      item.addEventListener('mouseleave', handleMouseLeave);
+    });
+
+  }, [displayCategories]);
+
   useEffect(() => {
-    setIsClient(true);
-
-    const fetchCategories = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axiosInstance.get<CategoriesApiResponse>('/categories', {
-          params: {
-            status: 'active',
-            featured: true,
-            level: 1,
-            limit: 8,
-            sort: 'order,asc', // Sắp xếp theo order tăng dần
-          },
-        });
-        if (response.data && response.data.items) {
-          setCategories(response.data.items);
-        } else {
-          setCategories([]); // Nếu không có items, đặt là mảng rỗng
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải danh mục:", err);
-        setError("Không thể tải danh mục. Vui lòng thử lại sau.");
-        setCategories([]); // Đặt là mảng rỗng khi có lỗi
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCategories();
-  }, []); // Empty dependency array để tránh gọi vô hạn
+    // Transform categories từ context để phù hợp với component
+    if (featuredCategories && featuredCategories.length > 0) {
+      const transformedCategories = featuredCategories.slice(0, 8).map(category => ({
+        _id: category.id,
+        name: category.name,
+        description: category.description,
+        slug: category.slug,
+        image: category.image,
+        featured: category.featured,
+        level: category.level
+      }));
+      setDisplayCategories(transformedCategories);
+    }
+  }, [featuredCategories]);
 
   // Function để handle image error
   const handleImageError = (categoryId: string) => {
@@ -116,242 +169,180 @@ export default function CategorySection() {
     return imageErrors.has(categoryId);
   };
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        type: "spring", 
-        stiffness: 100,
-        damping: 15
-      } 
-    },
-    hover: {
-      y: -5,
-      scale: 1.02,
-      boxShadow: "0 10px 25px -10px rgba(0, 0, 0, 0.1)",
-      transition: {
-        type: "spring",
-        stiffness: 400,
-        damping: 15
-      }
-    }
-  };
-  
-  // Hiệu ứng hover cho icon
-  const iconVariants = {
-    hover: {
-      scale: 1.15,
-      rotate: [0, -5, 5, -5, 0],
-      transition: {
-        rotate: {
-          repeat: 0,
-          duration: 0.5
-        }
-      }
-    }
-  };
-  
-  // Hiệu ứng hover cho text xem sản phẩm
-  const textButtonVariants = {
-    hover: {
-      x: 3,
-      transition: {
-        repeat: Infinity,
-        repeatType: "mirror" as "mirror" | "reverse" | "loop" | undefined,
-        duration: 0.6
-      }
-    }
-  };
-
-  // Skeleton loading component
-  const CategorySkeleton = ({ index }: { index: number }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-gray-200 rounded-xl p-5 h-64 animate-pulse flex flex-col items-center justify-center"
-    >
-      <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
-      <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
-      <div className="h-3 bg-gray-300 rounded w-full mx-auto mb-1"></div>
-      <div className="h-3 bg-gray-300 rounded w-5/6 mx-auto mb-3"></div>
-      <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto mt-auto"></div>
-    </motion.div>
+  // Skeleton loading component - Minimalist design
+  const CategorySkeleton = () => (
+    <div className="category-skeleton bg-white rounded-2xl p-6 h-48 shadow-sm animate-pulse">
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="w-16 h-16 bg-stone-200 rounded-full mb-4"></div>
+        <div className="h-4 bg-stone-200 rounded w-24 mb-2"></div>
+        <div className="h-3 bg-stone-200 rounded w-32 mb-2"></div>
+        <div className="h-3 bg-stone-200 rounded w-20"></div>
+      </div>
+    </div>
   );
 
   return (
-    <section className="py-12 bg-gradient-to-b from-white to-pink-50 relative overflow-hidden">
-      {/* Background decorative elements */}
-      {isClient && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 -left-20 w-64 h-64 bg-pink-100 rounded-full opacity-40 mix-blend-multiply filter blur-3xl"></div>
-          <div className="absolute bottom-20 -right-40 w-96 h-96 bg-purple-100 rounded-full opacity-30 mix-blend-multiply filter blur-3xl"></div>
-        </div>
-      )}
+    <section className="py-2 relative overflow-hidden category-section" ref={sectionRef}>
+      {/* Clean background */}
 
       <div className="max-w-[1200px] mx-auto px-4 relative z-10">
-        <div className="flex flex-col items-center mb-10">
-          <motion.h2 
-            className="text-3xl font-bold text-gray-800 mb-3"
-            initial={{ opacity: 0, y: -10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            Danh Mục Sản Phẩm
-          </motion.h2>
-          <motion.p 
-            className="text-gray-600 text-center max-w-2xl"
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            Khám phá các danh mục sản phẩm mỹ phẩm đa dạng của chúng tôi, được thiết kế cho mọi nhu cầu làm đẹp
-          </motion.p>
+        <div className="category-header text-center mb-12">
+          {/* Enhanced title với gradient và typography */}
+          <div className="enhanced-title mb-6">
+            <h2 className="text-4xl font-bold text-transparent bg-gradient-to-r from-stone-800 via-rose-600 to-stone-800 bg-clip-text mb-4 tracking-tight leading-tight">
+              Danh Mục Sản Phẩm
+              <span className="block text-2xl font-medium text-stone-600 mt-2">Mỹ Phẩm Cao Cấp</span>
+            </h2>
+          </div>
           
-          {/* Decorative line */}
-          <motion.div 
-            className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4"
-            initial={{ scale: 0, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          ></motion.div>
+          {/* Enhanced description */}
+          <div className="enhanced-description relative">
+            <p className="text-lg text-stone-700 max-w-3xl mx-auto leading-relaxed font-medium">
+              Khám phá các danh mục sản phẩm mỹ phẩm 
+              <span className="text-rose-600 font-semibold"> đa dạng và chất lượng cao</span> của chúng tôi
+            </p>
+          </div>
+
+          {/* Enhanced decorative elements */}
+          <div className="enhanced-decorative flex justify-center items-center gap-4 mt-8">
+            <div className="h-px w-20 bg-gradient-to-r from-transparent via-stone-300 to-rose-300"></div>
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full shadow-sm"></div>
+              <div className="w-1.5 h-1.5 bg-stone-300 rounded-full"></div>
+              <div className="w-1 h-1 bg-stone-200 rounded-full"></div>
+            </div>
+            <div className="h-px w-20 bg-gradient-to-r from-rose-300 via-stone-300 to-transparent"></div>
+          </div>
         </div>
-        
-        <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-        >
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
           {loading && (
-            // Hiển thị skeleton loader
             Array.from({ length: 8 }).map((_, index) => (
-              <CategorySkeleton key={`skeleton-${index}`} index={index} />
+              <CategorySkeleton key={`skeleton-${index}`} />
             ))
           )}
 
           {!loading && error && (
-            <div className="col-span-full text-center text-red-500 py-10">
+            <div className="col-span-full text-center text-stone-500 py-12">
               <p>{error}</p>
+              <button 
+                onClick={fetchFeaturedCategories}
+                className="mt-4 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors"
+              >
+                Thử lại
+              </button>
             </div>
           )}
 
-          {!loading && !error && categories.length === 0 && (
-            <div className="col-span-full text-center text-gray-500 py-10">
+          {!loading && !error && displayCategories.length === 0 && (
+            <div className="col-span-full text-center text-stone-500 py-12">
               <p>Không có danh mục nào để hiển thị.</p>
             </div>
           )}
 
-          {!loading && !error && categories.map((category, index) => (
-            <motion.div 
+          {!loading && !error && displayCategories.map((category) => (
+            <div
               key={category._id}
-              variants={itemVariants}
-              whileHover="hover"
+              className="category-item transform-gpu relative"
             >
-              <Link 
+              {/* Featured badge - Moved outside để không bị che */}
+              {category.featured && (
+                <div className="absolute -top-2 -right-2 z-20">
+                  <div className="bg-gradient-to-r from-rose-400 to-pink-400 text-white text-xs font-medium px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                    <FiStar className="w-3 h-3" />
+                    <span>Nổi bật</span>
+                  </div>
+                </div>
+              )}
+
+              <Link
                 href={`/shop?categoryId=${category._id}`}
                 className="block h-full"
               >
-                <div className={`bg-gradient-to-br ${getBackgroundGradient(index)} rounded-xl p-5 flex flex-col items-center text-center h-full relative overflow-hidden group transition-all duration-300`}>
-                  {/* Shine effect overlay on hover */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none">
-                    <div className="absolute inset-0 bg-white opacity-10"></div>
-                    <div className="absolute -inset-full top-0 block h-full w-1/2 transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine"></div>
-                  </div>
-                  
+                <div className={`bg-white rounded-2xl p-6 flex flex-col items-center text-center h-48 relative group transition-all duration-300 shadow-sm border ${category.featured ? 'border-rose-200 shadow-md' : 'border-stone-100'} hover:border-rose-200`}>
+
+                  {/* Subtle glow effect cho featured categories */}
+                  {category.featured && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-50/50 to-pink-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                  )}
+
                   {category.image && category.image.url && !isImageError(category._id) ? (
-                    <motion.div 
-                      className="w-20 h-20 flex items-center justify-center mb-4 relative"
-                      variants={iconVariants}
-                    >
+                    <div className="w-16 h-16 flex items-center justify-center mb-4 relative transform-gpu">
                        <Image
                         src={category.image.url}
                         alt={category.image.alt || category.name}
-                        width={80}
-                        height={80}
+                        width={64}
+                        height={64}
                         className="object-contain rounded-full"
                         onError={() => handleImageError(category._id)}
                         placeholder="blur"
                         blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
                       />
-                    </motion.div>
+                    </div>
                   ) : (
-                    <motion.div 
-                      className="w-20 h-20 flex items-center justify-center mb-4 text-4xl relative"
-                      variants={iconVariants}
-                    >
-                      <div className="absolute inset-0 bg-white bg-opacity-70 rounded-full filter blur-md"></div>
-                      <span className="relative z-10">{getFallbackIcon(category.name)}</span>
-                    </motion.div>
+                    <div className="w-16 h-16 flex items-center justify-center mb-4 text-2xl relative transform-gpu bg-stone-100 rounded-full">
+                      <span className="relative z-10 filter grayscale">{getFallbackIcon(category.name)}</span>
+                    </div>
                   )}
-                  
-                  <div className="mt-2 flex-grow">
-                    <h3 className="font-medium text-base md:text-lg text-gray-800 mb-2">{category.name}</h3>
-                    <p className="text-xs md:text-sm text-gray-500 line-clamp-2 mb-3">{category.description}</p>
+
+                  <div className="category-content flex-grow flex flex-col justify-center relative z-10">
+                    <h3 className={`font-medium text-base mb-2 transition-colors duration-300 ${category.featured ? 'text-stone-900 group-hover:text-rose-600' : 'text-stone-800 group-hover:text-rose-600'}`}>
+                      {category.name}
+                    </h3>
+                    <p className="text-sm text-stone-500 line-clamp-2 mb-3 leading-relaxed">
+                      {category.description}
+                    </p>
                   </div>
-                  
-                  <motion.div 
-                    className="mt-auto text-sm font-medium text-pink-600 flex items-center group-hover:text-pink-700"
-                    variants={textButtonVariants}
-                  >
+
+                  <div className="category-arrow text-sm font-medium text-rose-400 flex items-center group-hover:text-rose-600 transition-colors duration-300 transform-gpu relative z-10">
                     Xem sản phẩm
-                    <FiArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                  </motion.div>
+                    <FiArrowRight className="h-4 w-4 ml-1 transition-transform" />
+                  </div>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
-        
-        {!loading && !error && categories.length > 0 && (
-          <div className="flex justify-center mt-12">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+        </div>
+
+        {!loading && !error && displayCategories.length > 0 && (
+          <div className="view-all-section flex justify-center mt-12">
+            <Link
+              href="/categories"
+              className="px-8 py-3 bg-white text-stone-700 border border-stone-200 rounded-full font-medium hover:bg-stone-50 hover:shadow-sm transition-all shadow-sm transform-gpu hover:scale-105 hover:border-rose-200 hover:text-rose-600"
             >
-              <Link 
-                href="/categories" 
-                className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm"
-              >
-                Xem tất cả danh mục
-              </Link>
-            </motion.div>
+              Xem tất cả danh mục
+            </Link>
           </div>
         )}
       </div>
 
       <style jsx>{`
-        @keyframes shine {
-          100% {
-            transform: translateX(100%) skew(-12deg);
-          }
+        .transform-gpu {
+          transform: translateZ(0);
+          will-change: transform;
         }
-        
-        .animate-shine {
-          animation: shine 1.5s ease;
+
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .category-skeleton {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: .7;
+          }
         }
       `}</style>
     </section>
   )
 }
+

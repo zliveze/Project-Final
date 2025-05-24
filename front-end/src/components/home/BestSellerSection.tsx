@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { FiArrowRight, FiShoppingCart } from 'react-icons/fi'
-import { FaStar, FaStarHalfAlt, FaFireAlt } from 'react-icons/fa'
+import { FiArrowRight, FiShoppingCart, FiHeart } from 'react-icons/fi'
+import { FaStar, FaStarHalfAlt } from 'react-icons/fa'
+import { useGSAP, gsapUtils } from '../../hooks/useGSAP'
 
 interface BestSeller {
   id: string;
@@ -17,18 +17,18 @@ interface BestSeller {
   ratingCount: number;
 }
 
-// Component hiển thị rating
+// Component hiển thị rating với style tối giản
 const RatingStars = ({ rating }: { rating: number }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 !== 0;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-  
+
   return (
     <div className="flex items-center">
       {[...Array(fullStars)].map((_, i) => (
-        <FaStar key={`full-${i}`} className="text-yellow-400 w-3 h-3" />
+        <FaStar key={`full-${i}`} className="text-amber-400 w-3 h-3" />
       ))}
-      {hasHalfStar && <FaStarHalfAlt className="text-yellow-400 w-3 h-3" />}
+      {hasHalfStar && <FaStarHalfAlt className="text-amber-400 w-3 h-3" />}
       {[...Array(emptyStars)].map((_, i) => (
         <FaStar key={`empty-${i}`} className="text-gray-300 w-3 h-3" />
       ))}
@@ -36,20 +36,20 @@ const RatingStars = ({ rating }: { rating: number }) => {
   );
 };
 
-// Component hiển thị sản phẩm bán chạy
+// Component sản phẩm bán chạy - Clean & Minimal design
 const BestSellerCard = ({ product, index }: { product: BestSeller; index: number }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [imageError, setImageError] = useState(false);
-  
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
   // Tính phần trăm giảm giá
-  const discountPercentage = product.discountedPrice 
-    ? Math.round(((product.price - product.discountedPrice) / product.price) * 100) 
+  const discountPercentage = product.discountedPrice
+    ? Math.round(((product.price - product.discountedPrice) / product.price) * 100)
     : 0;
-  
+
   // Format giá
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { 
-      style: 'currency', 
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
       currency: 'VND',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
@@ -60,135 +60,213 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
   const handleImageError = () => {
     setImageError(true);
   };
-  
+
+  // GSAP hover animations - Subtle và minimal
+  useGSAP(({ gsap }) => {
+    if (!cardRef.current) return;
+
+    const card = cardRef.current;
+    const image = card.querySelector('.product-image');
+    const addToCartBtn = card.querySelector('.add-to-cart-btn');
+    const heartBtn = card.querySelector('.heart-btn');
+
+    const handleMouseEnter = () => {
+      const tl = gsapUtils.timeline();
+
+      tl.to(card, {
+        y: -4,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+        duration: 0.3,
+        ease: "power2.out"
+      })
+      .to(image, {
+        scale: 1.05,
+        duration: 0.3,
+        ease: "power2.out"
+      }, "-=0.3")
+      .to([addToCartBtn, heartBtn], {
+        opacity: 1,
+        y: 0,
+        duration: 0.2,
+        ease: "power2.out"
+      }, "-=0.1");
+    };
+
+    const handleMouseLeave = () => {
+      const tl = gsapUtils.timeline();
+
+      tl.to(card, {
+        y: 0,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        duration: 0.3,
+        ease: "power2.out"
+      })
+      .to(image, {
+        scale: 1,
+        duration: 0.3,
+        ease: "power2.out"
+      }, "-=0.3")
+      .to([addToCartBtn, heartBtn], {
+        opacity: 0,
+        y: 8,
+        duration: 0.2,
+        ease: "power2.out"
+      }, "-=0.2");
+    };
+
+    card.addEventListener('mouseenter', handleMouseEnter);
+    card.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      card.removeEventListener('mouseenter', handleMouseEnter);
+      card.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
+    <div
+      ref={cardRef}
+      className="product-card transform-gpu"
     >
-      <Link href={`/product/${product.slug}`} className="group">
-        <motion.div 
-          className="relative overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-300"
-          whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)' }}
-          onHoverStart={() => setIsHovered(true)}
-          onHoverEnd={() => setIsHovered(false)}
-        >
-          {/* Badge số lượng đã bán và Best Seller */}
-          <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center">
-              <FaFireAlt className="mr-1 h-3 w-3" />
-              {product.soldCount}
-            </div>
-            <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-              Best Seller
-            </div>
-          </div>
-          
-          {/* Badge giảm giá */}
-          {discountPercentage > 0 && (
-            <div className="absolute top-3 right-3 z-10">
-              <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold w-10 h-10 flex items-center justify-center rounded-full">
+      <Link href={`/product/${product.slug}`} className="group block">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors duration-300 hover:border-rose-300">
+
+          {/* Compact badges */}
+          <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
+            {discountPercentage > 0 && (
+              <div className="bg-rose-500 text-white text-xs font-medium px-2 py-0.5 rounded-md">
                 -{discountPercentage}%
               </div>
+            )}
+            <div className="bg-gray-700 text-white text-xs font-medium px-2 py-0.5 rounded-md">
+              {product.soldCount}
             </div>
-          )}
-          
-          {/* Hiệu ứng overlay khi hover */}
-          <div className="absolute inset-0 bg-gradient-to-t from-pink-500/20 via-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0"></div>
-          
-          {/* Hình ảnh sản phẩm */}
-          <div className="relative aspect-square p-4 flex items-center justify-center bg-gradient-to-br from-pink-50 to-purple-50">
-            <motion.div 
-              className="relative w-full h-full"
-              animate={{ scale: isHovered ? 1.1 : 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Image 
-                src={imageError ? '/404.png' : product.image} 
+          </div>
+
+          {/* Compact heart button */}
+          <div className="absolute top-2 right-2 z-20">
+            <button className="heart-btn w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 translate-y-1 transition-all hover:bg-rose-50 hover:border-rose-300">
+              <FiHeart className="w-3.5 h-3.5 text-gray-600 hover:text-rose-500" />
+            </button>
+          </div>
+
+          {/* Hình ảnh sản phẩm - Minimal styling */}
+          <div className="relative aspect-square p-4 flex items-center justify-center bg-gray-50">
+            <div className="relative w-full h-full">
+              <Image
+                src={imageError ? '/404.png' : product.image}
                 alt={product.name}
                 width={200}
                 height={200}
-                className="object-contain w-full h-full"
+                className="product-image object-contain w-full h-full"
                 onError={handleImageError}
                 placeholder="blur"
                 blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
               />
-            </motion.div>
-            
-            {/* Nút thêm vào giỏ hàng khi hover */}
-            <motion.div 
-              className="absolute bottom-0 left-0 w-full p-2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <button className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all">
-                <FiShoppingCart className="mr-1" />
+            </div>
+
+            {/* Compact add to cart button */}
+            <div className="absolute bottom-3 left-3 right-3">
+              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+                <FiShoppingCart className="mr-1.5 w-3 h-3" />
                 Thêm vào giỏ
               </button>
-            </motion.div>
+            </div>
           </div>
-          
-          {/* Thông tin sản phẩm */}
-          <div className="p-3">
-            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors duration-300 min-h-[40px]">
+
+          {/* Thông tin sản phẩm - Compact */}
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[36px] leading-snug">
               {product.name}
             </h3>
-            
-            {/* Giá và đánh giá */}
-            <div className="mt-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {product.discountedPrice ? (
-                    <>
-                      <span className="text-sm font-bold text-pink-600">{formatPrice(product.discountedPrice)}</span>
-                      <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
-                    </>
-                  ) : (
-                    <span className="text-sm font-bold text-pink-600">{formatPrice(product.price)}</span>
-                  )}
-                </div>
-                <div className="flex items-center text-xs text-gray-500">
-                  <span className="mr-1 font-medium text-gray-700">{product.rating}</span>
-                  <RatingStars rating={product.rating} />
-                </div>
+
+            {/* Giá và đánh giá - Compact */}
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                {product.discountedPrice ? (
+                  <>
+                    <span className="text-base font-semibold text-rose-600">{formatPrice(product.discountedPrice)}</span>
+                    <span className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</span>
+                  </>
+                ) : (
+                  <span className="text-base font-semibold text-gray-800">{formatPrice(product.price)}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <RatingStars rating={product.rating} />
+                <span className="font-medium text-gray-700">{product.rating}</span>
+                <span>({product.ratingCount})</span>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </Link>
-    </motion.div>
+    </div>
   );
 };
 
-// Loading skeleton component
-const BestSellerSkeleton = ({ index }: { index: number }) => {
+// Loading skeleton - Minimal
+const BestSellerSkeleton = () => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-white rounded-xl shadow-sm overflow-hidden"
-    >
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
       <div className="aspect-square bg-gray-200 animate-pulse"></div>
-      <div className="p-3 space-y-2">
-        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+      <div className="p-4 space-y-2">
+        <div className="h-3.5 bg-gray-200 rounded animate-pulse"></div>
         <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-        <div className="flex justify-between items-center">
-          <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
-          <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+        <div className="space-y-1.5">
+          <div className="h-3.5 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+          <div className="h-3 bg-gray-200 rounded w-2/3 animate-pulse"></div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
 export default function BestSellerSection() {
+  const sectionRef = React.useRef<HTMLDivElement>(null);
   const [bestSellers, setBestSellers] = useState<BestSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // GSAP animations - Subtle và minimal
+  useGSAP(({ gsap }) => {
+    if (!sectionRef.current || loading) return;
+
+    const tl = gsapUtils.timeline();
+
+    // Set initial states
+    gsap.set('.bestseller-section', { opacity: 0 });
+    gsap.set('.bestseller-header', { y: 20, opacity: 0 });
+    gsap.set('.product-card', { y: 30, opacity: 0 });
+    gsap.set('.view-all-button', { y: 15, opacity: 0 });
+
+    // Animate entrance - Subtle
+    tl.to('.bestseller-section', {
+      opacity: 1,
+      duration: 0.5,
+      ease: "power2.out"
+    })
+    .to('.bestseller-header', {
+      y: 0,
+      opacity: 1,
+      duration: 0.5,
+      ease: "power2.out"
+    }, "-=0.2")
+    .to('.product-card', {
+      y: 0,
+      opacity: 1,
+      duration: 0.6,
+      stagger: 0.08,
+      ease: "power2.out"
+    }, "-=0.1")
+    .to('.view-all-button', {
+      y: 0,
+      opacity: 1,
+      duration: 0.4,
+      ease: "power2.out"
+    }, "-=0.1");
+
+  }, [loading, bestSellers]);
 
   // Fetch best seller products
   useEffect(() => {
@@ -199,9 +277,73 @@ export default function BestSellerSection() {
         // const response = await fetch('/api/products/best-sellers?limit=6');
         // const data = await response.json();
         // setBestSellers(data);
-        
-        // Tạm thời set empty để không hiển thị gì
-        setBestSellers([]);
+
+        // Demo data
+        setBestSellers([
+          {
+            id: '1',
+            name: 'Serum Vitamin C Brightening',
+            image: '/404.png',
+            slug: 'serum-vitamin-c-brightening',
+            soldCount: '1.2k đã bán',
+            price: 850000,
+            discountedPrice: 650000,
+            rating: 4.8,
+            ratingCount: 245
+          },
+          {
+            id: '2',
+            name: 'Moisturizer Hyaluronic Acid',
+            image: '/404.png',
+            slug: 'moisturizer-hyaluronic-acid',
+            soldCount: '956 đã bán',
+            price: 720000,
+            rating: 4.7,
+            ratingCount: 189
+          },
+          {
+            id: '3',
+            name: 'Cleanser Gentle Foam',
+            image: '/404.png',
+            slug: 'cleanser-gentle-foam',
+            soldCount: '2.1k đã bán',
+            price: 420000,
+            discountedPrice: 320000,
+            rating: 4.9,
+            ratingCount: 567
+          },
+          {
+            id: '4',
+            name: 'Sunscreen SPF 50+',
+            image: '/404.png',
+            slug: 'sunscreen-spf-50',
+            soldCount: '1.8k đã bán',
+            price: 380000,
+            rating: 4.6,
+            ratingCount: 324
+          },
+          {
+            id: '5',
+            name: 'Face Mask Hydrating',
+            image: '/404.png',
+            slug: 'face-mask-hydrating',
+            soldCount: '745 đã bán',
+            price: 250000,
+            discountedPrice: 190000,
+            rating: 4.5,
+            ratingCount: 156
+          },
+          {
+            id: '6',
+            name: 'Eye Cream Anti-aging',
+            image: '/404.png',
+            slug: 'eye-cream-anti-aging',
+            soldCount: '892 đã bán',
+            price: 680000,
+            rating: 4.7,
+            ratingCount: 201
+          }
+        ]);
         setError(null);
       } catch (err) {
         console.error('Lỗi khi tải sản phẩm bán chạy:', err);
@@ -215,42 +357,19 @@ export default function BestSellerSection() {
     fetchBestSellers();
   }, []);
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  // Không hiển thị section nếu đang loading hoặc không có dữ liệu
+  // Loading state
   if (loading) {
     return (
       <section className="py-10 relative overflow-hidden">
-        <div className="max-w-[1200px] mx-auto px-4 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8 text-center"
-          >
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">Những sản phẩm được khách hàng ưa chuộng và đánh giá cao nhất tại Yumin</p>
-            
-            <motion.div 
-              className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            ></motion.div>
-          </motion.div>
+        <div className="max-w-6xl mx-auto px-4 relative z-10">
+          <div className="text-center mb-8">
+            <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-3 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {[...Array(6)].map((_, index) => (
-              <BestSellerSkeleton key={index} index={index} />
+              <BestSellerSkeleton key={index} />
             ))}
           </div>
         </div>
@@ -258,142 +377,45 @@ export default function BestSellerSection() {
     );
   }
 
-  // Không hiển thị section nếu có lỗi hoặc không có sản phẩm
+  // Error/empty state
   if (error || bestSellers.length === 0) {
     return null;
   }
 
   return (
-    <section className="py-10 relative overflow-hidden">
-      <div className="max-w-[1200px] mx-auto px-4 relative z-10">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mb-8 text-center"
-        >
-          <h2 className="text-3xl font-bold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">Những sản phẩm được khách hàng ưa chuộng và đánh giá cao nhất tại Yumin</p>
-          
-          <motion.div 
-            className="h-0.5 w-20 bg-gradient-to-r from-pink-300 to-purple-300 mt-4 mx-auto"
-            initial={{ scale: 0, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          ></motion.div>
-        </motion.div>
+    <section className="py-10 relative overflow-hidden bestseller-section" ref={sectionRef}>
+      {/* No additional background - inherits from main layout */}
+      
+      <div className="max-w-6xl mx-auto px-4 relative z-10">
+        <div className="bestseller-header text-center mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
+          <p className="text-gray-600 max-w-xl mx-auto leading-relaxed">
+            Những sản phẩm được yêu thích nhất tại Yumin
+          </p>
 
-        <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-        >
+          {/* Simple divider */}
+          <div className="w-12 h-px bg-rose-300 mt-6 mx-auto"></div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {bestSellers.map((product, index) => (
             <BestSellerCard key={product.id} product={product} index={index} />
           ))}
-        </motion.div>
-        
-        {/* Banner quảng cáo */}
-        <motion.div 
-          className="mt-10 rounded-xl overflow-hidden shadow-lg"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          whileHover={{ y: -5, boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.05)' }}
-        >
-          <div className="bg-gradient-to-r from-pink-500 to-purple-600">
-            <div className="flex flex-col md:flex-row items-center">
-              <div className="p-8 md:w-2/3">
-                <motion.h3 
-                  className="text-2xl md:text-3xl font-bold text-white mb-3"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  Hot Deal Của Tháng
-                </motion.h3>
-                <motion.p 
-                  className="text-pink-100 mb-6 text-base"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.4 }}
-                >
-                  Giảm đến 50% cho các sản phẩm bán chạy, thêm quà tặng hấp dẫn khi mua combo
-                </motion.p>
-                <motion.button 
-                  className="bg-white text-pink-600 hover:bg-pink-50 px-6 py-3 rounded-full text-sm font-medium transition-colors duration-300 flex items-center shadow-md hover:shadow-lg"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Khám phá ngay
-                  <FiArrowRight className="ml-2" />
-                </motion.button>
-              </div>
-              <div className="md:w-1/3 p-4 md:p-0 flex justify-center">
-                <motion.div 
-                  className="relative h-40 md:h-48 w-40 md:w-48"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: 0.6 }}
-                  animate={{ 
-                    y: [0, -10, 0],
-                    rotate: [0, 5, 0, -5, 0],
-                    transition: {
-                      duration: 5, 
-                      repeat: Infinity,
-                      repeatType: "reverse" 
-                    }
-                  }}
-                >
-                  <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-purple-400 rounded-full opacity-30 blur-2xl"></div>
-                  <div className="absolute right-0 bottom-0 w-24 h-24 bg-pink-400 rounded-full opacity-30 blur-2xl"></div>
-                  <div className="relative h-full w-full flex items-center justify-center">
-                    <Image 
-                      src="/404.png" 
-                      alt="Best seller product" 
-                      width={160} 
-                      height={160}
-                      className="object-contain drop-shadow-lg"
-                    />
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-        
-        {/* Nút xem tất cả */}
+        </div>
+
+        {/* Compact CTA */}
         <div className="flex justify-center mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Link 
-              href="/ban-chay" 
-              className="px-6 py-3 bg-white text-pink-600 border border-pink-200 rounded-full font-medium hover:bg-pink-50 hover:shadow-md transition-all shadow-sm flex items-center"
+          <div className="view-all-button">
+            <Link
+              href="/ban-chay"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-rose-300 hover:text-rose-600 transition-all"
             >
-              Xem tất cả sản phẩm bán chạy
-              <FiArrowRight className="ml-2" />
+              Xem tất cả
+              <FiArrowRight className="w-4 h-4" />
             </Link>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
   );
-} 
+}
