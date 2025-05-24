@@ -317,6 +317,9 @@ export class Product {
   @Prop({ type: Number })
   currentPrice: number;
 
+  @Prop({ type: Number, default: 0 }) // Giá vốn của sản phẩm
+  costPrice?: number;
+
   @Prop({ enum: ['active', 'out_of_stock', 'discontinued'], default: 'active' })
   status: string;
 

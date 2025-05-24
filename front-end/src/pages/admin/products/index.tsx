@@ -597,10 +597,11 @@ function AdminProducts({
   };
 
   const handleConfirmExportByBranch = async () => {
-    if (!selectedBranchForExport) {
-      toast.error('Vui lòng chọn một chi nhánh để xuất.');
-      return;
-    }
+    // Gỡ bỏ kiểm tra bắt buộc chọn chi nhánh ở đây
+    // if (!selectedBranchForExport) {
+    //   toast.error('Vui lòng chọn một chi nhánh để xuất.');
+    //   return;
+    // }
 
     setShowExportBranchModal(false);
     const loadingToast = toast.loading(`Đang chuẩn bị dữ liệu xuất Excel cho chi nhánh...`);
@@ -616,21 +617,45 @@ function AdminProducts({
           params.append(key, String(value));
         }
       });
-      // Thêm branchId vào params
-      params.append('branchId', selectedBranchForExport);
+      // Chỉ thêm branchId vào params nếu nó được chọn (không phải chuỗi rỗng)
+      if (selectedBranchForExport) {
+        params.append('branchId', selectedBranchForExport);
+      }
       
       const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/export-data?${params.toString()}`, {
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/admin/products/export-data?${params.toString()}`;
+      console.log('[Export Excel] Calling API:', apiUrl);
+      console.log('[Export Excel] Token:', adminToken ? 'Token vorhanden' : 'Kein Token');
+      console.log('[Export Excel] Selected Branch ID for export:', selectedBranchForExport || 'Tất cả (không có ID)');
+
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json',
         },
       });
 
+      console.log('[Export Excel] Response Status:', response.status);
+      console.log('[Export Excel] Response OK:', response.ok);
+
       if (!response.ok) {
         toast.dismiss(loadingToast);
-        const errorData = await response.json().catch(() => ({ message: `Lỗi ${response.status} khi lấy dữ liệu xuất.` }));
-        toast.error(errorData.message || `Lỗi ${response.status} khi lấy dữ liệu xuất.`);
+        let errorData: any = { message: `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.` };
+        try {
+          const errorText = await response.text();
+          console.error('[Export Excel] Server Error Response Text:', errorText);
+          try {
+            errorData = JSON.parse(errorText); // Thử parse thành JSON
+          } catch (e) {
+            errorData.message = errorText.substring(0, 500) || errorData.message; // Nếu không phải JSON, lấy text
+          }
+        } catch (e) {
+          console.error('[Export Excel] Could not get error response body:', e);
+        }
+        
+        const displayMessage = errorData.message || `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.`;
+        console.error('[Export Excel] Error Data for Toast:', errorData);
+        toast.error(displayMessage);
         return;
       }
 
@@ -644,78 +669,34 @@ function AdminProducts({
       
       toast.loading(`Đang tạo file Excel với ${allProductsToExport.length} sản phẩm...`, { id: loadingToast });
 
-
-      // Chuẩn bị dữ liệu cho Excel theo mẫu mới, thêm "Loại hàng" và "Nhóm hàng"
-      const header = [
-        "Loại hàng", "Nhóm hàng", // Thêm 2 cột này vào đầu
-        "Mã hàng", "Mã vạch", "Tên hàng", "Thương hiệu", "Giá bán", "Giá vốn", "Tồn kho",
-        "KH đặt", "Dự kiến hết hàng", "Tồn nhỏ nhất", "Tồn lớn nhất", "ĐVT",
-        "Mã ĐVT Cơ bản", "Quy đổi", "Thuộc tính", "Mã HH Liên quan",
-        "Hình ảnh (url1,url2...)", "Trọng lượng", "Tích điểm", "Đang kinh doanh",
-        "Được bán trực tiếp", "Mô tả", "Mẫu ghi chú", "Vị trí",
-        "Hàng thành phần", "Bảo hành", "Bảo trì định kỳ"
+      // Định nghĩa 9 header bạn yêu cầu
+      const desiredHeaders = [
+        "Loại hàng",
+        "Nhóm hàng (3 cấp)",
+        "Mã hàng",
+        "Mã vạch",
+        "Tên hàng",
+        "Giá bán",
+        "Giá vốn",
+        "Tồn kho",
+        "Hình ảnh"
       ];
 
-      const dataToExport = allProductsToExport.map(product => {
-        // Sử dụng product.description đã được cập nhật (nếu có)
-        const descriptionText = product.description?.full || product.description?.short || '';
-        
-        // Xử lý mảng images (nếu có) để lấy chuỗi URL
-        let imageUrlsString = '';
-        if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-          imageUrlsString = product.images.map(img => img.url).join(', ');
-        } else if (product.image) { // Fallback cho trường image cũ nếu images không có
-          imageUrlsString = product.image;
-        }
+      // Dữ liệu allProductsToExport từ backend đã là một mảng các object,
+      // mỗi object có các key là tiếng Việt tương ứng với desiredHeaders.
+      // Chúng ta có thể truyền trực tiếp vào json_to_sheet.
+      const worksheet = XLSX.utils.json_to_sheet(allProductsToExport, { header: desiredHeaders });
 
-        // Xử lý Nhóm hàng
-        const categoryDisplay = product.categoryNames && product.categoryNames.length > 0 
-                                ? product.categoryNames.join(', ') 
-                                : (product.category || '');
-
-        // Xử lý Trọng lượng
-        const weightDisplay = product.weightValue ? `${product.weightValue}${product.weightUnit || ''}` : '';
-
-        return [
-          "Hàng hóa", // Loại hàng (Giá trị mặc định)
-          categoryDisplay, // Nhóm hàng
-          product.sku || '', // Mã hàng
-          product.barcode || '', // Mã vạch
-          product.name || '', // Tên hàng
-          product.brand || '', // Thương hiệu
-          product.currentPrice || 0, // Giá bán
-          product.originalPrice || 0, // Giá vốn
-          product.stock || 0, // Tồn kho
-          '', // KH đặt - Chưa có dữ liệu
-          '', // Dự kiến hết hàng - Chưa có dữ liệu
-          product.lowStockThreshold || '', // Tồn nhỏ nhất
-          '', // Tồn lớn nhất - Chưa có dữ liệu
-          '', // ĐVT - Chưa có dữ liệu (Cần thêm logic nếu có trường unit trong product)
-          '', // Mã ĐVT Cơ bản - Chưa có dữ liệu
-          '', // Quy đổi - Chưa có dữ liệu
-          '', // Thuộc tính - Chưa có dữ liệu
-          '', // Mã HH Liên quan - Chưa có dữ liệu
-          imageUrlsString, // Hình ảnh (url1,url2...)
-          weightDisplay, // Trọng lượng
-          product.loyaltyPoints || 0, // Tích điểm
-          product.status === 'active' ? 'Có' : 'Không', // Đang kinh doanh
-          '', // Được bán trực tiếp - Chưa có dữ liệu
-          descriptionText, // Mô tả
-          '', // Mẫu ghi chú - Chưa có dữ liệu
-          '', // Vị trí - Chưa có dữ liệu
-          '', // Hàng thành phần - Chưa có dữ liệu
-          '', // Bảo hành - Chưa có dữ liệu
-          ''  // Bảo trì định kỳ - Chưa có dữ liệu
-        ];
+      // Điều chỉnh độ rộng cột tự động dựa trên desiredHeaders và dữ liệu
+      const cols = desiredHeaders.map((headerName) => {
+        const headerLength = headerName.length;
+        const dataLengths = allProductsToExport.map(product => {
+          const value = product[headerName as keyof typeof product]; // Truy cập giá trị bằng key tiếng Việt
+          return value !== null && value !== undefined ? String(value).length : 0;
+        });
+        const maxLength = Math.max(headerLength, ...dataLengths);
+        return { wch: maxLength + 2 }; // Thêm chút padding
       });
-
-      // Tạo worksheet từ mảng dữ liệu (bao gồm header)
-      const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataToExport]);
-
-      // Điều chỉnh độ rộng cột tự động (tùy chọn, có thể ảnh hưởng hiệu suất với nhiều dữ liệu)
-      const cols = header.map((_, i) => ({
-        wch: Math.max(...dataToExport.map(row => row[i] ? String(row[i]).length : 0), header[i].length) + 2
-      }));
       worksheet['!cols'] = cols;
 
       // Tạo workbook
@@ -1721,7 +1702,7 @@ function AdminProducts({
                   type="button"
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={handleConfirmExportByBranch}
-                  disabled={!selectedBranchForExport && branches.length > 0} // Disable if no branch selected but branches are available
+                  disabled={branchesLoading} // Chỉ disable khi đang tải chi nhánh
                 >
                   Xuất Excel
                 </button>

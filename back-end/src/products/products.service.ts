@@ -1,7 +1,9 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, SortOrder, Types, PipelineStage } from 'mongoose'; // Import PipelineStage
+import { Model, SortOrder, Types, PipelineStage } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
+import { Brand, BrandDocument } from '../brands/schemas/brand.schema'; // Import Brand schema
+import { Category, CategoryDocument } from '../categories/schemas/category.schema'; // Import Category schema
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -23,10 +25,12 @@ import { ProductPromotionCheckDto } from './dto/product-promotion-check.dto';
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
-  private hasTextIndex = false; // Flag để kiểm tra xem có text index hay không
+  private hasTextIndex = false;
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Brand.name) private brandModel: Model<BrandDocument>, // Inject BrandModel
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>, // Inject CategoryModel
     private readonly cloudinaryService: CloudinaryService,
     private readonly eventsService: EventsService,
     private readonly websocketService: WebsocketService,
@@ -2232,6 +2236,7 @@ export class ProductsService {
   }
 
   async findAllForExport(queryDto: QueryProductDto): Promise<any[]> {
+    this.logger.log(`[findAllForExport] Received queryDto: ${JSON.stringify(queryDto)}`);
     try {
       this.logger.log('Bắt đầu lấy tất cả sản phẩm để xuất Excel');
       const {
@@ -2253,23 +2258,21 @@ export class ProductsService {
         branchId: queryBranchId // Lấy branchId từ queryDto
       } = queryDto;
 
-      const pipeline: any[] = [];
+      const pipeline: PipelineStage[] = [];
       const matchStage: any = {};
+      let objectIdQueryBranchId: Types.ObjectId | undefined = undefined;
 
-      // Lọc theo branchId nếu được cung cấp
-      if (queryBranchId) {
+      // Xử lý queryBranchId để sử dụng trong $project, không dùng để lọc sản phẩm ở matchStage
+      if (queryBranchId && Types.ObjectId.isValid(queryBranchId)) {
         try {
-          const objectIdBranchId = new Types.ObjectId(queryBranchId);
-          // Sản phẩm phải có ít nhất một mục inventory thuộc về chi nhánh này
-          matchStage.$or = [
-            { 'inventory.branchId': objectIdBranchId },
-            { 'variantInventory.branchId': objectIdBranchId } // Cân nhắc nếu sản phẩm có biến thể
-          ];
-          this.logger.log(`Exporting products for branchId: ${queryBranchId}`);
+          objectIdQueryBranchId = new Types.ObjectId(queryBranchId);
+          this.logger.log(`[findAllForExport] Context branchId for stock calculation: ${queryBranchId}`);
         } catch (e) {
-          this.logger.warn(`Invalid branchId for export: ${queryBranchId}`);
-          // Có thể quyết định không lọc hoặc báo lỗi tùy theo yêu cầu
+          this.logger.warn(`[findAllForExport] Error converting queryBranchId to ObjectId for stock calculation: ${queryBranchId}. Error: ${e.message}`);
+          // objectIdQueryBranchId sẽ vẫn là undefined, tồn kho sẽ được tính tổng
         }
+      } else if (queryBranchId) {
+        this.logger.warn(`[findAllForExport] Invalid queryBranchId provided, will calculate total stock: ${queryBranchId}`);
       }
 
       if (search) {
@@ -2318,127 +2321,125 @@ export class ProductsService {
         pipeline.push({ $match: matchStage });
       }
 
+      // Đơn giản hóa pipeline để test
+      pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } });
+
+      // Lookup để lấy thông tin category và brand
       pipeline.push(
-        { $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } },
         {
           $lookup: {
-            from: 'brands',
+            from: 'categories', // Tên collection của categories
+            localField: 'categoryIds',
+            foreignField: '_id',
+            as: 'categoriesInfo'
+          }
+        },
+        {
+          $lookup: {
+            from: 'brands', // Tên collection của brands (giả sử là 'brands')
             localField: 'brandId',
             foreignField: '_id',
             as: 'brandInfo'
           }
-        },
-        {
-          $lookup: {
-            from: 'categories',
-            localField: 'categoryIds',
-            foreignField: '_id',
-            as: 'categoryInfo'
-          }
-        },
-        {
-          $addFields: {
-            brandName: { $ifNull: [{ $arrayElemAt: ['$brandInfo.name', 0] }, ''] },
-            // Lấy tên của category đầu tiên, hoặc mảng tên nếu có nhiều
-            categoryNames: '$categoryInfo.name',
-            totalStock: { $sum: '$inventory.quantity' },
-            // Thêm các trường khác bạn muốn lấy trực tiếp từ schema Product
-            barcode: '$barcode',
-            weightValue: '$weightValue',
-            weightUnit: '$weightUnit',
-            loyaltyPoints: '$loyaltyPoints',
-            // Lấy lowStockThreshold từ inventory của chi nhánh đầu tiên (nếu có)
-            firstBranchLowStock: { $ifNull: [{ $arrayElemAt: ['$inventory.lowStockThreshold', 0] }, null] },
-            originalPrice: '$price', // Giả sử price ban đầu là giá vốn.
-            // Tạo một mảng các URL hình ảnh, chuyển các giá trị null/undefined thành chuỗi rỗng
-            imageUrls: {
-              $map: {
-                input: { $ifNull: ['$images', []] }, // Đảm bảo 'images' là một mảng
-                as: 'img',
-                in: { $ifNull: ['$$img.url', ''] } // Nếu url là null, trả về chuỗi rỗng
-              }
-            },
-            // Lấy tồn kho cho chi nhánh cụ thể nếu queryBranchId được cung cấp
-            branchSpecificStock: queryBranchId ? {
-              $let: {
-                vars: {
-                  branchInv: {
-                    $filter: {
-                      input: '$inventory',
-                      as: 'item',
-                      cond: { $eq: ['$$item.branchId', new Types.ObjectId(queryBranchId)] }
-                    }
-                  }
-                },
-                in: { $ifNull: [{ $arrayElemAt: ['$$branchInv.quantity', 0] }, 0] }
-              }
-            } : '$totalStock' // Nếu không có branchId, lấy totalStock
-          }
-        },
-        // Project để chọn các trường cuối cùng, bao gồm cả mảng images đầy đủ
-        {
-          $project: {
-            // Giữ lại các trường cần thiết
-            _id: 0, // Không cần _id cho export
-            'Loại hàng': '$brandName',
-            'Nhóm hàng(3 Cấp)': { $ifNull: [{ $arrayElemAt: ['$categoryNames', 0] }, ''] }, // Lấy category đầu tiên
-            'Mã hàng': '$sku',
-            'Mã vạch': { $ifNull: ['$barcode', ''] },
-            'Tên hàng': '$name',
-            'Giá bán': { $ifNull: ['$currentPrice', { $ifNull: ['$price', 0] }] }, // Ưu tiên currentPrice, nếu không có thì price, nếu không có thì 0
-            'Giá vốn': { $ifNull: ['$originalPrice', 0] }, // originalPrice được tạo từ price ở $addFields
-            'Tồn kho': '$branchSpecificStock', // Sử dụng tồn kho đã tính toán
-            'Hình ảnh (url1,url2...)': {
-              $reduce: {
-                input: { // Lọc ra các URL rỗng trước khi nối chuỗi
-                  $filter: {
-                    input: '$imageUrls',
-                    as: 'url',
-                    cond: { $ne: ['$$url', ''] }
-                  }
-                },
-                initialValue: '',
-                in: {
-                  $cond: {
-                    if: { $eq: ['$$value', ''] },
-                    then: '$$this',
-                    else: { $concat: ['$$value', ',', '$$this'] }
-                  }
-                }
-              }
-            }
-            // Các trường khác có thể bỏ qua nếu không có trong yêu cầu export
-            // slug: 1,
-            // description: 1,
-            // status: 1,
-            // brandId: 1,
-            // categoryIds: 1,
-            // tags: 1,
-            // cosmetic_info: 1,
-            // variants: 1,
-            // inventory: 1,
-            // reviews: 1,
-            // flags: 1,
-            // createdAt: 1,
-            // updatedAt: 1,
-            // soldCount: 1,
-            // weightValue: 1,
-            // weightUnit: 1,
-            // loyaltyPoints: 1,
-            // lowStockThreshold: '$firstBranchLowStock',
-          }
         }
       );
 
-      const products = await this.productModel.aggregate(pipeline);
-      this.logger.log(`Lấy được ${products.length} sản phẩm cho việc xuất Excel`);
+      // Project các trường thô cần thiết
+      pipeline.push({
+        $project: {
+          _id: 0, // Loại bỏ _id nếu không cần thiết cho logic sau
+          sku: 1,
+          barcode: 1,
+          name: 1,
+          price: 1,
+          currentPrice: 1,
+          costPrice: 1,
+          inventory: 1, // Mảng inventory thô
+          images: 1,    // Mảng images thô
+          brandInfo: 1, // Kết quả từ lookup brand
+          categoriesInfo: 1 // Kết quả từ lookup categories
+        }
+      });
+      
+      this.logger.log(`[findAllForExport] Pipeline to execute: ${JSON.stringify(pipeline)}`);
+      const aggregatedProducts = await this.productModel.aggregate(pipeline).exec();
+      this.logger.log(`Lấy được ${aggregatedProducts.length} sản phẩm thô từ aggregation.`);
 
-      // Dữ liệu đã được định dạng trong $project, không cần map lại ở đây nữa
-      return products;
+      // Xử lý và định dạng dữ liệu cuối cùng trong JavaScript
+      const productsForExport = aggregatedProducts.map((p, index) => {
+        // Log dữ liệu thô của một vài sản phẩm đầu và cuối để kiểm tra
+        if (index < 2 || index === aggregatedProducts.length - 1) {
+          this.logger.debug(`[findAllForExport] Raw aggregated product data (index ${index}): ${JSON.stringify(p)}`);
+        }
+
+        const loaiHang = (p.brandInfo && Array.isArray(p.brandInfo) && p.brandInfo.length > 0 && p.brandInfo[0] && p.brandInfo[0].name && String(p.brandInfo[0].name).trim() !== '') 
+          ? String(p.brandInfo[0].name).trim() 
+          : 'N/A';
+
+        const categoryNamesArray = (p.categoriesInfo && Array.isArray(p.categoriesInfo))
+          ? p.categoriesInfo.map(cat => (cat && cat.name && typeof cat.name === 'string') ? cat.name.trim() : '').filter(name => name !== '')
+          : [];
+        const nhomHangDisplay = categoryNamesArray.length > 0 ? categoryNamesArray.slice(0, 3).join(' > ') : 'N/A';
+
+        const maHang = (p.sku && String(p.sku).trim() !== '') ? String(p.sku).trim() : 'N/A';
+        const maVach = (p.barcode && String(p.barcode).trim() !== '') ? String(p.barcode).trim() : 'N/A';
+        const tenHang = (p.name && String(p.name).trim() !== '') ? String(p.name).trim() : 'N/A';
+        
+        const giaBan = (p.currentPrice !== null && p.currentPrice !== undefined) ? Number(p.currentPrice) : (Number(p.price) || 0);
+        const giaVon = Number(p.costPrice) || 0;
+
+        let tonKho = 0;
+        if (p.inventory && Array.isArray(p.inventory)) {
+          if (objectIdQueryBranchId) {
+            const branchInv = p.inventory.find(inv => inv && inv.branchId && objectIdQueryBranchId.equals(inv.branchId));
+            tonKho = branchInv ? (Number(branchInv.quantity) || 0) : 0;
+          } else {
+            tonKho = p.inventory.reduce((sum, inv) => sum + (Number(inv && inv.quantity) || 0), 0);
+          }
+        }
+
+        let hinhAnh = 'N/A';
+        if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+          const primaryImage = p.images.find(img => img && img.isPrimary && img.url && String(img.url).trim() !== '');
+          if (primaryImage) {
+            hinhAnh = String(primaryImage.url).trim();
+          } else {
+            const firstValidImage = p.images.find(img => img && img.url && String(img.url).trim() !== '');
+            if (firstValidImage) {
+              hinhAnh = String(firstValidImage.url).trim();
+            }
+          }
+        }
+
+        const productForExport = {
+          'Loại hàng': loaiHang,
+          'Nhóm hàng (3 cấp)': nhomHangDisplay,
+          'Mã hàng': maHang,
+          'Mã vạch': maVach,
+          'Tên hàng': tenHang,
+          'Giá bán': giaBan,
+          'Giá vốn': giaVon,
+          'Tồn kho': tonKho,
+          'Hình ảnh': hinhAnh,
+        };
+        
+        // Log dữ liệu đã map của một vài sản phẩm đầu và cuối
+        if (index < 2 || index === aggregatedProducts.length - 1) {
+            this.logger.debug(`[findAllForExport] Mapped product data for export (index ${index}): ${JSON.stringify(productForExport)}`);
+        }
+        
+        return productForExport;
+      });
+      
+      return productsForExport;
 
     } catch (error) {
-      this.logger.error(`Lỗi khi lấy tất cả sản phẩm để xuất: ${error.message}`, error.stack);
-      throw error;
+      this.logger.error(`[findAllForExport] Lỗi nghiêm trọng khi lấy tất cả sản phẩm để xuất: ${error.message}`, error.stack);
+      // Log thêm chi tiết lỗi nếu có
+      if (error.cause) {
+        this.logger.error(`[findAllForExport] Nguyên nhân lỗi: ${JSON.stringify(error.cause)}`);
+      }
+      throw error; // Ném lại lỗi để controller hoặc NestJS xử lý
     }
   }
 
@@ -3032,21 +3033,27 @@ export class ProductsService {
             this.emitImportProgress(userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
           }
 
-          // Kiểm tra dữ liệu tối thiểu cần có
+          // Kiểm tra dữ liệu tối thiểu cần có: Mã hàng (Cột C - index 2) và Tên hàng (Cột E - index 4)
           if (!row[2] || !row[4]) {
-            result.errors.push(`Sản phẩm dòng ${i + 2}: Thiếu mã hàng hoặc tên sản phẩm`);
+            result.errors.push(`Sản phẩm dòng ${i + 2}: Thiếu Mã hàng hoặc Tên hàng.`);
             continue;
           }
 
-          // Lấy thông tin từ các cột theo yêu cầu
-          const category = String(row[1] || '').trim(); // Cột 2: Nhóm hàng(3 Cấp)
-          const sku = String(row[2] || '').trim(); // Cột 3: Mã hàng
-          const barcode = String(row[3] || '').trim(); // Cột 4: Mã vạch
-          const name = String(row[4] || '').trim(); // Cột 5: Tên hàng
-          const currentPrice = this.parseNumber(row[6]); // Cột 7: Giá bán
-          const originalPrice = this.parseNumber(row[7]); // Cột 8: Giá vốn
-          const quantity = this.parseNumber(row[8]); // Cột 9: Tồn kho
-          const imageUrls = this.parseImageUrls(row[18]); // Cột 19: Hình ảnh (url1,url2...)
+          // Lấy thông tin từ các cột theo yêu cầu mới:
+          // Lấy thông tin từ các cột theo hình ảnh Excel cung cấp và yêu cầu mới:
+          // Cột A (index 0) là "Loại hàng" - Bỏ qua, không dùng làm tên thương hiệu.
+          // Cột B (index 1): Nhóm hàng (Sẽ được dùng làm tên Danh mục)
+          // Cột F (index 5): Thương hiệu (Sẽ được dùng làm tên Thương hiệu)
+          const categoryName = String(row[1] || '').trim();  // Cột B: Nhóm hàng
+          const sku = String(row[2] || '').trim();            // Cột C: Mã hàng
+          const barcode = String(row[3] || '').trim();        // Cột D: Mã vạch
+          const name = String(row[4] || '').trim();           // Cột E: Tên hàng
+          const brandName = String(row[5] || '').trim();      // Cột F: Thương hiệu
+          const currentPrice = this.parseNumber(row[6]);       // Cột G: Giá bán
+          const costPriceFromExcel = this.parseNumber(row[7]); // Cột H: Giá vốn
+          const quantity = this.parseNumber(row[8]);           // Cột I: Tồn kho
+          // Giả sử cột Hình ảnh vẫn là cột thứ 19 (index 18) nếu có, hoặc cần điều chỉnh index
+          const imageUrls = this.parseImageUrls(row[18]); 
 
           // Tạo slug từ tên sản phẩm
           let slug = this.generateSlug(name);
@@ -3060,20 +3067,15 @@ export class ProductsService {
             continue;
           }
 
-          // Chuẩn bị mô tả đầy đủ với mã vạch
-          // let fullDescription = ''; // Bỏ dòng này
-          // if (barcode) { // Bỏ điều kiện này
-          //   fullDescription = `Mã vạch: ${barcode}\n\n`; // Bỏ dòng này
-          // }
-          const fullDescription = ''; // description.full sẽ là chuỗi rỗng
+          const fullDescription = ''; 
 
           // Chuẩn bị dữ liệu sản phẩm
           const productDto: any = {
             sku,
             name,
             slug,
-            price: currentPrice > 0 ? currentPrice : 0,
-            originalPrice: originalPrice > 0 ? originalPrice : 0,
+            price: currentPrice > 0 ? currentPrice : 0, // price này là giá bán gốc
+            costPrice: costPriceFromExcel > 0 ? costPriceFromExcel : 0, // Lưu giá vốn vào trường mới
             currentPrice: currentPrice > 0 ? currentPrice : 0,
             // Cập nhật trạng thái dựa trên số lượng tồn kho
             // Nếu quantity = 0 thì status = out_of_stock
@@ -3082,148 +3084,122 @@ export class ProductsService {
               short: '',
               full: fullDescription
             },
-            barcode // Thêm mã vạch vào DTO
+            barcode 
           };
+
+          // Xử lý Thương hiệu (Loại hàng)
+          if (brandName) {
+            let brandDocument = await this.brandModel.findOne({ name: brandName });
+            if (!brandDocument) {
+              this.logger.log(`Thương hiệu "${brandName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
+              brandDocument = new this.brandModel({ 
+                name: brandName, 
+                slug: this.generateSlug(brandName),
+                logo: { url: 'https://via.placeholder.com/150/CCCCCC/808080?Text=No+Logo', alt: `${brandName} logo`, publicId: '' } // Cung cấp logo mặc định
+              });
+              await brandDocument.save();
+              this.logger.log(`Đã tạo thương hiệu mới: ID ${brandDocument._id}, Tên: ${brandName}`);
+            } else {
+              this.logger.log(`Tìm thấy thương hiệu: ID ${brandDocument._id}, Tên: ${brandName}`);
+            }
+            if (brandDocument && brandDocument._id) {
+              productDto.brandId = brandDocument._id;
+            } else {
+              this.logger.warn(`Không thể lấy/tạo ID cho thương hiệu "${brandName}" (dòng ${i + 2})`);
+            }
+          }
+
+          // Xử lý Nhóm hàng (Category)
+          if (categoryName) {
+            let categoryDocument = await this.categoryModel.findOne({ name: categoryName });
+            if (!categoryDocument) {
+              this.logger.log(`Danh mục "${categoryName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
+              // Giả sử category không có parentId khi import từ file Excel đơn giản này
+              categoryDocument = new this.categoryModel({ name: categoryName, slug: this.generateSlug(categoryName) });
+              await categoryDocument.save();
+              this.logger.log(`Đã tạo danh mục mới: ID ${categoryDocument._id}, Tên: ${categoryName}`);
+            } else {
+              this.logger.log(`Tìm thấy danh mục: ID ${categoryDocument._id}, Tên: ${categoryName}`);
+            }
+            if (categoryDocument && categoryDocument._id) {
+              productDto.categoryIds = [categoryDocument._id]; // Gán vào mảng
+            } else {
+              this.logger.warn(`Không thể lấy/tạo ID cho danh mục "${categoryName}" (dòng ${i + 2})`);
+            }
+          }
 
           // Xử lý hình ảnh
           if (imageUrls.length > 0) {
             productDto.images = imageUrls.map((url, index) => ({
               url,
               alt: `${name} - Ảnh ${index + 1}`,
-              isPrimary: index === 0 // Ảnh đầu tiên là ảnh chính
+              isPrimary: index === 0 
             }));
           }
 
           // Tạo thông tin inventory với chi nhánh được chọn
           productDto.inventory = [{
-            branchId,
+            branchId: new Types.ObjectId(branchId), // Đảm bảo branchId là ObjectId
             quantity: quantity >= 0 ? quantity : 0
           }];
-
-          // Thêm danh mục nếu có
-          if (category) {
-            // Chúng ta sẽ cần thêm việc tìm/tạo danh mục ở đây
-            // Hiện tại chỉ ghi log thông tin
-            this.logger.log(`Danh mục của sản phẩm ${sku}: ${category}`);
-          }
-
-          // Kiểm tra xem sản phẩm đã tồn tại hay chưa (theo SKU)
+          
           const existingProduct = await this.productModel.findOne({ sku });
 
           if (existingProduct) {
-            // Cập nhật sản phẩm hiện có
             this.logger.log(`Cập nhật sản phẩm có SKU: ${sku}`);
+            const updateFields: any = {
+              name: productDto.name,
+              slug: productDto.slug,
+              price: productDto.price,
+              costPrice: productDto.costPrice,
+              currentPrice: productDto.currentPrice,
+              'description.full': productDto.description.full,
+              barcode: productDto.barcode,
+              // Chỉ cập nhật brandId nếu productDto có brandId (tức là brandName không rỗng trong Excel)
+              ...(productDto.brandId && { brandId: productDto.brandId }), 
+              // Chỉ cập nhật categoryIds nếu productDto có categoryIds (tức là categoryName không rỗng)
+              ...(productDto.categoryIds && { categoryIds: productDto.categoryIds })
+            };
 
-            // Kiểm tra sản phẩm đã có inventory cho chi nhánh này chưa
-            const hasInventory = existingProduct.inventory?.some(inv => inv.branchId.toString() === branchId);
-
-            if (hasInventory) {
-              // Cập nhật số lượng cho chi nhánh
-              await this.productModel.updateOne(
-                { sku, 'inventory.branchId': new Types.ObjectId(branchId) },
-                { $set: { 'inventory.$.quantity': productDto.inventory[0].quantity } }
-              );
-            } else {
-              // Thêm mới inventory cho chi nhánh
-              await this.productModel.updateOne(
-                { sku },
-                { $push: { inventory: { branchId: new Types.ObjectId(branchId), quantity: productDto.inventory[0].quantity } } }
-              );
+            if (productDto.images && productDto.images.length > 0) {
+              updateFields.images = productDto.images;
             }
 
-            // Lấy lại sản phẩm để tính toán tổng tồn kho và cập nhật trạng thái
-            const updatedProduct = await this.productModel.findOne({ sku });
-            if (updatedProduct) {
-              // Tính tổng tồn kho từ tất cả các chi nhánh
-              const totalInventory = updatedProduct.inventory.reduce(
-                (sum, inv) => sum + inv.quantity,
-                0
-              );
-
-              // Cập nhật trạng thái dựa trên tổng tồn kho
-              let newStatus = updatedProduct.status;
-              if (totalInventory === 0 && updatedProduct.status !== 'discontinued') {
-                newStatus = 'out_of_stock';
-                if (updatedProduct.status !== 'out_of_stock') {
-                  result.statusChanges.toOutOfStock++;
-                }
-              } else if (totalInventory > 0 && updatedProduct.status === 'out_of_stock') {
-                newStatus = 'active';
-                result.statusChanges.toActive++;
-              }
-
-              // Cập nhật các trường khác
-              const updateFields: any = {
-                name: productDto.name,
-                slug: productDto.slug,
-                price: productDto.price,
-                originalPrice: productDto.originalPrice,
-                currentPrice: productDto.currentPrice,
-                'description.full': productDto.description.full,
-                status: newStatus,
-                barcode // Thêm mã vạch khi cập nhật
-              };
-
-              // Cập nhật hình ảnh nếu có
-              if (productDto.images && productDto.images.length > 0) {
-                updateFields.images = productDto.images;
-              }
-
-              await this.productModel.updateOne(
-                { sku },
-                { $set: updateFields }
-              );
+            // Cập nhật inventory cho chi nhánh cụ thể
+            const inventoryUpdate = existingProduct.inventory.find(inv => inv.branchId.toString() === branchId);
+            if (inventoryUpdate) {
+              inventoryUpdate.quantity = productDto.inventory[0].quantity;
             } else {
-              // Cập nhật các trường khác nếu không thể lấy lại sản phẩm
-              const updateFields: any = {
-                name: productDto.name,
-                slug: productDto.slug,
-                price: productDto.price,
-                originalPrice: productDto.originalPrice,
-                currentPrice: productDto.currentPrice,
-                'description.full': productDto.description.full,
-                barcode // Thêm mã vạch khi cập nhật (trường hợp không lấy lại được sản phẩm)
-              };
-
-              // Cập nhật hình ảnh nếu có
-              if (productDto.images && productDto.images.length > 0) {
-                updateFields.images = productDto.images;
-              }
-
-              await this.productModel.updateOne(
-                { sku },
-                { $set: updateFields }
-              );
+              existingProduct.inventory.push(productDto.inventory[0]);
+            }
+            updateFields.inventory = existingProduct.inventory;
+            
+            // Tính toán lại tổng tồn kho và cập nhật trạng thái
+            const totalInventory = existingProduct.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
+            updateFields.status = totalInventory > 0 ? 'active' : 'out_of_stock';
+            if (updateFields.status !== existingProduct.status) {
+              if (updateFields.status === 'out_of_stock') result.statusChanges.toOutOfStock++;
+              else result.statusChanges.toActive++;
             }
 
+            await this.productModel.updateOne({ sku }, { $set: updateFields });
             result.updated++;
           } else {
-            // Tạo sản phẩm mới
             this.logger.log(`Tạo sản phẩm mới với SKU: ${sku}`);
-
-            // Chuyển đổi ObjectId cho branchId
-            productDto.inventory[0].branchId = new Types.ObjectId(branchId);
-
-            // Kiểm tra và đảm bảo slug là unique trước khi tạo mới
-            let uniqueSlug = slug; // slug đã được tạo từ name hoặc sku ở trên
+            let uniqueSlug = slug;
             let counter = 1;
-            // Vòng lặp để tìm slug duy nhất, chỉ áp dụng cho sản phẩm mới
             while (await this.productModel.findOne({ slug: uniqueSlug })) {
               uniqueSlug = `${slug}-${counter}`;
               counter++;
             }
-            if (slug !== uniqueSlug) {
-              this.logger.log(`Slug "${slug}" đã tồn tại, đổi thành "${uniqueSlug}" cho sản phẩm mới SKU: ${sku}`);
-            }
-            productDto.slug = uniqueSlug; // Gán slug duy nhất (hoặc slug gốc nếu nó đã duy nhất)
+            productDto.slug = uniqueSlug;
             
             const newProductInstance = new this.productModel(productDto);
             await newProductInstance.save();
-
             result.created++;
           }
         } catch (error: any) {
-          const currentSkuForRow = String(row[2] || 'N/A').trim(); // Lấy SKU từ dòng hiện tại cho thông báo lỗi
+          const currentSkuForRow = String(row[2] || 'N/A').trim(); 
           this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`, error.stack);
           // Cung cấp thông báo lỗi chi tiết hơn
           if (error.code === 11000) { // Lỗi duplicate key
