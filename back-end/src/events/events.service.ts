@@ -134,23 +134,70 @@ export class EventsService {
       }
     }
 
-    // Kiểm tra trùng lặp sản phẩm
+    // Lấy thông tin chi tiết sản phẩm từ database (bao gồm tất cả productIds để kiểm tra tên)
+    const allProductDetailsForCheck = await this.productModel
+      .find({ _id: { $in: productIds.map(id => new Types.ObjectId(id)) } })
+      .select('_id name')
+      .lean()
+      .exec();
+
+    const productDetailsMapForCheck = new Map<string, any>();
+    allProductDetailsForCheck.forEach(product => {
+      productDetailsMapForCheck.set(product._id.toString(), product);
+    });
+
+    // Kiểm tra xem sản phẩm đã thuộc về Event nào khác chưa
+    const otherActiveEvents = await this.eventModel.find({
+      _id: { $ne: event._id }, // Loại trừ event hiện tại
+      'products.productId': { $in: productIds.map(id => new Types.ObjectId(id)) }
+    }).select('products.productId title').lean().exec();
+
+    const productInOtherEventMap = new Map<string, string>();
+    otherActiveEvents.forEach(otherEvent => {
+      if (otherEvent.products) {
+        otherEvent.products.forEach(p => {
+          if (p && p.productId) {
+            const pIdStr = p.productId.toString();
+            if (productIds.includes(pIdStr) && !productInOtherEventMap.has(pIdStr)) {
+              productInOtherEventMap.set(pIdStr, otherEvent.title || 'Không có tên');
+            }
+          }
+        });
+      }
+    });
+
+    const productsInAnotherEvent = productIds.filter(productId => productInOtherEventMap.has(productId));
+
+    if (productsInAnotherEvent.length > 0) {
+      const firstProductIdInAnotherEvent = productsInAnotherEvent[0];
+      const eventName = productInOtherEventMap.get(firstProductIdInAnotherEvent);
+      const productName = productDetailsMapForCheck.get(firstProductIdInAnotherEvent)?.name || firstProductIdInAnotherEvent;
+      throw new BadRequestException(
+        `Sản phẩm ${productName} (ID: ${firstProductIdInAnotherEvent}) đã thuộc về Event "${eventName}". Một sản phẩm chỉ có thể thuộc về một Event duy nhất.`
+      );
+    }
+
+    // Kiểm tra trùng lặp sản phẩm trong event hiện tại
     const existingProductIds = new Set(event.products.map(p => p.productId.toString()));
     const newProductIds = productIds.filter(id => !existingProductIds.has(id));
 
-    if (newProductIds.length === 0) {
-      throw new BadRequestException('Tất cả sản phẩm đã tồn tại trong sự kiện');
+    if (newProductIds.length === 0 && productsData.length > 0) { // Nếu không có sản phẩm mới nào để thêm nhưng productsData không rỗng
+      throw new BadRequestException('Tất cả sản phẩm đã tồn tại trong sự kiện này hoặc không hợp lệ.');
+    }
+    if (newProductIds.length === 0 && productsData.length === 0) { // Nếu không có sản phẩm nào được cung cấp
+        throw new BadRequestException('Danh sách sản phẩm không được trống');
     }
 
-    // Lấy thông tin chi tiết sản phẩm từ database
+
+    // Lấy thông tin chi tiết sản phẩm từ database (chỉ cho các sản phẩm mới)
     const productDetails = await this.productModel
-      .find({ _id: { $in: newProductIds } })
+      .find({ _id: { $in: newProductIds.map(id => new Types.ObjectId(id)) } })
       .select('_id name slug images price variants sku status brandId brand reviews soldCount')
       .populate('brandId', 'name')
       .lean()
       .exec();
 
-    // Tạo map để dễ dàng truy cập thông tin sản phẩm
+    // Tạo map để dễ dàng truy cập thông tin sản phẩm (chỉ cho các sản phẩm mới)
     const productDetailsMap = new Map<string, any>();
     productDetails.forEach(product => {
       productDetailsMap.set(product._id.toString(), product);
