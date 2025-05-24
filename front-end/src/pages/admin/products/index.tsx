@@ -29,6 +29,7 @@ import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/usePr
 import { useApiStats } from '@/hooks/useApiStats';
 import { useProduct, ProductProvider } from '@/contexts/ProductContext'; // Import ProductProvider
 import { useBrands } from '@/contexts/BrandContext'; // Import useBrands hook
+import { useCategory } from '@/contexts/CategoryContext'; // Import useCategory hook
 
 // Define props type including SSR data
 type AdminProductsProps = InferGetServerSidePropsType<typeof getServerSideProps>;
@@ -119,7 +120,7 @@ function AdminProducts({
   const [selectedBranch, setSelectedBranch] = useState('');
   // Sử dụng hook useBranches để lấy thông tin chi nhánh
   // Đổi tên fetchBranches từ useBranches để tránh xung đột với fetchProducts từ useProductAdmin
-  const { branches, loading: branchesLoading, fetchBranches: fetchBranchesList } = useBranches(); 
+  const { branches, loading: branchesLoading, fetchBranches: fetchBranchesList } = useBranches();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showExportBranchModal, setShowExportBranchModal] = useState(false);
@@ -190,6 +191,9 @@ function AdminProducts({
 
   // Lấy dữ liệu thương hiệu từ BrandContext
   const { brands: apiBrands, loading: brandsLoading } = useBrands();
+
+  // Lấy dữ liệu danh mục từ CategoryContext
+  const { refreshCategories } = useCategory();
 
   // Chuyển đổi định dạng brands từ API để phù hợp với component
   const brands = apiBrands.map(brand => ({
@@ -560,14 +564,30 @@ function AdminProducts({
       // Lưu tên chi nhánh đã chọn để hiển thị trong thông báo
       const selectedBranchName = branches.find(b => b._id === selectedBranch)?.name || 'Chi nhánh không xác định';
 
-      // Hiển thị thông báo thành công với tên chi nhánh
-      toast.success(
+      // Hiển thị thông báo thành công với thông tin chi tiết
+      const successMessage = (
         <div className="flex flex-col">
           <span>Import dữ liệu thành công!</span>
           <span className="text-sm mt-1">Chi nhánh: <span className="font-medium">{selectedBranchName}</span></span>
-        </div>,
-        { duration: 5000 }
+          {result.categoriesCreated > 0 && (
+            <span className="text-sm mt-1 text-green-600">
+              ✓ Đã tạo {result.categoriesCreated} danh mục mới
+            </span>
+          )}
+        </div>
       );
+
+      toast.success(successMessage, { duration: 5000 });
+
+      // Refresh categories nếu có categories mới được tạo
+      if (result.categoriesCreated > 0) {
+        try {
+          await refreshCategories();
+          debugLog(`Đã refresh danh sách categories sau khi tạo ${result.categoriesCreated} danh mục mới`);
+        } catch (error) {
+          console.error('Lỗi khi refresh categories:', error);
+        }
+      }
 
       // Đóng modal và reset form
       setShowImportModal(false);
@@ -610,7 +630,7 @@ function AdminProducts({
       const exportFilters: Partial<ProductAdminFilter> = { ...filters };
       delete exportFilters.page;
       delete exportFilters.limit;
-      
+
       const params = new URLSearchParams();
       Object.entries(exportFilters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '' && value !== false) {
@@ -621,7 +641,7 @@ function AdminProducts({
       if (selectedBranchForExport) {
         params.append('branchId', selectedBranchForExport);
       }
-      
+
       const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/admin/products/export-data?${params.toString()}`;
       console.log('[Export Excel] Calling API:', apiUrl);
@@ -652,7 +672,7 @@ function AdminProducts({
         } catch (e) {
           console.error('[Export Excel] Could not get error response body:', e);
         }
-        
+
         const displayMessage = errorData.message || `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.`;
         console.error('[Export Excel] Error Data for Toast:', errorData);
         toast.error(displayMessage);
@@ -666,20 +686,40 @@ function AdminProducts({
         toast.dismiss(loadingToast);
         return;
       }
-      
+
       toast.loading(`Đang tạo file Excel với ${allProductsToExport.length} sản phẩm...`, { id: loadingToast });
 
-      // Định nghĩa 9 header bạn yêu cầu
+      // Định nghĩa 29 cột theo đúng thứ tự yêu cầu
       const desiredHeaders = [
         "Loại hàng",
-        "Nhóm hàng (3 cấp)",
+        "Nhóm hàng (3 Cấp)",
         "Mã hàng",
         "Mã vạch",
         "Tên hàng",
+        "Thương hiệu",
         "Giá bán",
         "Giá vốn",
         "Tồn kho",
-        "Hình ảnh"
+        "KH đặt",
+        "Dự kiến hết hàng",
+        "Tồn nhỏ nhất",
+        "Tồn lớn nhất",
+        "Đơn vị tính (ĐVT)",
+        "Mã ĐVT Cơ bản",
+        "Quy đổi",
+        "Thuộc tính",
+        "Mã HH Liên quan",
+        "Hình ảnh",
+        "Trọng lượng",
+        "Tích điểm",
+        "Đang kinh doanh",
+        "Được bán trực tiếp",
+        "Mô tả",
+        "Mẫu ghi chú",
+        "Vị trí",
+        "Hàng thành phần",
+        "Bảo hành",
+        "Bảo trì định kỳ"
       ];
 
       // Dữ liệu allProductsToExport từ backend đã là một mảng các object,
@@ -710,8 +750,30 @@ function AdminProducts({
       XLSX.writeFile(workbook, fileName);
 
       toast.dismiss(loadingToast);
-      toast.success('Xuất dữ liệu thành công!', {
-        duration: 3000,
+
+      // Đếm số categories phân cấp được xuất
+      const hierarchicalCategories = new Set();
+      allProductsToExport.forEach(product => {
+        const categoryPath = (product as any)['Nhóm hàng (3 cấp)'];
+        if (categoryPath && categoryPath !== 'N/A' && categoryPath.includes('>>')) {
+          hierarchicalCategories.add(categoryPath);
+        }
+      });
+
+      const successMessage = (
+        <div className="flex flex-col">
+          <span>Xuất dữ liệu thành công!</span>
+          <span className="text-sm mt-1">📊 {allProductsToExport.length} sản phẩm</span>
+          {hierarchicalCategories.size > 0 && (
+            <span className="text-sm mt-1 text-blue-600">
+              🏷️ {hierarchicalCategories.size} danh mục phân cấp
+            </span>
+          )}
+        </div>
+      );
+
+      toast.success(successMessage, {
+        duration: 5000,
         icon: <FiCheck className="text-green-500" />
       });
 

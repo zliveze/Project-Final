@@ -313,18 +313,18 @@ export class ProductsService {
           // Chuẩn bị từ khóa cho regex search
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
-          
+
           // Escape các ký tự đặc biệt trong regex
           const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          
+
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           filter.$or = [
             // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
             { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
-            
+
             // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
             { name: { $regex: regexPattern, $options: 'i' } },
-            
+
             // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
@@ -337,16 +337,16 @@ export class ProductsService {
           if (processedSearch.includes(' ')) {
             // Tạo phiên bản không có khoảng trắng của regex pattern
             const nonSpacePattern = regexPattern.replace(/\s+/g, '');
-            
+
             // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
-            const words = processedSearch.split(' ').map(word => 
+            const words = processedSearch.split(' ').map(word =>
               word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
             );
-            
+
             if (words.length > 1) {
               // Tìm kiếm với các từ theo đúng thứ tự
               const orderedWordsPattern = words.join('.*');
-              
+
               // Thêm các điều kiện tìm kiếm chính xác hơn
               filter.$or.unshift(
                 // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
@@ -1554,18 +1554,18 @@ export class ProductsService {
           // Chuẩn bị từ khóa cho regex search
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
-          
+
           // Escape các ký tự đặc biệt trong regex
           const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          
+
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           filter.$or = [
             // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
             { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
-            
+
             // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
             { name: { $regex: regexPattern, $options: 'i' } },
-            
+
             // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
@@ -1578,16 +1578,16 @@ export class ProductsService {
           if (processedSearch.includes(' ')) {
             // Tạo phiên bản không có khoảng trắng của regex pattern
             const nonSpacePattern = regexPattern.replace(/\s+/g, '');
-            
+
             // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
-            const words = processedSearch.split(' ').map(word => 
+            const words = processedSearch.split(' ').map(word =>
               word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
             );
-            
+
             if (words.length > 1) {
               // Tìm kiếm với các từ theo đúng thứ tự
               const orderedWordsPattern = words.join('.*');
-              
+
               // Thêm các điều kiện tìm kiếm chính xác hơn
               filter.$or.unshift(
                 // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
@@ -1619,7 +1619,7 @@ export class ProductsService {
           // Parse comma-separated brandIds
           const brandIds = brandId.split(',').map(id => id.trim()).filter(id => id.length > 0);
           const validBrandIds = brandIds.filter(id => Types.ObjectId.isValid(id));
-          
+
           if (validBrandIds.length > 0) {
             if (validBrandIds.length === 1) {
               // Single brand
@@ -1637,13 +1637,13 @@ export class ProductsService {
         }
       }
 
-      // Chuyển đổi categoryId sang ObjectId nếu hợp lệ - hỗ trợ multiple IDs  
+      // Chuyển đổi categoryId sang ObjectId nếu hợp lệ - hỗ trợ multiple IDs
       if (categoryId) {
         try {
           // Parse comma-separated categoryIds
           const categoryIds = categoryId.split(',').map(id => id.trim()).filter(id => id.length > 0);
           const validCategoryIds = categoryIds.filter(id => Types.ObjectId.isValid(id));
-          
+
           if (validCategoryIds.length > 0) {
             // Sử dụng $in để tìm sản phẩm có ít nhất một trong các category được chọn
             filter.categoryIds = { $in: validCategoryIds.map(id => new Types.ObjectId(id)) };
@@ -1932,21 +1932,21 @@ export class ProductsService {
         } else {
           // Chuẩn bị từ khóa cho regex search
           const regexSearch = processedSearch.replace(/_/g, '[_\\s]?');
-          
+
           // Tạo phiên bản thay thế gạch dưới bằng khoảng trắng
           const alternativeSearch = processedSearch.replace(/_/g, ' ');
-          
+
           // Escape các ký tự đặc biệt trong regex
           const regexPattern = processedSearch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          
+
           // Mở rộng phạm vi tìm kiếm khi sử dụng regex
           matchStage.$or = [
             // Tìm kiếm chính xác cụm từ (ưu tiên cao nhất)
             { name: { $regex: `\\b${regexPattern}\\b`, $options: 'i' } },
-            
+
             // Tìm kiếm cụm từ xuất hiện trong tên sản phẩm
             { name: { $regex: regexPattern, $options: 'i' } },
-            
+
             // Tìm kiếm trong các trường khác
             { sku: { $regex: regexSearch, $options: 'i' } },
             { slug: { $regex: regexSearch, $options: 'i' } },
@@ -1959,16 +1959,16 @@ export class ProductsService {
           if (processedSearch.includes(' ')) {
             // Tạo phiên bản không có khoảng trắng của regex pattern
             const nonSpacePattern = regexPattern.replace(/\s+/g, '');
-            
+
             // Tìm kiếm khi các từ xuất hiện gần nhau (không nhất thiết liên tiếp)
-            const words = processedSearch.split(' ').map(word => 
+            const words = processedSearch.split(' ').map(word =>
               word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
             );
-            
+
             if (words.length > 1) {
               // Tìm kiếm với các từ theo đúng thứ tự
               const orderedWordsPattern = words.join('.*');
-              
+
               // Thêm các điều kiện tìm kiếm chính xác hơn
               matchStage.$or.unshift(
                 // Ưu tiên cao nhất: Các từ xuất hiện theo đúng thứ tự và gần nhau
@@ -2000,7 +2000,7 @@ export class ProductsService {
           // Parse comma-separated brandIds
           const brandIds = brandId.split(',').map(id => id.trim()).filter(id => id.length > 0);
           const validBrandIds = brandIds.filter(id => Types.ObjectId.isValid(id));
-          
+
           if (validBrandIds.length > 0) {
             if (validBrandIds.length === 1) {
               // Single brand
@@ -2024,7 +2024,7 @@ export class ProductsService {
           // Parse comma-separated categoryIds
           const categoryIds = categoryId.split(',').map(id => id.trim()).filter(id => id.length > 0);
           const validCategoryIds = categoryIds.filter(id => Types.ObjectId.isValid(id));
-          
+
           if (validCategoryIds.length > 0) {
             // Sử dụng $in để tìm sản phẩm có ít nhất một trong các category được chọn
             matchStage.categoryIds = { $in: validCategoryIds.map(id => new Types.ObjectId(id)) };
@@ -2302,7 +2302,7 @@ export class ProductsService {
       if (tags) matchStage.tags = { $in: tags.split(',').map(tag => tag.trim()) };
       if (skinTypes) matchStage['cosmetic_info.skinType'] = { $in: skinTypes.split(',').map(type => type.trim()) };
       if (concerns) matchStage['cosmetic_info.concerns'] = { $in: concerns.split(',').map(concern => concern.trim()) };
-      
+
       // Sửa lỗi TypeScript: Xử lý đúng kiểu cho các flag boolean
       if (isBestSeller !== undefined) {
         matchStage['flags.isBestSeller'] = typeof isBestSeller === 'string' ? isBestSeller === 'true' : Boolean(isBestSeller);
@@ -2324,19 +2324,61 @@ export class ProductsService {
       // Đơn giản hóa pipeline để test
       pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } });
 
-      // Lookup để lấy thông tin category và brand
+      // Lookup để lấy thông tin category và brand với đầy đủ cây phân cấp
       pipeline.push(
         {
           $lookup: {
             from: 'categories', // Tên collection của categories
             localField: 'categoryIds',
             foreignField: '_id',
-            as: 'categoriesInfo'
+            as: 'directCategories'
+          }
+        },
+        {
+          // Lookup để lấy tất cả categories cha của category mà sản phẩm thuộc về
+          $lookup: {
+            from: 'categories',
+            let: { productCategoryIds: '$categoryIds' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ['$_id', '$$productCategoryIds']
+                  }
+                }
+              },
+              {
+                // Graphlookup để lấy tất cả categories cha
+                $graphLookup: {
+                  from: 'categories',
+                  startWith: '$parentId',
+                  connectFromField: 'parentId',
+                  connectToField: '_id',
+                  as: 'ancestors',
+                  maxDepth: 10
+                }
+              },
+              {
+                $project: {
+                  _id: 1,
+                  name: 1,
+                  level: 1,
+                  parentId: 1,
+                  ancestors: {
+                    _id: 1,
+                    name: 1,
+                    level: 1,
+                    parentId: 1
+                  }
+                }
+              }
+            ],
+            as: 'categoryHierarchy'
           }
         },
         {
           $lookup: {
-            from: 'brands', // Tên collection của brands (giả sử là 'brands')
+            from: 'brands', // Tên collection của brands
             localField: 'brandId',
             foreignField: '_id',
             as: 'brandInfo'
@@ -2344,7 +2386,7 @@ export class ProductsService {
         }
       );
 
-      // Project các trường thô cần thiết
+      // Project các trường cần thiết cho 29 cột xuất Excel
       pipeline.push({
         $project: {
           _id: 0, // Loại bỏ _id nếu không cần thiết cho logic sau
@@ -2354,83 +2396,155 @@ export class ProductsService {
           price: 1,
           currentPrice: 1,
           costPrice: 1,
+          status: 1,
+          description: 1, // Lấy description để xuất
+          weightValue: 1, // Trọng lượng
+          weightUnit: 1,  // Đơn vị trọng lượng
+          loyaltyPoints: 1, // Tích điểm
+          flags: 1, // Các flags như đang kinh doanh, được bán trực tiếp
           inventory: 1, // Mảng inventory thô
           images: 1,    // Mảng images thô
           brandInfo: 1, // Kết quả từ lookup brand
-          categoriesInfo: 1 // Kết quả từ lookup categories
+          categoryHierarchy: 1 // Lấy đầy đủ thông tin categories với cây phân cấp
         }
       });
-      
+
       this.logger.log(`[findAllForExport] Pipeline to execute: ${JSON.stringify(pipeline)}`);
       const aggregatedProducts = await this.productModel.aggregate(pipeline).exec();
       this.logger.log(`Lấy được ${aggregatedProducts.length} sản phẩm thô từ aggregation.`);
 
-      // Xử lý và định dạng dữ liệu cuối cùng trong JavaScript
+      // Xử lý và định dạng dữ liệu cuối cùng với 29 cột theo đúng thứ tự
       const productsForExport = aggregatedProducts.map((p, index) => {
         // Log dữ liệu thô của một vài sản phẩm đầu và cuối để kiểm tra
         if (index < 2 || index === aggregatedProducts.length - 1) {
           this.logger.debug(`[findAllForExport] Raw aggregated product data (index ${index}): ${JSON.stringify(p)}`);
         }
 
-        const loaiHang = (p.brandInfo && Array.isArray(p.brandInfo) && p.brandInfo.length > 0 && p.brandInfo[0] && p.brandInfo[0].name && String(p.brandInfo[0].name).trim() !== '') 
-          ? String(p.brandInfo[0].name).trim() 
-          : 'N/A';
+        // 1. Loại hàng (Mặc định là "Hàng hoá")
+        const loaiHang = 'Hàng hoá';
 
-        const categoryNamesArray = (p.categoriesInfo && Array.isArray(p.categoriesInfo))
-          ? p.categoriesInfo.map(cat => (cat && cat.name && typeof cat.name === 'string') ? cat.name.trim() : '').filter(name => name !== '')
-          : [];
-        const nhomHangDisplay = categoryNamesArray.length > 0 ? categoryNamesArray.slice(0, 3).join(' > ') : 'N/A';
+        // 2. Nhóm hàng (3 Cấp) - Xử lý categories theo cấu trúc phân cấp
+        const nhomHang = this.buildHierarchicalCategoryPathFromHierarchy(p.categoryHierarchy);
 
-        const maHang = (p.sku && String(p.sku).trim() !== '') ? String(p.sku).trim() : 'N/A';
-        const maVach = (p.barcode && String(p.barcode).trim() !== '') ? String(p.barcode).trim() : 'N/A';
-        const tenHang = (p.name && String(p.name).trim() !== '') ? String(p.name).trim() : 'N/A';
-        
+        // 3. Mã hàng
+        const maHang = (p.sku && String(p.sku).trim() !== '') ? String(p.sku).trim() : '';
+
+        // 4. Mã vạch
+        const maVach = (p.barcode && String(p.barcode).trim() !== '') ? String(p.barcode).trim() : '';
+
+        // 5. Tên hàng
+        const tenHang = (p.name && String(p.name).trim() !== '') ? String(p.name).trim() : '';
+
+        // 6. Thương hiệu (Sửa lỗi: lấy từ brandInfo thay vì loại hàng)
+        const thuongHieu = (p.brandInfo && Array.isArray(p.brandInfo) && p.brandInfo.length > 0 && p.brandInfo[0] && p.brandInfo[0].name && String(p.brandInfo[0].name).trim() !== '')
+          ? String(p.brandInfo[0].name).trim()
+          : '';
+
+        // 7. Giá bán
         const giaBan = (p.currentPrice !== null && p.currentPrice !== undefined) ? Number(p.currentPrice) : (Number(p.price) || 0);
+
+        // 8. Giá vốn
         const giaVon = Number(p.costPrice) || 0;
 
+        // 9. Tồn kho (Lấy theo chi nhánh được chọn)
         let tonKho = 0;
         if (p.inventory && Array.isArray(p.inventory)) {
           if (objectIdQueryBranchId) {
-            const branchInv = p.inventory.find(inv => inv && inv.branchId && objectIdQueryBranchId.equals(inv.branchId));
+            const branchInv = p.inventory.find((inv: any) => inv && inv.branchId && objectIdQueryBranchId.equals(inv.branchId));
             tonKho = branchInv ? (Number(branchInv.quantity) || 0) : 0;
           } else {
-            tonKho = p.inventory.reduce((sum, inv) => sum + (Number(inv && inv.quantity) || 0), 0);
+            tonKho = p.inventory.reduce((sum: number, inv: any) => sum + (Number(inv && inv.quantity) || 0), 0);
           }
         }
 
-        let hinhAnh = 'N/A';
+        // 10-13. KH đặt, Dự kiến hết hàng, Tồn nhỏ nhất, Tồn lớn nhất (Để trống)
+        const khDat = '';
+        const duKienHetHang = '';
+        const tonNhoNhat = '';
+        const tonLonNhat = '';
+
+        // 14-16. Đơn vị tính, Mã ĐVT Cơ bản, Quy đổi (Để trống)
+        const donViTinh = '';
+        const maDVTCoBan = '';
+        const quyDoi = '';
+
+        // 17-18. Thuộc tính, Mã HH Liên quan (Để trống)
+        const thuocTinh = '';
+        const maHHLienQuan = '';
+
+        // 19. Hình ảnh (Lấy tất cả URL, phân cách bằng dấu phẩy)
+        let hinhAnh = '';
         if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-          const primaryImage = p.images.find(img => img && img.isPrimary && img.url && String(img.url).trim() !== '');
-          if (primaryImage) {
-            hinhAnh = String(primaryImage.url).trim();
-          } else {
-            const firstValidImage = p.images.find(img => img && img.url && String(img.url).trim() !== '');
-            if (firstValidImage) {
-              hinhAnh = String(firstValidImage.url).trim();
-            }
-          }
+          const imageUrls = p.images
+            .filter((img: any) => img && img.url && String(img.url).trim() !== '')
+            .map((img: any) => String(img.url).trim());
+          hinhAnh = imageUrls.join(', ');
         }
+
+        // 20. Trọng lượng
+        const trongLuong = p.weightValue ? `${p.weightValue}${p.weightUnit || ''}` : '';
+
+        // 21. Tích điểm
+        const tichDiem = Number(p.loyaltyPoints) || 0;
+
+        // 22. Đang kinh doanh (Dựa vào status)
+        const dangKinhDoanh = p.status === 'active' ? 'Có' : 'Không';
+
+        // 23. Được bán trực tiếp (Để trống hoặc dựa vào flags)
+        const duocBanTrucTiep = '';
+
+        // 24. Mô tả (Lấy từ description.full)
+        const moTa = (p.description && p.description.full && String(p.description.full).trim() !== '')
+          ? String(p.description.full).trim()
+          : '';
+
+        // 25-29. Mẫu ghi chú, Vị trí, Hàng thành phần, Bảo hành, Bảo trì định kỳ (Để trống)
+        const mauGhiChu = '';
+        const viTri = '';
+        const hangThanhPhan = '';
+        const baoHanh = '';
+        const baoTriDinhKy = '';
 
         const productForExport = {
           'Loại hàng': loaiHang,
-          'Nhóm hàng (3 cấp)': nhomHangDisplay,
+          'Nhóm hàng (3 Cấp)': nhomHang,
           'Mã hàng': maHang,
           'Mã vạch': maVach,
           'Tên hàng': tenHang,
+          'Thương hiệu': thuongHieu,
           'Giá bán': giaBan,
           'Giá vốn': giaVon,
           'Tồn kho': tonKho,
+          'KH đặt': khDat,
+          'Dự kiến hết hàng': duKienHetHang,
+          'Tồn nhỏ nhất': tonNhoNhat,
+          'Tồn lớn nhất': tonLonNhat,
+          'Đơn vị tính (ĐVT)': donViTinh,
+          'Mã ĐVT Cơ bản': maDVTCoBan,
+          'Quy đổi': quyDoi,
+          'Thuộc tính': thuocTinh,
+          'Mã HH Liên quan': maHHLienQuan,
           'Hình ảnh': hinhAnh,
+          'Trọng lượng': trongLuong,
+          'Tích điểm': tichDiem,
+          'Đang kinh doanh': dangKinhDoanh,
+          'Được bán trực tiếp': duocBanTrucTiep,
+          'Mô tả': moTa,
+          'Mẫu ghi chú': mauGhiChu,
+          'Vị trí': viTri,
+          'Hàng thành phần': hangThanhPhan,
+          'Bảo hành': baoHanh,
+          'Bảo trì định kỳ': baoTriDinhKy
         };
-        
+
         // Log dữ liệu đã map của một vài sản phẩm đầu và cuối
         if (index < 2 || index === aggregatedProducts.length - 1) {
             this.logger.debug(`[findAllForExport] Mapped product data for export (index ${index}): ${JSON.stringify(productForExport)}`);
         }
-        
+
         return productForExport;
       });
-      
+
       return productsForExport;
 
     } catch (error) {
@@ -2794,7 +2908,7 @@ export class ProductsService {
             (sum, inv) => sum + (inv.quantity || 0),
             0
           );
-          
+
           let finalTotalInventory = 0;
           if (Array.isArray(product.variants) && product.variants.length > 0) {
             // Nếu có biến thể, tổng tồn kho dựa trên variantInventory
@@ -2803,7 +2917,7 @@ export class ProductsService {
             // Nếu không có biến thể, tổng tồn kho dựa trên inventory chính
             finalTotalInventory = totalProductInventory;
           }
-          
+
           this.logger.log(`Product ${product._id}: Total product inventory = ${totalProductInventory}, Total variant inventory = ${totalVariantInventory}, Final total inventory = ${finalTotalInventory}`);
 
           if (finalTotalInventory === 0 && product.status !== 'discontinued') {
@@ -3009,7 +3123,8 @@ export class ProductsService {
         statusChanges: {
           toOutOfStock: 0,
           toActive: 0
-        }
+        },
+        categoriesCreated: 0 // Thêm đếm số categories được tạo
       };
 
       // Xử lý từng sản phẩm trong file Excel
@@ -3052,8 +3167,10 @@ export class ProductsService {
           const currentPrice = this.parseNumber(row[6]);       // Cột G: Giá bán
           const costPriceFromExcel = this.parseNumber(row[7]); // Cột H: Giá vốn
           const quantity = this.parseNumber(row[8]);           // Cột I: Tồn kho
-          // Giả sử cột Hình ảnh vẫn là cột thứ 19 (index 18) nếu có, hoặc cần điều chỉnh index
-          const imageUrls = this.parseImageUrls(row[18]); 
+          // Cột 19 (index 18): Hình ảnh
+          const imageUrls = this.parseImageUrls(row[18]);
+          // Cột 24 (index 23): Mô tả
+          const fullDescription = String(row[23] || '').trim();
 
           // Tạo slug từ tên sản phẩm
           let slug = this.generateSlug(name);
@@ -3066,8 +3183,6 @@ export class ProductsService {
             result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${sku}): Không thể tạo slug từ tên hoặc SKU.`);
             continue;
           }
-
-          const fullDescription = ''; 
 
           // Chuẩn bị dữ liệu sản phẩm
           const productDto: any = {
@@ -3084,7 +3199,7 @@ export class ProductsService {
               short: '',
               full: fullDescription
             },
-            barcode 
+            barcode
           };
 
           // Xử lý Thương hiệu (Loại hàng)
@@ -3092,8 +3207,8 @@ export class ProductsService {
             let brandDocument = await this.brandModel.findOne({ name: brandName });
             if (!brandDocument) {
               this.logger.log(`Thương hiệu "${brandName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
-              brandDocument = new this.brandModel({ 
-                name: brandName, 
+              brandDocument = new this.brandModel({
+                name: brandName,
                 slug: this.generateSlug(brandName),
                 logo: { url: 'https://via.placeholder.com/150/CCCCCC/808080?Text=No+Logo', alt: `${brandName} logo`, publicId: '' } // Cung cấp logo mặc định
               });
@@ -3109,22 +3224,19 @@ export class ProductsService {
             }
           }
 
-          // Xử lý Nhóm hàng (Category)
+          // Xử lý Nhóm hàng (Category) với hỗ trợ cấp độ phân cấp
           if (categoryName) {
-            let categoryDocument = await this.categoryModel.findOne({ name: categoryName });
-            if (!categoryDocument) {
-              this.logger.log(`Danh mục "${categoryName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
-              // Giả sử category không có parentId khi import từ file Excel đơn giản này
-              categoryDocument = new this.categoryModel({ name: categoryName, slug: this.generateSlug(categoryName) });
-              await categoryDocument.save();
-              this.logger.log(`Đã tạo danh mục mới: ID ${categoryDocument._id}, Tên: ${categoryName}`);
-            } else {
-              this.logger.log(`Tìm thấy danh mục: ID ${categoryDocument._id}, Tên: ${categoryName}`);
-            }
-            if (categoryDocument && categoryDocument._id) {
-              productDto.categoryIds = [categoryDocument._id]; // Gán vào mảng
-            } else {
-              this.logger.warn(`Không thể lấy/tạo ID cho danh mục "${categoryName}" (dòng ${i + 2})`);
+            try {
+              const categoryResult = await this.processHierarchicalCategory(categoryName, i + 2);
+              if (categoryResult.finalCategoryId) {
+                productDto.categoryIds = [categoryResult.finalCategoryId]; // Gán vào mảng
+                result.categoriesCreated += categoryResult.newCategoriesCount; // Cộng dồn số categories mới tạo
+              } else {
+                this.logger.warn(`Không thể lấy/tạo ID cho danh mục "${categoryName}" (dòng ${i + 2})`);
+              }
+            } catch (error) {
+              this.logger.error(`Lỗi khi xử lý danh mục phân cấp "${categoryName}" (dòng ${i + 2}): ${error.message}`);
+              result.errors.push(`Dòng ${i + 2}: Lỗi xử lý danh mục "${categoryName}": ${error.message}`);
             }
           }
 
@@ -3133,7 +3245,7 @@ export class ProductsService {
             productDto.images = imageUrls.map((url, index) => ({
               url,
               alt: `${name} - Ảnh ${index + 1}`,
-              isPrimary: index === 0 
+              isPrimary: index === 0
             }));
           }
 
@@ -3142,7 +3254,7 @@ export class ProductsService {
             branchId: new Types.ObjectId(branchId), // Đảm bảo branchId là ObjectId
             quantity: quantity >= 0 ? quantity : 0
           }];
-          
+
           const existingProduct = await this.productModel.findOne({ sku });
 
           if (existingProduct) {
@@ -3156,7 +3268,7 @@ export class ProductsService {
               'description.full': productDto.description.full,
               barcode: productDto.barcode,
               // Chỉ cập nhật brandId nếu productDto có brandId (tức là brandName không rỗng trong Excel)
-              ...(productDto.brandId && { brandId: productDto.brandId }), 
+              ...(productDto.brandId && { brandId: productDto.brandId }),
               // Chỉ cập nhật categoryIds nếu productDto có categoryIds (tức là categoryName không rỗng)
               ...(productDto.categoryIds && { categoryIds: productDto.categoryIds })
             };
@@ -3173,7 +3285,7 @@ export class ProductsService {
               existingProduct.inventory.push(productDto.inventory[0]);
             }
             updateFields.inventory = existingProduct.inventory;
-            
+
             // Tính toán lại tổng tồn kho và cập nhật trạng thái
             const totalInventory = existingProduct.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
             updateFields.status = totalInventory > 0 ? 'active' : 'out_of_stock';
@@ -3193,13 +3305,13 @@ export class ProductsService {
               counter++;
             }
             productDto.slug = uniqueSlug;
-            
+
             const newProductInstance = new this.productModel(productDto);
             await newProductInstance.save();
             result.created++;
           }
         } catch (error: any) {
-          const currentSkuForRow = String(row[2] || 'N/A').trim(); 
+          const currentSkuForRow = String(row[2] || 'N/A').trim();
           this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`, error.stack);
           // Cung cấp thông báo lỗi chi tiết hơn
           if (error.code === 11000) { // Lỗi duplicate key
@@ -3218,13 +3330,13 @@ export class ProductsService {
       }
 
       // Tạo thông báo tổng kết chi tiết hơn
-      const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
+      const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
 
       if (userId) {
-        this.emitImportProgress(userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+        this.emitImportProgress(userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
       }
 
-      this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+      this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
       this.logger.log(`Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`);
 
       if (userId) {
@@ -3232,6 +3344,7 @@ export class ProductsService {
         const summaryData = {
           created: result.created,
           updated: result.updated,
+          categoriesCreated: result.categoriesCreated,
           errors: result.errors,
           totalProducts: totalProducts,
           statusChanges: result.statusChanges
@@ -3247,6 +3360,251 @@ export class ProductsService {
     } catch (error) {
       this.logger.error(`Lỗi khi import sản phẩm từ Excel:`, error.stack);
       throw new BadRequestException(`Lỗi khi import sản phẩm: ${error.message}`);
+    }
+  }
+
+  /**
+   * Xử lý danh mục phân cấp từ chuỗi Excel
+   * @param categoryPath Chuỗi danh mục dạng "Cha>>Con>>Cháu"
+   * @param rowNumber Số dòng trong Excel để log
+   * @returns Object chứa ObjectId của danh mục con cuối cùng và số categories mới tạo
+   */
+  private async processHierarchicalCategory(categoryPath: string, rowNumber: number): Promise<{finalCategoryId: Types.ObjectId | null, newCategoriesCount: number}> {
+    try {
+      // Tách chuỗi danh mục theo dấu ">>"
+      const categoryLevels = categoryPath.split('>>').map(level => level.trim()).filter(level => level.length > 0);
+
+      if (categoryLevels.length === 0) {
+        this.logger.warn(`Chuỗi danh mục rỗng tại dòng ${rowNumber}`);
+        return { finalCategoryId: null, newCategoriesCount: 0 };
+      }
+
+      this.logger.log(`Xử lý danh mục phân cấp: ${categoryLevels.join(' >> ')} (dòng ${rowNumber})`);
+
+      let parentId: Types.ObjectId | null = null;
+      let currentCategoryId: Types.ObjectId | null = null;
+      let newCategoriesCount = 0; // Đếm số categories mới tạo
+
+      // Duyệt qua từng cấp độ danh mục
+      for (let level = 0; level < categoryLevels.length; level++) {
+        const categoryName = categoryLevels[level];
+        const currentLevel = level + 1;
+
+        // Tìm kiếm danh mục theo tên và parentId
+        const query: any = {
+          name: categoryName,
+          level: currentLevel
+        };
+
+        // Nếu có parentId thì thêm vào query, nếu không thì tìm danh mục gốc (parentId = null)
+        if (parentId) {
+          query.parentId = parentId;
+        } else {
+          query.parentId = null;
+        }
+
+        let categoryDocument = await this.categoryModel.findOne(query);
+
+        if (!categoryDocument) {
+          // Tạo danh mục mới
+          const slug = this.generateSlug(categoryName);
+
+          // Đảm bảo slug là duy nhất
+          let uniqueSlug = slug;
+          let counter = 1;
+          while (await this.categoryModel.findOne({ slug: uniqueSlug })) {
+            uniqueSlug = `${slug}-${counter}`;
+            counter++;
+          }
+
+          // Tạo mô tả tự động
+          const description = this.generateCategoryDescription(categoryName, currentLevel, categoryLevels);
+
+          const newCategoryData = {
+            name: categoryName,
+            slug: uniqueSlug,
+            description: description,
+            parentId: parentId,
+            level: currentLevel,
+            status: 'active',
+            featured: false,
+            order: 0
+          };
+
+          categoryDocument = new this.categoryModel(newCategoryData);
+          await categoryDocument.save();
+          newCategoriesCount++; // Tăng counter khi tạo category mới
+
+          this.logger.log(`Đã tạo danh mục mới cấp ${currentLevel}: "${categoryName}" (ID: ${categoryDocument._id}, Slug: ${uniqueSlug})`);
+        } else {
+          this.logger.log(`Tìm thấy danh mục cấp ${currentLevel}: "${categoryName}" (ID: ${categoryDocument._id})`);
+        }
+
+        // Cập nhật parentId cho cấp tiếp theo
+        currentCategoryId = categoryDocument._id as Types.ObjectId;
+        parentId = currentCategoryId;
+      }
+
+      return { finalCategoryId: currentCategoryId, newCategoriesCount };
+    } catch (error) {
+      this.logger.error(`Lỗi khi xử lý danh mục phân cấp "${categoryPath}" (dòng ${rowNumber}): ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Tạo mô tả tự động cho danh mục
+   * @param categoryName Tên danh mục
+   * @param level Cấp độ danh mục
+   * @param allLevels Tất cả các cấp độ trong chuỗi
+   * @returns Mô tả tự động
+   */
+  private generateCategoryDescription(categoryName: string, level: number, allLevels: string[]): string {
+    if (level === 1) {
+      return `Danh mục ${categoryName} - Bộ sưu tập các sản phẩm chất lượng cao thuộc nhóm ${categoryName}.`;
+    } else if (level === 2) {
+      return `${categoryName} thuộc danh mục ${allLevels[0]} - Các sản phẩm chuyên dụng cho ${categoryName.toLowerCase()}.`;
+    } else {
+      const parentPath = allLevels.slice(0, level - 1).join(' > ');
+      return `${categoryName} - Sản phẩm chuyên biệt thuộc nhóm ${parentPath}.`;
+    }
+  }
+
+  /**
+   * Xây dựng đường dẫn categories từ categoryHierarchy (với ancestors)
+   * @param categoryHierarchy Thông tin categories với ancestors từ aggregation
+   * @returns Chuỗi categories theo định dạng "Cha>>Con>>Cháu"
+   */
+  private buildHierarchicalCategoryPathFromHierarchy(categoryHierarchy: any[]): string {
+    try {
+      if (!categoryHierarchy || !Array.isArray(categoryHierarchy) || categoryHierarchy.length === 0) {
+        return 'N/A';
+      }
+
+      // Lấy category đầu tiên (category mà sản phẩm được gán trực tiếp)
+      const directCategory = categoryHierarchy[0];
+      if (!directCategory) {
+        return 'N/A';
+      }
+
+      // Tạo danh sách tất cả categories (bao gồm cả ancestors và chính nó)
+      const allCategories: any[] = [];
+
+      // Thêm ancestors (categories cha)
+      if (directCategory.ancestors && Array.isArray(directCategory.ancestors)) {
+        allCategories.push(...directCategory.ancestors);
+      }
+
+      // Thêm chính category đó
+      allCategories.push({
+        _id: directCategory._id,
+        name: directCategory.name,
+        level: directCategory.level,
+        parentId: directCategory.parentId
+      });
+
+      // Sắp xếp theo level để có thứ tự đúng (cha -> con -> cháu)
+      allCategories.sort((a, b) => (a.level || 0) - (b.level || 0));
+
+      // Tạo đường dẫn
+      const path = allCategories
+        .filter(cat => cat && cat.name)
+        .map(cat => String(cat.name).trim())
+        .filter(name => name !== '');
+
+      return path.length > 0 ? path.join('>>') : 'N/A';
+
+    } catch (error) {
+      this.logger.warn(`Lỗi khi xây dựng đường dẫn category từ hierarchy: ${error.message}`);
+      return 'N/A';
+    }
+  }
+
+  /**
+   * Xây dựng đường dẫn categories theo cấu trúc phân cấp cho xuất Excel (method cũ)
+   * @param categoriesInfo Thông tin categories từ aggregation
+   * @returns Chuỗi categories theo định dạng "Cha>>Con>>Cháu"
+   */
+  private buildHierarchicalCategoryPath(categoriesInfo: any[]): string {
+    try {
+      if (!categoriesInfo || !Array.isArray(categoriesInfo) || categoriesInfo.length === 0) {
+        return 'N/A';
+      }
+
+      // Lọc và chuẩn hóa dữ liệu categories
+      const validCategories = categoriesInfo
+        .filter(cat => cat && cat.name && cat.level)
+        .map(cat => ({
+          name: String(cat.name).trim(),
+          level: Number(cat.level),
+          parentId: cat.parentId ? String(cat.parentId) : null,
+          _id: cat._id ? String(cat._id) : null
+        }))
+        .filter(cat => cat.name !== '');
+
+      if (validCategories.length === 0) {
+        return 'N/A';
+      }
+
+      // Nếu chỉ có 1 category, trả về luôn
+      if (validCategories.length === 1) {
+        return validCategories[0].name;
+      }
+
+      // Sắp xếp theo level để xây dựng cây phân cấp
+      validCategories.sort((a, b) => a.level - b.level);
+
+      // Tạo map để tra cứu nhanh category theo ID
+      const categoryMap = new Map();
+      validCategories.forEach(cat => {
+        if (cat._id) {
+          categoryMap.set(cat._id, cat);
+        }
+      });
+
+      // Tìm category có level cao nhất (category con cuối cùng)
+      const leafCategory = validCategories[validCategories.length - 1];
+
+      // Xây dựng đường dẫn từ leaf category lên root
+      const path: string[] = [];
+      let currentCategory = leafCategory;
+
+      // Giới hạn độ sâu để tránh vòng lặp vô hạn
+      let maxDepth = 10;
+
+      while (currentCategory && maxDepth > 0) {
+        path.unshift(currentCategory.name); // Thêm vào đầu mảng
+
+        // Tìm category cha
+        if (currentCategory.parentId && categoryMap.has(currentCategory.parentId)) {
+          currentCategory = categoryMap.get(currentCategory.parentId);
+        } else {
+          // Không có cha hoặc không tìm thấy cha, dừng lại
+          break;
+        }
+        maxDepth--;
+      }
+
+      // Nếu không xây dựng được đường dẫn phân cấp, fallback về cách cũ
+      if (path.length === 0) {
+        return validCategories.map(cat => cat.name).slice(0, 3).join(' > ');
+      }
+
+      // Trả về đường dẫn theo định dạng "Cha>>Con>>Cháu"
+      return path.join('>>');
+
+    } catch (error) {
+      this.logger.warn(`Lỗi khi xây dựng đường dẫn category phân cấp: ${error.message}`);
+      // Fallback về cách hiển thị đơn giản
+      if (categoriesInfo && Array.isArray(categoriesInfo)) {
+        const categoryNames = categoriesInfo
+          .filter(cat => cat && cat.name)
+          .map(cat => String(cat.name).trim())
+          .filter(name => name !== '')
+          .slice(0, 3);
+        return categoryNames.length > 0 ? categoryNames.join(' > ') : 'N/A';
+      }
+      return 'N/A';
     }
   }
 
