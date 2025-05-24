@@ -187,7 +187,6 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 
 // Tạo các index để tối ưu truy vấn
 OrderSchema.index({ userId: 1 });
-OrderSchema.index({ orderNumber: 1 }, { unique: true });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ paymentMethod: 1 });

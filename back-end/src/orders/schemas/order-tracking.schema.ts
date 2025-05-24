@@ -80,7 +80,6 @@ export class OrderTracking {
 export const OrderTrackingSchema = SchemaFactory.createForClass(OrderTracking);
 
 // Tạo các index để tối ưu truy vấn
-OrderTrackingSchema.index({ orderId: 1 }, { unique: true });
 OrderTrackingSchema.index({ status: 1 });
 OrderTrackingSchema.index({ 'carrier.trackingNumber': 1 });
 OrderTrackingSchema.index({ createdAt: -1 });

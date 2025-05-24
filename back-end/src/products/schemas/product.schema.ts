@@ -411,7 +411,6 @@ ProductSchema.index(
 
 // Add single field indexes for common query fields
 ProductSchema.index({ sku: 1 }, { unique: true });
-ProductSchema.index({ slug: 1 }, { unique: true });
 ProductSchema.index({ name: 1 });
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ price: 1 });

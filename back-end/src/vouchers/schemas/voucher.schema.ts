@@ -77,7 +77,6 @@ export class Voucher {
 export const VoucherSchema = SchemaFactory.createForClass(Voucher);
 
 // Indexing for faster queries
-VoucherSchema.index({ code: 1 });
 VoucherSchema.index({ endDate: 1 });
 VoucherSchema.index({ isActive: 1 });
 VoucherSchema.index({ 'applicableUserGroups.all': 1 });

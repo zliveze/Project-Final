@@ -96,7 +96,6 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Thêm các index để tối ưu truy vấn với lượng dữ liệu lớn
-UserSchema.index({ email: 1 }, { unique: true });  // Index cho email (unique)
 UserSchema.index({ name: 'text', email: 'text', phone: 'text' });  // Text index cho tìm kiếm
 UserSchema.index({ isDeleted: 1 });  // Index cho trường isDeleted vì nó được dùng trong hầu hết các truy vấn
 UserSchema.index({ role: 1 });  // Index cho trường role
@@ -146,4 +145,3 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
     throw error;
   }
 };
-
