@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_API_URL: 'http://localhost:3001/api', // URL của backend API
   },
   images: {
-    domains: ['media.hcdn.vn', 'theme.hstatic.net', 'via.placeholder.com', 'res.cloudinary.com'],
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {

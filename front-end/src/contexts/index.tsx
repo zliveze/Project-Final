@@ -89,28 +89,25 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- Cấu trúc provider cơ bản ---
   // Các provider này áp dụng cho tất cả các trang
+  // AuthProvider và AdminAuthProvider đã được cung cấp ở _app.tsx
   const baseProviders = (
-    <AuthProvider>
-      <AdminAuthProvider>
-        <NotificationProvider>
-          <BannerProvider>
-            <BrandProvider>
-              <CategoryProvider>
-                <BranchProvider>
-                  <CampaignProvider>
-                    <RecommendationProvider>
-                      <UserContextProvider>
-                        {children}
-                      </UserContextProvider>
-                    </RecommendationProvider>
-                  </CampaignProvider>
-                </BranchProvider>
-              </CategoryProvider>
-            </BrandProvider>
-          </BannerProvider>
-        </NotificationProvider>
-      </AdminAuthProvider>
-    </AuthProvider>
+    <NotificationProvider>
+      <BannerProvider>
+        <BrandProvider>
+          <CategoryProvider>
+            <BranchProvider>
+              <CampaignProvider>
+                <RecommendationProvider>
+                  <UserContextProvider>
+                    {children}
+                  </UserContextProvider>
+                </RecommendationProvider>
+              </CampaignProvider>
+            </BranchProvider>
+          </CategoryProvider>
+        </BrandProvider>
+      </BannerProvider>
+    </NotificationProvider>
   );
 
   // Xác định các provider cụ thể cho từng trang
