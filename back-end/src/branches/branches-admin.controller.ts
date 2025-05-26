@@ -8,8 +8,6 @@ import {
   Put,
   Query,
   UseGuards,
-  BadRequestException,
-  Logger,
 } from '@nestjs/common';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { AdminRolesGuard } from '../auth/guards/admin-roles.guard';
@@ -25,8 +23,6 @@ import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagg
 @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
 @ApiBearerAuth()
 export class BranchesAdminController {
-  private readonly logger = new Logger(BranchesAdminController.name);
-
   constructor(private readonly branchesService: BranchesService) {}
 
   @Post()

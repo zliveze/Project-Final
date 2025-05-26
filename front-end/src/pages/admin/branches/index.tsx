@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiAlertCircle, FiMapPin, FiPhone, FiCalendar, FiClock } from 'react-icons/fi';
-import toast from 'react-hot-toast'; // Thêm import toast
 import AdminLayout from '../../../components/admin/AdminLayout';
 import BranchList from '@/components/admin/branches/BranchList';
 import { BranchProvider, useBranches } from '@/contexts/BranchContext';
@@ -17,12 +16,10 @@ function BranchesContent() {
     statistics,
     pagination,
     fetchBranches,
-    fetchBranch,
     deleteBranch,
-    forceDeleteBranch // Thêm forceDeleteBranch
+    forceDeleteBranch
   } = useBranches();
 
-  // State quản lý các modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -30,83 +27,74 @@ function BranchesContent() {
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [selectedBranchName, setSelectedBranchName] = useState<string>('');
 
-  // Tải dữ liệu ban đầu
-  useEffect(() => {
-    fetchBranches(pagination.page, pagination.limit);
-  }, []);
-
-  // Render thống kê
-  const renderStats = () => {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                <FiMapPin className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Tổng số chi nhánh</p>
-                <p className="text-3xl font-bold text-gray-800">{statistics.totalBranches || 0}</p>
-              </div>
+  const renderStats = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-center">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+              <FiMapPin className="h-6 w-6 text-blue-600" />
             </div>
-          </div>
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-3">
-            <p className="text-xs text-blue-600 font-medium">Quản lý tất cả chi nhánh</p>
+            <div>
+              <p className="text-gray-500 text-sm font-medium">Tổng số chi nhánh</p>
+              <p className="text-3xl font-bold text-gray-800">{statistics.totalBranches || 0}</p>
+            </div>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center mr-4">
-                <FiPhone className="h-6 w-6 text-pink-600" />
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Liên hệ & Hỗ trợ</p>
-                <p className="text-3xl font-bold text-gray-800">24/7</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-pink-50 to-rose-50 px-5 py-3">
-            <p className="text-xs text-pink-600 font-medium">Dịch vụ khách hàng luôn sẵn sàng</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mr-4">
-                <FiClock className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Cập nhật gần đây</p>
-                <p className="text-lg font-bold text-gray-800">{branches[0]?.updatedAt ? new Date(branches[0]?.updatedAt).toLocaleDateString('vi-VN') : 'Chưa có dữ liệu'}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-3">
-            <p className="text-xs text-green-600 font-medium">Dữ liệu luôn được cập nhật</p>
-          </div>
+        <div className="bg-blue-50 px-5 py-3">
+          <p className="text-xs text-blue-600 font-medium">Quản lý tất cả chi nhánh</p>
         </div>
       </div>
-    );
-  };
 
-  // Xử lý xem chi tiết chi nhánh
-  const handleViewBranch = async (id: string) => {
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-center">
+            <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center mr-4">
+              <FiPhone className="h-6 w-6 text-pink-600" />
+            </div>
+            <div>
+              <p className="text-gray-500 text-sm font-medium">Liên hệ & Hỗ trợ</p>
+              <p className="text-3xl font-bold text-gray-800">24/7</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-pink-50 px-5 py-3">
+          <p className="text-xs text-pink-600 font-medium">Dịch vụ khách hàng luôn sẵn sàng</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-center">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mr-4">
+              <FiClock className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-gray-500 text-sm font-medium">Cập nhật gần đây</p>
+              <p className="text-lg font-bold text-gray-800">
+                {branches[0]?.updatedAt ? new Date(branches[0]?.updatedAt).toLocaleDateString('vi-VN') : 'Chưa có dữ liệu'}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-green-50 px-5 py-3">
+          <p className="text-xs text-green-600 font-medium">Dữ liệu luôn được cập nhật</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const handleViewBranch = (id: string) => {
     setSelectedBranchId(id);
     setShowViewModal(true);
   };
 
-  // Xử lý mở modal chỉnh sửa chi nhánh
   const handleOpenEditModal = (id: string) => {
     setSelectedBranchId(id);
     setShowEditModal(true);
     setShowViewModal(false);
   };
 
-  // Xử lý mở modal xóa chi nhánh
   const handleOpenDeleteModal = (id: string) => {
     const branch = branches.find(b => b.id === id);
     setSelectedBranchId(id);
@@ -115,40 +103,24 @@ function BranchesContent() {
     setShowViewModal(false);
   };
 
-  // Xác nhận xóa chi nhánh
   const confirmDeleteBranch = async () => {
     if (!selectedBranchId) return;
 
     try {
-      // Sử dụng forceDeleteBranch thay vì deleteBranch
-      const result = await forceDeleteBranch(selectedBranchId);
-      if (result && result.success) {
+      const success = await deleteBranch(selectedBranchId);
+      if (success) {
         setShowDeleteModal(false);
         setSelectedBranchId(null);
         setSelectedBranchName('');
-
-        // Tải lại danh sách sau khi xóa
         fetchBranches(pagination.page, pagination.limit);
-
-        // Hiển thị thông báo thành công với số sản phẩm được cập nhật
-        const message = result.productsUpdated > 0
-          ? `Chi nhánh đã được xóa thành công và đã cập nhật ${result.productsUpdated} sản phẩm.`
-          : 'Chi nhánh đã được xóa thành công.';
-
-        toast.success(message, {
-          duration: 5000,
-          position: 'top-right',
-        });
       }
-      // Không cần else - nếu có lỗi, forceDeleteBranch đã xử lý hiển thị lỗi qua toast
     } catch (error) {
-      console.error("Lỗi khi xóa chi nhánh (force):", error);
-      // Không cần làm gì thêm vì lỗi đã được xử lý trong BranchContext
+      console.error("Lỗi khi xóa chi nhánh:", error);
     }
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 mx-auto"> {/* Removed max-w-screen-2xl */}
+    <div className="px-4 sm:px-6 lg:px-8 py-8 mx-auto">
       <div className="sm:flex sm:justify-between sm:items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Chi nhánh</h1>
@@ -166,10 +138,8 @@ function BranchesContent() {
         </div>
       </div>
 
-      {/* Thống kê */}
       {renderStats()}
 
-      {/* Hiển thị thông báo lỗi */}
       {error && (
         <div className="mb-6 bg-red-50 p-4 rounded-lg border border-red-100">
           <div className="flex">
@@ -186,7 +156,6 @@ function BranchesContent() {
         </div>
       )}
 
-      {/* Bảng danh sách chi nhánh */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
         <BranchList
           onView={handleViewBranch}
@@ -195,26 +164,17 @@ function BranchesContent() {
         />
       </div>
 
-      {/* Modals */}
       {showAddModal && (
         <BranchAddModal
           isOpen={showAddModal}
-          onClose={() => {
-            setShowAddModal(false);
-            // Refresh data after adding
-            fetchBranches(pagination.page, pagination.limit);
-          }}
+          onClose={() => setShowAddModal(false)}
         />
       )}
 
       {showEditModal && selectedBranchId && (
         <BranchEditModal
           isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            // Refresh data after editing
-            fetchBranches(pagination.page, pagination.limit);
-          }}
+          onClose={() => setShowEditModal(false)}
           branchId={selectedBranchId}
         />
       )}
@@ -235,7 +195,6 @@ function BranchesContent() {
         />
       )}
 
-      {/* Branch Delete Confirm Modal */}
       {showDeleteModal && selectedBranchId && (
         <BranchDeleteConfirmModal
           isOpen={showDeleteModal}

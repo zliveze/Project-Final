@@ -151,7 +151,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
       console.log("Đang tìm tỉnh/thành phố cho provinceCode:", branch.provinceCode);
       const initialProvinceId = parseInt(branch.provinceCode, 10);
       const province = provinces.find(p => p.provinceId === initialProvinceId);
-      
+
       if (province) {
         console.log("Đã tìm thấy tỉnh/thành phố:", province.provinceName);
         setSelectedProvinceObj(province);
@@ -170,7 +170,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     if (provinceIdStr) {
       const provinceIdNum = parseInt(provinceIdStr, 10);
       console.log("provinceId thay đổi:", provinceIdNum);
-      
+
       if (!selectedProvinceObj || selectedProvinceObj.provinceId !== provinceIdNum) {
         // Nếu state object chưa được set hoặc không khớp với giá trị hiện tại
         const province = provinces.find(p => p.provinceId === provinceIdNum);
@@ -196,7 +196,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
       console.log("Đang tìm quận/huyện cho districtCode:", branch.districtCode);
       const initialDistrictId = parseInt(branch.districtCode, 10);
       const district = districts.find(d => d.districtId === initialDistrictId);
-      
+
       if (district) {
         console.log("Đã tìm thấy quận/huyện:", district.districtName);
         setSelectedDistrictObj(district);
@@ -215,7 +215,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     if (districtIdStr) {
       const districtIdNum = parseInt(districtIdStr, 10);
       console.log("districtId thay đổi:", districtIdNum);
-      
+
       if (!selectedDistrictObj || selectedDistrictObj.districtId !== districtIdNum) {
         // Nếu state object chưa được set hoặc không khớp với giá trị hiện tại
         const district = districts.find(d => d.districtId === districtIdNum);
@@ -239,7 +239,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
       console.log("Đang tìm phường/xã cho wardCode:", branch.wardCode);
       const initialWardId = parseInt(branch.wardCode, 10);
       const ward = wards.find(w => w.wardId === initialWardId);
-      
+
       if (ward) {
         console.log("Đã tìm thấy phường/xã:", ward.wardName);
         setSelectedWardObj(ward);
@@ -297,23 +297,21 @@ const BranchForm: React.FC<BranchFormProps> = ({
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 gap-6">
         {/* Tên chi nhánh */}
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-          <div className="flex items-start mb-2">
-            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3 flex-shrink-0">
-              <FiType className="text-pink-600" />
-            </div>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center space-x-3 mb-3">
+            <FiType className="w-5 h-5 text-gray-600" />
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-900">
                 Tên chi nhánh <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">Nhập tên đầy đủ của chi nhánh</p>
+              <p className="text-xs text-gray-600">Nhập tên đầy đủ của chi nhánh</p>
             </div>
           </div>
           <input
             type="text"
             id="name"
             {...register('name', { required: 'Tên chi nhánh là bắt buộc' })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             placeholder="Ví dụ: Chi nhánh Hồ Chí Minh"
           />
           {errors.name && (
@@ -322,16 +320,14 @@ const BranchForm: React.FC<BranchFormProps> = ({
         </div>
 
         {/* Địa chỉ - Sử dụng dropdown */}
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm space-y-4">
-          <div className="flex items-start mb-2">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
-              <FiMapPin className="text-blue-600" />
-            </div>
+        <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+          <div className="flex items-center space-x-3 mb-3">
+            <FiMapPin className="w-5 h-5 text-gray-600" />
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-900">
                 Địa chỉ chi nhánh <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">Chọn Tỉnh/Thành, Quận/Huyện, Phường/Xã và nhập địa chỉ chi tiết.</p>
+              <p className="text-xs text-gray-600">Chọn Tỉnh/Thành, Quận/Huyện, Phường/Xã và nhập địa chỉ chi tiết.</p>
             </div>
           </div>
 
@@ -343,7 +339,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
             <select
               id="provinceCode"
               {...register('provinceCode', { required: 'Vui lòng chọn Tỉnh/Thành phố' })}
-              className={`w-full px-4 py-3 border ${errors.provinceCode ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
+              className={`w-full px-3 py-2 border ${errors.provinceCode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
               disabled={loadingProvinces}
               onChange={(e) => {
                 // Lấy provinceId từ value
@@ -406,7 +402,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
             <select
               id="districtCode"
               {...register('districtCode', { required: 'Vui lòng chọn Quận/Huyện' })}
-              className={`w-full px-4 py-3 border ${errors.districtCode ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
+              className={`w-full px-3 py-2 border ${errors.districtCode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
               disabled={!watchedProvinceCode || loadingDistricts || districts.length === 0}
               onChange={(e) => {
                 // Lấy districtId từ value
@@ -455,7 +451,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
             <select
               id="wardCode"
               {...register('wardCode', { required: 'Vui lòng chọn Phường/Xã' })}
-              className={`w-full px-4 py-3 border ${errors.wardCode ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
+              className={`w-full px-3 py-2 border ${errors.wardCode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
               disabled={!watchedDistrictCode || loadingWards || wards.length === 0}
               onChange={(e) => {
                 // Lấy wardId từ value
@@ -500,7 +496,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
               type="text"
               id="addressDetail"
               {...register('address', { required: 'Vui lòng nhập địa chỉ chi tiết' })} // Đăng ký với tên 'address'
-              className={`w-full px-4 py-3 border ${errors.address ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
+              className={`w-full px-3 py-2 border ${errors.address ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500`}
               placeholder="Ví dụ: 123 Đường ABC, Khu phố XYZ"
             />
             {errors.address && (
@@ -510,46 +506,44 @@ const BranchForm: React.FC<BranchFormProps> = ({
         </div>
 
         {/* Thông tin liên hệ */}
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-          <div className="flex items-start mb-2">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3 flex-shrink-0">
-              <FiPhone className="text-green-600" />
-            </div>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center space-x-3 mb-3">
+            <FiPhone className="w-5 h-5 text-gray-600" />
             <div>
-              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="contact" className="block text-sm font-medium text-gray-900">
                 Thông tin liên hệ
               </label>
-              <p className="text-xs text-gray-500 mb-2">Nhập số điện thoại và người liên hệ (nếu có)</p>
+              <p className="text-xs text-gray-600">Nhập số điện thoại và người liên hệ (nếu có)</p>
             </div>
           </div>
           <input
             type="text"
             id="contact"
             {...register('contact')}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             placeholder="Ví dụ: 0986644572 Lê Tấn Đạt"
           />
         </div>
       </div>
 
       {/* Buttons */}
-      <div className="flex justify-end space-x-4 mt-8 pt-4 border-t">
+      <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center px-5 py-2.5 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors flex items-center space-x-2"
           disabled={isSubmitting}
         >
-          <FiX className="mr-2 -ml-1 h-5 w-5" />
-          Hủy
+          <FiX className="w-4 h-4" />
+          <span>Hủy</span>
         </button>
         <button
           type="submit"
-          className="inline-flex items-center px-5 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all"
+          className="px-4 py-2 text-sm font-medium text-white bg-pink-600 border border-transparent rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
           disabled={isSubmitting}
         >
-          <FiSave className="mr-2 -ml-1 h-5 w-5" />
-          {isSubmitting ? 'Đang lưu...' : 'Lưu chi nhánh'}
+          <FiSave className="w-4 h-4" />
+          <span>{isSubmitting ? 'Đang lưu...' : 'Lưu chi nhánh'}</span>
         </button>
       </div>
     </form>

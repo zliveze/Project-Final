@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { FiX, FiPlus } from 'react-icons/fi';
-import toast from 'react-hot-toast';
 import BranchForm, { Branch } from './BranchForm';
 import { useBranches } from '@/contexts/BranchContext';
 
@@ -31,19 +30,16 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
   const handleSubmit = async (data: Partial<Branch>) => {
     try {
       setIsSubmitting(true);
-      // Gọi API tạo chi nhánh
+      // Gọi API tạo chi nhánh - toast đã được xử lý trong Context
       const success = await createBranch(data);
 
       if (success) {
-        // Thông báo thành công
-        toast.success('Thêm chi nhánh mới thành công!');
-
-        // Đóng modal
+        // Đóng modal - không cần toast vì đã có trong Context
         onClose();
       }
     } catch (error) {
+      // Error đã được xử lý trong Context, không cần toast thêm
       console.error('Lỗi khi thêm chi nhánh:', error);
-      toast.error('Có lỗi xảy ra khi thêm chi nhánh. Vui lòng thử lại sau.');
     } finally {
       setIsSubmitting(false);
     }
@@ -67,24 +63,27 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
         >
-          <div className="absolute top-0 right-0 pt-4 pr-4 z-10">
-            <button
-              type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 p-2 transition-colors" // Re-added rounded-md
-              onClick={onClose}
-            >
-              <span className="sr-only">Đóng</span>
-              <FiX className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
-            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3"> {/* Re-added rounded-full */}
-              <FiPlus className="text-pink-600" />
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0 w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
+                <FiPlus className="w-5 h-5 text-pink-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Thêm chi nhánh mới
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Tạo chi nhánh mới cho hệ thống
+                </p>
+              </div>
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Thêm chi nhánh mới
-            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="p-6 max-h-[80vh] overflow-y-auto">
