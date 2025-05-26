@@ -32,7 +32,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State cho thông tin địa chỉ
   const [provinceName, setProvinceName] = useState<string>('');
   const [districtName, setDistrictName] = useState<string>('');
@@ -132,13 +132,13 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      
+
       debugLog(`Đang tải thông tin chi nhánh với ID: ${branchId}`);
-      
+
       const result = await fetchBranch(branchId);
-      
+
       debugLog('Kết quả trả về từ fetchBranch:', result);
-      
+
       if (result) {
         // Chuyển đổi từ API response sang kiểu dữ liệu form
         // Đảm bảo lưu đầy đủ thông tin địa chỉ (provinceCode, districtCode, wardCode)
@@ -153,16 +153,16 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
           createdAt: result.createdAt || '',
           updatedAt: result.updatedAt || ''
         };
-        
+
         // Ghi log tất cả dữ liệu để debug
         debugLog('Thông tin chi nhánh từ API:', result);
         debugLog('provinceCode:', result.provinceCode);
         debugLog('districtCode:', result.districtCode);
         debugLog('wardCode:', result.wardCode);
-        
+
         setBranch(branchData);
         debugLog('Đã cập nhật state branch với dữ liệu:', branchData);
-        
+
         // Load thông tin địa chỉ từ mã
         if (result.provinceCode && result.districtCode && result.wardCode) {
           loadAddressInfo(result.provinceCode, result.districtCode, result.wardCode);
@@ -226,7 +226,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
     <div className={`fixed inset-0 z-[1000] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">

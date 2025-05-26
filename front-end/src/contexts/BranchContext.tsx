@@ -45,6 +45,7 @@ export interface BranchContextType {
   createBranch: (branchData: Partial<Branch>) => Promise<Branch | null>;
   updateBranch: (id: string, branchData: Partial<Branch>) => Promise<Branch | null>;
   deleteBranch: (id: string) => Promise<boolean>;
+  getProductsCount: (id: string) => Promise<{branchId: string; productsCount: number; branchName: string} | null>;
   forceDeleteBranch: (id: string) => Promise<{success: boolean; message: string; productsUpdated: number} | null>;
 }
 
@@ -91,25 +92,25 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
   const transformBranch = (branchData: any): Branch => {
     // Log dữ liệu để debug
     debugLog('Transforming branch data:', branchData);
-    
+
     // Xử lý dữ liệu từ MongoDB có thể trả về dạng $oid hoặc $date
     let id = branchData._id;
     if (typeof branchData._id === 'object' && branchData._id.$oid) {
       id = branchData._id.$oid;
     }
-    
+
     let createdAt = branchData.createdAt || '';
     let updatedAt = branchData.updatedAt || '';
-    
+
     // Xử lý định dạng ngày từ MongoDB
     if (typeof branchData.createdAt === 'object' && branchData.createdAt.$date) {
       createdAt = new Date(branchData.createdAt.$date).toISOString();
     }
-    
+
     if (typeof branchData.updatedAt === 'object' && branchData.updatedAt.$date) {
       updatedAt = new Date(branchData.updatedAt.$date).toISOString();
     }
-    
+
     return {
       id: id || branchData.id,
       name: branchData.name || '',
@@ -273,7 +274,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     setError(null);
 
     debugLog(`Fetching branch details for ID: ${id}`);
-    
+
     try {
       const response = await fetch(API_ENDPOINTS.BRANCH_DETAIL(id), {
         method: 'GET',
@@ -288,10 +289,10 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       // Đọc response dưới dạng text trước để xử lý lỗi JSON
       const responseText = await response.text();
-      
+
       // Thử log text response để debug
       debugLog(`Branch API response text: ${responseText.substring(0, 200)}...`);
-      
+
       let data;
       try {
         data = responseText ? JSON.parse(responseText) : {};
@@ -389,7 +390,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
   const updateBranch = async (id: string, branchData: Partial<Branch>): Promise<Branch | null> => {
     try {
       debugLog(`Updating branch with ID: ${id}`, branchData);
-      
+
       const response = await fetch(API_ENDPOINTS.BRANCH_DETAIL(id), {
         method: 'PUT',
         headers: {
@@ -401,9 +402,9 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       // Đọc response dưới dạng text trước để xử lý lỗi JSON
       const responseText = await response.text();
-      
+
       debugLog(`Branch update API response text: ${responseText.substring(0, 200)}...`);
-      
+
       let data;
       try {
         data = responseText ? JSON.parse(responseText) : {};
@@ -422,7 +423,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       // Sau khi cập nhật thành công, cập nhật lại danh sách chi nhánh
       await fetchBranches(pagination.page, pagination.limit);
-      
+
       // Trả về đối tượng chi nhánh đã cập nhật
       return transformBranch(data);
     } catch (err: any) {
@@ -493,6 +494,35 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       return false;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Kiểm tra số lượng sản phẩm tham chiếu đến chi nhánh
+  const getProductsCount = async (id: string): Promise<{branchId: string; productsCount: number; branchName: string} | null> => {
+    try {
+      setError(null);
+
+      const response = await fetch(`${API_BASE_URL}/admin/branches/${id}/products-count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || 'Có lỗi xảy ra khi kiểm tra số sản phẩm');
+        return null;
+      }
+
+      return data;
+    } catch (error: any) {
+      debugLog('Error getting products count:', error);
+      const errorMessage = error.message || 'Có lỗi xảy ra khi kiểm tra số sản phẩm';
+      setError(errorMessage);
+      return null;
     }
   };
 
@@ -580,6 +610,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     createBranch,
     updateBranch,
     deleteBranch,
+    getProductsCount,
     forceDeleteBranch
   };
 

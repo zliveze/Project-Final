@@ -37,7 +37,7 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State cho thông tin địa chỉ
   const [provinceName, setProvinceName] = useState<string>('');
   const [districtName, setDistrictName] = useState<string>('');
@@ -134,17 +134,17 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      
+
       debugLog(`Đang tải thông tin chi nhánh với ID: ${branchId}`);
-      
+
       const result = await fetchBranch(branchId);
-      
+
       debugLog('Kết quả trả về từ fetchBranch:', result);
-      
+
       if (result) {
         setBranch(result);
         debugLog('Đã cập nhật state branch với dữ liệu:', result);
-        
+
         // Load thông tin địa chỉ từ mã
         if (result.provinceCode && result.districtCode && result.wardCode) {
           loadAddressInfo(result.provinceCode, result.districtCode, result.wardCode);
@@ -187,7 +187,7 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
     <div className={`fixed inset-0 z-[1000] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
@@ -257,7 +257,7 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
                     <div className="w-full">
                       <h4 className="text-sm font-medium text-gray-500 mb-1">Địa chỉ</h4>
                       <p className="text-gray-800 text-base mb-3">{branch.address}</p>
-                      
+
                       {loadingAddressInfo ? (
                         <div className="mt-2 text-sm text-gray-500">Đang tải thông tin địa chỉ...</div>
                       ) : (

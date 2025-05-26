@@ -20,11 +20,11 @@ interface BranchListProps {
 }
 
 const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => {
-  const { 
-    branches, 
-    loading, 
-    error, 
-    pagination, 
+  const {
+    branches,
+    loading,
+    error,
+    pagination,
     fetchBranches,
     deleteBranch,
     forceDeleteBranch
@@ -49,7 +49,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
   // Hàm để hiển thị icon sắp xếp
   const getSortIcon = (field: string) => {
     if (field !== sortField) return null;
-    
+
     return sortOrder === 'asc' ? (
       <span className="ml-1">↑</span>
     ) : (
@@ -86,7 +86,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
     try {
       // Gọi API xóa
       const success = await deleteBranch(id);
-      
+
       if (success) {
         // Hiển thị thông báo thành công
         toast.success("Chi nhánh đã được xóa thành công");
@@ -102,10 +102,17 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
     try {
       // Gọi API xóa với force option
       const result = await forceDeleteBranch(id);
-      
+
       if (result && result.success) {
-        // Hiển thị thông báo thành công
-        toast.success(result.message || "Chi nhánh đã được xóa thành công và cập nhật các sản phẩm liên quan");
+        // Hiển thị thông báo thành công với số sản phẩm được cập nhật
+        const message = result.productsUpdated > 0
+          ? `Chi nhánh đã được xóa thành công và đã cập nhật ${result.productsUpdated} sản phẩm.`
+          : 'Chi nhánh đã được xóa thành công.';
+
+        toast.success(message, {
+          duration: 5000,
+          position: 'top-right',
+        });
       }
     } catch (error) {
       toast.error("Có lỗi xảy ra khi xóa chi nhánh");

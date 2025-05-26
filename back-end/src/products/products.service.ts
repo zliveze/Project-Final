@@ -4,6 +4,7 @@ import { Model, SortOrder, Types, PipelineStage } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { Brand, BrandDocument } from '../brands/schemas/brand.schema'; // Import Brand schema
 import { Category, CategoryDocument } from '../categories/schemas/category.schema'; // Import Category schema
+import { Branch, BranchDocument } from '../branches/schemas/branch.schema'; // Import Branch schema
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -31,6 +32,7 @@ export class ProductsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Brand.name) private brandModel: Model<BrandDocument>, // Inject BrandModel
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>, // Inject CategoryModel
+    @InjectModel(Branch.name) private branchModel: Model<BranchDocument>, // Inject BranchModel
     private readonly cloudinaryService: CloudinaryService,
     private readonly eventsService: EventsService,
     private readonly websocketService: WebsocketService,
@@ -2836,60 +2838,99 @@ export class ProductsService {
   async removeBranchFromProducts(branchId: string): Promise<{ success: boolean; count: number }> {
     try {
       const branchObjectId = new Types.ObjectId(branchId);
+      this.logger.log(`[RemoveBranch] Starting removal process for branch ID: ${branchId}`);
 
       // Tìm tất cả sản phẩm có tham chiếu đến chi nhánh này trong inventory, variantInventory, hoặc combinationInventory
+      // Thử cả ObjectId và string vì có thể branchId được lưu dưới dạng string
       const products = await this.productModel.find({
         $or: [
           { 'inventory.branchId': branchObjectId },
+          { 'inventory.branchId': branchId }, // Thử string
           { 'variantInventory.branchId': branchObjectId },
-          { 'combinationInventory.branchId': branchObjectId }
+          { 'variantInventory.branchId': branchId }, // Thử string
+          { 'combinationInventory.branchId': branchObjectId },
+          { 'combinationInventory.branchId': branchId } // Thử string
         ]
       });
 
       let count = 0;
-      this.logger.log(`Found ${products.length} products referencing branch ID: ${branchId}`);
+      let totalInventoryRemoved = 0;
+      let totalVariantInventoryRemoved = 0;
+      let totalCombinationInventoryRemoved = 0;
+
+      this.logger.log(`[RemoveBranch] Found ${products.length} products referencing branch ID: ${branchId}`);
 
       // Xử lý từng sản phẩm
       for (const product of products) {
         let productModified = false;
+        const productId = (product._id as any).toString();
 
-        // Lọc bỏ chi nhánh khỏi inventory
+        this.logger.log(`[RemoveBranch] Processing product ${productId} (SKU: ${product.sku})`);
+
+        // Lọc bỏ chi nhánh khỏi inventory (sản phẩm thông thường)
         if (Array.isArray(product.inventory) && product.inventory.length > 0) {
           const initialInventoryCount = product.inventory.length;
+          const removedInventory = product.inventory.filter(
+            inv => inv.branchId && (inv.branchId.toString() === branchId || (inv.branchId as any) === branchId)
+          );
+
           product.inventory = product.inventory.filter(
             inv => inv.branchId && inv.branchId.toString() !== branchId
           );
+
           if (product.inventory.length !== initialInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from inventory of product ${product._id}`);
+            totalInventoryRemoved += removedInventory.length;
+            this.logger.log(`[RemoveBranch] Removed ${removedInventory.length} inventory entries from product ${productId}`);
+            removedInventory.forEach(inv => {
+              this.logger.log(`[RemoveBranch] - Removed inventory: branchId=${inv.branchId}, quantity=${inv.quantity}`);
+            });
           }
         } else {
           product.inventory = []; // Đảm bảo inventory là mảng nếu nó null/undefined
         }
 
-        // Lọc bỏ chi nhánh khỏi variantInventory
+        // Lọc bỏ chi nhánh khỏi variantInventory (biến thể đơn lẻ)
         if (Array.isArray(product.variantInventory) && product.variantInventory.length > 0) {
           const initialVariantInventoryCount = product.variantInventory.length;
+          const removedVariantInventory = product.variantInventory.filter(
+            inv => inv.branchId && (inv.branchId.toString() === branchId || (inv.branchId as any) === branchId)
+          );
+
           product.variantInventory = product.variantInventory.filter(
             inv => inv.branchId && inv.branchId.toString() !== branchId
           );
+
           if (product.variantInventory.length !== initialVariantInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from variantInventory of product ${product._id}`);
+            totalVariantInventoryRemoved += removedVariantInventory.length;
+            this.logger.log(`[RemoveBranch] Removed ${removedVariantInventory.length} variant inventory entries from product ${productId}`);
+            removedVariantInventory.forEach(inv => {
+              this.logger.log(`[RemoveBranch] - Removed variant inventory: branchId=${inv.branchId}, variantId=${inv.variantId}, quantity=${inv.quantity}`);
+            });
           }
         } else {
           product.variantInventory = []; // Đảm bảo variantInventory là mảng
         }
 
-        // Lọc bỏ chi nhánh khỏi combinationInventory
+        // Lọc bỏ chi nhánh khỏi combinationInventory (biến thể kết hợp)
         if (Array.isArray(product.combinationInventory) && product.combinationInventory.length > 0) {
           const initialCombinationInventoryCount = product.combinationInventory.length;
+          const removedCombinationInventory = product.combinationInventory.filter(
+            inv => inv.branchId && (inv.branchId.toString() === branchId || (inv.branchId as any) === branchId)
+          );
+
           product.combinationInventory = product.combinationInventory.filter(
             inv => inv.branchId && inv.branchId.toString() !== branchId
           );
+
           if (product.combinationInventory.length !== initialCombinationInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from combinationInventory of product ${product._id}`);
+            totalCombinationInventoryRemoved += removedCombinationInventory.length;
+            this.logger.log(`[RemoveBranch] Removed ${removedCombinationInventory.length} combination inventory entries from product ${productId}`);
+            removedCombinationInventory.forEach(inv => {
+              this.logger.log(`[RemoveBranch] - Removed combination inventory: branchId=${inv.branchId}, variantId=${inv.variantId}, combinationId=${inv.combinationId}, quantity=${inv.quantity}`);
+            });
           }
         } else {
           product.combinationInventory = []; // Đảm bảo combinationInventory là mảng
@@ -2909,39 +2950,61 @@ export class ProductsService {
             0
           );
 
+          // Tính tổng tồn kho từ combinationInventory (biến thể kết hợp)
+          const totalCombinationInventory = (product.combinationInventory || []).reduce(
+            (sum, inv) => sum + (inv.quantity || 0),
+            0
+          );
+
           let finalTotalInventory = 0;
           if (Array.isArray(product.variants) && product.variants.length > 0) {
-            // Nếu có biến thể, tổng tồn kho dựa trên variantInventory
-            finalTotalInventory = totalVariantInventory;
+            // Nếu có biến thể, tổng tồn kho dựa trên variantInventory + combinationInventory
+            finalTotalInventory = totalVariantInventory + totalCombinationInventory;
           } else {
             // Nếu không có biến thể, tổng tồn kho dựa trên inventory chính
             finalTotalInventory = totalProductInventory;
           }
 
-          this.logger.log(`Product ${product._id}: Total product inventory = ${totalProductInventory}, Total variant inventory = ${totalVariantInventory}, Final total inventory = ${finalTotalInventory}`);
+          this.logger.log(`[RemoveBranch] Product ${productId} inventory summary:`);
+          this.logger.log(`[RemoveBranch] - Product inventory: ${totalProductInventory}`);
+          this.logger.log(`[RemoveBranch] - Variant inventory: ${totalVariantInventory}`);
+          this.logger.log(`[RemoveBranch] - Combination inventory: ${totalCombinationInventory}`);
+          this.logger.log(`[RemoveBranch] - Final total inventory: ${finalTotalInventory}`);
 
+          // Cập nhật trạng thái sản phẩm dựa trên tổng tồn kho
+          const oldStatus = product.status;
           if (finalTotalInventory === 0 && product.status !== 'discontinued') {
             product.status = 'out_of_stock';
-            this.logger.log(`Product ${product._id} status updated to 'out_of_stock' as total inventory is 0.`);
+            this.logger.log(`[RemoveBranch] Product ${productId} status updated from '${oldStatus}' to 'out_of_stock' (total inventory = 0)`);
           } else if (finalTotalInventory > 0 && product.status === 'out_of_stock') {
             product.status = 'active';
-            this.logger.log(`Product ${product._id} status updated to 'active' as total inventory is ${finalTotalInventory}.`);
+            this.logger.log(`[RemoveBranch] Product ${productId} status updated from '${oldStatus}' to 'active' (total inventory = ${finalTotalInventory})`);
+          } else {
+            this.logger.log(`[RemoveBranch] Product ${productId} status remains '${product.status}' (total inventory = ${finalTotalInventory})`);
           }
 
           // Lưu sản phẩm
           await product.save();
           count++;
-          this.logger.log(`Product ${product._id} saved after removing branch ${branchId}.`);
+          this.logger.log(`[RemoveBranch] Product ${productId} saved successfully`);
+        } else {
+          this.logger.log(`[RemoveBranch] Product ${productId} had no inventory for branch ${branchId}, skipping`);
         }
       }
 
-      this.logger.log(`Successfully processed ${count} products for branch removal.`);
+      this.logger.log(`[RemoveBranch] Branch removal completed successfully:`);
+      this.logger.log(`[RemoveBranch] - Products processed: ${count}`);
+      this.logger.log(`[RemoveBranch] - Regular inventory entries removed: ${totalInventoryRemoved}`);
+      this.logger.log(`[RemoveBranch] - Variant inventory entries removed: ${totalVariantInventoryRemoved}`);
+      this.logger.log(`[RemoveBranch] - Combination inventory entries removed: ${totalCombinationInventoryRemoved}`);
+      this.logger.log(`[RemoveBranch] - Total inventory entries removed: ${totalInventoryRemoved + totalVariantInventoryRemoved + totalCombinationInventoryRemoved}`);
+
       return {
         success: true,
         count
       };
     } catch (error) {
-      this.logger.error(`Error removing branch from products: ${error.message}`, error.stack);
+      this.logger.error(`[RemoveBranch] Error removing branch from products: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -2950,15 +3013,204 @@ export class ProductsService {
   async countProductsReferencingBranch(branchId: string): Promise<number> {
     try {
       const branchObjectId = new Types.ObjectId(branchId);
-      return await this.productModel.countDocuments({
+
+      this.logger.log(`[CountProductsReferencingBranch] Checking products for branch ID: ${branchId}`);
+
+      // Debug: Kiểm tra tổng số sản phẩm
+      const totalProducts = await this.productModel.countDocuments({});
+      this.logger.log(`[CountProductsReferencingBranch] Total products in database: ${totalProducts}`);
+
+      // Debug: Kiểm tra sản phẩm có inventory
+      const productsWithInventory = await this.productModel.countDocuments({
         $or: [
-          { 'inventory.branchId': branchObjectId },
-          { 'variantInventory.branchId': branchObjectId },
-          { 'combinationInventory.branchId': branchObjectId }
+          { 'inventory.0': { $exists: true } },
+          { 'variantInventory.0': { $exists: true } },
+          { 'combinationInventory.0': { $exists: true } }
         ]
       });
+      this.logger.log(`[CountProductsReferencingBranch] Products with any inventory: ${productsWithInventory}`);
+
+      // Debug: Lấy một vài sản phẩm mẫu để kiểm tra cấu trúc
+      const sampleProducts = await this.productModel.find({
+        $or: [
+          { 'inventory.0': { $exists: true } },
+          { 'variantInventory.0': { $exists: true } },
+          { 'combinationInventory.0': { $exists: true } }
+        ]
+      }).limit(3).select('sku name inventory variantInventory combinationInventory').lean();
+
+      this.logger.log(`[CountProductsReferencingBranch] Sample products with inventory:`, JSON.stringify(sampleProducts, null, 2));
+
+      // Đếm sản phẩm tham chiếu đến chi nhánh cụ thể
+      // Thử cả ObjectId và string vì có thể branchId được lưu dưới dạng string
+      const count = await this.productModel.countDocuments({
+        $or: [
+          { 'inventory.branchId': branchObjectId },
+          { 'inventory.branchId': branchId }, // Thử string
+          { 'variantInventory.branchId': branchObjectId },
+          { 'variantInventory.branchId': branchId }, // Thử string
+          { 'combinationInventory.branchId': branchObjectId },
+          { 'combinationInventory.branchId': branchId } // Thử string
+        ]
+      });
+
+      this.logger.log(`[CountProductsReferencingBranch] Products referencing branch ${branchId}: ${count}`);
+
+      // Debug: Kiểm tra chi tiết các sản phẩm tham chiếu
+      if (count > 0) {
+        const referencingProducts = await this.productModel.find({
+          $or: [
+            { 'inventory.branchId': branchObjectId },
+            { 'inventory.branchId': branchId }, // Thử string
+            { 'variantInventory.branchId': branchObjectId },
+            { 'variantInventory.branchId': branchId }, // Thử string
+            { 'combinationInventory.branchId': branchObjectId },
+            { 'combinationInventory.branchId': branchId } // Thử string
+          ]
+        }).select('sku name inventory variantInventory combinationInventory').lean();
+
+        this.logger.log(`[CountProductsReferencingBranch] Products referencing branch ${branchId}:`, JSON.stringify(referencingProducts, null, 2));
+      }
+
+      return count;
     } catch (error) {
       this.logger.error(`Error counting products with branch reference: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  // Phương thức để dọn dẹp dữ liệu rác - xóa tất cả inventory tham chiếu đến branch không tồn tại
+  async cleanupOrphanedInventory(): Promise<{ success: boolean; cleaned: number; details: any }> {
+    try {
+      this.logger.log(`[CleanupInventory] Starting cleanup of orphaned inventory data`);
+
+      // Lấy danh sách tất cả branch IDs hiện có
+      const existingBranches = await this.branchModel.find({}, { _id: 1 }).lean();
+      const existingBranchIds = existingBranches.map(branch => branch._id.toString());
+
+      this.logger.log(`[CleanupInventory] Found ${existingBranchIds.length} existing branches`);
+
+      // Tìm tất cả sản phẩm có inventory
+      const products = await this.productModel.find({
+        $or: [
+          { 'inventory.0': { $exists: true } },
+          { 'variantInventory.0': { $exists: true } },
+          { 'combinationInventory.0': { $exists: true } }
+        ]
+      });
+
+      let totalCleaned = 0;
+      let productsCleaned = 0;
+      const cleanupDetails = {
+        regularInventory: 0,
+        variantInventory: 0,
+        combinationInventory: 0
+      };
+
+      this.logger.log(`[CleanupInventory] Found ${products.length} products with inventory to check`);
+
+      for (const product of products) {
+        let productModified = false;
+        const productId = (product._id as any).toString();
+
+        // Dọn dẹp regular inventory
+        if (Array.isArray(product.inventory) && product.inventory.length > 0) {
+          const initialCount = product.inventory.length;
+          product.inventory = product.inventory.filter(inv => {
+            const branchIdStr = inv.branchId ? inv.branchId.toString() : null;
+            return branchIdStr && existingBranchIds.includes(branchIdStr);
+          });
+
+          const removedCount = initialCount - product.inventory.length;
+          if (removedCount > 0) {
+            productModified = true;
+            cleanupDetails.regularInventory += removedCount;
+            this.logger.log(`[CleanupInventory] Removed ${removedCount} orphaned regular inventory entries from product ${productId}`);
+          }
+        }
+
+        // Dọn dẹp variant inventory
+        if (Array.isArray(product.variantInventory) && product.variantInventory.length > 0) {
+          const initialCount = product.variantInventory.length;
+          product.variantInventory = product.variantInventory.filter(inv => {
+            const branchIdStr = inv.branchId ? inv.branchId.toString() : null;
+            return branchIdStr && existingBranchIds.includes(branchIdStr);
+          });
+
+          const removedCount = initialCount - product.variantInventory.length;
+          if (removedCount > 0) {
+            productModified = true;
+            cleanupDetails.variantInventory += removedCount;
+            this.logger.log(`[CleanupInventory] Removed ${removedCount} orphaned variant inventory entries from product ${productId}`);
+          }
+        }
+
+        // Dọn dẹp combination inventory
+        if (Array.isArray(product.combinationInventory) && product.combinationInventory.length > 0) {
+          const initialCount = product.combinationInventory.length;
+          product.combinationInventory = product.combinationInventory.filter(inv => {
+            const branchIdStr = inv.branchId ? inv.branchId.toString() : null;
+            return branchIdStr && existingBranchIds.includes(branchIdStr);
+          });
+
+          const removedCount = initialCount - product.combinationInventory.length;
+          if (removedCount > 0) {
+            productModified = true;
+            cleanupDetails.combinationInventory += removedCount;
+            this.logger.log(`[CleanupInventory] Removed ${removedCount} orphaned combination inventory entries from product ${productId}`);
+          }
+        }
+
+        // Lưu sản phẩm nếu có thay đổi
+        if (productModified) {
+          await product.save();
+          productsCleaned++;
+
+          // Tính toán lại tổng tồn kho và cập nhật trạng thái
+          const totalProductInventory = (product.inventory || []).reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+          const totalVariantInventory = (product.variantInventory || []).reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+          const totalCombinationInventory = (product.combinationInventory || []).reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+
+          let finalTotalInventory = 0;
+          if (Array.isArray(product.variants) && product.variants.length > 0) {
+            finalTotalInventory = totalVariantInventory + totalCombinationInventory;
+          } else {
+            finalTotalInventory = totalProductInventory;
+          }
+
+          // Cập nhật trạng thái nếu cần
+          const oldStatus = product.status;
+          if (finalTotalInventory === 0 && product.status !== 'discontinued') {
+            product.status = 'out_of_stock';
+            await product.save();
+            this.logger.log(`[CleanupInventory] Product ${productId} status updated from '${oldStatus}' to 'out_of_stock' after cleanup`);
+          } else if (finalTotalInventory > 0 && product.status === 'out_of_stock') {
+            product.status = 'active';
+            await product.save();
+            this.logger.log(`[CleanupInventory] Product ${productId} status updated from '${oldStatus}' to 'active' after cleanup`);
+          }
+        }
+      }
+
+      totalCleaned = cleanupDetails.regularInventory + cleanupDetails.variantInventory + cleanupDetails.combinationInventory;
+
+      this.logger.log(`[CleanupInventory] Cleanup completed successfully:`);
+      this.logger.log(`[CleanupInventory] - Products cleaned: ${productsCleaned}`);
+      this.logger.log(`[CleanupInventory] - Regular inventory entries removed: ${cleanupDetails.regularInventory}`);
+      this.logger.log(`[CleanupInventory] - Variant inventory entries removed: ${cleanupDetails.variantInventory}`);
+      this.logger.log(`[CleanupInventory] - Combination inventory entries removed: ${cleanupDetails.combinationInventory}`);
+      this.logger.log(`[CleanupInventory] - Total inventory entries removed: ${totalCleaned}`);
+
+      return {
+        success: true,
+        cleaned: totalCleaned,
+        details: {
+          productsCleaned,
+          ...cleanupDetails
+        }
+      };
+    } catch (error) {
+      this.logger.error(`[CleanupInventory] Error during cleanup: ${error.message}`, error.stack);
       throw error;
     }
   }

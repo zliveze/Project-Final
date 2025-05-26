@@ -16,7 +16,7 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
   const { createBranch } = useBranches();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -33,11 +33,11 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
       setIsSubmitting(true);
       // Gọi API tạo chi nhánh
       const success = await createBranch(data);
-      
+
       if (success) {
         // Thông báo thành công
         toast.success('Thêm chi nhánh mới thành công!');
-        
+
         // Đóng modal
         onClose();
       }
@@ -55,14 +55,14 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
     <div className={`fixed inset-0 z-[1000] overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-sm"></div>
         </div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
           &#8203;
         </span>
 
-        <div 
+        <div
           className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full ${ // Re-added rounded-lg
             isOpen ? 'translate-y-0 sm:scale-100' : 'translate-y-4 sm:scale-95'
           }`}
@@ -77,7 +77,7 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
               <FiX className="h-5 w-5" />
             </button>
           </div>
-          
+
           <div className="bg-pink-50 px-4 py-3 border-b border-pink-100 flex items-center">
             <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center mr-3"> {/* Re-added rounded-full */}
               <FiPlus className="text-pink-600" />
@@ -88,7 +88,7 @@ const BranchAddModal: React.FC<BranchAddModalProps> = ({
           </div>
 
           <div className="p-6 max-h-[80vh] overflow-y-auto">
-            <BranchForm 
+            <BranchForm
               onSubmit={handleSubmit}
               onCancel={onClose}
               isSubmitting={isSubmitting}

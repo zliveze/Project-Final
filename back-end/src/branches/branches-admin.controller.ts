@@ -1,12 +1,12 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Param, 
-  Delete, 
-  Put, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  Query,
   UseGuards,
   BadRequestException,
   Logger,
@@ -69,11 +69,31 @@ export class BranchesAdminController {
     return this.branchesService.remove(id);
   }
 
+  @Get(':id/products-count')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Kiểm tra số lượng sản phẩm tham chiếu đến chi nhánh' })
+  @ApiResponse({
+    status: 200,
+    description: 'Số lượng sản phẩm tham chiếu đến chi nhánh',
+    schema: {
+      type: 'object',
+      properties: {
+        branchId: { type: 'string' },
+        productsCount: { type: 'number' },
+        branchName: { type: 'string' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy chi nhánh' })
+  async getProductsCount(@Param('id') id: string): Promise<{ branchId: string; productsCount: number; branchName: string }> {
+    return this.branchesService.getProductsCount(id);
+  }
+
   @Delete(':id/force')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Xóa một chi nhánh và cập nhật tất cả sản phẩm tham chiếu' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Chi nhánh đã được xóa thành công và sản phẩm đã được cập nhật',
     schema: {
       type: 'object',
@@ -88,4 +108,4 @@ export class BranchesAdminController {
   async removeWithReferences(@Param('id') id: string): Promise<{ success: boolean; message: string; productsUpdated: number }> {
     return this.branchesService.removeWithReferences(id);
   }
-} 
+}

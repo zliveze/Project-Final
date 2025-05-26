@@ -7,14 +7,14 @@ import { BranchProvider, useBranches } from '@/contexts/BranchContext';
 import BranchAddModal from '@/components/admin/branches/BranchAddModal';
 import BranchEditModal from '@/components/admin/branches/BranchEditModal';
 import BranchViewModal from '@/components/admin/branches/BranchViewModal';
-import ConfirmModal from '@/components/common/ConfirmModal';
+import BranchDeleteConfirmModal from '@/components/admin/branches/BranchDeleteConfirmModal';
 
 function BranchesContent() {
-  const { 
-    branches, 
-    loading, 
-    error, 
-    statistics, 
+  const {
+    branches,
+    loading,
+    error,
+    statistics,
     pagination,
     fetchBranches,
     fetchBranch,
@@ -28,12 +28,13 @@ function BranchesContent() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
-  
+  const [selectedBranchName, setSelectedBranchName] = useState<string>('');
+
   // Tải dữ liệu ban đầu
   useEffect(() => {
     fetchBranches(pagination.page, pagination.limit);
   }, []);
-  
+
   // Render thống kê
   const renderStats = () => {
     return (
@@ -54,7 +55,7 @@ function BranchesContent() {
             <p className="text-xs text-blue-600 font-medium">Quản lý tất cả chi nhánh</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
@@ -71,7 +72,7 @@ function BranchesContent() {
             <p className="text-xs text-pink-600 font-medium">Dịch vụ khách hàng luôn sẵn sàng</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
@@ -107,7 +108,9 @@ function BranchesContent() {
 
   // Xử lý mở modal xóa chi nhánh
   const handleOpenDeleteModal = (id: string) => {
+    const branch = branches.find(b => b.id === id);
     setSelectedBranchId(id);
+    setSelectedBranchName(branch?.name || '');
     setShowDeleteModal(true);
     setShowViewModal(false);
   };
@@ -115,18 +118,27 @@ function BranchesContent() {
   // Xác nhận xóa chi nhánh
   const confirmDeleteBranch = async () => {
     if (!selectedBranchId) return;
-    
+
     try {
       // Sử dụng forceDeleteBranch thay vì deleteBranch
-      const result = await forceDeleteBranch(selectedBranchId); 
+      const result = await forceDeleteBranch(selectedBranchId);
       if (result && result.success) {
         setShowDeleteModal(false);
+        setSelectedBranchId(null);
+        setSelectedBranchName('');
+
         // Tải lại danh sách sau khi xóa
         fetchBranches(pagination.page, pagination.limit);
-        // Hiển thị thông báo thành công từ API (nếu có)
-        if (result.message) {
-          toast.success(result.message);
-        }
+
+        // Hiển thị thông báo thành công với số sản phẩm được cập nhật
+        const message = result.productsUpdated > 0
+          ? `Chi nhánh đã được xóa thành công và đã cập nhật ${result.productsUpdated} sản phẩm.`
+          : 'Chi nhánh đã được xóa thành công.';
+
+        toast.success(message, {
+          duration: 5000,
+          position: 'top-right',
+        });
       }
       // Không cần else - nếu có lỗi, forceDeleteBranch đã xử lý hiển thị lỗi qua toast
     } catch (error) {
@@ -176,7 +188,7 @@ function BranchesContent() {
 
       {/* Bảng danh sách chi nhánh */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <BranchList 
+        <BranchList
           onView={handleViewBranch}
           onEdit={handleOpenEditModal}
           onDelete={handleOpenDeleteModal}
@@ -223,17 +235,18 @@ function BranchesContent() {
         />
       )}
 
-      {/* Confirm Delete Modal */}
-      {showDeleteModal && (
-        <ConfirmModal
+      {/* Branch Delete Confirm Modal */}
+      {showDeleteModal && selectedBranchId && (
+        <BranchDeleteConfirmModal
           isOpen={showDeleteModal}
-          onClose={() => setShowDeleteModal(false)}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedBranchId(null);
+            setSelectedBranchName('');
+          }}
           onConfirm={confirmDeleteBranch}
-          title="Xác nhận xóa chi nhánh"
-          message="Bạn có chắc chắn muốn xóa chi nhánh này? Hành động này không thể hoàn tác."
-          confirmText="Xóa chi nhánh"
-          cancelText="Hủy"
-          confirmButtonClass="bg-red-600 hover:bg-red-700"
+          branchId={selectedBranchId}
+          branchName={selectedBranchName}
         />
       )}
     </div>

@@ -497,5 +497,39 @@ export class ProductsAdminController {
       throw error;
     }
   }
+
+  @Post('cleanup-orphaned-inventory')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Dọn dẹp dữ liệu inventory rác (tham chiếu đến branch không tồn tại)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Kết quả dọn dẹp dữ liệu rác',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        cleaned: { type: 'number' },
+        details: {
+          type: 'object',
+          properties: {
+            productsCleaned: { type: 'number' },
+            regularInventory: { type: 'number' },
+            variantInventory: { type: 'number' },
+            combinationInventory: { type: 'number' }
+          }
+        }
+      }
+    }
+  })
+  async cleanupOrphanedInventory(): Promise<{ success: boolean; cleaned: number; details: any }> {
+    try {
+      this.logger.log('Nhận yêu cầu dọn dẹp dữ liệu inventory rác từ admin');
+      return this.productsService.cleanupOrphanedInventory();
+    } catch (error) {
+      this.logger.error(`Lỗi khi dọn dẹp dữ liệu inventory rác: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   // Đã di chuyển exportAllProducts lên trên, không cần định nghĩa lại ở đây.
 }

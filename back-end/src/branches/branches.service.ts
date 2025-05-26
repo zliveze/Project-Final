@@ -205,6 +205,38 @@ export class BranchesService {
     }
   }
 
+  // Phương thức để kiểm tra số lượng sản phẩm tham chiếu đến chi nhánh
+  async getProductsCount(id: string): Promise<{ branchId: string; productsCount: number; branchName: string }> {
+    try {
+      // Kiểm tra chi nhánh tồn tại
+      const branch = await this.branchModel.findById(id).exec();
+
+      if (!branch) {
+        throw new NotFoundException(`Không tìm thấy chi nhánh với ID: ${id}`);
+      }
+
+      this.logger.log(`[GetProductsCount] Checking products count for branch ${id} (${branch.name})`);
+
+      // Debug: Kiểm tra tất cả chi nhánh trong database
+      const allBranches = await this.branchModel.find({}).select('_id name').lean();
+      this.logger.log(`[GetProductsCount] All branches in database:`, JSON.stringify(allBranches, null, 2));
+
+      // Đếm số sản phẩm tham chiếu đến chi nhánh này
+      const productsCount = await this.productsService.countProductsReferencingBranch(id);
+
+      this.logger.log(`[GetProductsCount] Branch ${id} (${branch.name}) has ${productsCount} products referencing it`);
+
+      return {
+        branchId: id,
+        productsCount,
+        branchName: branch.name
+      };
+    } catch (error) {
+      this.logger.error(`Lỗi khi kiểm tra số sản phẩm tham chiếu đến chi nhánh: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
   // Phương thức để xóa chi nhánh và cập nhật tất cả sản phẩm tham chiếu đến chi nhánh đó
   async removeWithReferences(id: string): Promise<{ success: boolean; message: string; productsUpdated: number }> {
     try {
@@ -220,6 +252,15 @@ export class BranchesService {
 
       // Xóa chi nhánh
       await this.branchModel.findByIdAndDelete(id).exec();
+
+      // Dọn dẹp dữ liệu rác còn sót lại (nếu có)
+      this.logger.log(`[RemoveWithReferences] Running cleanup for orphaned inventory after deleting branch ${id}`);
+      try {
+        const cleanupResult = await this.productsService.cleanupOrphanedInventory();
+        this.logger.log(`[RemoveWithReferences] Cleanup completed: ${cleanupResult.cleaned} orphaned inventory entries removed`);
+      } catch (cleanupError) {
+        this.logger.warn(`[RemoveWithReferences] Cleanup failed but branch deletion succeeded: ${cleanupError.message}`);
+      }
 
       return {
         success: true,
