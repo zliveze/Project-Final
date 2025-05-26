@@ -3113,6 +3113,13 @@ export class ProductsService {
 
       this.logger.log(`Đọc được ${productRows.length} sản phẩm từ file Excel`);
 
+      if (userId) {
+        this.emitImportProgress(userId, 15, 'parsing', 'Đang chuẩn bị dữ liệu và tối ưu hóa...');
+      }
+
+      // 🚀 TỐI ƯU HÓA: Pre-load và cache dữ liệu
+      const { brandCache, categoryCache, existingProducts, existingSlugs } = await this.preloadDataForImport(productRows, userId);
+
       // Kết quả xử lý
       const result = {
         success: true,
@@ -3127,11 +3134,15 @@ export class ProductsService {
         categoriesCreated: 0 // Thêm đếm số categories được tạo
       };
 
-      // Xử lý từng sản phẩm trong file Excel
+      // 🚀 TỐI ƯU HÓA: Xử lý batch để giảm database operations
       const totalProducts = productRows.length;
-      const startProgress = 15;
+      const startProgress = 20;
       const endProgress = 95;
       const progressRange = endProgress - startProgress;
+
+      // Batch arrays để bulk operations
+      const newProductsToCreate: any[] = [];
+      const productsToUpdate: any[] = [];
 
       for (let i = 0; i < totalProducts; i++) {
         const row = productRows[i];
@@ -3143,8 +3154,18 @@ export class ProductsService {
           }
 
           const currentProgress = Math.floor(startProgress + ((i + 1) / totalProducts) * progressRange);
-          if (userId && (i === 0 || i === totalProducts - 1 ||
-              i % Math.max(1, Math.floor(totalProducts / 16)) === 0)) {
+
+          // Gửi progress update thông minh:
+          // - Luôn gửi cho sản phẩm đầu tiên và cuối cùng
+          // - Gửi mỗi 1% hoặc mỗi 10 sản phẩm (tùy theo số lượng ít hơn)
+          // - Đảm bảo không gửi quá nhiều để tránh spam WebSocket
+          const shouldSendProgress = userId && (
+            i === 0 || // Sản phẩm đầu tiên
+            i === totalProducts - 1 || // Sản phẩm cuối cùng
+            (i + 1) % Math.max(1, Math.min(10, Math.floor(totalProducts / 100))) === 0 // Mỗi 1% hoặc mỗi 10 sản phẩm
+          );
+
+          if (shouldSendProgress) {
             this.emitImportProgress(userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
           }
 
@@ -3202,20 +3223,20 @@ export class ProductsService {
             barcode
           };
 
-          // Xử lý Thương hiệu (Loại hàng)
+          // 🚀 TỐI ƯU HÓA: Xử lý Thương hiệu với cache
           if (brandName) {
-            let brandDocument = await this.brandModel.findOne({ name: brandName });
+            let brandDocument = brandCache.get(brandName);
             if (!brandDocument) {
               this.logger.log(`Thương hiệu "${brandName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
               brandDocument = new this.brandModel({
                 name: brandName,
                 slug: this.generateSlug(brandName),
-                logo: { url: 'https://via.placeholder.com/150/CCCCCC/808080?Text=No+Logo', alt: `${brandName} logo`, publicId: '' } // Cung cấp logo mặc định
+                logo: { url: 'https://via.placeholder.com/150/CCCCCC/808080?Text=No+Logo', alt: `${brandName} logo`, publicId: '' }
               });
               await brandDocument.save();
+              // Cache brand mới tạo
+              brandCache.set(brandName, brandDocument);
               this.logger.log(`Đã tạo thương hiệu mới: ID ${brandDocument._id}, Tên: ${brandName}`);
-            } else {
-              this.logger.log(`Tìm thấy thương hiệu: ID ${brandDocument._id}, Tên: ${brandName}`);
             }
             if (brandDocument && brandDocument._id) {
               productDto.brandId = brandDocument._id;
@@ -3255,7 +3276,8 @@ export class ProductsService {
             quantity: quantity >= 0 ? quantity : 0
           }];
 
-          const existingProduct = await this.productModel.findOne({ sku });
+          // 🚀 TỐI ƯU HÓA: Sử dụng cache thay vì query database
+          const existingProduct = existingProducts.get(sku);
 
           if (existingProduct) {
             this.logger.log(`Cập nhật sản phẩm có SKU: ${sku}`);
@@ -3298,13 +3320,16 @@ export class ProductsService {
             result.updated++;
           } else {
             this.logger.log(`Tạo sản phẩm mới với SKU: ${sku}`);
+            // 🚀 TỐI ƯU HÓA: Sử dụng cache để tạo unique slug
             let uniqueSlug = slug;
             let counter = 1;
-            while (await this.productModel.findOne({ slug: uniqueSlug })) {
+            while (existingSlugs.has(uniqueSlug)) {
               uniqueSlug = `${slug}-${counter}`;
               counter++;
             }
             productDto.slug = uniqueSlug;
+            // Thêm slug mới vào cache
+            existingSlugs.add(uniqueSlug);
 
             const newProductInstance = new this.productModel(productDto);
             await newProductInstance.save();
@@ -3655,6 +3680,76 @@ export class ProductsService {
     return urlString.split(',')
       .map(url => url.trim())
       .filter(url => url.length > 0 && url.match(/^https?:\/\//));
+  }
+
+  /**
+   * 🚀 TỐI ƯU HÓA: Pre-load dữ liệu để giảm database queries trong vòng lặp
+   */
+  private async preloadDataForImport(productRows: any[], userId?: string) {
+    this.logger.log('🚀 Bắt đầu pre-load dữ liệu để tối ưu hóa import...');
+
+    // Extract unique brand names và category names từ Excel
+    const uniqueBrandNames = new Set<string>();
+    const uniqueCategoryPaths = new Set<string>();
+    const skusToCheck = new Set<string>();
+
+    productRows.forEach((row, index) => {
+      const brandName = String(row[5] || '').trim();
+      const categoryName = String(row[1] || '').trim();
+      const sku = String(row[2] || '').trim();
+
+      if (brandName) uniqueBrandNames.add(brandName);
+      if (categoryName) uniqueCategoryPaths.add(categoryName);
+      if (sku) skusToCheck.add(sku);
+    });
+
+    this.logger.log(`Pre-loading: ${uniqueBrandNames.size} brands, ${uniqueCategoryPaths.size} categories, ${skusToCheck.size} SKUs`);
+
+    // 1. Pre-load tất cả brands cần thiết
+    const brandCache = new Map<string, any>();
+    if (uniqueBrandNames.size > 0) {
+      const existingBrands = await this.brandModel.find({
+        name: { $in: Array.from(uniqueBrandNames) }
+      }).lean();
+
+      existingBrands.forEach(brand => {
+        brandCache.set(brand.name, brand);
+      });
+      this.logger.log(`Cached ${existingBrands.length}/${uniqueBrandNames.size} existing brands`);
+    }
+
+    // 2. Pre-load existing products by SKU
+    const existingProducts = new Map<string, any>();
+    if (skusToCheck.size > 0) {
+      const products = await this.productModel.find({
+        sku: { $in: Array.from(skusToCheck) }
+      }).lean();
+
+      products.forEach(product => {
+        existingProducts.set(product.sku, product);
+      });
+      this.logger.log(`Found ${products.length}/${skusToCheck.size} existing products`);
+    }
+
+    // 3. Pre-load existing slugs để tránh duplicate
+    const existingSlugs = new Set<string>();
+    const slugsResult = await this.productModel.find({}, { slug: 1 }).lean();
+    slugsResult.forEach(product => {
+      if (product.slug) existingSlugs.add(product.slug);
+    });
+    this.logger.log(`Cached ${existingSlugs.size} existing slugs`);
+
+    // 4. Category cache sẽ được xây dựng động trong quá trình xử lý
+    const categoryCache = new Map<string, any>();
+
+    this.logger.log('✅ Hoàn thành pre-load dữ liệu');
+
+    return {
+      brandCache,
+      categoryCache,
+      existingProducts,
+      existingSlugs
+    };
   }
 
   private emitImportProgress(userId: string, progress: number, status: string, message: string, summary?: any) {
