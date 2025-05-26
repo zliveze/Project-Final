@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiAlertCircle, FiMapPin, FiPhone, FiCalendar, FiClock } from 'react-icons/fi';
 import AdminLayout from '../../../components/admin/AdminLayout';
 import BranchList from '@/components/admin/branches/BranchList';
-import { BranchProvider, useBranches } from '@/contexts/BranchContext';
+import { useBranches } from '@/contexts/BranchContext'; // BranchProvider đã được cung cấp bởi AppProviders
 import BranchAddModal from '@/components/admin/branches/BranchAddModal';
 import BranchEditModal from '@/components/admin/branches/BranchEditModal';
 import BranchViewModal from '@/components/admin/branches/BranchViewModal';
@@ -212,12 +212,11 @@ function BranchesContent() {
   );
 }
 
+// BranchProvider đã được cung cấp bởi AppProviders
 export default function BranchesPage() {
   return (
     <AdminLayout>
-      <BranchProvider>
-        <BranchesContent />
-      </BranchProvider>
+      <BranchesContent />
     </AdminLayout>
   );
 }

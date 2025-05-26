@@ -1,10 +1,5 @@
 import { useEffect } from 'react';
-import Head from 'next/head';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { AdminOrderProvider } from '@/contexts/AdminOrderContext';
-import { AdminUserProvider } from '@/contexts/AdminUserContext';
-import { ProductProvider } from '@/contexts/ProductContext';
-import { CampaignProvider } from '@/contexts/CampaignContext';
 
 // Import tất cả components
 import DashboardStats from '@/components/admin/dashboard/DashboardStats';
@@ -18,52 +13,44 @@ import TopProducts from '@/components/admin/TopProducts';
 
 export default function AdminDashboard() {
   useEffect(() => {
-    // Dữ liệu sẽ được tải tự động thông qua các contexts
+    // Dữ liệu sẽ được tải tự động thông qua các contexts từ AppProviders
   }, []);
 
   return (
     <AdminLayout title="Dashboard">
-      <AdminOrderProvider>
-        <AdminUserProvider>
-          <ProductProvider>
-            <CampaignProvider>
-              <div className="space-y-6">
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
 
-                {/* Thống kê tổng quan - 4 cards */}
-                <DashboardStats />
+        {/* Thống kê tổng quan - 4 cards */}
+        <DashboardStats />
 
-                {/* Thống kê người dùng chi tiết */}
-                <UserStatsCard />
+        {/* Thống kê người dùng chi tiết */}
+        <UserStatsCard />
 
-                {/* Biểu đồ */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Biểu đồ tăng trưởng người dùng */}
-                  <UserGrowthChart />
+        {/* Biểu đồ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Biểu đồ tăng trưởng người dùng */}
+          <UserGrowthChart />
 
-                  {/* Biểu đồ doanh thu */}
-                  <RevenueChart />
-                </div>
+          {/* Biểu đồ doanh thu */}
+          <RevenueChart />
+        </div>
 
-                {/* Đơn hàng gần đây - Full width */}
-                <RecentOrders />
+        {/* Đơn hàng gần đây - Full width */}
+        <RecentOrders />
 
-                {/* Widgets bổ sung */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Sản phẩm bán chạy */}
-                  <TopProducts />
+        {/* Widgets bổ sung */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Sản phẩm bán chạy */}
+          <TopProducts />
 
-                  {/* Campaigns & Vouchers */}
-                  <CampaignsWidget />
+          {/* Campaigns & Vouchers */}
+          <CampaignsWidget />
 
-                  {/* Thông báo & Hoạt động - Tạm comment để debug */}
-                  <ActivityWidget />
-                </div>
-              </div>
-            </CampaignProvider>
-          </ProductProvider>
-        </AdminUserProvider>
-      </AdminOrderProvider>
+          {/* Thông báo & Hoạt động - Tạm comment để debug */}
+          <ActivityWidget />
+        </div>
+      </div>
     </AdminLayout>
   );
 }

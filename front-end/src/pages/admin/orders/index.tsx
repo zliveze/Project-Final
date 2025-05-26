@@ -163,14 +163,14 @@ function AdminOrdersContent() {
     try {
       // Sử dụng hàm cancelOrder từ context
       await cancelOrder(selectedOrderId, 'Đơn hàng bị hủy bởi admin');
-      
+
       // Đóng modal và refresh dữ liệu
       setShowCancelModal(false);
       setSelectedOrderId(null);
-      
+
       // Chỉ gọi refreshData, không cần handleRefreshData
       await refreshData();
-      
+
       toast.success('Đã hủy đơn hàng thành công', {
         id: 'cancel-success'
       });
@@ -486,10 +486,7 @@ function AdminOrdersContent() {
   );
 }
 
+// AdminOrderProvider đã được cung cấp bởi AppProviders cho đường dẫn /admin/orders
 export default function AdminOrders() {
-  return (
-    <AdminOrderProvider>
-      <AdminOrdersContent />
-    </AdminOrderProvider>
-  );
+  return <AdminOrdersContent />;
 }

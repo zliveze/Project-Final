@@ -8,12 +8,9 @@ import VoucherAddModal from '@/components/admin/vouchers/VoucherAddModal';
 import VoucherEditModal from '@/components/admin/vouchers/VoucherEditModal';
 import VoucherDetailModal from '@/components/admin/vouchers/VoucherDetailModal';
 import VoucherDeleteModal from '@/components/admin/vouchers/VoucherDeleteModal';
-import { useVoucher, VoucherProvider } from '@/contexts/VoucherContext';
+import { useVoucher } from '@/contexts/VoucherContext'; // VoucherProvider đã được cung cấp bởi AppProviders
 import { Voucher, VoucherStatistics } from '@/contexts/VoucherContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { BrandProvider } from '@/contexts/BrandContext';
-import { CategoryProvider } from '@/contexts/CategoryContext';
-import { ProductProvider } from '@/contexts/ProductContext';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 
@@ -345,17 +342,7 @@ function VouchersPageContent() {
   );
 }
 
-// Trang chính được bọc trong VoucherProvider, BrandProvider, CategoryProvider và ProductProvider
+// Các provider đã được cung cấp bởi AppProviders cho đường dẫn /admin/vouchers
 export default function VouchersPage() {
-  return (
-    <ProductProvider>
-      <CategoryProvider>
-        <BrandProvider>
-          <VoucherProvider>
-            <VouchersPageContent />
-          </VoucherProvider>
-        </BrandProvider>
-      </CategoryProvider>
-    </ProductProvider>
-  );
+  return <VouchersPageContent />;
 }

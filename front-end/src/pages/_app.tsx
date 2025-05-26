@@ -26,9 +26,10 @@ const AdminWrapper = ({ children }: { children: React.ReactNode }) => {
   const isAdminPage = router.pathname.startsWith('/admin');
   const isAdminLoginPage = router.pathname === '/admin/auth/login';
   const isAdminUserPage = router.pathname.startsWith('/admin/users');
+  const isAdminReviewPage = router.pathname.startsWith('/admin/reviews');
 
   if (isAdminPage && !isAdminLoginPage) {
-    if (isAdminUserPage) {
+    if (isAdminUserPage || isAdminReviewPage) {
       return (
         <AdminUserProvider>
           <AdminUserReviewProvider>

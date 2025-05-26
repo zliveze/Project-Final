@@ -27,7 +27,7 @@ import { ProductStatus } from '@/components/admin/products/components/ProductSta
 import { useBranches } from '@/hooks/useBranches'; // Import hook useBranches
 import { useProductAdmin, AdminProduct, ProductAdminFilter } from '@/hooks/useProductAdmin'; // Import types
 import { useApiStats } from '@/hooks/useApiStats';
-import { useProduct, ProductProvider } from '@/contexts/ProductContext'; // Import ProductProvider
+import { useProduct } from '@/contexts/ProductContext'; // ProductProvider đã được cung cấp bởi AppProviders
 import { useBrands } from '@/contexts/BrandContext'; // Import useBrands hook
 import { useCategory } from '@/contexts/CategoryContext'; // Import useCategory hook
 
@@ -1784,21 +1784,9 @@ function AdminProducts({
   );
 }
 
-// Create a wrapped component with ProductProvider and BrandProvider
-const AdminProductsWithProvider = (props: AdminProductsProps) => {
-  return (
-    <ProductProvider>
-      <AdminProducts {...props} />
-    </ProductProvider>
-  );
-};
-
-// Note: We don't need to explicitly wrap with BrandProvider here because
-// BrandProvider is already included in the _app.tsx file at a higher level
-// This ensures that the BrandContext is available throughout the application
-
-// Export the wrapped component as the default export
-export default AdminProductsWithProvider;
+// ProductProvider đã được cung cấp bởi AppProviders cho đường dẫn /admin/products
+// Không cần wrapper component nữa
+export default AdminProducts;
 
 // --- Server-Side Rendering ---
 

@@ -159,6 +159,17 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
+  if (currentPath.startsWith('/admin/dashboard')) {
+    // Dashboard cần nhiều provider để hiển thị thống kê tổng hợp
+    pageSpecificProviders = (
+      <AdminOrderProvider>
+        <ProductProvider>
+          {pageSpecificProviders}
+        </ProductProvider>
+      </AdminOrderProvider>
+    );
+  }
+
   // Các trường hợp khác có thể được thêm vào đây
 
   return pageSpecificProviders;
