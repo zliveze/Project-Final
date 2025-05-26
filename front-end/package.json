@@ -25,6 +25,7 @@
     "form-data": "^4.0.2",
     "formidable": "^3.5.2",
     "formik": "^2.4.6",
+    "framer-motion": "^12.12.2",
     "gsap": "^3.13.0",
     "http-proxy": "^1.18.1",
     "http-proxy-middleware": "^3.0.3",
