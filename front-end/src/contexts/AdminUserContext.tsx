@@ -172,6 +172,7 @@ export interface AdminUserContextType {
   currentPage: number;
 
   fetchUsers: (page?: number, limit?: number, search?: string, status?: string, role?: string, startDate?: string, endDate?: string, forceReload?: boolean) => Promise<void>;
+  fetchUserStats: () => Promise<any>;
   getUserDetail: (id: string) => Promise<DetailedUser | null>;
   getUserOrders: (userId: string) => Promise<OrderSummary[]>;
   updateUser: (id: string, userData: any) => Promise<User | null>;
@@ -376,7 +377,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       // Lấy thông tin chi tiết người dùng
       const response = await api().get(`/api/admin/users/${id}`);
-      
+
       const userData = response.data;
 
       try {
@@ -408,7 +409,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         // Vẫn tiếp tục với thông tin người dùng, không có đơn hàng
         userData.orders = [];
       }
-      
+
       setUserDetail(userData);
       return userData;
     } catch (err) {
@@ -1032,6 +1033,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
         totalPages,
         currentPage,
         fetchUsers,
+        fetchUserStats,
         getUserDetail,
         getUserOrders,
         updateUser,

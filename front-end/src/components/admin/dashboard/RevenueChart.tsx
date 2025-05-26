@@ -9,7 +9,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { useAdminUser } from '@/contexts/AdminUserContext';
+import { useAdminOrder } from '@/contexts/AdminOrderContext';
 
 // Đăng ký các thành phần của Chart.js
 ChartJS.register(
@@ -32,32 +32,38 @@ interface ChartData {
   }>;
 }
 
-const UserGrowthChart = () => {
-  const { stats, loading } = useAdminUser();
+const RevenueChart = () => {
+  const { orderStats, loading, fetchOrderStats } = useAdminOrder();
   const [chartData, setChartData] = useState<ChartData>({
     labels: [],
     datasets: [],
   });
-  // Sử dụng state để tránh hiệu ứng nhấp nháy khi chuyển trang
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
   useEffect(() => {
-    // Cập nhật dữ liệu biểu đồ khi có dữ liệu thống kê từ AdminUserContext
-    if (!loading && stats?.monthlyCounts?.length > 0 && !isDataLoaded) {
-      // Cập nhật nhãn và dữ liệu
-      const labels = stats.monthlyCounts.map(item => item.month);
+    // Chỉ fetch một lần khi component mount
+    if (!hasAttemptedFetch) {
+      setHasAttemptedFetch(true);
+      // Gọi API để lấy thống kê doanh thu
+      fetchOrderStats('month');
+    }
+  }, [hasAttemptedFetch, fetchOrderStats]);
 
-      // Hiển thị tỷ lệ tăng trưởng thay vì số lượng người dùng
-      const growthRates = stats.monthlyCounts.map(item => item.growthRate || 0);
+  useEffect(() => {
+    // Cập nhật dữ liệu biểu đồ khi có dữ liệu thực từ API
+    if (!loading && orderStats?.monthlyStats?.length > 0 && !isDataLoaded) {
+      const labels = orderStats.monthlyStats.map(item => item.month);
+      const revenueData = orderStats.monthlyStats.map(item => item.revenue);
 
       setChartData({
         labels,
         datasets: [
           {
-            label: 'Tỷ lệ tăng trưởng (%)',
-            data: growthRates,
-            backgroundColor: 'rgba(59, 130, 246, 0.6)', // Blue color
-            borderColor: 'rgba(59, 130, 246, 1)',
+            label: 'Doanh thu (VNĐ)',
+            data: revenueData,
+            backgroundColor: 'rgba(236, 72, 153, 0.6)', // Pink color
+            borderColor: 'rgba(236, 72, 153, 1)',
             borderWidth: 1,
           },
         ],
@@ -65,7 +71,7 @@ const UserGrowthChart = () => {
 
       setIsDataLoaded(true);
     }
-  }, [stats, loading, isDataLoaded]);
+  }, [orderStats, loading, isDataLoaded]);
 
   // Tùy chọn cấu hình của biểu đồ
   const options = {
@@ -82,7 +88,7 @@ const UserGrowthChart = () => {
         callbacks: {
           label: function(context: any) {
             const value = context.parsed.y;
-            return `Tăng trưởng: ${value.toFixed(1)}%`;
+            return `Doanh thu: ${value.toLocaleString('vi-VN')} VNĐ`;
           },
         },
       },
@@ -92,7 +98,7 @@ const UserGrowthChart = () => {
         beginAtZero: true,
         ticks: {
           callback: function(value: any) {
-            return value + '%';
+            return value.toLocaleString('vi-VN') + ' VNĐ';
           },
         },
       },
@@ -116,9 +122,9 @@ const UserGrowthChart = () => {
           if (meta && meta.data) {
             meta.data.forEach((bar: any, index: number) => {
               const data = dataset.data[index];
-              if (data !== 0 && bar && typeof bar.x === 'number' && typeof bar.y === 'number') {
+              if (data > 0 && bar && typeof bar.x === 'number' && typeof bar.y === 'number') {
                 ctx.fillText(
-                  data.toFixed(1) + '%',
+                  data.toLocaleString('vi-VN'),
                   bar.x,
                   bar.y - 5
                 );
@@ -131,19 +137,23 @@ const UserGrowthChart = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100 mb-6">
-      <h2 className="text-lg font-semibold mb-4">Tăng trưởng người dùng</h2>
+    <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
+      <h2 className="text-lg font-semibold mb-4">Doanh thu theo tháng</h2>
       <div className="w-full h-64">
         {!isDataLoaded ? (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-10 h-10 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-t-2 border-b-2 border-pink-500 rounded-full animate-spin"></div>
           </div>
-        ) : (
+        ) : chartData.datasets.length > 0 ? (
           <Bar options={options} data={chartData} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500">
+            Chưa có dữ liệu doanh thu
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-export default UserGrowthChart;
+export default RevenueChart;

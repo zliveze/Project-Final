@@ -97,11 +97,9 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
           <CategoryProvider>
             <BranchProvider>
               <CampaignProvider>
-                <RecommendationProvider>
-                  <UserContextProvider>
-                    {children}
-                  </UserContextProvider>
-                </RecommendationProvider>
+                <UserContextProvider>
+                  {children}
+                </UserContextProvider>
               </CampaignProvider>
             </BranchProvider>
           </CategoryProvider>
@@ -118,7 +116,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   if (currentPath.startsWith('/admin/products') || currentPath.startsWith('/admin/campaigns')) {
     pageSpecificProviders = <ProductProvider>{pageSpecificProviders}</ProductProvider>;
   }
-  
+
   if (currentPath.startsWith('/admin/events')) {
      // Logic cho trang admin/events, có thể cần ProductProvider và EventsProvider
      pageSpecificProviders = (
@@ -134,9 +132,11 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   if (currentPath.startsWith('/shop') || currentPath.startsWith('/product')) {
     pageSpecificProviders = (
       <EventsProvider>
-        <ShopProductProvider>
-          {pageSpecificProviders}
-        </ShopProductProvider>
+        <RecommendationProvider>
+          <ShopProductProvider>
+            {pageSpecificProviders}
+          </ShopProductProvider>
+        </RecommendationProvider>
       </EventsProvider>
     );
   }
@@ -158,7 +158,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
       </AdminOrderProvider>
     );
   }
-  
+
   // Các trường hợp khác có thể được thêm vào đây
 
   return pageSpecificProviders;

@@ -1,48 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiEye } from 'react-icons/fi';
-
-// Dữ liệu mẫu cho đơn hàng gần đây
-const sampleOrders = [
-  {
-    id: 'ORD-001',
-    customer: 'Nguyễn Văn A',
-    date: '15/03/2025',
-    amount: '1,250,000đ',
-    status: 'completed'
-  },
-  {
-    id: 'ORD-002',
-    customer: 'Trần Thị B',
-    date: '14/03/2025',
-    amount: '850,000đ',
-    status: 'shipped'
-  },
-  {
-    id: 'ORD-003',
-    customer: 'Lê Văn C',
-    date: '14/03/2025',
-    amount: '2,100,000đ',
-    status: 'pending'
-  },
-  {
-    id: 'ORD-004',
-    customer: 'Phạm Thị D',
-    date: '13/03/2025',
-    amount: '750,000đ',
-    status: 'cancelled'
-  },
-  {
-    id: 'ORD-005',
-    customer: 'Hoàng Văn E',
-    date: '12/03/2025',
-    amount: '1,800,000đ',
-    status: 'shipped'
-  }
-];
+import { useAdminOrder } from '@/contexts/AdminOrderContext';
 
 export default function RecentOrders() {
-  const [orders] = useState(sampleOrders);
+  const { orders, loading, fetchOrders } = useAdminOrder();
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+
+  useEffect(() => {
+    // Chỉ fetch một lần khi component mount
+    if (!hasAttemptedFetch) {
+      setHasAttemptedFetch(true);
+      // Gọi API để lấy 5 đơn hàng gần đây nhất
+      fetchOrders(1, 5);
+    }
+  }, [hasAttemptedFetch, fetchOrders]);
+
+  useEffect(() => {
+    // Cập nhật danh sách đơn hàng gần đây khi có dữ liệu thực từ API
+    if (orders && orders.length > 0) {
+      const formattedOrders = orders.map(order => ({
+        id: order.orderNumber || order._id,
+        customer: typeof order.userId === 'object' ? order.userId.name || order.userName || 'Khách hàng' : order.userName || 'Khách hàng',
+        date: new Date(order.createdAt).toLocaleDateString('vi-VN'),
+        amount: order.finalPrice.toLocaleString('vi-VN') + 'đ',
+        status: order.status
+      }));
+      setRecentOrders(formattedOrders);
+    }
+  }, [orders]);
 
   // Hàm để hiển thị màu sắc dựa trên trạng thái đơn hàng
   const getStatusColor = (status: string) => {
@@ -106,7 +93,32 @@ export default function RecentOrders() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
+            {loading ? (
+              // Hiển thị skeleton loading
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={index} className="animate-pulse">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="h-4 bg-gray-200 rounded w-28"></div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="h-4 bg-gray-200 rounded w-16"></div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <div className="h-4 bg-gray-200 rounded w-8 ml-auto"></div>
+                  </td>
+                </tr>
+              ))
+            ) : recentOrders.length > 0 ? (
+              recentOrders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {order.id}
@@ -131,7 +143,14 @@ export default function RecentOrders() {
                   </Link>
                 </td>
               </tr>
-            ))}
+            ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  Chưa có đơn hàng nào
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -142,4 +161,4 @@ export default function RecentOrders() {
       </div>
     </div>
   );
-} 
+}
