@@ -2836,6 +2836,7 @@ export class ProductsService {
   async removeBranchFromProducts(branchId: string): Promise<{ success: boolean; count: number }> {
     try {
       const branchObjectId = new Types.ObjectId(branchId);
+      this.logger.log(`[RemoveBranch] Starting removal of branchId: ${branchId}`);
 
       // Tìm tất cả sản phẩm có tham chiếu đến chi nhánh này trong inventory, variantInventory, hoặc combinationInventory
       const products = await this.productModel.find({
@@ -2847,10 +2848,11 @@ export class ProductsService {
       });
 
       let count = 0;
-      this.logger.log(`Found ${products.length} products referencing branch ID: ${branchId}`);
+      this.logger.log(`[RemoveBranch] Found ${products.length} products referencing branch ID: ${branchId}`);
 
       // Xử lý từng sản phẩm
       for (const product of products) {
+        this.logger.log(`[RemoveBranch] Processing product._id: ${product._id} for branchId: ${branchId}`);
         let productModified = false;
 
         // Lọc bỏ chi nhánh khỏi inventory
@@ -2861,11 +2863,12 @@ export class ProductsService {
           );
           if (product.inventory.length !== initialInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from inventory of product ${product._id}`);
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Filtered branch ${branchId} from product.inventory. Initial count: ${initialInventoryCount}, New count: ${product.inventory.length}`);
           }
         } else {
           product.inventory = []; // Đảm bảo inventory là mảng nếu nó null/undefined
         }
+        this.logger.log(`[RemoveBranch] Product ${product._id}: product.inventory after filtering branch ${branchId}: ${JSON.stringify(product.inventory)}`);
 
         // Lọc bỏ chi nhánh khỏi variantInventory
         if (Array.isArray(product.variantInventory) && product.variantInventory.length > 0) {
@@ -2875,11 +2878,12 @@ export class ProductsService {
           );
           if (product.variantInventory.length !== initialVariantInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from variantInventory of product ${product._id}`);
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Filtered branch ${branchId} from product.variantInventory. Initial count: ${initialVariantInventoryCount}, New count: ${product.variantInventory.length}`);
           }
         } else {
           product.variantInventory = []; // Đảm bảo variantInventory là mảng
         }
+        this.logger.log(`[RemoveBranch] Product ${product._id}: product.variantInventory after filtering branch ${branchId}: ${JSON.stringify(product.variantInventory)}`);
 
         // Lọc bỏ chi nhánh khỏi combinationInventory
         if (Array.isArray(product.combinationInventory) && product.combinationInventory.length > 0) {
@@ -2889,25 +2893,93 @@ export class ProductsService {
           );
           if (product.combinationInventory.length !== initialCombinationInventoryCount) {
             productModified = true;
-            this.logger.log(`Removed branch ${branchId} from combinationInventory of product ${product._id}`);
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Filtered branch ${branchId} from product.combinationInventory. Initial count: ${initialCombinationInventoryCount}, New count: ${product.combinationInventory.length}`);
           }
         } else {
           product.combinationInventory = []; // Đảm bảo combinationInventory là mảng
         }
+        this.logger.log(`[RemoveBranch] Product ${product._id}: product.combinationInventory after filtering branch ${branchId}: ${JSON.stringify(product.combinationInventory)}`);
 
         // Nếu có sự thay đổi, tính toán lại tổng tồn kho và cập nhật trạng thái
+        // ProductModified might be true here if any of the inventory arrays were changed by filtering.
+        // The sync logic below might also mark productModified as true if it changes product.inventory further.
+        const previousProductModifiedState = productModified;
+
+        // START OF REFACTORING (with added logging)
+        if (Array.isArray(product.variants) && product.variants.length > 0) {
+          this.logger.log(`[RemoveBranch] Product ${product._id}: Has variants. Starting sync of product.inventory from product.variantInventory.`);
+          const updatedInventory = [];
+          const variantInventoryByBranch = new Map<string, number>();
+
+          // Calculate total quantity for each branch from filtered variantInventory
+          for (const variantInv of product.variantInventory) {
+            const currentBranchIdStr = variantInv.branchId.toString();
+            const currentQuantity = variantInventoryByBranch.get(currentBranchIdStr) || 0;
+            variantInventoryByBranch.set(currentBranchIdStr, currentQuantity + (variantInv.quantity || 0));
+          }
+
+          // Update existing product.inventory entries or add new ones
+          // Keep track if this sync logic actually changes product.inventory
+          let inventorySyncedAndChanged = false;
+          const originalInventoryBeforeSync = JSON.stringify(product.inventory.map(inv => ({branchId: inv.branchId.toString(), quantity: inv.quantity})).sort((a,b) => a.branchId.localeCompare(b.branchId)));
+
+
+          for (const [branchIdStr, totalQuantity] of variantInventoryByBranch.entries()) {
+            const existingInvEntry = product.inventory.find(inv => inv.branchId.toString() === branchIdStr);
+            if (existingInvEntry) {
+              if (existingInvEntry.quantity !== totalQuantity) {
+                this.logger.log(`[RemoveBranch] Product ${product._id}, Branch ${branchIdStr}: Updating inventory quantity from ${existingInvEntry.quantity} to ${totalQuantity} based on variantInventory.`);
+                existingInvEntry.quantity = totalQuantity;
+                inventorySyncedAndChanged = true;
+              }
+              updatedInventory.push(existingInvEntry);
+            } else {
+              // This case handles if a branch was in variantInventory but not in product.inventory after filtering
+              const newEntry = {
+                branchId: new Types.ObjectId(branchIdStr),
+                quantity: totalQuantity,
+                lowStockThreshold: product.inventory.length > 0 && product.inventory[0].lowStockThreshold !== undefined ? product.inventory[0].lowStockThreshold : 5,
+              };
+              updatedInventory.push(newEntry);
+              this.logger.log(`[RemoveBranch] Product ${product._id}, Branch ${branchIdStr}: Added new inventory entry with quantity ${totalQuantity} based on variantInventory. LowStockThreshold: ${newEntry.lowStockThreshold}`);
+              inventorySyncedAndChanged = true;
+            }
+          }
+          // Ensure all remaining branches in product.inventory that are *not* in variantInventoryByBranch are removed.
+          // This is implicitly handled if updatedInventory becomes the new product.inventory.
+          // We also need to detect if this step removed any entries.
+          if (product.inventory.length !== updatedInventory.length) {
+            inventorySyncedAndChanged = true;
+          }
+
+          product.inventory = updatedInventory;
+          if(inventorySyncedAndChanged) {
+            productModified = true; // Mark as modified if this sync step changed anything
+            this.logger.log(`[RemoveBranch] Product ${product._id}: product.inventory after sync from variantInventory: ${JSON.stringify(product.inventory)}`);
+          } else {
+             this.logger.log(`[RemoveBranch] Product ${product._id}: product.inventory sync from variantInventory did not result in changes. Current state: ${JSON.stringify(product.inventory)}`);
+          }
+        }
+        // END OF REFACTORING
+
+        // Only proceed to save if productModified is true (either from filtering or from sync)
         if (productModified) {
+          this.logger.log(`[RemoveBranch] Product ${product._id}: Recalculating inventory totals and status.`);
           // Tính tổng tồn kho từ inventory (tồn kho chính của sản phẩm)
+          // For products with variants, product.inventory is now correctly updated based on variantInventory
           const totalProductInventory = (product.inventory || []).reduce(
             (sum, inv) => sum + (inv.quantity || 0),
             0
           );
+          this.logger.log(`[RemoveBranch] Product ${product._id}: Calculated totalProductInventory = ${totalProductInventory}`);
 
           // Tính tổng tồn kho từ variantInventory (nếu sản phẩm có biến thể)
+          // This remains the source of truth for finalTotalInventory if variants exist
           const totalVariantInventory = (product.variantInventory || []).reduce(
             (sum, inv) => sum + (inv.quantity || 0),
             0
           );
+          this.logger.log(`[RemoveBranch] Product ${product._id}: Calculated totalVariantInventory = ${totalVariantInventory}`);
 
           let finalTotalInventory = 0;
           if (Array.isArray(product.variants) && product.variants.length > 0) {
@@ -2917,25 +2989,29 @@ export class ProductsService {
             // Nếu không có biến thể, tổng tồn kho dựa trên inventory chính
             finalTotalInventory = totalProductInventory;
           }
+          this.logger.log(`[RemoveBranch] Product ${product._id}: Calculated finalTotalInventory = ${finalTotalInventory}`);
 
-          this.logger.log(`Product ${product._id}: Total product inventory = ${totalProductInventory}, Total variant inventory = ${totalVariantInventory}, Final total inventory = ${finalTotalInventory}`);
-
+          const oldStatus = product.status;
           if (finalTotalInventory === 0 && product.status !== 'discontinued') {
             product.status = 'out_of_stock';
-            this.logger.log(`Product ${product._id} status updated to 'out_of_stock' as total inventory is 0.`);
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Status changing from '${oldStatus}' to 'out_of_stock' due to finalTotalInventory: ${finalTotalInventory}.`);
           } else if (finalTotalInventory > 0 && product.status === 'out_of_stock') {
             product.status = 'active';
-            this.logger.log(`Product ${product._id} status updated to 'active' as total inventory is ${finalTotalInventory}.`);
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Status changing from '${oldStatus}' to 'active' due to finalTotalInventory: ${finalTotalInventory}.`);
+          } else {
+            this.logger.log(`[RemoveBranch] Product ${product._id}: Status remains '${product.status}' with finalTotalInventory: ${finalTotalInventory}.`);
           }
 
           // Lưu sản phẩm
           await product.save();
           count++;
-          this.logger.log(`Product ${product._id} saved after removing branch ${branchId}.`);
+          this.logger.log(`[RemoveBranch] Product ${product._id} saved successfully after processing branch ${branchId}.`);
+        } else {
+          this.logger.log(`[RemoveBranch] Product ${product._id}: No modifications made after filtering and sync for branch ${branchId}. Skipping save.`);
         }
       }
 
-      this.logger.log(`Successfully processed ${count} products for branch removal.`);
+      this.logger.log(`[RemoveBranch] Successfully processed ${count} products for removal of branchId: ${branchId}.`);
       return {
         success: true,
         count
