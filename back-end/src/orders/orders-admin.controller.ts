@@ -117,6 +117,17 @@ export class OrdersAdminController {
       return result;
     }
 
+    if (status === OrderStatus.RETURNED) {
+      if (!reason) {
+        console.log(`[DEBUG_CONTROLLER] Thiếu lý do khi trả hàng ${id}`);
+        throw new BadRequestException('Reason is required when returning an order');
+      }
+      console.log(`[DEBUG_CONTROLLER] Gọi service returnOrder cho đơn hàng ${id} với lý do: ${reason}`);
+      const result = await this.ordersService.returnOrder(id, reason);
+      console.log(`[DEBUG_CONTROLLER] Kết quả trả hàng ${id}: ${result ? 'Thành công' : 'Thất bại'}`);
+      return result;
+    }
+
     console.log(`[DEBUG_CONTROLLER] Gọi service updateStatus cho đơn hàng ${id} với trạng thái: ${status}`);
     return this.ordersService.updateStatus(id, status);
   }

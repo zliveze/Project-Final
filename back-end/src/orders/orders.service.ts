@@ -426,6 +426,9 @@ export class OrdersService {
       const currentOrder = await this.findOne(id);
       this.logger.debug(`Current order status: ${currentOrder.status}`);
 
+      // Xử lý logic cập nhật kho dựa trên thay đổi trạng thái
+      await this.handleInventoryUpdateOnStatusChange(currentOrder, status);
+
       // Cập nhật trạng thái đơn hàng
       const updatedOrder = await this.update(id, { status, updatedBy });
 
@@ -515,16 +518,14 @@ export class OrdersService {
         throw new BadRequestException(`Cannot cancel order with status ${order.status}`);
       }
 
-      // Khôi phục inventory trước khi cập nhật trạng thái
-      this.logger.warn(`[CANCEL_ORDER] Restoring inventory for cancelled order`);
-      await this.restoreProductInventory(order.items, order.branchId?.toString());
+      // Cập nhật trạng thái đơn hàng (inventory sẽ được xử lý trong updateStatus)
+      const updatedOrder = await this.updateStatus(id, OrderStatus.CANCELLED, updatedBy);
 
-      // Cập nhật trạng thái đơn hàng
-      const updatedOrder = await this.orderModel
+      // Cập nhật thêm metadata cho việc hủy đơn hàng
+      await this.orderModel
         .findByIdAndUpdate(
           id,
           {
-            status: OrderStatus.CANCELLED,
             'metadata.cancelReason': reason,
             'metadata.cancelledAt': new Date(),
             'metadata.cancelledBy': updatedBy,
@@ -533,7 +534,7 @@ export class OrdersService {
         )
         .exec();
 
-      // Cập nhật lịch sử theo dõi
+      // Cập nhật lịch sử theo dõi với lý do cụ thể
       await this.updateOrderTracking(
         id,
         OrderStatus.CANCELLED,
@@ -697,16 +698,14 @@ export class OrdersService {
         }
       }
 
-      // Khôi phục inventory trước khi cập nhật trạng thái
-      this.logger.warn(`[RETURN_ORDER] Restoring inventory for returned order`);
-      await this.restoreProductInventory(order.items, order.branchId?.toString());
+      // Cập nhật trạng thái đơn hàng (inventory sẽ được xử lý trong updateStatus)
+      const updatedOrder = await this.updateStatus(id, OrderStatus.RETURNED, updatedBy);
 
-      // Cập nhật trạng thái đơn hàng
-      const updatedOrder = await this.orderModel
+      // Cập nhật thêm metadata cho việc trả hàng
+      await this.orderModel
         .findByIdAndUpdate(
           id,
           {
-            status: OrderStatus.RETURNED,
             'metadata.returnReason': reason,
             'metadata.returnedAt': new Date(),
             'metadata.returnedBy': updatedBy,
@@ -715,7 +714,7 @@ export class OrdersService {
         )
         .exec();
 
-      // Cập nhật lịch sử theo dõi
+      // Cập nhật lịch sử theo dõi với lý do cụ thể
       await this.updateOrderTracking(
         id,
         OrderStatus.RETURNED,
@@ -1395,6 +1394,67 @@ export class OrdersService {
     } catch (error) {
       this.logger.error(`Error in decreaseProductInventory: ${error.message}`, error.stack);
       // Không throw lỗi để không ảnh hưởng đến quá trình tạo đơn hàng
+    }
+  }
+
+  /**
+   * Xử lý cập nhật kho khi thay đổi trạng thái đơn hàng
+   */
+  private async handleInventoryUpdateOnStatusChange(currentOrder: OrderDocument, newStatus: OrderStatus): Promise<void> {
+    try {
+      const currentStatus = currentOrder.status;
+      this.logger.debug(`[INVENTORY_UPDATE] Handling status change from ${currentStatus} to ${newStatus} for order ${currentOrder._id}`);
+
+      // Định nghĩa các trạng thái cần giảm kho (trừ delivered)
+      const decreaseInventoryStatuses = [
+        OrderStatus.PENDING,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PROCESSING,
+        OrderStatus.SHIPPING
+      ];
+
+      // Định nghĩa các trạng thái cần tăng kho (khôi phục)
+      const restoreInventoryStatuses = [
+        OrderStatus.CANCELLED,
+        OrderStatus.RETURNED
+      ];
+
+      // Kiểm tra xem có cần thay đổi kho không
+      const currentNeedsDecrease = decreaseInventoryStatuses.includes(currentStatus);
+      const newNeedsDecrease = decreaseInventoryStatuses.includes(newStatus);
+      const newNeedsRestore = restoreInventoryStatuses.includes(newStatus);
+
+      // Trường hợp 1: Từ trạng thái không giảm kho -> trạng thái cần giảm kho
+      if (!currentNeedsDecrease && newNeedsDecrease) {
+        this.logger.warn(`[INVENTORY_UPDATE] Decreasing inventory for status change to ${newStatus}`);
+        await this.decreaseProductInventory(currentOrder.items, currentOrder.branchId?.toString());
+      }
+      // Trường hợp 2: Từ trạng thái giảm kho -> trạng thái cần khôi phục kho (hủy/trả hàng)
+      else if (currentNeedsDecrease && newNeedsRestore) {
+        this.logger.warn(`[INVENTORY_UPDATE] Restoring inventory for status change to ${newStatus}`);
+        await this.restoreProductInventory(currentOrder.items, currentOrder.branchId?.toString());
+      }
+      // Trường hợp 3: Từ trạng thái khôi phục -> trạng thái cần giảm kho
+      else if (restoreInventoryStatuses.includes(currentStatus) && newNeedsDecrease) {
+        this.logger.warn(`[INVENTORY_UPDATE] Decreasing inventory for status change from ${currentStatus} to ${newStatus}`);
+        await this.decreaseProductInventory(currentOrder.items, currentOrder.branchId?.toString());
+      }
+      // Trường hợp 4: Từ trạng thái khôi phục -> delivered (không cần thay đổi kho)
+      else if (restoreInventoryStatuses.includes(currentStatus) && newStatus === OrderStatus.DELIVERED) {
+        this.logger.debug(`[INVENTORY_UPDATE] No inventory change needed for ${currentStatus} -> ${newStatus}`);
+      }
+      // Trường hợp 5: Delivered -> trạng thái khôi phục (tăng kho)
+      else if (currentStatus === OrderStatus.DELIVERED && newNeedsRestore) {
+        this.logger.warn(`[INVENTORY_UPDATE] Restoring inventory for status change from delivered to ${newStatus}`);
+        await this.restoreProductInventory(currentOrder.items, currentOrder.branchId?.toString());
+      }
+      else {
+        this.logger.debug(`[INVENTORY_UPDATE] No inventory change needed for ${currentStatus} -> ${newStatus}`);
+      }
+
+    } catch (error) {
+      this.logger.error(`Error in handleInventoryUpdateOnStatusChange: ${error.message}`, error.stack);
+      // Không throw lỗi để không ảnh hưởng đến quá trình cập nhật trạng thái
     }
   }
 

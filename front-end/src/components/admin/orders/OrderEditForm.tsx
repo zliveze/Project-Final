@@ -65,6 +65,9 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reasonModalType, setReasonModalType] = useState<'cancelled' | 'returned' | null>(null);
+  const [statusReason, setStatusReason] = useState('');
   const [formData, setFormData] = useState({
     status: '',
     paymentStatus: '',
@@ -141,6 +144,21 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
           [addressField]: value
         }
       }));
+    } else if (name === 'status') {
+      // Kiểm tra xem trạng thái mới có cần lý do không
+      if ((value === 'cancelled' || value === 'returned') && value !== order?.status) {
+        // Hiển thị modal nhập lý do
+        setReasonModalType(value as 'cancelled' | 'returned');
+        setShowReasonModal(true);
+        setStatusReason('');
+        return; // Không cập nhật formData ngay lập tức
+      }
+
+      // Xử lý các trường thông thường
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     } else {
       // Xử lý các trường thông thường
       setFormData(prev => ({
@@ -155,10 +173,31 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
     try {
       setSubmitting(true);
 
-      // Chuẩn bị dữ liệu để gửi
-      const updatedData = {
-        status: formData.status,
-        paymentStatus: formData.paymentStatus,
+      // Kiểm tra xem có thay đổi trạng thái đơn hàng không
+      const statusChanged = formData.status !== order?.status;
+      const paymentStatusChanged = formData.paymentStatus !== order?.paymentStatus;
+
+      // Nếu có thay đổi trạng thái đơn hàng, sử dụng updateOrderStatus để cập nhật kho
+      if (statusChanged) {
+        console.log(`[DEBUG] Trạng thái đơn hàng thay đổi từ ${order?.status} thành ${formData.status}`);
+
+        // Kiểm tra xem trạng thái có cần lý do không
+        let reason = undefined;
+        if (formData.status === 'cancelled' || formData.status === 'returned') {
+          // Lý do đã được nhập trong modal trước đó, không cần xử lý thêm
+          // vì logic này chỉ chạy khi không có modal reason
+        }
+
+        // Sử dụng updateOrderStatus từ context để đảm bảo cập nhật kho chính xác
+        const updatedOrder = await updateOrderStatus(orderId, formData.status, reason);
+
+        if (!updatedOrder) {
+          throw new Error('Không thể cập nhật trạng thái đơn hàng');
+        }
+      }
+
+      // Chuẩn bị dữ liệu để gửi (loại bỏ status nếu đã cập nhật ở trên)
+      const updatedData: any = {
         notes: formData.notes,
         shippingAddress: {
           fullName: formData.shippingAddress.fullName,
@@ -172,7 +211,17 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         }
       };
 
-      // Gọi API để cập nhật đơn hàng
+      // Chỉ cập nhật paymentStatus nếu có thay đổi và chưa cập nhật status
+      if (paymentStatusChanged) {
+        updatedData.paymentStatus = formData.paymentStatus;
+      }
+
+      // Chỉ cập nhật status nếu chưa được cập nhật ở trên
+      if (!statusChanged) {
+        updatedData.status = formData.status;
+      }
+
+      // Gọi API để cập nhật các thông tin khác của đơn hàng
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
@@ -197,6 +246,46 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         id: `update-order-error-${orderId}`
       });
       setError(`Có lỗi xảy ra khi cập nhật đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Xử lý xác nhận lý do cho trạng thái cancelled/returned
+  const handleConfirmStatusReason = async () => {
+    if (!statusReason.trim()) {
+      toast.error('Vui lòng nhập lý do');
+      return;
+    }
+
+    if (!reasonModalType) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Cập nhật trạng thái với lý do
+      const updatedOrder = await updateOrderStatus(orderId, reasonModalType, statusReason);
+
+      if (updatedOrder) {
+        // Cập nhật formData để phản ánh trạng thái mới
+        setFormData(prev => ({
+          ...prev,
+          status: reasonModalType
+        }));
+
+        toast.success(`Cập nhật trạng thái ${reasonModalType === 'cancelled' ? 'hủy' : 'trả hàng'} thành công!`);
+        setShowReasonModal(false);
+        setStatusReason('');
+        setReasonModalType(null);
+        onSuccess();
+      } else {
+        throw new Error('Không thể cập nhật trạng thái đơn hàng');
+      }
+    } catch (error: any) {
+      console.error('Error updating order status with reason:', error);
+      toast.error(`Có lỗi xảy ra: ${error.message || 'Vui lòng thử lại sau'}`);
     } finally {
       setSubmitting(false);
     }
@@ -776,6 +865,81 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
                     disabled={submitting}
                   >
                     Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal nhập lý do cho trạng thái cancelled/returned */}
+        {showReasonModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+              </div>
+
+              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <FiAlertCircle className="h-6 w-6 text-yellow-600" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        {reasonModalType === 'cancelled' ? 'Xác nhận hủy đơn hàng' : 'Xác nhận trả hàng'}
+                      </h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Vui lòng nhập lý do {reasonModalType === 'cancelled' ? 'hủy đơn hàng' : 'trả hàng'}.
+                        </p>
+                        <div className="mt-4">
+                          <label htmlFor="statusReason" className="block text-sm font-medium text-gray-700">
+                            Lý do <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            id="statusReason"
+                            name="statusReason"
+                            rows={3}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm"
+                            value={statusReason}
+                            onChange={(e) => setStatusReason(e.target.value)}
+                            placeholder={`Vui lòng nhập lý do ${reasonModalType === 'cancelled' ? 'hủy đơn hàng' : 'trả hàng'}`}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-pink-600 text-base font-medium text-white hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={handleConfirmStatusReason}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Đang xử lý...' : 'Xác nhận'}
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => {
+                      setShowReasonModal(false);
+                      setStatusReason('');
+                      setReasonModalType(null);
+                      // Reset lại trạng thái trong dropdown về giá trị cũ
+                      setFormData(prev => ({
+                        ...prev,
+                        status: order?.status || ''
+                      }));
+                    }}
+                    disabled={submitting}
+                  >
+                    Hủy
                   </button>
                 </div>
               </div>
