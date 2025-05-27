@@ -515,6 +515,10 @@ export class OrdersService {
         throw new BadRequestException(`Cannot cancel order with status ${order.status}`);
       }
 
+      // Khôi phục inventory trước khi cập nhật trạng thái
+      this.logger.warn(`[CANCEL_ORDER] Restoring inventory for cancelled order`);
+      await this.restoreProductInventory(order.items, order.branchId?.toString());
+
       // Cập nhật trạng thái đơn hàng
       const updatedOrder = await this.orderModel
         .findByIdAndUpdate(
@@ -692,6 +696,10 @@ export class OrdersService {
           ).exec();
         }
       }
+
+      // Khôi phục inventory trước khi cập nhật trạng thái
+      this.logger.warn(`[RETURN_ORDER] Restoring inventory for returned order`);
+      await this.restoreProductInventory(order.items, order.branchId?.toString());
 
       // Cập nhật trạng thái đơn hàng
       const updatedOrder = await this.orderModel
@@ -1387,6 +1395,239 @@ export class OrdersService {
     } catch (error) {
       this.logger.error(`Error in decreaseProductInventory: ${error.message}`, error.stack);
       // Không throw lỗi để không ảnh hưởng đến quá trình tạo đơn hàng
+    }
+  }
+
+  /**
+   * Khôi phục số lượng sản phẩm trong kho khi hủy đơn hàng
+   */
+  private async restoreProductInventory(items: any[], orderBranchId?: string): Promise<void> {
+    try {
+      this.logger.debug('Restoring product inventory for cancelled order items');
+
+      // Lấy thông tin chi nhánh mặc định
+      const defaultBranchId = this.configService.get<string>('DEFAULT_BRANCH_ID') || '65a4e4c2a8a4e3c9ab9d1234';
+
+      for (const item of items) {
+        try {
+          const { productId, variantId, quantity, options } = item;
+          this.logger.debug(`Restoring inventory for item: ${JSON.stringify({ productId, variantId, quantity })}`);
+
+          // Xác định branchId
+          let branchId = orderBranchId || defaultBranchId;
+          if (options?.selectedOptions?.selectedBranchId) {
+            branchId = options.selectedOptions.selectedBranchId;
+            this.logger.debug(`Found branchId in options.selectedOptions.selectedBranchId: ${branchId}`);
+          }
+
+          // Lấy thông tin sản phẩm
+          const product = await this.productModel.findById(productId);
+          if (!product) {
+            this.logger.warn(`Product ${productId} not found for inventory restoration`);
+            continue;
+          }
+
+          // Lấy combinationId từ options nếu có
+          const combinationId = options?.selectedOptions?.combinationId;
+
+          // Trường hợp 1: Combination Variants
+          if (combinationId && variantId) {
+            this.logger.debug(`Restoring combination inventory: productId=${productId}, variantId=${variantId}, combinationId=${combinationId}, quantity=${quantity}`);
+
+            // Tìm combination inventory
+            const combinationInventoryItem = product.combinationInventory?.find(
+              inv => inv.branchId.toString() === branchId &&
+                     inv.variantId.toString() === variantId &&
+                     inv.combinationId.toString() === combinationId
+            );
+
+            if (!combinationInventoryItem) {
+              this.logger.warn(`Combination inventory not found for restoration: branchId=${branchId}, variantId=${variantId}, combinationId=${combinationId}`);
+              continue;
+            }
+
+            // Khôi phục số lượng combination
+            const currentCombinationQuantity = combinationInventoryItem.quantity || 0;
+            const newCombinationQuantity = currentCombinationQuantity + quantity;
+            this.logger.debug(`Restoring combination quantity: ${currentCombinationQuantity} + ${quantity} = ${newCombinationQuantity}`);
+
+            // Cập nhật combinationInventory
+            const updateCombinationResult = await this.productModel.collection.updateOne(
+              {
+                _id: new Types.ObjectId(productId.toString()),
+                'combinationInventory': {
+                  $elemMatch: {
+                    'combinationId': combinationId,
+                    'variantId': variantId,
+                    'branchId': branchId
+                  }
+                }
+              },
+              {
+                $set: { 'combinationInventory.$.quantity': newCombinationQuantity }
+              }
+            );
+
+            if (updateCombinationResult.modifiedCount > 0) {
+              this.logger.debug(`Successfully restored combination inventory: ${newCombinationQuantity} units`);
+
+              // Cập nhật tổng số lượng variant
+              const updatedProduct = await this.productModel.findById(productId);
+              if (updatedProduct) {
+                const totalCombinationQuantity = updatedProduct.combinationInventory
+                  .filter(inv => inv.branchId.toString() === branchId && inv.variantId.toString() === variantId)
+                  .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+
+                await this.productModel.collection.updateOne(
+                  {
+                    _id: new Types.ObjectId(productId.toString()),
+                    'variantInventory': {
+                      $elemMatch: {
+                        'variantId': variantId,
+                        'branchId': branchId
+                      }
+                    }
+                  },
+                  {
+                    $set: { 'variantInventory.$.quantity': totalCombinationQuantity }
+                  }
+                );
+
+                // Cập nhật tổng số lượng inventory
+                const updatedProductAfterVariant = await this.productModel.findById(productId);
+                if (updatedProductAfterVariant) {
+                  const totalVariantQuantity = updatedProductAfterVariant.variantInventory
+                    .filter(inv => inv.branchId.toString() === branchId)
+                    .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+
+                  await this.productModel.collection.updateOne(
+                    {
+                      _id: new Types.ObjectId(productId.toString()),
+                      'inventory': {
+                        $elemMatch: {
+                          'branchId': branchId
+                        }
+                      }
+                    },
+                    {
+                      $set: { 'inventory.$.quantity': totalVariantQuantity }
+                    }
+                  );
+                }
+              }
+            }
+          }
+          // Trường hợp 2: Variants (không có combination)
+          else if (variantId) {
+            this.logger.debug(`Restoring variant inventory: productId=${productId}, variantId=${variantId}, quantity=${quantity}`);
+
+            // Tìm variant inventory
+            const variantInventoryItem = product.variantInventory?.find(
+              inv => inv.branchId.toString() === branchId && inv.variantId.toString() === variantId
+            );
+
+            if (!variantInventoryItem) {
+              this.logger.warn(`Variant inventory not found for restoration: branchId=${branchId}, variantId=${variantId}`);
+              continue;
+            }
+
+            // Khôi phục số lượng variant
+            const currentVariantQuantity = variantInventoryItem.quantity || 0;
+            const newVariantQuantity = currentVariantQuantity + quantity;
+            this.logger.debug(`Restoring variant quantity: ${currentVariantQuantity} + ${quantity} = ${newVariantQuantity}`);
+
+            // Cập nhật variantInventory
+            const updateVariantResult = await this.productModel.collection.updateOne(
+              {
+                _id: new Types.ObjectId(productId.toString()),
+                'variantInventory': {
+                  $elemMatch: {
+                    'variantId': variantId,
+                    'branchId': branchId
+                  }
+                }
+              },
+              {
+                $set: { 'variantInventory.$.quantity': newVariantQuantity }
+              }
+            );
+
+            if (updateVariantResult.modifiedCount > 0) {
+              this.logger.debug(`Successfully restored variant inventory: ${newVariantQuantity} units`);
+
+              // Cập nhật tổng số lượng inventory
+              const updatedProduct = await this.productModel.findById(productId);
+              if (updatedProduct) {
+                const totalVariantQuantity = updatedProduct.variantInventory
+                  .filter(inv => inv.branchId.toString() === branchId)
+                  .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+
+                await this.productModel.collection.updateOne(
+                  {
+                    _id: new Types.ObjectId(productId.toString()),
+                    'inventory': {
+                      $elemMatch: {
+                        'branchId': branchId
+                      }
+                    }
+                  },
+                  {
+                    $set: { 'inventory.$.quantity': totalVariantQuantity }
+                  }
+                );
+              }
+            }
+          }
+          // Trường hợp 3: Products thông thường
+          else {
+            this.logger.debug(`Restoring product inventory: productId=${productId}, quantity=${quantity}`);
+
+            // Tìm inventory
+            const inventoryItem = product.inventory?.find(
+              inv => inv.branchId.toString() === branchId
+            );
+
+            if (!inventoryItem) {
+              this.logger.warn(`Product inventory not found for restoration: branchId=${branchId}, productId=${productId}`);
+              continue;
+            }
+
+            // Khôi phục số lượng product
+            const currentQuantity = inventoryItem.quantity || 0;
+            const newQuantity = currentQuantity + quantity;
+            this.logger.debug(`Restoring product quantity: ${currentQuantity} + ${quantity} = ${newQuantity}`);
+
+            // Cập nhật inventory
+            const updateResult = await this.productModel.collection.updateOne(
+              {
+                _id: new Types.ObjectId(productId.toString()),
+                'inventory': {
+                  $elemMatch: {
+                    'branchId': branchId
+                  }
+                }
+              },
+              {
+                $set: { 'inventory.$.quantity': newQuantity }
+              }
+            );
+
+            if (updateResult.modifiedCount > 0) {
+              this.logger.debug(`Successfully restored product inventory: ${newQuantity} units`);
+            } else {
+              this.logger.warn(`Failed to restore product inventory for product ${productId}`);
+            }
+          }
+
+        } catch (itemError) {
+          this.logger.error(`Error restoring inventory for item ${item.productId}: ${itemError.message}`, itemError.stack);
+          // Tiếp tục với item tiếp theo
+        }
+      }
+
+    } catch (error) {
+      this.logger.error(`Error in restoreProductInventory: ${error.message}`, error.stack);
+      // Không throw lỗi để không ảnh hưởng đến quá trình hủy đơn hàng
     }
   }
 
