@@ -17,6 +17,9 @@ interface UserContextProviderProps {
 /**
  * Provider tích hợp tất cả các context phía người dùng
  * Sử dụng trong index.tsx để cung cấp context cho các trang người dùng
+ * 
+ * Lưu ý: HeaderProvider phải được đặt sau CartProvider và WishlistProvider
+ * vì HeaderContext cần sử dụng useCart() và useWishlist()
  */
 export const UserContextProvider: React.FC<UserContextProviderProps> = ({ children, withShopProduct = false }) => {
   return (
@@ -24,17 +27,17 @@ export const UserContextProvider: React.FC<UserContextProviderProps> = ({ childr
       <BrandProvider>
         <CartProvider>
           <WishlistProvider>
-            <UserOrderProvider>
-              <UserPaymentProvider>
-                <OrderProvider>
-                  <UserReviewProvider>
-                    <HeaderProvider>
+            <HeaderProvider>
+              <UserOrderProvider>
+                <UserPaymentProvider>
+                  <OrderProvider>
+                    <UserReviewProvider>
                       {children}
-                    </HeaderProvider>
-                  </UserReviewProvider>
-                </OrderProvider>
-              </UserPaymentProvider>
-            </UserOrderProvider>
+                    </UserReviewProvider>
+                  </OrderProvider>
+                </UserPaymentProvider>
+              </UserOrderProvider>
+            </HeaderProvider>
           </WishlistProvider>
         </CartProvider>
       </BrandProvider>

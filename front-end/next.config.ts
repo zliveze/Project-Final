@@ -68,6 +68,11 @@ const nextConfig: NextConfig = {
         hostname: 'cdn2-retail-images.kiotviet.vn',
         port: '',
         pathname: '/**',
+      },{
+        protocol: 'https',
+        hostname: 'cf.shopee.vn',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

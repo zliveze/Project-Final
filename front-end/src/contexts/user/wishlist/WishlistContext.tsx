@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { toast } from 'react-toastify';
 import { UserApiService } from '../UserApiService'; // Assuming correct path
 import { useAuth } from '../../AuthContext'; // Assuming correct path
-import axios from 'axios';
+import axiosInstance from '../../../lib/axiosInstance';
 
 // Define API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -143,7 +143,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
             // Ghi lại hoạt động thêm vào danh sách yêu thích (sử dụng click endpoint)
             try {
-                await axios.post(`${API_URL}/recommendations/log/click/${productId}`, {
+                await axiosInstance.post(`/recommendations/log/click/${productId}`, {
                     variantId: variantIdToUse || undefined
                 });
             } catch (error) {

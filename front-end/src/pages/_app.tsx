@@ -3,6 +3,7 @@ import type { AppProps } from "next/app";
 import Error from "next/error";
 import { AppProviders } from "../contexts";
 import { Toaster } from 'react-hot-toast'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext'
 import { AdminUserProvider } from '@/contexts/AdminUserContext'
 import { AdminUserReviewProvider } from '@/contexts/AdminUserReviewContext'
@@ -77,14 +78,16 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
   const getLayout = Component.getLayout ?? ((page) => page);
 
   return (
-    <AdminAuthProvider>
-      <AppProviders>
-        <AdminWrapper>
-          {getLayout(<Component {...pageProps} />)}
-          <LoadingOverlay />
-        </AdminWrapper>
-      </AppProviders>
-      <Toaster position="top-right" />
-    </AdminAuthProvider>
+    <AuthProvider>
+      <AdminAuthProvider>
+        <AppProviders>
+          <AdminWrapper>
+            {getLayout(<Component {...pageProps} />)}
+            <LoadingOverlay />
+          </AdminWrapper>
+        </AppProviders>
+        <Toaster position="top-right" />
+      </AdminAuthProvider>
+    </AuthProvider>
   );
 }

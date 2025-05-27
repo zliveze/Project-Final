@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 // Import dependencies thực tế
 import { useAuth } from '@/contexts/AuthContext'; // Điều chỉnh đường dẫn nếu cần
 import { useUserVoucher, VoucherApplyResult } from '@/hooks/useUserVoucher';
-import axios from 'axios';
+import axios from '@/lib/axios';
 
 // Define API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -467,7 +467,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Ghi lại hoạt động thêm vào giỏ hàng
       try {
-        await axios.post(`${API_URL}/recommendations/log/add-to-cart/${productId}`, {
+        await axios.post(`/recommendations/log/add-to-cart/${productId}`, {
           variantId: variantId || undefined
         });
       } catch (error) {
