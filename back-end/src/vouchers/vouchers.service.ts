@@ -120,32 +120,32 @@ export class VouchersService {
 
   // Áp dụng voucher vào đơn hàng
   async applyVoucherToOrder(
-    voucherCode: string, 
-    userId: string, 
-    orderValue: number, 
+    voucherCode: string,
+    userId: string,
+    orderValue: number,
     productIds: string[] = []
   ): Promise<VoucherApplyResponseDto> {
     console.log(`[VoucherService] applyVoucherToOrder called with userId: ${userId}, code: ${voucherCode}, orderValue: ${orderValue}`); // Log input
     const voucher = await this.findByCode(voucherCode);
     const now = new Date();
-    
+
     // Kiểm tra tính hợp lệ của voucher
     if (!voucher.isActive) {
       throw new BadRequestException('Voucher đã bị vô hiệu hóa');
     }
-    
+
     if (now < voucher.startDate || now > voucher.endDate) {
       throw new BadRequestException('Voucher chưa có hiệu lực hoặc đã hết hạn');
     }
-    
+
     if (voucher.usedCount >= voucher.usageLimit) {
       throw new BadRequestException('Voucher đã hết lượt sử dụng');
     }
-    
+
     if (orderValue < voucher.minimumOrderValue) {
       throw new BadRequestException(`Giá trị đơn hàng tối thiểu phải từ ${voucher.minimumOrderValue} VND`);
     }
-    
+
     // Kiểm tra xem người dùng đã sử dụng voucher này chưa
     if (voucher.usedByUsers.some(id => id.toString() === userId)) {
       throw new BadRequestException('Bạn đã sử dụng voucher này rồi');
@@ -166,18 +166,18 @@ export class VouchersService {
         }
       }
     }
-    
+
     // Kiểm tra sản phẩm áp dụng nếu voucher có giới hạn sản phẩm
     if (voucher.applicableProducts && voucher.applicableProducts.length > 0) {
       // Kiểm tra xem có sản phẩm nào trong giỏ hàng thuộc voucher không
       const validProductIds = voucher.applicableProducts.map(id => id.toString());
       const hasValidProduct = productIds.some(id => validProductIds.includes(id));
-      
+
       if (!hasValidProduct) {
         throw new BadRequestException('Voucher này không áp dụng cho các sản phẩm trong đơn hàng của bạn');
       }
     }
-    
+
     // Tính toán giảm giá
     let discountAmount = 0;
     if (voucher.discountType === 'percentage') {
@@ -185,92 +185,92 @@ export class VouchersService {
     } else {
       discountAmount = Math.min(voucher.discountValue, orderValue);
     }
-    
+
     const finalAmount = orderValue - discountAmount;
-    
+
     // Cập nhật trạng thái voucher (sẽ thực hiện khi đơn hàng hoàn tất)
     // Ở đây chỉ trả về thông tin giảm giá, việc cập nhật usedCount và usedByUsers
     // sẽ được thực hiện trong OrderService khi đơn hàng được xác nhận
-    
-    return { 
+
+    return {
       voucherId: voucher._id.toString(),
-      discountAmount, 
+      discountAmount,
       finalAmount,
-      message: 'Áp dụng voucher thành công' 
+      message: 'Áp dụng voucher thành công'
     };
   }
-  
+
   // Cập nhật voucher khi đơn hàng hoàn tất
   async markVoucherAsUsed(voucherId: string, userId: string): Promise<void> {
     console.log(`[VoucherService] markVoucherAsUsed called with voucherId: ${voucherId}, userId: ${userId}`);
-    
+
     if (!Types.ObjectId.isValid(voucherId) || !Types.ObjectId.isValid(userId)) {
       console.log(`[VoucherService] Invalid ID format - voucherId: ${voucherId}, userId: ${userId}`);
       throw new BadRequestException('ID không hợp lệ');
     }
-    
+
     // Kiểm tra xem voucher có tồn tại không
     const voucher = await this.voucherModel.findById(voucherId);
     if (!voucher) {
       console.log(`[VoucherService] Voucher not found with ID: ${voucherId}`);
       throw new NotFoundException(`Không tìm thấy voucher với ID ${voucherId}`);
     }
-    
+
     console.log(`[VoucherService] Found voucher: ${voucher.code}, usedCount: ${voucher.usedCount}/${voucher.usageLimit}`);
     console.log(`[VoucherService] Current usedByUsers: ${JSON.stringify(voucher.usedByUsers.map(id => id.toString()))}`);
-    
+
     // Kiểm tra xem người dùng đã sử dụng voucher này chưa
     const hasUserUsed = voucher.usedByUsers.some(id => id.toString() === userId);
     console.log(`[VoucherService] Has user used this voucher? ${hasUserUsed}`);
-    
+
     if (hasUserUsed) {
       console.log(`[VoucherService] User ${userId} has already used voucher ${voucherId}`);
       throw new BadRequestException('Người dùng đã sử dụng voucher này rồi');
     }
-    
+
     // Kiểm tra xem voucher còn lượt sử dụng không
     if (voucher.usedCount >= voucher.usageLimit) {
       console.log(`[VoucherService] Voucher ${voucherId} has reached usage limit: ${voucher.usedCount}/${voucher.usageLimit}`);
       throw new BadRequestException('Voucher đã hết lượt sử dụng');
     }
-    
+
     try {
       // Sử dụng atomic operation để cập nhật
       const result = await this.voucherModel.updateOne(
-        { 
+        {
           _id: new Types.ObjectId(voucherId),
           usedByUsers: { $ne: new Types.ObjectId(userId) }, // Đảm bảo chưa có userId trong danh sách
           $expr: { $lt: ['$usedCount', '$usageLimit'] }, // Đảm bảo chưa đạt giới hạn sử dụng
         },
-        { 
+        {
           $inc: { usedCount: 1 },
           $push: { usedByUsers: new Types.ObjectId(userId) }
         }
       );
-      
+
       console.log(`[VoucherService] Update result: ${JSON.stringify(result)}`);
-      
+
       if (result.matchedCount === 0) {
         // Không tìm thấy voucher phù hợp hoặc voucher đã đạt giới hạn
         console.log(`[VoucherService] Failed to update voucher - matchedCount: ${result.matchedCount}, modifiedCount: ${result.modifiedCount}`);
         throw new BadRequestException('Không thể đánh dấu voucher đã sử dụng');
       }
-      
+
       if (result.modifiedCount === 0) {
         console.log(`[VoucherService] Voucher found but not modified - possible race condition or already updated`);
       }
-      
+
       console.log(`Voucher ${voucherId} đã được sử dụng bởi người dùng ${userId}. Lượt sử dụng hiện tại: ${voucher.usedCount + 1}/${voucher.usageLimit}`);
     } catch (error) {
       console.log(`[VoucherService] Error during voucher update: ${error.message}`);
       throw error;
     }
   }
-  
+
   // Thống kê tình hình sử dụng voucher
   async getVoucherStatistics(): Promise<VoucherStatisticsDto> {
     const now = new Date();
-    
+
     const [
       totalVouchers,
       activeVouchers,
@@ -297,7 +297,7 @@ export class VouchersService {
         .limit(5)
         .select('code discountType discountValue usedCount usageLimit')
     ]);
-    
+
     // Tính tỷ lệ sử dụng
     const usageRate = await this.voucherModel.aggregate([
       {
@@ -322,7 +322,7 @@ export class VouchersService {
         }
       }
     ]);
-    
+
     return {
       totalVouchers,
       activeVouchers,
@@ -332,11 +332,11 @@ export class VouchersService {
       usageStatistics: usageRate[0] || { totalUsed: 0, totalLimit: 0, usageRate: 0 },
     };
   }
-  
+
   // Tìm các voucher có thể áp dụng cho người dùng cụ thể
   async findApplicableVouchersForUser(
-    userId: string, 
-    orderValue: number = 0, 
+    userId: string,
+    orderValue: number = 0,
     productIds: string[] = []
   ): Promise<Voucher[]> {
     const now = new Date();
@@ -344,7 +344,7 @@ export class VouchersService {
     if (!user) {
       throw new BadRequestException('Không tìm thấy thông tin người dùng');
     }
-    
+
     // Điều kiện cơ bản: voucher đang hoạt động, trong thời gian hiệu lực, chưa đạt giới hạn sử dụng
     const baseQuery = {
       isActive: true,
@@ -354,12 +354,12 @@ export class VouchersService {
       // Người dùng chưa sử dụng voucher này
       usedByUsers: { $nin: [new Types.ObjectId(userId)] }
     };
-    
+
     // Thêm điều kiện về giá trị đơn hàng tối thiểu nếu có
     if (orderValue > 0) {
       baseQuery['minimumOrderValue'] = { $lte: orderValue };
     }
-    
+
     // Nếu có sản phẩm, tìm các voucher áp dụng cho sản phẩm đó
     // hoặc các voucher không có giới hạn sản phẩm
     let vouchers = await this.voucherModel.find({
@@ -383,7 +383,7 @@ export class VouchersService {
         }
       ]
     }).sort({ discountValue: -1 }).exec();
-    
+
     return vouchers;
   }
 
@@ -400,5 +400,75 @@ export class VouchersService {
       .select('code description discountType discountValue minimumOrderValue startDate endDate') // Điều chỉnh các trường nếu cần
       .sort({ createdAt: -1 }) // Hoặc sắp xếp theo tiêu chí khác, ví dụ: endDate
       .exec();
+  }
+
+  // Phương thức lấy thống kê vouchers cho dashboard
+  async getVoucherDashboardStats(): Promise<{
+    totalVouchers: number;
+    activeVouchers: number;
+    expiringSoon: number;
+    topUsedVouchers: Array<{
+      _id: string;
+      code: string;
+      description: string;
+      usedCount: number;
+      usageLimit: number;
+      discountType: string;
+      discountValue: number;
+      endDate: Date;
+      daysLeft: number;
+    }>;
+  }> {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Đếm tổng số vouchers
+    const totalVouchers = await this.voucherModel.countDocuments();
+
+    // Đếm vouchers đang hoạt động
+    const activeVouchers = await this.voucherModel.countDocuments({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    });
+
+    // Đếm vouchers sắp hết hạn (trong 7 ngày tới)
+    const expiringSoon = await this.voucherModel.countDocuments({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now, $lte: sevenDaysFromNow },
+    });
+
+    // Lấy top 5 vouchers được sử dụng nhiều nhất
+    const vouchers = await this.voucherModel
+      .find()
+      .sort({ usedCount: -1 })
+      .limit(5)
+      .lean();
+
+    const topUsedVouchers = vouchers.map((voucher) => {
+      // Đảm bảo endDate là Date object
+      const endDate = voucher.endDate instanceof Date ? voucher.endDate : new Date(voucher.endDate);
+      const daysLeft = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+      return {
+        _id: voucher._id.toString(),
+        code: voucher.code,
+        description: voucher.description || '',
+        usedCount: voucher.usedCount,
+        usageLimit: voucher.usageLimit,
+        discountType: voucher.discountType,
+        discountValue: voucher.discountValue,
+        endDate: endDate,
+        daysLeft
+      };
+    });
+
+    return {
+      totalVouchers,
+      activeVouchers,
+      expiringSoon,
+      topUsedVouchers
+    };
   }
 }

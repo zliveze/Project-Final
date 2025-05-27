@@ -72,12 +72,28 @@ export interface CampaignStats {
   ended: number;
 }
 
+export interface CampaignDashboardStats {
+  totalCampaigns: number;
+  activeCampaigns: number;
+  expiringSoon: number;
+  topPerformingCampaigns: Array<{
+    _id: string;
+    title: string;
+    type: string;
+    totalOrders: number;
+    totalRevenue: number;
+    endDate: Date;
+    daysLeft: number;
+  }>;
+}
+
 interface CampaignContextProps {
   // State
   campaigns: Campaign[];
   activeCampaigns: Campaign[];
   selectedCampaign: Campaign | null;
   stats: CampaignStats;
+  dashboardStats: CampaignDashboardStats | null;
   isLoading: boolean;
   error: string | null;
 
@@ -110,6 +126,7 @@ interface CampaignContextProps {
 
   // Public Actions
   fetchActiveCampaigns: () => Promise<void>;
+  fetchCampaignStats: () => Promise<void>;
 
   // Utility Functions
   resetState: () => void;
@@ -132,6 +149,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<CampaignDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -662,10 +680,40 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
     }
   }, [handleError]);
 
+  // Lấy thống kê chiến dịch cho dashboard
+  const fetchCampaignStats = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated || !accessToken) {
+      console.warn('[fetchCampaignStats] Not authenticated or no access token. Aborting fetch.');
+      return;
+    }
+
+    // Không set isLoading để không ảnh hưởng đến UI chính
+    try {
+      const response = await apiClient.get('/campaigns/stats');
+      const statsData = response.data;
+
+      // Chuẩn hóa dữ liệu endDate trong topPerformingCampaigns
+      if (statsData.topPerformingCampaigns) {
+        statsData.topPerformingCampaigns = statsData.topPerformingCampaigns.map((campaign: any) => ({
+          ...campaign,
+          endDate: new Date(campaign.endDate)
+        }));
+      }
+
+      setDashboardStats(statsData);
+      console.log('[fetchCampaignStats] Stats loaded successfully:', statsData);
+    } catch (error: any) {
+      // Không gọi handleError để tránh hiển thị toast error cho stats
+      console.error('Error fetching campaign stats:', error);
+      setDashboardStats(null);
+    }
+  }, [isAuthenticated, accessToken]); // Simplified dependencies
+
   // Reset state
   const resetState = useCallback(() => {
     setCampaigns([]);
     setSelectedCampaign(null);
+    setDashboardStats(null);
     setError(null);
     setCurrentPage(1);
     setTotalItems(0);
@@ -678,6 +726,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
     activeCampaigns,
     selectedCampaign,
     stats,
+    dashboardStats,
     isLoading,
     error,
     currentPage,
@@ -693,6 +742,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
     removeProductFromCampaign,
     updateProductPriceInCampaign,
     fetchActiveCampaigns,
+    fetchCampaignStats,
     resetState,
     setCurrentPage,
     setItemsPerPage

@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Event } from './entities/event.entity';
 import { CreateEventDto, UpdateEventDto, ProductInEventDto } from './dto';
 import { Product } from '../products/schemas/product.schema';
+import { Order } from '../orders/schemas/order.schema';
 import { CampaignsService } from '../campaigns/campaigns.service';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class EventsService {
   constructor(
     @InjectModel(Event.name) private readonly eventModel: Model<Event>,
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @Inject(forwardRef(() => CampaignsService)) private readonly campaignsService: CampaignsService
   ) {}
 
@@ -642,5 +644,99 @@ export class EventsService {
     }
 
     return populatedEvents;
+  }
+
+  // Phương thức lấy thống kê events cho dashboard
+  async getEventStats(): Promise<{
+    totalEvents: number;
+    activeEvents: number;
+    expiringSoon: number;
+    topPerformingEvents: Array<{
+      _id: string;
+      title: string;
+      totalOrders: number;
+      totalRevenue: number;
+      endDate: Date;
+      daysLeft: number;
+    }>;
+  }> {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Đếm tổng số events
+    const totalEvents = await this.eventModel.countDocuments();
+
+    // Đếm events đang hoạt động
+    const activeEvents = await this.eventModel.countDocuments({
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    });
+
+    // Đếm events sắp hết hạn (trong 7 ngày tới)
+    const expiringSoon = await this.eventModel.countDocuments({
+      startDate: { $lte: now },
+      endDate: { $gte: now, $lte: sevenDaysFromNow },
+    });
+
+    // Lấy top 5 events có hiệu quả cao nhất
+    const events = await this.eventModel.find().lean();
+
+    const eventPerformance = await Promise.all(
+      events.map(async (event) => {
+        // Lấy danh sách productId từ event
+        const productIds = event.products.map(p => p.productId);
+
+        // Tính tổng đơn hàng và doanh thu từ các sản phẩm trong event
+        const orderStats = await this.orderModel.aggregate([
+          {
+            $match: {
+              'items.productId': { $in: productIds },
+              status: { $in: ['confirmed', 'processing', 'shipping', 'delivered'] }
+            }
+          },
+          {
+            $unwind: '$items'
+          },
+          {
+            $match: {
+              'items.productId': { $in: productIds }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalOrders: { $addToSet: '$_id' },
+              totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.price'] } }
+            }
+          }
+        ]);
+
+        const stats = orderStats[0] || { totalOrders: [], totalRevenue: 0 };
+        // Đảm bảo endDate là Date object
+        const endDate = event.endDate instanceof Date ? event.endDate : new Date(event.endDate);
+        const daysLeft = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+        return {
+          _id: event._id.toString(),
+          title: event.title,
+          totalOrders: stats.totalOrders.length,
+          totalRevenue: stats.totalRevenue,
+          endDate: endDate,
+          daysLeft
+        };
+      })
+    );
+
+    // Sắp xếp theo doanh thu giảm dần và lấy top 5
+    const topPerformingEvents = eventPerformance
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 5);
+
+    return {
+      totalEvents,
+      activeEvents,
+      expiringSoon,
+      topPerformingEvents
+    };
   }
 }

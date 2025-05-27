@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { FiPlus, FiCalendar, FiCheckCircle, FiClock, FiFileText, FiPause, FiAlertTriangle } from 'react-icons/fi';
+import { FiPlus, FiAlertTriangle } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import CampaignTable from '@/components/admin/campaigns/CampaignTable';
 import CampaignAddModal from '@/components/admin/campaigns/CampaignAddModal';
 import CampaignEditModal from '@/components/admin/campaigns/CampaignEditModal';
 import CampaignViewModal from '@/components/admin/campaigns/CampaignViewModal';
+import CampaignStatsCards from '@/components/admin/campaigns/CampaignStatsCards';
 import toast from 'react-hot-toast';
 import { Campaign } from '@/contexts/CampaignContext'; // Import Campaign type from context
 import { useCampaign } from '@/contexts/CampaignContext'; // Import the hook
@@ -198,108 +199,10 @@ export default function AdminCampaigns() {
         </button>
       </div>
 
+
       {/* Statistics Section */}
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiCalendar className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Tổng số
-                  </dt>
-                  <dd>
-                    {/* Add check for stats */}
-                    <div className="text-lg font-medium text-gray-900">{stats ? stats.total : 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiCheckCircle className="h-6 w-6 text-green-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Đang diễn ra
-                  </dt>
-                  <dd>
-                    {/* Add check for stats */}
-                    <div className="text-lg font-medium text-gray-900">{stats ? stats.active : 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiClock className="h-6 w-6 text-blue-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Lên lịch
-                  </dt>
-                  <dd>
-                    {/* Add check for stats */}
-                    <div className="text-lg font-medium text-gray-900">{stats ? stats.scheduled : 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiFileText className="h-6 w-6 text-yellow-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Bản nháp
-                  </dt>
-                  <dd>
-                    {/* Add check for stats */}
-                    <div className="text-lg font-medium text-gray-900">{stats ? stats.drafts : 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiPause className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Đã kết thúc
-                  </dt>
-                  <dd>
-                    {/* Add check for stats */}
-                    <div className="text-lg font-medium text-gray-900">{stats ? stats.ended : 0}</div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="mt-6">
+        <CampaignStatsCards />
       </div>
 
       {/* Campaign Table */}

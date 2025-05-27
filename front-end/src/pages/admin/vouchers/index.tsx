@@ -8,6 +8,7 @@ import VoucherAddModal from '@/components/admin/vouchers/VoucherAddModal';
 import VoucherEditModal from '@/components/admin/vouchers/VoucherEditModal';
 import VoucherDetailModal from '@/components/admin/vouchers/VoucherDetailModal';
 import VoucherDeleteModal from '@/components/admin/vouchers/VoucherDeleteModal';
+import VoucherStatsCards from '@/components/admin/vouchers/VoucherStatsCards';
 import { useVoucher } from '@/contexts/VoucherContext'; // VoucherProvider đã được cung cấp bởi AppProviders
 import { Voucher, VoucherStatistics } from '@/contexts/VoucherContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -259,26 +260,9 @@ function VouchersPageContent() {
           </div>
 
           {/* Thống kê */}
-          {voucherStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-sm font-medium text-gray-500">Tổng số voucher</h2>
-                <p className="mt-1 text-3xl font-semibold text-gray-900">{voucherStats.totalVouchers}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-sm font-medium text-gray-500">Voucher đang hoạt động</h2>
-                <p className="mt-1 text-3xl font-semibold text-green-600">{voucherStats.activeVouchers}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-sm font-medium text-gray-500">Voucher đã hết hạn</h2>
-                <p className="mt-1 text-3xl font-semibold text-red-600">{voucherStats.expiredVouchers}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-sm font-medium text-gray-500">Voucher đã sử dụng</h2>
-                <p className="mt-1 text-3xl font-semibold text-blue-600">{usedVouchers}</p>
-              </div>
-            </div>
-          )}
+          <div className="mb-6">
+            <VoucherStatsCards />
+          </div>
 
           {/* Bảng voucher */}
           <VoucherTable

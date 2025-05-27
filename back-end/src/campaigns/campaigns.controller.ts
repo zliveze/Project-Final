@@ -47,6 +47,15 @@ export class CampaignsController {
     return this.campaignsService.getActiveCampaigns();
   }
 
+  @Get('stats')
+  @ApiOperation({ summary: 'Lấy thống kê chiến dịch cho dashboard' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAdminAuthGuard, AdminRolesGuard)
+  @AdminRoles('admin', 'superadmin')
+  getCampaignStats() {
+    return this.campaignsService.getCampaignStats();
+  }
+
   @Get('public/:id')
   @ApiOperation({ summary: 'Lấy thông tin chiến dịch cho client không cần xác thực' })
   getPublicCampaign(@Param('id') id: string) {

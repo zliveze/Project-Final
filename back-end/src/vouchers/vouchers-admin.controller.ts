@@ -62,17 +62,17 @@ export class VouchersAdminController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async findAllPaginated(@Query() query: QueryVouchersDto): Promise<PaginatedVouchersResponseDto> {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', ...filters } = query;
-    
+
     // Build filter object
     const filterCriteria: any = {};
-    
+
     if (filters.code) {
       filterCriteria.code = { $regex: filters.code, $options: 'i' };
     }
     if (filters.isActive !== undefined) {
       filterCriteria.isActive = filters.isActive;
     }
-    
+
     // Handle date range filters if provided
     if (filters.startDateFrom || filters.startDateTo) {
       filterCriteria.startDate = {};
@@ -83,7 +83,7 @@ export class VouchersAdminController {
         filterCriteria.startDate.$lte = new Date(filters.startDateTo);
       }
     }
-    
+
     if (filters.endDateFrom || filters.endDateTo) {
       filterCriteria.endDate = {};
       if (filters.endDateFrom) {
@@ -93,11 +93,11 @@ export class VouchersAdminController {
         filterCriteria.endDate.$lte = new Date(filters.endDateTo);
       }
     }
-    
+
     // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder.toLowerCase() === 'asc' ? 1 : -1;
-    
+
     return this.vouchersService.findAllPaginated(
       page,
       limit,
@@ -112,6 +112,14 @@ export class VouchersAdminController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   getVoucherStatistics(): Promise<VoucherStatisticsDto> {
     return this.vouchersService.getVoucherStatistics();
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get voucher dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Voucher dashboard statistics.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  getVoucherDashboardStats() {
+    return this.vouchersService.getVoucherDashboardStats();
   }
 
   @Get(':id')

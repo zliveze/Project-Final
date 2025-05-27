@@ -1,79 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { FiTarget, FiGift, FiTrendingUp, FiExternalLink } from 'react-icons/fi';
+import { FiTarget, FiTrendingUp, FiExternalLink, FiAlertCircle, FiCalendar } from 'react-icons/fi';
 import { useCampaign } from '@/contexts/CampaignContext';
 
-interface CampaignStat {
-  id: string;
-  name: string;
-  type: 'campaign' | 'voucher';
-  usageCount: number;
-  targetCount?: number;
-  status: 'active' | 'inactive' | 'expired';
-  endDate?: string;
-}
-
 const CampaignsWidget = () => {
-  const { campaigns, loading, fetchCampaigns } = useCampaign();
-  const [campaignStats, setCampaignStats] = useState<CampaignStat[]>([]);
-  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+  const { dashboardStats, fetchCampaignStats } = useCampaign();
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    // Chỉ fetch một lần khi component mount
-    if (!hasAttemptedFetch) {
-      setHasAttemptedFetch(true);
-      fetchCampaigns(1, 5); // Lấy 5 campaigns gần đây nhất
-    }
-  }, [hasAttemptedFetch, fetchCampaigns]);
+    // Chỉ load stats một lần khi component mount
+    if (!hasLoadedRef.current && !dashboardStats) {
+      const loadStats = async () => {
+        setIsStatsLoading(true);
+        try {
+          await fetchCampaignStats();
+          hasLoadedRef.current = true;
+        } finally {
+          setIsStatsLoading(false);
+        }
+      };
 
-  useEffect(() => {
-    // Cập nhật thống kê campaigns khi có dữ liệu
-    if (campaigns && campaigns.length > 0) {
-      const stats: CampaignStat[] = campaigns.slice(0, 3).map(campaign => ({
-        id: campaign._id,
-        name: campaign.name,
-        type: 'campaign',
-        usageCount: Math.floor(Math.random() * 300) + 50, // Tạm thời random vì chưa có field usage
-        targetCount: 500,
-        status: campaign.isActive ? 'active' : 'inactive',
-        endDate: campaign.endDate
-      }));
-      setCampaignStats(stats);
+      loadStats();
     }
-  }, [campaigns]);
+  }, []); // Empty dependency array để chỉ chạy một lần
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'text-green-500 bg-green-100';
-      case 'inactive':
-        return 'text-gray-500 bg-gray-100';
-      case 'expired':
-        return 'text-red-500 bg-red-100';
-      default:
-        return 'text-gray-500 bg-gray-100';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Đang chạy';
-      case 'inactive':
-        return 'Tạm dừng';
-      case 'expired':
-        return 'Hết hạn';
-      default:
-        return 'Không xác định';
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(amount);
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Campaigns & Vouchers</h2>
-        <Link 
-          href="/admin/campaigns" 
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">Campaigns</h2>
+        <Link
+          href="/admin/campaigns"
           className="text-pink-500 hover:text-pink-600 text-sm font-medium flex items-center"
         >
           Xem tất cả
@@ -81,97 +45,98 @@ const CampaignsWidget = () => {
         </Link>
       </div>
 
-      {loading ? (
+      {isStatsLoading ? (
         // Loading skeleton
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="animate-pulse">
-              <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-                  <div>
-                    <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
-                    <div className="h-3 bg-gray-200 rounded w-20"></div>
-                  </div>
-                </div>
-                <div className="h-4 bg-gray-200 rounded w-16"></div>
-              </div>
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
         </div>
-      ) : campaignStats.length > 0 ? (
-        <div className="space-y-3">
-          {campaignStats.map((campaign) => (
-            <div 
-              key={campaign.id} 
-              className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-full ${campaign.type === 'campaign' ? 'bg-pink-100 text-pink-500' : 'bg-blue-100 text-blue-500'}`}>
-                  {campaign.type === 'campaign' ? (
-                    <FiTarget className="h-4 w-4" />
-                  ) : (
-                    <FiGift className="h-4 w-4" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 text-sm">{campaign.name}</h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(campaign.status)}`}>
-                      {getStatusText(campaign.status)}
-                    </span>
-                    {campaign.targetCount && (
-                      <span className="text-xs text-gray-500">
-                        {campaign.usageCount}/{campaign.targetCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
+      ) : dashboardStats ? (
+        <div className="space-y-6">
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900">{dashboardStats.totalCampaigns}</p>
+              <p className="text-xs text-gray-500">Tổng số</p>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">{dashboardStats.activeCampaigns}</p>
+              <p className="text-xs text-gray-500">Đang chạy</p>
+            </div>
+            <div className="text-center p-3 bg-orange-50 rounded-lg">
+              <div className="flex items-center justify-center">
+                <FiAlertCircle className="h-4 w-4 text-orange-500 mr-1" />
+                <p className="text-2xl font-bold text-orange-600">{dashboardStats.expiringSoon}</p>
               </div>
-              
-              <div className="text-right">
-                <div className="flex items-center text-sm font-medium text-gray-900">
-                  <FiTrendingUp className="h-3 w-3 text-green-500 mr-1" />
-                  {campaign.usageCount}
-                </div>
-                <span className="text-xs text-gray-500">lượt sử dụng</span>
+              <p className="text-xs text-gray-500">Sắp hết hạn</p>
+            </div>
+          </div>
+
+          {/* Top Performing Campaigns */}
+          {dashboardStats.topPerformingCampaigns.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Hiệu quả cao nhất</h3>
+              <div className="space-y-3">
+                {dashboardStats.topPerformingCampaigns.slice(0, 3).map((campaign) => (
+                  <div
+                    key={campaign._id}
+                    className="flex flex-col sm:flex-row sm:items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0 sm:pr-4">
+                      <div className="p-2 rounded-full bg-pink-100 text-pink-500 flex-shrink-0">
+                        <FiTarget className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4
+                          className="font-medium text-gray-900 text-sm truncate"
+                          title={campaign.title}
+                        >
+                          {campaign.title}
+                        </h4>
+                        <div className="flex items-center space-x-2 mt-1 flex-wrap">
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{campaign.type}</span>
+                          {campaign.daysLeft > 0 && (
+                            <div className="flex items-center text-xs text-gray-500 whitespace-nowrap">
+                              <FiCalendar className="h-3 w-3 mr-1" />
+                              {campaign.daysLeft} ngày
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0 ml-11 sm:ml-0">
+                      <div className="flex items-center sm:justify-end text-sm font-medium text-gray-900">
+                        <FiTrendingUp className="h-3 w-3 text-green-500 mr-1" />
+                        <span className="truncate max-w-[120px] sm:max-w-[150px]" title={formatCurrency(campaign.totalRevenue)}>
+                          {formatCurrency(campaign.totalRevenue)}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{campaign.totalOrders} đơn hàng</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
         </div>
       ) : (
         <div className="text-center py-8">
           <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
             <FiTarget className="h-full w-full" />
           </div>
-          <p className="text-gray-500 text-sm">Chưa có campaigns nào</p>
-          <Link 
-            href="/admin/campaigns" 
+          <p className="text-gray-500 text-sm">Chưa có dữ liệu thống kê</p>
+          <Link
+            href="/admin/campaigns"
             className="inline-flex items-center mt-2 text-pink-500 hover:text-pink-600 text-sm font-medium"
           >
             Tạo campaign mới
             <FiExternalLink className="ml-1 h-3 w-3" />
           </Link>
-        </div>
-      )}
-
-      {/* Quick stats */}
-      {campaignStats.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">
-                {campaignStats.filter(c => c.status === 'active').length}
-              </p>
-              <p className="text-xs text-gray-500">Đang hoạt động</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">
-                {campaignStats.reduce((sum, c) => sum + c.usageCount, 0)}
-              </p>
-              <p className="text-xs text-gray-500">Tổng lượt sử dụng</p>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -54,6 +54,20 @@ export class EventsController {
     return this.eventsService.findActive();
   }
 
+  @Get('stats')
+  @UseGuards(JwtAdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get events statistics for dashboard (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Events statistics returned successfully.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  getEventStats() {
+    return this.eventsService.getEventStats();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get event by ID' })
   @ApiResponse({

@@ -7,6 +7,8 @@ import UserStatsCard from '@/components/admin/dashboard/UserStatsCard';
 import UserGrowthChart from '@/components/admin/dashboard/UserGrowthChart';
 import RevenueChart from '@/components/admin/dashboard/RevenueChart';
 import CampaignsWidget from '@/components/admin/dashboard/CampaignsWidget';
+import EventsWidget from '@/components/admin/dashboard/EventsWidget';
+import VouchersWidget from '@/components/admin/dashboard/VouchersWidget';
 import ActivityWidget from '@/components/admin/dashboard/ActivityWidget';
 import RecentOrders from '@/components/admin/RecentOrders';
 import TopProducts from '@/components/admin/TopProducts';
@@ -39,15 +41,24 @@ export default function AdminDashboard() {
         {/* Đơn hàng gần đây - Full width */}
         <RecentOrders />
 
-        {/* Widgets bổ sung */}
+        {/* Campaigns, Events & Vouchers */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Campaigns */}
+          <CampaignsWidget />
+
+          {/* Events */}
+          <EventsWidget />
+
+          {/* Vouchers */}
+          <VouchersWidget />
+        </div>
+
+        {/* Widgets bổ sung */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Sản phẩm bán chạy */}
           <TopProducts />
 
-          {/* Campaigns & Vouchers */}
-          <CampaignsWidget />
-
-          {/* Thông báo & Hoạt động - Tạm comment để debug */}
+          {/* Thông báo & Hoạt động */}
           <ActivityWidget />
         </div>
       </div>

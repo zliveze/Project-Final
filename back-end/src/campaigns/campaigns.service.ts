@@ -7,6 +7,7 @@ import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { QueryCampaignDto } from './dto/query-campaign.dto';
 import { EventsService } from '../events/events.service';
 import { Product } from '../products/schemas/product.schema';
+import { Order } from '../orders/schemas/order.schema';
 
 @Injectable()
 export class CampaignsService {
@@ -15,6 +16,7 @@ export class CampaignsService {
   constructor(
     @InjectModel(Campaign.name) private campaignModel: Model<CampaignDocument>,
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @Inject(forwardRef(() => EventsService)) private readonly eventsService: EventsService
   ) {}
 
@@ -697,5 +699,116 @@ export class CampaignsService {
     }
 
     return updatedCampaign;
+  }
+
+  // Phương thức lấy thống kê chiến dịch cho dashboard
+  async getCampaignStats(): Promise<{
+    totalCampaigns: number;
+    activeCampaigns: number;
+    expiringSoon: number;
+    topPerformingCampaigns: Array<{
+      _id: string;
+      title: string;
+      type: string;
+      totalOrders: number;
+      totalRevenue: number;
+      endDate: Date;
+      daysLeft: number;
+    }>;
+  }> {
+    this.logger.log('Starting to fetch campaign stats...');
+    const startTime = Date.now();
+
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    try {
+      // Đếm tổng số chiến dịch
+      const totalCampaigns = await this.campaignModel.countDocuments();
+      this.logger.log(`Total campaigns: ${totalCampaigns}`);
+
+      // Đếm chiến dịch đang hoạt động
+      const activeCampaigns = await this.campaignModel.countDocuments({
+        startDate: { $lte: now },
+        endDate: { $gte: now },
+      });
+      this.logger.log(`Active campaigns: ${activeCampaigns}`);
+
+      // Đếm chiến dịch sắp hết hạn (trong 7 ngày tới)
+      const expiringSoon = await this.campaignModel.countDocuments({
+        startDate: { $lte: now },
+        endDate: { $gte: now, $lte: sevenDaysFromNow },
+      });
+      this.logger.log(`Expiring soon campaigns: ${expiringSoon}`);
+
+      // Lấy top 5 chiến dịch có hiệu quả cao nhất
+      const campaigns = await this.campaignModel.find().lean();
+      this.logger.log(`Found ${campaigns.length} campaigns for performance calculation`);
+
+      const campaignPerformance = await Promise.all(
+        campaigns.map(async (campaign) => {
+          // Lấy danh sách productId từ campaign
+          const productIds = campaign.products.map(p => p.productId);
+
+          // Tính tổng đơn hàng và doanh thu từ các sản phẩm trong campaign
+          const orderStats = await this.orderModel.aggregate([
+            {
+              $match: {
+                'items.productId': { $in: productIds },
+                status: { $in: ['confirmed', 'processing', 'shipping', 'delivered'] }
+              }
+            },
+            {
+              $unwind: '$items'
+            },
+            {
+              $match: {
+                'items.productId': { $in: productIds }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalOrders: { $addToSet: '$_id' },
+                totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.price'] } }
+              }
+            }
+          ]);
+
+          const stats = orderStats[0] || { totalOrders: [], totalRevenue: 0 };
+          // Đảm bảo endDate là Date object
+          const endDate = campaign.endDate instanceof Date ? campaign.endDate : new Date(campaign.endDate);
+          const daysLeft = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+          return {
+            _id: campaign._id.toString(),
+            title: campaign.title,
+            type: campaign.type,
+            totalOrders: stats.totalOrders.length,
+            totalRevenue: stats.totalRevenue,
+            endDate: endDate,
+            daysLeft
+          };
+        })
+      );
+
+      // Sắp xếp theo doanh thu giảm dần và lấy top 5
+      const topPerformingCampaigns = campaignPerformance
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
+        .slice(0, 5);
+
+      const endTime = Date.now();
+      this.logger.log(`Campaign stats fetched successfully in ${endTime - startTime}ms`);
+
+      return {
+        totalCampaigns,
+        activeCampaigns,
+        expiringSoon,
+        topPerformingCampaigns
+      };
+    } catch (error) {
+      this.logger.error('Error fetching campaign stats:', error);
+      throw error;
+    }
   }
 }

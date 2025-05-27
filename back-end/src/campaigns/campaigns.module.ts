@@ -6,12 +6,14 @@ import { CampaignsController } from './campaigns.controller';
 import { CampaignsService } from './campaigns.service';
 import { Campaign, CampaignSchema } from './schemas/campaign.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
+import { Order, OrderSchema } from '../orders/schemas/order.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Campaign.name, schema: CampaignSchema },
-      { name: Product.name, schema: ProductSchema }
+      { name: Product.name, schema: ProductSchema },
+      { name: Order.name, schema: OrderSchema }
     ]),
     AuthModule, // Add AuthModule here
     forwardRef(() => EventsModule), // Use forwardRef here
