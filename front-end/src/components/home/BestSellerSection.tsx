@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { FiArrowRight, FiShoppingCart, FiHeart } from 'react-icons/fi'
+import { FiArrowRight, FiShoppingCart, FiHeart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa'
 import { useGSAP, gsapUtils } from '../../hooks/useGSAP'
+import { useShopProduct } from '../../contexts/user/shop/ShopProductContext'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Navigation, Pagination, Autoplay } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/navigation'
+import 'swiper/css/pagination'
 
 interface BestSeller {
   id: string;
   name: string;
-  image: string;
+  imageUrl: string;
   slug: string;
-  soldCount: string;
+  soldCount?: number;
   price: number;
-  discountedPrice?: number;
-  rating: number;
-  ratingCount: number;
+  currentPrice: number;
+  reviews?: {
+    averageRating: number;
+    reviewCount: number;
+  };
 }
 
 // Component hiển thị rating với style tối giản
@@ -42,8 +50,8 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
   const cardRef = React.useRef<HTMLDivElement>(null);
 
   // Tính phần trăm giảm giá
-  const discountPercentage = product.discountedPrice
-    ? Math.round(((product.price - product.discountedPrice) / product.price) * 100)
+  const discountPercentage = product.currentPrice < product.price
+    ? Math.round(((product.price - product.currentPrice) / product.price) * 100)
     : 0;
 
   // Format giá
@@ -139,7 +147,7 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
               </div>
             )}
             <div className="bg-gray-700 text-white text-xs font-medium px-2 py-0.5 rounded-md">
-              {product.soldCount}
+              {product.soldCount ? `${product.soldCount} đã bán` : 'Bán chạy'}
             </div>
           </div>
 
@@ -154,7 +162,7 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
           <div className="relative aspect-square p-4 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full">
               <Image
-                src={imageError ? '/404.png' : product.image}
+                src={imageError ? '/404.png' : product.imageUrl}
                 alt={product.name}
                 width={200}
                 height={200}
@@ -183,20 +191,22 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
             {/* Giá và đánh giá - Compact */}
             <div className="mt-3 space-y-2">
               <div className="flex items-center gap-2">
-                {product.discountedPrice ? (
+                {product.currentPrice < product.price ? (
                   <>
-                    <span className="text-base font-semibold text-rose-600">{formatPrice(product.discountedPrice)}</span>
+                    <span className="text-base font-semibold text-rose-600">{formatPrice(product.currentPrice)}</span>
                     <span className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</span>
                   </>
                 ) : (
                   <span className="text-base font-semibold text-gray-800">{formatPrice(product.price)}</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <RatingStars rating={product.rating} />
-                <span className="font-medium text-gray-700">{product.rating}</span>
-                <span>({product.ratingCount})</span>
-              </div>
+              {product.reviews && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <RatingStars rating={product.reviews.averageRating} />
+                  <span className="font-medium text-gray-700">{product.reviews.averageRating}</span>
+                  <span>({product.reviews.reviewCount})</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -227,6 +237,7 @@ export default function BestSellerSection() {
   const [bestSellers, setBestSellers] = useState<BestSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { fetchTopProducts } = useShopProduct();
 
   // GSAP animations - Subtle và minimal
   useGSAP(({ gsap }) => {
@@ -273,78 +284,24 @@ export default function BestSellerSection() {
     const fetchBestSellers = async () => {
       try {
         setLoading(true);
-        // TODO: Thay thế bằng API call thực tế
-        // const response = await fetch('/api/products/best-sellers?limit=6');
-        // const data = await response.json();
-        // setBestSellers(data);
-
-        // Demo data
-        setBestSellers([
-          {
-            id: '1',
-            name: 'Serum Vitamin C Brightening',
-            image: '/404.png',
-            slug: 'serum-vitamin-c-brightening',
-            soldCount: '1.2k đã bán',
-            price: 850000,
-            discountedPrice: 650000,
-            rating: 4.8,
-            ratingCount: 245
-          },
-          {
-            id: '2',
-            name: 'Moisturizer Hyaluronic Acid',
-            image: '/404.png',
-            slug: 'moisturizer-hyaluronic-acid',
-            soldCount: '956 đã bán',
-            price: 720000,
-            rating: 4.7,
-            ratingCount: 189
-          },
-          {
-            id: '3',
-            name: 'Cleanser Gentle Foam',
-            image: '/404.png',
-            slug: 'cleanser-gentle-foam',
-            soldCount: '2.1k đã bán',
-            price: 420000,
-            discountedPrice: 320000,
-            rating: 4.9,
-            ratingCount: 567
-          },
-          {
-            id: '4',
-            name: 'Sunscreen SPF 50+',
-            image: '/404.png',
-            slug: 'sunscreen-spf-50',
-            soldCount: '1.8k đã bán',
-            price: 380000,
-            rating: 4.6,
-            ratingCount: 324
-          },
-          {
-            id: '5',
-            name: 'Face Mask Hydrating',
-            image: '/404.png',
-            slug: 'face-mask-hydrating',
-            soldCount: '745 đã bán',
-            price: 250000,
-            discountedPrice: 190000,
-            rating: 4.5,
-            ratingCount: 156
-          },
-          {
-            id: '6',
-            name: 'Eye Cream Anti-aging',
-            image: '/404.png',
-            slug: 'eye-cream-anti-aging',
-            soldCount: '892 đã bán',
-            price: 680000,
-            rating: 4.7,
-            ratingCount: 201
-          }
-        ]);
         setError(null);
+
+        // Gọi API thực để lấy top 20 sản phẩm bán chạy
+        const topProducts = await fetchTopProducts('all-time', 20);
+
+        // Convert LightProduct to BestSeller format
+        const formattedProducts: BestSeller[] = topProducts.map(product => ({
+          id: product.id,
+          name: product.name,
+          imageUrl: product.imageUrl || '/404.png',
+          slug: product.slug,
+          soldCount: product.soldCount,
+          price: product.price,
+          currentPrice: product.currentPrice,
+          reviews: product.reviews
+        }));
+
+        setBestSellers(formattedProducts);
       } catch (err) {
         console.error('Lỗi khi tải sản phẩm bán chạy:', err);
         setError('Không thể tải sản phẩm bán chạy');
@@ -355,7 +312,7 @@ export default function BestSellerSection() {
     };
 
     fetchBestSellers();
-  }, []);
+  }, [fetchTopProducts]);
 
   // Loading state
   if (loading) {
@@ -367,8 +324,8 @@ export default function BestSellerSection() {
             <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {[...Array(6)].map((_, index) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+            {[...Array(10)].map((_, index) => (
               <BestSellerSkeleton key={index} />
             ))}
           </div>
@@ -382,40 +339,111 @@ export default function BestSellerSection() {
     return null;
   }
 
+  // Chia sản phẩm thành 2 nhóm: 10 đầu hiển thị grid, 10 còn lại hiển thị slider
+  const firstTenProducts = bestSellers.slice(0, 10);
+  const remainingProducts = bestSellers.slice(10);
+
   return (
     <section className="py-10 relative overflow-hidden bestseller-section" ref={sectionRef}>
       {/* No additional background - inherits from main layout */}
-      
+
       <div className="max-w-6xl mx-auto px-4 relative z-10">
         <div className="bestseller-header text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
           <p className="text-gray-600 max-w-xl mx-auto leading-relaxed">
-            Những sản phẩm được yêu thích nhất tại Yumin
+            Top 20 sản phẩm được yêu thích nhất tại Yumin
           </p>
 
           {/* Simple divider */}
           <div className="w-12 h-px bg-rose-300 mt-6 mx-auto"></div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {bestSellers.map((product, index) => (
-            <BestSellerCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {/* Grid hiển thị 10 sản phẩm đầu (2 hàng x 5 cột) */}
+        {firstTenProducts.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+            {firstTenProducts.map((product, index) => (
+              <BestSellerCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        )}
+
+        {/* Slider hiển thị 10 sản phẩm còn lại */}
+        {remainingProducts.length > 0 && (
+          <div className="relative">
+            <Swiper
+              modules={[Navigation, Pagination, Autoplay]}
+              spaceBetween={16}
+              slidesPerView={2}
+              navigation={{
+                nextEl: '.swiper-button-next-custom',
+                prevEl: '.swiper-button-prev-custom',
+              }}
+              pagination={{
+                clickable: true,
+                el: '.swiper-pagination-custom',
+              }}
+              autoplay={{
+                delay: 4000,
+                disableOnInteraction: false,
+              }}
+              breakpoints={{
+                640: {
+                  slidesPerView: 3,
+                },
+                768: {
+                  slidesPerView: 4,
+                },
+                1024: {
+                  slidesPerView: 5,
+                },
+              }}
+              className="bestseller-swiper"
+            >
+              {remainingProducts.map((product, index) => (
+                <SwiperSlide key={product.id}>
+                  <BestSellerCard product={product} index={index + 10} />
+                </SwiperSlide>
+              ))}
+            </Swiper>
+
+            {/* Custom Navigation Buttons */}
+            <button className="swiper-button-prev-custom absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 hover:border-rose-300 transition-all">
+              <FiChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <button className="swiper-button-next-custom absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 hover:border-rose-300 transition-all">
+              <FiChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+
+            {/* Custom Pagination */}
+            <div className="swiper-pagination-custom flex justify-center mt-6"></div>
+          </div>
+        )}
 
         {/* Compact CTA */}
         <div className="flex justify-center mt-8">
           <div className="view-all-button">
             <Link
-              href="/ban-chay"
+              href="/shop?sortBy=soldCount&sortOrder=desc"
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-rose-300 hover:text-rose-600 transition-all"
             >
-              Xem tất cả
+              Xem tất cả sản phẩm bán chạy
               <FiArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .bestseller-swiper .swiper-pagination-bullet {
+          background: #e5e7eb;
+          opacity: 1;
+          width: 8px;
+          height: 8px;
+        }
+        .bestseller-swiper .swiper-pagination-bullet-active {
+          background: #f43f5e;
+        }
+      `}</style>
     </section>
   );
 }

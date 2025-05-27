@@ -124,6 +124,7 @@ interface ShopProductContextType {
     skinType?: string[];
     concerns?: string[];
   }) => Promise<void>;
+  fetchTopProducts: (period?: 'all-time' | '30-days', limit?: number) => Promise<LightProduct[]>;
 }
 
 // API configuration
@@ -164,7 +165,8 @@ export const useShopProduct = (): ShopProductContextType => {
       logSearch: async () => { console.warn('ShopProductProvider not available.'); },
       logProductView: async () => { console.warn('ShopProductProvider not available.'); },
       logProductClick: async () => { console.warn('ShopProductProvider not available.'); },
-      logFilterUse: async () => { console.warn('ShopProductProvider not available.'); }
+      logFilterUse: async () => { console.warn('ShopProductProvider not available.'); },
+      fetchTopProducts: async () => { console.warn('ShopProductProvider not available.'); return []; }
     };
   }
   return context;
@@ -245,7 +247,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
         return result;
       }, {} as any);
-    
+
     return `${page}-${limit}-${JSON.stringify(sortedFilters)}`;
   }, []);
 
@@ -274,7 +276,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!forceRefresh && cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
       console.log('Sử dụng cache:', requestKey);
       lastRequestKeyRef.current = requestKey;
-      
+
       const productsWithId = cachedResult.data.products.map(p => ({
         ...p,
         id: p._id,
@@ -314,7 +316,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
               // Handle multiple IDs (comma-separated)
               const ids = value.split(',').filter(id => id.trim());
               const validIds = ids.filter(id => /^[0-9a-fA-F]{24}$/.test(id));
-              
+
               if (validIds.length > 0) {
                 // Send as comma-separated string for backend to handle
                 params.append(key, validIds.join(','));
@@ -434,7 +436,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       console.log("ShopProductProvider mounted. Performing initial fetch.");
-      
+
       // Load options song song
       Promise.all([
         fetchSkinTypeOptions(),
@@ -738,6 +740,39 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
+  // Lấy top sản phẩm bán chạy
+  const fetchTopProducts = useCallback(async (
+    period: 'all-time' | '30-days' = 'all-time',
+    limit: number = 20
+  ): Promise<LightProduct[]> => {
+    try {
+      const params = new URLSearchParams();
+      params.append('period', period);
+      params.append('limit', limit.toString());
+
+      const response = await axiosInstance.get<LightProductsApiResponse>('/products/top-sellers', { params });
+
+      if (response.data?.products) {
+        const productsWithId = response.data.products.map(p => ({
+          ...p,
+          id: p._id,
+          promotion: p.promotion ? {
+            ...p.promotion,
+            startDate: p.promotion.startDate ? new Date(p.promotion.startDate) : undefined,
+            endDate: p.promotion.endDate ? new Date(p.promotion.endDate) : undefined,
+          } : null
+        }));
+
+        return productsWithId;
+      } else {
+        return [];
+      }
+    } catch (err) {
+      console.error('Error fetching top products:', err);
+      return [];
+    }
+  }, []);
+
   // Memoize context value để tránh re-render không cần thiết
   const contextValue = useMemo<ShopProductContextType>(() => ({
     products,
@@ -763,11 +798,12 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     logSearch,
     logProductView,
     logProductClick,
-    logFilterUse
+    logFilterUse,
+    fetchTopProducts
   }), [
     products, loading, error, totalProducts, currentPage, totalPages, itemsPerPage,
     filters, selectedCampaign, fetchProducts, setFilters, changePage, changeLimit,
-    skinTypeOptions, concernOptions
+    skinTypeOptions, concernOptions, fetchTopProducts
   ]);
 
   return (
