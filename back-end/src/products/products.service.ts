@@ -5,6 +5,7 @@ import { Product, ProductDocument } from './schemas/product.schema';
 import { Brand, BrandDocument } from '../brands/schemas/brand.schema'; // Import Brand schema
 import { Category, CategoryDocument } from '../categories/schemas/category.schema'; // Import Category schema
 import { Branch, BranchDocument } from '../branches/schemas/branch.schema'; // Import Branch schema
+import { Order, OrderDocument, PaymentStatus } from '../orders/schemas/order.schema'; // Import Order schema
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -33,6 +34,7 @@ export class ProductsService {
     @InjectModel(Brand.name) private brandModel: Model<BrandDocument>, // Inject BrandModel
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>, // Inject CategoryModel
     @InjectModel(Branch.name) private branchModel: Model<BranchDocument>, // Inject BranchModel
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>, // Inject OrderModel
     private readonly cloudinaryService: CloudinaryService,
     private readonly eventsService: EventsService,
     private readonly websocketService: WebsocketService,
@@ -4012,5 +4014,255 @@ export class ProductsService {
     } catch (error) {
       this.logger.error(`Lỗi khi gửi cập nhật tiến độ: ${error.message}`);
     }
+  }
+
+  /**
+   * Lấy sản phẩm bán chạy
+   * @param period 'all-time' | '30-days'
+   * @param limit Số lượng sản phẩm cần lấy
+   * @returns Danh sách sản phẩm bán chạy
+   */
+  async getTopProducts(period: 'all-time' | '30-days' = 'all-time', limit: number = 5) {
+    try {
+      if (period === 'all-time') {
+        // Lấy sản phẩm bán chạy toàn thời gian dựa trên soldCount
+        return this.getTopProductsAllTime(limit);
+      } else {
+        // Lấy sản phẩm bán chạy trong 30 ngày qua từ Order
+        return this.getTopProducts30Days(limit);
+      }
+    } catch (error) {
+      this.logger.error(`Error fetching top products: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy sản phẩm bán chạy toàn thời gian dựa trên soldCount
+   */
+  private async getTopProductsAllTime(limit: number) {
+    try {
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            status: 'active',
+            soldCount: { $gt: 0 } // Chỉ lấy sản phẩm có soldCount > 0
+          }
+        },
+        {
+          $sort: {
+            soldCount: -1, // Sắp xếp theo soldCount giảm dần
+            'reviews.averageRating': -1, // Sắp xếp phụ theo rating
+            createdAt: -1 // Sắp xếp phụ theo ngày tạo
+          }
+        },
+        { $limit: +limit },
+        {
+          $lookup: {
+            from: 'brands',
+            localField: 'brandId',
+            foreignField: '_id',
+            as: 'brand'
+          }
+        },
+        {
+          $lookup: {
+            from: 'categories',
+            localField: 'categoryIds',
+            foreignField: '_id',
+            as: 'categories'
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            slug: 1,
+            sku: 1,
+            price: 1,
+            currentPrice: 1,
+            status: 1,
+            images: 1,
+            brandId: 1,
+            brandName: { $arrayElemAt: ['$brand.name', 0] },
+            categoryIds: {
+              $map: {
+                input: '$categories',
+                as: 'cat',
+                in: {
+                  id: '$$cat._id',
+                  name: '$$cat.name'
+                }
+              }
+            },
+            flags: 1,
+            reviews: 1,
+            soldCount: { $ifNull: ['$soldCount', 0] }
+          }
+        }
+      ];
+
+      const products = await this.productModel.aggregate(pipeline);
+
+      return this.formatTopProductsResponse(products, 'all-time');
+    } catch (error) {
+      this.logger.error(`Error fetching top products all time: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy sản phẩm bán chạy trong 30 ngày qua từ Order
+   */
+  private async getTopProducts30Days(limit: number) {
+    try {
+      // Tính ngày 30 ngày trước
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      // Aggregation pipeline để tính toán sản phẩm bán chạy trong 30 ngày
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            createdAt: { $gte: thirtyDaysAgo },
+            status: 'delivered' // Chỉ tính đơn hàng đã giao thành công
+          }
+        },
+        {
+          $unwind: '$items' // Tách mảng items thành các document riêng lẻ
+        },
+        {
+          $group: {
+            _id: { $toObjectId: '$items.productId' }, // Convert string to ObjectId
+            totalQuantity: { $sum: '$items.quantity' }, // Tổng số lượng bán trong 30 ngày
+            totalOrders: { $sum: 1 } // Tổng số đơn hàng chứa sản phẩm này
+          }
+        },
+        {
+          $lookup: {
+            from: 'products',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'product'
+          }
+        },
+        {
+          $unwind: '$product'
+        },
+        {
+          $match: {
+            'product.status': 'active' // Chỉ lấy sản phẩm đang hoạt động
+          }
+        },
+        {
+          $sort: {
+            totalQuantity: -1, // Sắp xếp theo tổng số lượng bán giảm dần
+            totalOrders: -1 // Sắp xếp phụ theo số đơn hàng
+          }
+        },
+        { $limit: +limit },
+        {
+          $lookup: {
+            from: 'brands',
+            localField: 'product.brandId',
+            foreignField: '_id',
+            as: 'brand'
+          }
+        },
+        {
+          $lookup: {
+            from: 'categories',
+            localField: 'product.categoryIds',
+            foreignField: '_id',
+            as: 'categories'
+          }
+        },
+        {
+          $project: {
+            _id: '$product._id',
+            name: '$product.name',
+            slug: '$product.slug',
+            sku: '$product.sku',
+            price: '$product.price',
+            currentPrice: '$product.currentPrice',
+            status: '$product.status',
+            images: '$product.images',
+            brandId: '$product.brandId',
+            brandName: { $arrayElemAt: ['$brand.name', 0] },
+            categoryIds: {
+              $map: {
+                input: '$categories',
+                as: 'cat',
+                in: {
+                  id: '$$cat._id',
+                  name: '$$cat.name'
+                }
+              }
+            },
+            flags: '$product.flags',
+            reviews: '$product.reviews',
+            soldCount: { $ifNull: ['$product.soldCount', 0] },
+            totalQuantity30Days: '$totalQuantity', // Số lượng bán trong 30 ngày
+            totalOrders30Days: '$totalOrders' // Số đơn hàng trong 30 ngày
+          }
+        }
+      ];
+
+      // Sử dụng orderModel để thực hiện aggregation
+      const products = await this.orderModel.aggregate(pipeline);
+
+      return this.formatTopProductsResponse(products, '30-days');
+    } catch (error) {
+      this.logger.error(`Error fetching top products 30 days: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Format response cho top products
+   */
+  private formatTopProductsResponse(products: any[], period: string) {
+    const lightProducts = products.map(product => {
+      let imageUrl = '';
+      if (product.images && product.images.length > 0) {
+        const primaryImage = product.images.find(img => img.isPrimary);
+        imageUrl = primaryImage ? primaryImage.url : product.images[0].url;
+      }
+
+      const baseProduct = {
+        _id: product._id.toString(),
+        name: product.name,
+        slug: product.slug,
+        sku: product.sku,
+        price: product.price,
+        currentPrice: product.currentPrice || product.price,
+        status: product.status,
+        imageUrl,
+        brandId: product.brandId?.toString(),
+        brandName: product.brandName,
+        categoryIds: product.categoryIds || [],
+        flags: product.flags,
+        reviews: product.reviews,
+        soldCount: product.soldCount
+      };
+
+      // Thêm thông tin đặc biệt cho 30 ngày
+      if (period === '30-days') {
+        return {
+          ...baseProduct,
+          totalQuantity30Days: product.totalQuantity30Days || 0,
+          totalOrders30Days: product.totalOrders30Days || 0
+        };
+      }
+
+      return baseProduct;
+    });
+
+    return {
+      products: lightProducts,
+      period,
+      total: lightProducts.length,
+      generatedAt: new Date().toISOString()
+    };
   }
 }

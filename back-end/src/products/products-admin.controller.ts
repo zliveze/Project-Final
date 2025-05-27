@@ -99,6 +99,52 @@ export class ProductsAdminController {
     return this.productsService.getStatistics();
   }
 
+  @Get('top-products')
+  @AdminRoles('admin', 'superadmin')
+  @ApiOperation({ summary: 'Get top selling products' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns top selling products',
+    schema: {
+      type: 'object',
+      properties: {
+        products: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              name: { type: 'string' },
+              slug: { type: 'string' },
+              sku: { type: 'string' },
+              price: { type: 'number' },
+              currentPrice: { type: 'number' },
+              status: { type: 'string' },
+              imageUrl: { type: 'string' },
+              brandId: { type: 'string' },
+              brandName: { type: 'string' },
+              categoryIds: { type: 'array' },
+              flags: { type: 'object' },
+              reviews: { type: 'object' },
+              soldCount: { type: 'number' },
+              totalQuantity30Days: { type: 'number', description: 'Only for 30-days period' },
+              totalOrders30Days: { type: 'number', description: 'Only for 30-days period' }
+            }
+          }
+        },
+        period: { type: 'string', enum: ['all-time', '30-days'] },
+        total: { type: 'number' },
+        generatedAt: { type: 'string', format: 'date-time' }
+      }
+    }
+  })
+  async getTopProducts(
+    @Query('period') period: 'all-time' | '30-days' = 'all-time',
+    @Query('limit') limit: number = 5
+  ) {
+    return this.productsService.getTopProducts(period, limit);
+  }
+
   @Post('check-promotions')
   @AdminRoles('admin', 'superadmin')
   @ApiOperation({ summary: 'Kiểm tra sản phẩm có trong Event hoặc Campaign nào không' })

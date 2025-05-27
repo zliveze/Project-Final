@@ -11,6 +11,7 @@ import { Variant, VariantSchema } from './schemas/variant.schema'; // Import Var
 import { Brand, BrandSchema } from '../brands/schemas/brand.schema'; // Import Brand schema
 import { Category, CategorySchema } from '../categories/schemas/category.schema'; // Import Category schema
 import { Branch, BranchSchema } from '../branches/schemas/branch.schema'; // Import Branch schema
+import { Order, OrderSchema } from '../orders/schemas/order.schema'; // Import Order schema
 import { CloudinaryModule } from '../cloudinary';
 import { EventsModule } from '../events/events.module'; // Import EventsModule
 import { WebsocketModule } from '../websocket/websocket.module'; // Import WebsocketModule
@@ -25,6 +26,7 @@ import { RecommendationsModule } from '../recommendations/recommendations.module
       { name: Brand.name, schema: BrandSchema }, // Register Brand schema
       { name: Category.name, schema: CategorySchema }, // Register Category schema
       { name: Branch.name, schema: BranchSchema }, // Register Branch schema
+      { name: Order.name, schema: OrderSchema }, // Register Order schema
     ]),
     CloudinaryModule,
     EventsModule, // Add EventsModule here
