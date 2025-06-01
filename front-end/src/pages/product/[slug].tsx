@@ -116,15 +116,7 @@ interface VariantWithPromotion extends Variant {
   };
 }
 
-interface VariantCombinationWithPromotion extends VariantCombination {
-  promotionPrice?: number;
-  promotion?: {
-    type: string;
-    id: string;
-    name: string;
-    adjustedPrice: number;
-  };
-}
+// VariantCombinationWithPromotion interface removed as it's not used in the component
 
 interface Product {
   _id: string;

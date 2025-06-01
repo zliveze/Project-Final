@@ -5,15 +5,20 @@
 import { CategoryWithImage } from '@/components/product/ProductCategories';
 import { BrandWithLogo } from '@/components/product/ProductInfo';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.endsWith('/api') 
-  ? process.env.NEXT_PUBLIC_API_URL 
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.endsWith('/api')
+  ? process.env.NEXT_PUBLIC_API_URL
   : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api`;
 
-// Types for better type safety
-interface VariantWithPromotion {
-  variantId: string;
-  sku: string;
-  options: any;
+// Define proper types to replace 'any'
+interface VariantOptions {
+  color?: string;
+  sizes?: string[];
+  shades?: string[];
+  [key: string]: unknown;
+}
+
+interface VariantCombination {
+  combinationId: string;
   price?: number;
   promotionPrice?: number;
   promotion?: {
@@ -22,7 +27,78 @@ interface VariantWithPromotion {
     name: string;
     adjustedPrice: number;
   };
-  combinations?: any[];
+  [key: string]: unknown;
+}
+
+interface Branch {
+  _id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  [key: string]: unknown;
+}
+
+interface Review {
+  _id: string;
+  userId: string;
+  productId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+interface RecommendedProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  price: number;
+  currentPrice: number;
+  imageUrl?: string;
+  categoryIds?: string[];
+  relatedProducts?: string[];
+  [key: string]: unknown;
+}
+
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  [key: string]: unknown;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  currentPrice: number;
+  categoryIds?: string[];
+  relatedProducts?: string[];
+  variants?: VariantWithPromotion[];
+  promotion?: {
+    type: string;
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
+  [key: string]: unknown;
+}
+
+// Types for better type safety
+interface VariantWithPromotion {
+  variantId: string;
+  sku: string;
+  options: VariantOptions;
+  price?: number;
+  promotionPrice?: number;
+  promotion?: {
+    type: string;
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
+  combinations?: VariantCombination[];
 }
 
 interface Event {
@@ -112,7 +188,7 @@ export async function fetchProductCategories(categoryIds: string[]): Promise<Cat
 /**
  * Fetch branches data with proper error handling
  */
-export async function fetchBranches(): Promise<any[]> {
+export async function fetchBranches(): Promise<Branch[]> {
   try {
     const branchesRes = await fetch(`${API_URL}/branches`);
     if (branchesRes.ok) {
@@ -139,7 +215,7 @@ export async function fetchBranches(): Promise<any[]> {
 /**
  * Fetch reviews for a product
  */
-export async function fetchProductReviews(productId: string): Promise<any[]> {
+export async function fetchProductReviews(productId: string): Promise<Review[]> {
   try {
     const reviewsRes = await fetch(`${API_URL}/reviews/product/${productId}`);
     const reviewsData = reviewsRes.ok ? await reviewsRes.json() : { data: [], total: 0 };
@@ -155,7 +231,7 @@ export async function fetchProductReviews(productId: string): Promise<any[]> {
 /**
  * Fetch recommended products
  */
-export async function fetchRecommendedProducts(product: any): Promise<any[]> {
+export async function fetchRecommendedProducts(product: RecommendedProduct): Promise<RecommendedProduct[]> {
   try {
     const relatedIds = product.relatedProducts || [];
     let recommendedProductsQuery = '';
@@ -180,7 +256,7 @@ export async function fetchRecommendedProducts(product: any): Promise<any[]> {
 /**
  * Fetch all categories
  */
-export async function fetchAllCategories(): Promise<any[]> {
+export async function fetchAllCategories(): Promise<Category[]> {
   try {
     const allCategoriesRes = await fetch(`${API_URL}/categories`);
     return allCategoriesRes.ok ? await allCategoriesRes.json() : [];
@@ -266,10 +342,10 @@ export async function checkUserStatus(token: string, productId: string): Promise
  * Apply promotions to product
  */
 export function applyPromotionsToProduct(
-  product: any,
+  product: Product,
   events: Event[],
   campaigns: Campaign[]
-): any {
+): Product {
   // Create maps for better performance
   const promotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
   const variantPromotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
@@ -368,7 +444,7 @@ export function applyPromotionsToProduct(
 
         // Apply promotions to combinations
         if (variant.combinations && variant.combinations.length > 0) {
-          variant.combinations = variant.combinations.map((combination: any) => {
+          variant.combinations = variant.combinations.map((combination: VariantCombination) => {
             if (combination.combinationId) {
               const combinationKey = `${productIdStr}_${variant.variantId}_${combination.combinationId}`;
               const combinationPromotion = combinationPromotionMap.get(combinationKey);

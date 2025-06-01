@@ -61,19 +61,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Trả về kết quả từ backend
     return res.status(200).json(response.data);
-  } catch (error: any) {
-    console.error('Lỗi khi đổi mật khẩu admin:', error.response?.data || error.message);
-    
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const axiosError = error as { response?: { data?: { message?: string } & unknown; status?: number } };
+
+    console.error('Lỗi khi đổi mật khẩu admin:', axiosError.response?.data || errorMessage);
+
     // Trả về lỗi chính xác từ backend
-    if (error.response) {
-      return res.status(error.response.status).json({
+    if (axiosError.response) {
+      const responseData = axiosError.response.data as { message?: string } | undefined;
+      return res.status(axiosError.response.status).json({
         success: false,
-        message: error.response.data.message || 'Đã xảy ra lỗi khi cập nhật mật khẩu'
+        message: responseData?.message || 'Đã xảy ra lỗi khi cập nhật mật khẩu'
       });
     }
-    
-    return res.status(500).json({ 
-      success: false, 
+
+    return res.status(500).json({
+      success: false,
       message: 'Đã xảy ra lỗi khi cập nhật mật khẩu'
     });
   }

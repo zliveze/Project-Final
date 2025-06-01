@@ -1,5 +1,33 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
+// Define proper types to replace 'any'
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  isActive: boolean;
+  isBanned: boolean;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+interface GrowthStats {
+  totalGrowth: number;
+  activeGrowth: number;
+  inactiveGrowth: number;
+  blockedGrowth: number;
+}
+
+interface MonthlyCount {
+  month: string;
+  count: number;
+  [key: string]: unknown;
+}
+
+// StatsData interface removed as it's not used - statsData is handled as unknown from API response
+
 // Thời gian timeout cho API call
 const API_TIMEOUT = 15000; // 15 seconds
 
@@ -40,18 +68,19 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries: num
       }
       
       return response;
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
-      
+
       // Lưu lỗi gần nhất để throw nếu hết retry
-      lastError = error;
-      
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+
       // Không retry nếu request bị hủy có chủ đích
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timeout exceeded');
       }
-      
-      console.warn(`Error when fetching ${url}, retry ${retryCount + 1}/${maxRetries + 1}: ${error.message}`);
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`Error when fetching ${url}, retry ${retryCount + 1}/${maxRetries + 1}: ${errorMessage}`);
       retryCount++;
       
       // Chờ thời gian tăng dần trước khi retry
@@ -182,7 +211,7 @@ export default async function handler(
         
         if (normalizedSearch) {
           const searchLower = normalizedSearch.toLowerCase();
-          filteredData = data.filter((user: any) => {
+          filteredData = data.filter((user: User) => {
             return (
               (user.name && user.name.toLowerCase().includes(searchLower)) ||
               (user.email && user.email.toLowerCase().includes(searchLower)) ||
@@ -191,10 +220,10 @@ export default async function handler(
           });
           console.log(`Sau khi lọc từ khóa "${normalizedSearch}" còn ${filteredData.length} kết quả`);
         }
-        
+
         // Áp dụng lọc theo trạng thái nếu cần
         if (status && status !== 'all') {
-          filteredData = filteredData.filter((user: any) => {
+          filteredData = filteredData.filter((user: User) => {
             if (status === 'active') return user.isActive && !user.isBanned;
             if (status === 'inactive') return !user.isActive && !user.isBanned;
             if (status === 'blocked') return user.isBanned;
@@ -202,10 +231,10 @@ export default async function handler(
           });
           console.log(`Sau khi lọc trạng thái "${status}" còn ${filteredData.length} kết quả`);
         }
-        
+
         // Áp dụng lọc theo vai trò nếu cần
         if (role && role !== 'all') {
-          filteredData = filteredData.filter((user: any) => user.role === role);
+          filteredData = filteredData.filter((user: User) => user.role === role);
           console.log(`Sau khi lọc vai trò "${role}" còn ${filteredData.length} kết quả`);
         }
         
@@ -228,19 +257,19 @@ export default async function handler(
             console.log(`Lọc đến ngày: ${endDateObj.toISOString()}`);
           }
           
-          filteredData = filteredData.filter((user: any) => {
+          filteredData = filteredData.filter((user: User) => {
             const createdAt = new Date(user.createdAt);
-            
+
             // Kiểm tra điều kiện startDate (lớn hơn hoặc bằng)
             if (startDateObj && createdAt < startDateObj) {
               return false;
             }
-            
+
             // Kiểm tra điều kiện endDate (nhỏ hơn hoặc bằng)
             if (endDateObj && createdAt > endDateObj) {
               return false;
             }
-            
+
             return true;
           });
           
@@ -257,8 +286,8 @@ export default async function handler(
         }
       });
       
-      let monthlyData = [];
-      let growthStats = {
+      let monthlyData: MonthlyCount[] = [];
+      const growthStats: GrowthStats = {
         totalGrowth: 0,
         activeGrowth: 0,
         inactiveGrowth: 0,
@@ -286,7 +315,7 @@ export default async function handler(
       const totalFilteredUsers = filteredData.length;
       
       const formattedData = {
-        users: paginatedUsers.map((user: any) => ({
+        users: paginatedUsers.map((user: User) => ({
           id: user._id,
           name: user.name,
           email: user.email,
@@ -296,9 +325,9 @@ export default async function handler(
           createdAt: user.createdAt
         })),
         totalUsers: totalFilteredUsers, // Chỉ đếm số lượng sau khi đã lọc
-        activeUsers: filteredData.filter((u: any) => u.isActive && !u.isBanned).length,
-        inactiveUsers: filteredData.filter((u: any) => !u.isActive && !u.isBanned).length,
-        blockedUsers: filteredData.filter((u: any) => u.isBanned).length,
+        activeUsers: filteredData.filter((u: User) => u.isActive && !u.isBanned).length,
+        inactiveUsers: filteredData.filter((u: User) => !u.isActive && !u.isBanned).length,
+        blockedUsers: filteredData.filter((u: User) => u.isBanned).length,
         monthlyCounts: monthlyData,
         totalGrowth: growthStats.totalGrowth,
         activeGrowth: growthStats.activeGrowth,
@@ -314,12 +343,15 @@ export default async function handler(
       console.log('API trả về dữ liệu đã được xử lý từ backend');
       return res.status(response.status).json(data);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Lỗi lấy dữ liệu người dùng:', error);
     // Trả về thông tin lỗi chi tiết hơn
-    return res.status(error.name === 'AbortError' ? 408 : 500).json({ 
-      message: error.name === 'AbortError' ? 'Yêu cầu hết thời gian xử lý' : 'Lỗi máy chủ nội bộ', 
-      error: error.message,
+    const isAbortError = error instanceof Error && error.name === 'AbortError';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    return res.status(isAbortError ? 408 : 500).json({
+      message: isAbortError ? 'Yêu cầu hết thời gian xử lý' : 'Lỗi máy chủ nội bộ',
+      error: errorMessage,
       retry: true // Gợi ý cho client rằng có thể retry request
     });
   }

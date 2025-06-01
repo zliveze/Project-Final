@@ -50,11 +50,12 @@ export default async function handler(
     // Trả về dữ liệu từ backend
     const data = await response.json();
     return res.status(200).json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching orders:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi máy chủ nội bộ', 
-      error: error.message 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return res.status(500).json({
+      message: 'Lỗi máy chủ nội bộ',
+      error: errorMessage
     });
   }
 }

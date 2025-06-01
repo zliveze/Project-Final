@@ -2,11 +2,10 @@
  * Performance monitoring utilities for product pages
  */
 
-interface PerformanceMetrics {
-  pageLoadTime: number;
-  imageLoadTime: number;
-  apiResponseTime: number;
-  renderTime: number;
+// Define proper types for performance entries
+interface LayoutShiftEntry extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
 }
 
 class PerformanceMonitor {
@@ -53,9 +52,10 @@ class PerformanceMonitor {
         const clsObserver = new PerformanceObserver((list) => {
           let clsValue = 0;
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (!entry.hadRecentInput) {
-              clsValue += entry.value;
+          entries.forEach((entry) => {
+            const layoutShiftEntry = entry as LayoutShiftEntry;
+            if (!layoutShiftEntry.hadRecentInput) {
+              clsValue += layoutShiftEntry.value;
             }
           });
           this.metrics.set('cls', clsValue);
@@ -122,6 +122,7 @@ class PerformanceMonitor {
       const metrics = this.getAllMetrics();
       // TODO: Send to analytics service
       // Example: analytics.track('page_performance', metrics);
+      console.log('Performance metrics ready for analytics:', metrics);
     }
   }
 
@@ -130,8 +131,9 @@ class PerformanceMonitor {
     this.observers.forEach(observer => {
       try {
         observer.disconnect();
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
+        console.warn('Error disconnecting performance observer');
       }
     });
     this.observers = [];

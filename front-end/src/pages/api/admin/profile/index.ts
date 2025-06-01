@@ -50,17 +50,20 @@ async function handleGetProfile(req: NextApiRequest, res: NextApiResponse) {
     });
     
     console.log('API response from backend profile:', response.data);
-    
+
     return res.status(200).json(response.data);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy thông tin admin:', error.response?.data || error.message);
-    
-    if (error.response?.status === 401) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const axiosError = error as { response?: { data?: unknown; status?: number } };
+
+    console.error('Lỗi khi lấy thông tin admin:', axiosError.response?.data || errorMessage);
+
+    if (axiosError.response?.status === 401) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
-    
-    return res.status(500).json({ 
-      success: false, 
+
+    return res.status(500).json({
+      success: false,
       message: 'Đã xảy ra lỗi khi lấy thông tin admin'
     });
   }
@@ -113,27 +116,31 @@ async function handleUpdateProfile(req: NextApiRequest, res: NextApiResponse) {
     
     console.log('API response after update profile:', response.data);
     
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       message: 'Cập nhật thông tin thành công',
       user: response.data
     });
-  } catch (error: any) {
-    console.error('Lỗi khi cập nhật thông tin admin:', error.response?.data || error.message);
-    
-    if (error.response?.status === 401) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const axiosError = error as { response?: { data?: { message?: string } & unknown; status?: number } };
+
+    console.error('Lỗi khi cập nhật thông tin admin:', axiosError.response?.data || errorMessage);
+
+    if (axiosError.response?.status === 401) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
-    
-    if (error.response?.status === 400) {
+
+    if (axiosError.response?.status === 400) {
+      const responseData = axiosError.response.data as { message?: string } | undefined;
       return res.status(400).json({
         success: false,
-        message: error.response.data.message || 'Dữ liệu không hợp lệ'
+        message: responseData?.message || 'Dữ liệu không hợp lệ'
       });
     }
-    
-    return res.status(500).json({ 
-      success: false, 
+
+    return res.status(500).json({
+      success: false,
       message: 'Đã xảy ra lỗi khi cập nhật thông tin admin'
     });
   }

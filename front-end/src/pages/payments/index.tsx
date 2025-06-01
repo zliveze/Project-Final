@@ -101,10 +101,10 @@ const PaymentsPage: NextPage = () => {
     selectedItems,
     selectedSubtotal,
     selectedItemCount,
-    subtotal,
+    // subtotal - removed as it's not used
     discount,
     shipping,
-    total: cartTotal,
+    // total: cartTotal - removed as it's not used
     selectedTotal,
     voucherCode,
     voucherId,
@@ -299,7 +299,7 @@ const PaymentsPage: NextPage = () => {
 
     // Trả về trọng lượng thực tế, không áp dụng giá trị mặc định
     return totalWeight;
-  }, [cartItems]);
+  }, [cartItems, selectedItems]);
 
   // Hàm tính phí vận chuyển dựa trên địa chỉ và trọng lượng
   const calculateShippingFeeForAddress = React.useCallback(async (address: ShippingInfo) => {
@@ -468,7 +468,7 @@ const PaymentsPage: NextPage = () => {
       updateShipping(32000);
       setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
     }
-  }, [cartItems, subtotal, discount, calculateShippingFeeAll, updateShipping, calculateTotalWeight]);
+  }, [cartItems, selectedItems, selectedSubtotal, discount, calculateShippingFeeAll, updateShipping, calculateTotalWeight]);
 
   // Xử lý khi chọn địa chỉ
   const handleSelectAddress = (addressId: string) => {
