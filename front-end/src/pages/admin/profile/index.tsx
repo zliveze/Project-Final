@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiUser, FiMail, FiPhone, FiLock, FiSave } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
@@ -45,36 +45,36 @@ export default function AdminProfile() {
   const newPassword = watch('newPassword');
 
   // Hàm tải thông tin profile từ API
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('adminToken');
-      
+
       if (!token) {
         return;
       }
-      
+
       const response = await axios.get('/api/admin/profile', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       console.log('Loaded profile data from API:', response.data);
-      
+
       if (response.data) {
         // Cập nhật context
         if (setAdmin) {
           setAdmin(response.data);
         }
-        
+
         // Cập nhật form
         reset({
           name: response.data.name || '',
           email: response.data.email || '',
           phone: response.data.phone || '',
         });
-        
+
         // Cập nhật localStorage
         localStorage.setItem('adminUser', JSON.stringify(response.data));
       }
@@ -83,12 +83,12 @@ export default function AdminProfile() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setAdmin, reset]);
 
   useEffect(() => {
     // Tải thông tin profile khi component mount
     loadProfile();
-  }, []);
+  }, [loadProfile]);
 
   useEffect(() => {
     if (admin) {
@@ -163,9 +163,10 @@ export default function AdminProfile() {
       } else {
         toast.error(response.data.message || 'Có lỗi xảy ra khi cập nhật mật khẩu');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi cập nhật mật khẩu:', error);
-      const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật mật khẩu';
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = axiosError.response?.data?.message || 'Có lỗi xảy ra khi cập nhật mật khẩu';
       toast.error(errorMessage);
     } finally {
       setIsSubmittingPassword(false);

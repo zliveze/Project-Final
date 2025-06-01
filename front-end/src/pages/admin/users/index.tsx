@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+// useRouter and useMemo removed as they're not used
 import dynamic from 'next/dynamic';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { UserNotifications } from '@/components/admin/users';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAdminUser } from '@/contexts/AdminUserContext';
-import { FiUserPlus, FiUsers, FiRefreshCw, FiChevronDown } from 'react-icons/fi';
+import { FiUserPlus, FiRefreshCw, FiChevronDown } from 'react-icons/fi';
+// FiUsers removed as it's not used
 
 // Lazy load các component không cần thiết ngay lập tức
 const UserTable = dynamic(() => import('@/components/admin/users/UserTable'));
@@ -19,6 +20,29 @@ const UserResetPasswordModal = lazy(() => import('@/components/admin/users/UserR
 // Tách UserGrowthChart ra để lazy load sau khi trang đã tải xong
 const UserStats = lazy(() => import('@/components/admin/UserStats'));
 
+// Define proper types to replace 'any'
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  isActive: boolean;
+  isBanned: boolean;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+interface SearchValues {
+  searchTerm: string;
+  filters: {
+    status: string;
+    role: string;
+  };
+  dateFrom: string;
+  dateTo: string;
+}
+
 // Component loading
 const LoadingFallback = () => (
   <div className="w-full h-24 flex items-center justify-center">
@@ -27,7 +51,7 @@ const LoadingFallback = () => (
 );
 
 export default function AdminUsers() {
-  const router = useRouter();
+  // router variable removed as it's not used
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -38,8 +62,8 @@ export default function AdminUsers() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [selectedDetailUser, setSelectedDetailUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedDetailUser, setSelectedDetailUser] = useState<User | null>(null);
   const [shouldShowStats, setShouldShowStats] = useState(false);
 
   // Sử dụng context để tương tác với API thay vì mock data
@@ -54,13 +78,13 @@ export default function AdminUsers() {
     updateUser,
     deleteUser,
     resetPassword,
-    updateUserStatus,
-    updateUserRole,
+    // updateUserStatus - removed as it's not used
+    // updateUserRole - removed as it's not used
     createUser
   } = useAdminUser();
 
   // State cho tìm kiếm và lọc (bao gồm cả ngày)
-  const [searchValues, setSearchValues] = useState({
+  const [searchValues, setSearchValues] = useState<SearchValues>({
     searchTerm: '',
     filters: {
       status: 'all',
@@ -73,9 +97,8 @@ export default function AdminUsers() {
   // Tải dữ liệu người dùng khi component được tải lần đầu
   useEffect(() => {
     // Tải dữ liệu ban đầu với các giá trị mặc định khi component mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps - Chỉ chạy khi component được tải lần đầu
     fetchUsers(1, itemsPerPage, searchValues.searchTerm, searchValues.filters.status, searchValues.filters.role, searchValues.dateFrom, searchValues.dateTo);
-  }, []);
+  }, [fetchUsers, itemsPerPage, searchValues.searchTerm, searchValues.filters.status, searchValues.filters.role, searchValues.dateFrom, searchValues.dateTo]);
 
   // Lazy load UserStats sau khi trang đã tải
   useEffect(() => {
@@ -88,7 +111,7 @@ export default function AdminUsers() {
 
   // Xử lý tìm kiếm
   // Xử lý tìm kiếm (đã cập nhật để truyền tham số ngày)
-  const handleSearch = useCallback((values: any) => {
+  const handleSearch = useCallback((values: SearchValues) => {
     setSearchValues(values); // values đã chứa dateFrom, dateTo từ AdvancedSearch
     // Reset về trang đầu tiên khi thay đổi tìm kiếm, truyền cả tham số ngày
     fetchUsers(1, itemsPerPage, values.searchTerm, values.filters.status, values.filters.role, values.dateFrom, values.dateTo);
@@ -374,7 +397,7 @@ export default function AdminUsers() {
           <UserCreateModal
             isOpen={showCreateModal}
             onClose={() => setShowCreateModal(false)}
-            onSubmit={(userData: any) => {
+            onSubmit={(userData: Partial<User>) => {
               createUser(userData).then(() => {
                 setShowCreateModal(false);
                 handleRefresh();
@@ -390,7 +413,7 @@ export default function AdminUsers() {
             isOpen={showEditModal}
             onClose={() => setShowEditModal(false)}
             user={selectedUser}
-            onSubmit={async (userData: any) => {
+            onSubmit={async (userData: User) => {
               try {
                 await updateUser(userData._id, userData);
                 // Tải lại dữ liệu sau khi cập nhật thành công

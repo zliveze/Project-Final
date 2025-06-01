@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import Image from 'next/image';
 import * as XLSX from 'xlsx'; // Import thư viện xlsx
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Toaster, toast } from 'react-hot-toast';
@@ -47,7 +48,7 @@ function AdminProducts({
   const {
     products,
     loading: isLoading,
-    error: productAdminError, // Rename to avoid conflict with apiError prop
+    // error: productAdminError - removed as it's not used
     totalItems,
     totalPages,
     selectedProductIds: selectedProducts,
@@ -63,7 +64,7 @@ function AdminProducts({
     updateMultipleProductsStatus: bulkSetStatus,
     updateMultipleProductsFlag: bulkSetFlag,
     isAllSelected,
-    hasSelection,
+    // hasSelection - removed as it's not used
     filters,
     checkApiHealth, // Keep for periodic checks if needed
     currentPage,
@@ -76,16 +77,11 @@ function AdminProducts({
     initialLimit: initialItemsPerPage,
   });
 
-  // State for combined error handling
-  const [combinedError, setCombinedError] = useState<string | null>(apiError || productAdminError);
-
-  useEffect(() => {
-    setCombinedError(apiError || productAdminError);
-  }, [apiError, productAdminError]);
-
+  // combinedError and setCombinedError - removed as they're not used
 
   // Sử dụng hook API stats - can potentially be moved to SSR too if needed
-  const { statistics, loading: statsLoading } = useApiStats();
+  const { statistics } = useApiStats();
+  // statsLoading - removed as it's not used
 
   // Dữ liệu thống kê
   const [statisticsData, setStatisticsData] = useState({
@@ -135,12 +131,21 @@ function AdminProducts({
   // Cờ điều khiển việc hiển thị debug logs - đặt ở cấp độ component để dùng chung
   const DEBUG_MODE = false;
 
-  // Hàm debug có điều kiện
-  const debugLog = (message: string, data?: any) => {
+  // Define proper types to replace 'any'
+  interface Product {
+    id: string;
+    name: string;
+    price: number;
+    status: string;
+    [key: string]: unknown;
+  }
+
+  // Hàm debug có điều kiện - wrapped in useCallback to prevent useEffect dependency changes
+  const debugLog = useCallback((message: string, data?: unknown) => {
     if (DEBUG_MODE) {
       console.log(`[ProductsAdmin] ${message}`, data || '');
     }
-  };
+  }, [DEBUG_MODE]);
 
   // Theo dõi trạng thái tiến trình để tự động đóng modal và làm mới dữ liệu
   useEffect(() => {
@@ -178,19 +183,20 @@ function AdminProducts({
       setImportCompletedHandled(true); // Đánh dấu đã xử lý
     }
     // Không cần else ở đây, chỉ cần chạy khi hoàn thành lần đầu
-  }, [progress, showProgressModal, importCompletedHandled, fetchProducts]); // Thêm dependency
+  }, [progress, showProgressModal, importCompletedHandled, fetchProducts, debugLog]); // Thêm debugLog dependency
 
   // State cho các modal product
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [showProductDetailModal, setShowProductDetailModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Lấy dữ liệu danh mục từ mock data (tạm thời)
   const categories = getCategories();
 
   // Lấy dữ liệu thương hiệu từ BrandContext
-  const { brands: apiBrands, loading: brandsLoading } = useBrands();
+  const { brands: apiBrands } = useBrands();
+  // brandsLoading - removed as it's not used
 
   // Lấy dữ liệu danh mục từ CategoryContext
   const { refreshCategories } = useCategory();
@@ -202,7 +208,8 @@ function AdminProducts({
   }));
 
   // Get productContext from useProduct hook
-  const { cleanupBase64Images, uploadProductImage, fetchProductById, cloneProduct } = useProduct();
+  const { uploadProductImage, fetchProductById, cloneProduct } = useProduct();
+  // cleanupBase64Images - removed as it's not used
 
   // Removed the initial data fetching useEffect as it's handled by SSR and useProductAdmin
   // Keep periodic health check if desired
@@ -307,8 +314,9 @@ function AdminProducts({
 
         return true;
       }
-    } catch (error: any) {
-      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Không tìm thấy thông tin sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       console.error('Không tìm thấy sản phẩm với ID:', id, error);
@@ -372,8 +380,9 @@ function AdminProducts({
       }
 
       return true;
-    } catch (error: any) {
-      toast.error(`Không tìm thấy thông tin sản phẩm: ${error.message}`, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Không tìm thấy thông tin sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       console.error('Không tìm thấy sản phẩm với ID:', id, error);
@@ -417,8 +426,9 @@ function AdminProducts({
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (e) {
+        } catch {
           // Ignore if response is not JSON
+          console.warn('Could not parse error response as JSON');
         }
         throw new Error(errorMessage);
       }
@@ -438,10 +448,11 @@ function AdminProducts({
       // Refresh the product list
       fetchProducts();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
-      toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${error.message}`, {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${errorMessage}`, {
         duration: 4000
       });
     }
@@ -602,9 +613,10 @@ function AdminProducts({
       if (progress?.status === 'completed') {
         fetchProducts();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý lỗi
-      toast.error(`Có lỗi xảy ra khi import dữ liệu: ${error.message}`, {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi import dữ liệu: ${errorMessage}`, {
         duration: 5000
       });
       console.error('Import error:', error);
@@ -660,17 +672,22 @@ function AdminProducts({
 
       if (!response.ok) {
         toast.dismiss(loadingToast);
-        let errorData: any = { message: `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.` };
+        interface ErrorData {
+          message: string;
+        }
+
+        let errorData: ErrorData = { message: `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.` };
         try {
           const errorText = await response.text();
           console.error('[Export Excel] Server Error Response Text:', errorText);
           try {
             errorData = JSON.parse(errorText); // Thử parse thành JSON
-          } catch (e) {
+          } catch {
             errorData.message = errorText.substring(0, 500) || errorData.message; // Nếu không phải JSON, lấy text
+            console.warn('Could not parse error response as JSON');
           }
-        } catch (e) {
-          console.error('[Export Excel] Could not get error response body:', e);
+        } catch {
+          console.error('[Export Excel] Could not get error response body');
         }
 
         const displayMessage = errorData.message || `Lỗi ${response.status} (${response.statusText}) khi lấy dữ liệu xuất.`;
@@ -752,9 +769,10 @@ function AdminProducts({
       toast.dismiss(loadingToast);
 
       // Đếm số categories phân cấp được xuất
-      const hierarchicalCategories = new Set();
+      const hierarchicalCategories = new Set<string>();
       allProductsToExport.forEach(product => {
-        const categoryPath = (product as any)['Nhóm hàng (3 cấp)'];
+        const productData = product as Record<string, unknown>;
+        const categoryPath = productData['Nhóm hàng (3 cấp)'] as string;
         if (categoryPath && categoryPath !== 'N/A' && categoryPath.includes('>>')) {
           hierarchicalCategories.add(categoryPath);
         }
@@ -791,13 +809,28 @@ function AdminProducts({
     setShowAddProductModal(true);
   };
 
-  const handleSaveNewProduct = async (newProduct: any) => {
+  interface ProductImage {
+    file?: File;
+    url?: string;
+    alt?: string;
+    isPrimary?: boolean;
+    publicId?: string;
+  }
+
+  interface ProductData {
+    id?: string;
+    _id?: string;
+    images?: ProductImage[];
+    [key: string]: unknown;
+  }
+
+  const handleSaveNewProduct = async (newProduct: ProductData) => {
     console.log('Thêm sản phẩm mới:', newProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang thêm sản phẩm mới...');
 
     // 1. Extract image files to upload separately
-    const imagesToUpload = newProduct.images?.filter((img: any) => img.file) || [];
+    const imagesToUpload = newProduct.images?.filter((img: ProductImage) => img.file) || [];
     console.log(`Tìm thấy ${imagesToUpload.length} hình ảnh cần tải lên sau khi tạo sản phẩm.`);
 
     try {
@@ -858,9 +891,10 @@ function AdminProducts({
             await uploadProductImage(image.file, createdProduct.id, image.isPrimary);
             uploadSuccessCount++;
             console.log(`Tải lên thành công: ${image.file.name}`);
-          } catch (uploadError: any) {
-            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
-            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${uploadError.message}`, { duration: 5000 });
+          } catch (uploadError: unknown) {
+            const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file?.name}:`, uploadError);
+            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file?.name} - ${errorMessage}`, { duration: 5000 });
             // Optionally continue uploading other images or stop
           }
         }
@@ -890,8 +924,9 @@ function AdminProducts({
           // Assuming fetchProductById exists in the scope or context
           finalProduct = await fetchProductById(createdProduct.id);
           debugLog('Fetched final product data:', finalProduct);
-        } catch (fetchError: any) {
-          console.error(`Failed to fetch final product data after upload: ${fetchError.message}`);
+        } catch (fetchError: unknown) {
+          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+          console.error(`Failed to fetch final product data after upload: ${errorMessage}`);
           // Proceed with the product data we have, but log the error
         }
       }
@@ -911,11 +946,12 @@ function AdminProducts({
       fetchProducts();
 
       return finalProduct; // Return the potentially updated product data
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
       toast.dismiss('image-upload-toast'); // Ensure upload toast is dismissed on error
-      toast.error(`Có lỗi xảy ra khi thêm sản phẩm: ${error.message}`, {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi thêm sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
        // Log the caught error object as well for more context
@@ -924,7 +960,7 @@ function AdminProducts({
      }
    };
 
-   const handleUpdateProduct = async (updatedProduct: any) => {
+   const handleUpdateProduct = async (updatedProduct: ProductData) => {
     debugLog('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
@@ -939,8 +975,8 @@ function AdminProducts({
       const productDataForPatch = { ...updatedProduct };
       if (productDataForPatch.images && Array.isArray(productDataForPatch.images)) {
         productDataForPatch.images = productDataForPatch.images
-          .filter((img: any) => img.url && !img.file && !img.url.startsWith('blob:')) // Keep only existing images with valid URLs
-          .map((img: any) => ({ // Clean up unnecessary client-side props
+          .filter((img: ProductImage) => img.url && !img.file && !img.url.startsWith('blob:')) // Keep only existing images with valid URLs
+          .map((img: ProductImage) => ({ // Clean up unnecessary client-side props
             url: img.url,
             alt: img.alt,
             isPrimary: img.isPrimary,
@@ -979,7 +1015,7 @@ function AdminProducts({
       const updatedProductResult = await response.json(); // Get the result of the main update
 
       // 2. Upload any new images that have a 'file' property
-      const imagesToUpload = originalImages.filter((img: any) => img.file);
+      const imagesToUpload = originalImages.filter((img: ProductImage) => img.file);
       if (imagesToUpload.length > 0) {
         debugLog(`Tìm thấy ${imagesToUpload.length} hình ảnh mới cần tải lên.`);
         toast.loading(`Đang tải lên ${imagesToUpload.length} hình ảnh mới...`, { id: 'image-upload-toast' });
@@ -987,13 +1023,14 @@ function AdminProducts({
         let uploadSuccessCount = 0;
         for (const image of imagesToUpload) {
           try {
-            debugLog(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${productId}`);
+            debugLog(`Đang tải lên file: ${image.file?.name} cho sản phẩm ID: ${productId}`);
             await uploadProductImage(image.file, productId, image.isPrimary);
             uploadSuccessCount++;
-            debugLog(`Tải lên thành công: ${image.file.name}`);
-          } catch (uploadError: any) {
-            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
-            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${uploadError.message}`, { duration: 5000 });
+            debugLog(`Tải lên thành công: ${image.file?.name}`);
+          } catch (uploadError: unknown) {
+            const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file?.name}:`, uploadError);
+            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file?.name} - ${errorMessage}`, { duration: 5000 });
             // Optionally continue uploading other images or stop
           }
         }
@@ -1025,8 +1062,9 @@ function AdminProducts({
            debugLog('Fetched final product data:', finalProduct);
            // Optionally update the selectedProduct state if the modal might stay open
            // setSelectedProduct(finalProduct);
-         } catch (fetchError: any) {
-           console.error(`Failed to fetch final product data after upload: ${fetchError.message}`);
+         } catch (fetchError: unknown) {
+           const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+           console.error(`Failed to fetch final product data after upload: ${errorMessage}`);
            // Proceed with the product data we have
          }
        }
@@ -1045,11 +1083,12 @@ function AdminProducts({
       fetchProducts();
 
       return finalProduct; // Return the potentially updated product data
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
       toast.dismiss('image-upload-toast'); // Ensure upload toast is dismissed on error
-      toast.error(`Có lỗi xảy ra khi cập nhật sản phẩm: ${error.message}`, {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi cập nhật sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       throw error;
@@ -1115,8 +1154,9 @@ function AdminProducts({
           });
           return false;
         }
-      } catch (error: any) {
-        toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${error.message || 'Unknown error'}`, {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Có lỗi xảy ra khi xóa sản phẩm: ${errorMessage}`, {
           duration: 3000
         });
         return false;
@@ -1152,8 +1192,9 @@ function AdminProducts({
         });
         return false;
       }
-    } catch (error: any) {
-      toast.error(`Có lỗi xảy ra khi cập nhật trạng thái sản phẩm: ${error.message || 'Unknown error'}`, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi cập nhật trạng thái sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       return false;
@@ -1187,8 +1228,9 @@ function AdminProducts({
         });
         return false;
       }
-    } catch (error: any) {
-      toast.error(`Có lỗi xảy ra khi cập nhật nhãn sản phẩm: ${error.message || 'Unknown error'}`, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Có lỗi xảy ra khi cập nhật nhãn sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       return false;
@@ -1218,17 +1260,19 @@ function AdminProducts({
         });
 
         return true;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Xử lý lỗi khi gọi API clone
         toast.dismiss(loadingToast);
-        toast.error(`Không thể nhân bản sản phẩm: ${error.message}`, {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        toast.error(`Không thể nhân bản sản phẩm: ${errorMessage}`, {
           duration: 3000
         });
         console.error('Lỗi khi nhân bản sản phẩm:', error);
         return false;
       }
-    } catch (error: any) {
-      toast.error(`Không thể nhân bản sản phẩm: ${error.message}`, {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Không thể nhân bản sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
       console.error('Lỗi khi nhân bản sản phẩm với ID:', id, error);
@@ -1241,22 +1285,7 @@ function AdminProducts({
     toggleSelectAll();
   };
 
-  // Thêm state và handler cho cleanupBase64
-  const [isCleaningBase64, setIsCleaningBase64] = useState(false);
-
-  // Handler để dọn dẹp dữ liệu base64
-  const handleCleanupBase64 = async () => {
-    try {
-      setIsCleaningBase64(true);
-      const result = await cleanupBase64Images();
-      toast.success(`${result.message} (${result.count} sản phẩm đã được xử lý)`);
-    } catch (error) {
-      console.error('Lỗi khi dọn dẹp base64:', error);
-      toast.error('Lỗi khi dọn dẹp dữ liệu base64');
-    } finally {
-      setIsCleaningBase64(false);
-    }
-  };
+  // isCleaningBase64 and handleCleanupBase64 - removed as they're not used
 
   return (
     <AdminLayout title="Quản lý sản phẩm">
@@ -1385,7 +1414,7 @@ function AdminProducts({
                       Xác nhận xóa sản phẩm
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Bạn có chắc chắn muốn xóa sản phẩm {selectedProduct?.name ? <strong className="text-gray-700">"{selectedProduct.name}"</strong> : 'này'}? Hành động này không thể hoàn tác.
+                      Bạn có chắc chắn muốn xóa sản phẩm {selectedProduct?.name ? <strong className="text-gray-700">&quot;{selectedProduct.name}&quot;</strong> : 'này'}? Hành động này không thể hoàn tác.
                     </p>
                   </div>
                 </div>
@@ -1395,9 +1424,11 @@ function AdminProducts({
                   <div className="mt-5 p-4 border border-gray-200 rounded-md bg-gray-50">
                     <div className="flex items-start space-x-4">
                       {selectedProduct.image && (
-                        <img
+                        <Image
                           src={selectedProduct.image}
-                          alt={selectedProduct.name}
+                          alt={selectedProduct.name || 'Product image'}
+                          width={64}
+                          height={64}
                           className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
                         />
                       )}
@@ -1856,9 +1887,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       initialCurrentPage = data.page;
       initialItemsPerPage = data.limit;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('SSR Error fetching products:', error);
-    apiError = error.message || 'Failed to connect to API during SSR';
+    const errorMessage = error instanceof Error ? error.message : 'Failed to connect to API during SSR';
+    apiError = errorMessage;
   }
 
   return {

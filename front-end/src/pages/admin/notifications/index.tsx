@@ -1,19 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { FiPlus, FiAlertCircle } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import NotificationTable from '@/components/admin/notifications/NotificationTable';
 import NotificationAddModal from '@/components/admin/notifications/NotificationAddModal';
 import NotificationEditModal from '@/components/admin/notifications/NotificationEditModal';
 import NotificationViewModal from '@/components/admin/notifications/NotificationViewModal';
-import Pagination from '@/components/admin/common/Pagination';
 import { useNotification } from '@/contexts/NotificationContext';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ConfirmModal from '@/components/common/ConfirmModal';
 
+// Define proper types to replace 'any'
+interface NotificationData {
+  _id?: string;
+  content: string;
+  type: string;
+  isActive: boolean;
+  priority: number;
+  startDate?: string;
+  endDate?: string;
+  targetAudience?: string;
+  [key: string]: unknown;
+}
+
 export default function AdminNotifications() {
-  const router = useRouter();
-  
+  // router removed as it's not used
+
   // Sử dụng NotificationContext
   const { 
     notifications, 
@@ -70,12 +81,12 @@ export default function AdminNotifications() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryParams.page, queryParams.limit]);
 
-  // Xử lý thay đổi params
-  const handleParamsChange = (newParams: Partial<typeof queryParams>) => {
-    const updatedParams = { ...queryParams, ...newParams, page: 1 };
-    setQueryParams(updatedParams); // Reset về trang 1 khi lọc
-    // Không cần gọi getNotifications riêng ở đây vì useEffect sẽ bắt sự thay đổi của queryParams
-  };
+  // Xử lý thay đổi params - removed as it's not used
+  // const handleParamsChange = (newParams: Partial<typeof queryParams>) => {
+  //   const updatedParams = { ...queryParams, ...newParams, page: 1 };
+  //   setQueryParams(updatedParams); // Reset về trang 1 khi lọc
+  //   // Không cần gọi getNotifications riêng ở đây vì useEffect sẽ bắt sự thay đổi của queryParams
+  // };
 
   // Xử lý xem chi tiết thông báo
   const handleViewNotification = async (id: string) => {
@@ -92,7 +103,7 @@ export default function AdminNotifications() {
   };
 
   // Xử lý chỉnh sửa thông báo
-  const handleEditNotification = async (data: any) => {
+  const handleEditNotification = async (data: NotificationData) => {
     if (!data._id) return;
     const success = await updateNotification(data._id, data);
     if (success) {
@@ -101,7 +112,7 @@ export default function AdminNotifications() {
   };
 
   // Xử lý thêm thông báo mới
-  const handleAddNotification = async (data: any) => {
+  const handleAddNotification = async (data: NotificationData) => {
     const success = await createNotification(data);
     if (success) {
       setShowAddModal(false);
@@ -242,23 +253,23 @@ export default function AdminNotifications() {
     );
   };
 
-  // Render phân trang
-  const renderPagination = () => {
-    if (!paginatedData) return null;
-    
-    const { page, totalPages, total, limit } = paginatedData;
-    
-    return (
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={total}
-        itemsPerPage={limit}
-        onPageChange={(newPage) => setQueryParams(prev => ({ ...prev, page: newPage }))}
-        className="mt-4"
-      />
-    );
-  };
+  // Render phân trang - removed as it's not used
+  // const renderPagination = () => {
+  //   if (!paginatedData) return null;
+  //
+  //   const { page, totalPages, total, limit } = paginatedData;
+  //
+  //   return (
+  //     <Pagination
+  //       currentPage={page}
+  //       totalPages={totalPages}
+  //       totalItems={total}
+  //       itemsPerPage={limit}
+  //       onPageChange={(newPage) => setQueryParams(prev => ({ ...prev, page: newPage }))}
+  //       className="mt-4"
+  //     />
+  //   );
+  // };
 
   return (
     <AdminLayout>

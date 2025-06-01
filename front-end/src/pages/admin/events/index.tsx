@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+// useRouter removed as it's not used
 import { Plus, CalendarDays, Clock, CheckCircle2, FileText, Package } from 'lucide-react'; // Updated icons
 import AdminLayout from '@/components/admin/AdminLayout';
 import EventsTable from '@/components/admin/events/EventsTable';
@@ -8,11 +8,11 @@ import EventEditModal from '@/components/admin/events/EventEditModal';
 import EventViewModal from '@/components/admin/events/EventViewModal';
 import EventDeleteModal from '@/components/admin/events/EventDeleteModal';
 import { EventFormData } from '@/components/admin/events/EventForm';
-import toast from 'react-hot-toast';
+// toast removed as it's not used
 import { useEvents, Event } from '@/contexts/EventsContext';
 
 export default function AdminEvents() {
-  const router = useRouter();
+  // router removed as it's not used
   const {
     events,
     isLoading,

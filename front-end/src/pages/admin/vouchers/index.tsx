@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'; // Thêm useCallback
 import Head from 'next/head';
-import { FiPlus, FiTag, FiCheckCircle, FiXCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
-import { Toaster } from 'react-hot-toast';
+import { FiPlus, FiRefreshCw } from 'react-icons/fi';
+// Removed unused imports: FiTag, FiCheckCircle, FiXCircle, FiClock, Toaster
 import AdminLayout from '@/components/admin/AdminLayout';
 import VoucherTable from '@/components/admin/vouchers/VoucherTable';
 import VoucherAddModal from '@/components/admin/vouchers/VoucherAddModal';
@@ -10,13 +10,22 @@ import VoucherDetailModal from '@/components/admin/vouchers/VoucherDetailModal';
 import VoucherDeleteModal from '@/components/admin/vouchers/VoucherDeleteModal';
 import VoucherStatsCards from '@/components/admin/vouchers/VoucherStatsCards';
 import { useVoucher } from '@/contexts/VoucherContext'; // VoucherProvider đã được cung cấp bởi AppProviders
-import { Voucher, VoucherStatistics } from '@/contexts/VoucherContext';
+import { Voucher } from '@/contexts/VoucherContext';
+// VoucherStatistics removed as it's not used
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 
-interface ExtendedVoucherStatistics extends VoucherStatistics {
-  usedVouchers: number;
+// ExtendedVoucherStatistics interface removed as it's not used
+
+// Define proper types to replace 'any'
+interface VoucherFilters {
+  status?: string;
+  discountType?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  [key: string]: unknown;
 }
 
 function VouchersPageContent() {
@@ -24,7 +33,7 @@ function VouchersPageContent() {
   const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
   const {
     vouchers,
-    statistics: voucherStats,
+    // statistics: voucherStats - removed as it's not used
     isLoading: loading,
     paginatedVouchers: { total: totalItems },
     getVouchers: fetchVouchers,
@@ -38,7 +47,7 @@ function VouchersPageContent() {
   // State cho query params và pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [filters, setFilters] = useState<any>({});
+  const [filters, setFilters] = useState<VoucherFilters>({});
 
   // State cho modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -61,7 +70,7 @@ function VouchersPageContent() {
     if (isAuthenticated) {
       refreshData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshData]);
 
   // Load vouchers khi thay đổi trang hoặc filters
   useEffect(() => {
@@ -72,10 +81,10 @@ function VouchersPageContent() {
         ...filters
       });
     }
-  }, [currentPage, itemsPerPage, filters, isAuthenticated]);
+  }, [currentPage, itemsPerPage, filters, isAuthenticated, fetchVouchers]);
 
   // Làm mới dữ liệu
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     setIsRefreshing(true);
     try {
       await Promise.all([
@@ -88,7 +97,7 @@ function VouchersPageContent() {
       setIsRefreshing(false);
       toast.error('Có lỗi xảy ra khi tải dữ liệu');
     }
-  };
+  }, [currentPage, itemsPerPage, filters, fetchVouchers, fetchVoucherStats]);
 
   // Thêm voucher mới
   const handleAddVoucher = async (voucherData: Partial<Voucher>) => {
@@ -98,9 +107,10 @@ function VouchersPageContent() {
       toast.success('Thêm voucher thành công!');
       setIsAddModalOpen(false);
       refreshData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding voucher:', error);
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi thêm voucher');
+      const errorObj = error as { response?: { data?: { message?: string } } };
+      toast.error(errorObj?.response?.data?.message || 'Có lỗi xảy ra khi thêm voucher');
     } finally {
       setIsSubmitting(false);
     }
@@ -114,9 +124,10 @@ function VouchersPageContent() {
       toast.success('Cập nhật voucher thành công!');
       setIsEditModalOpen(false);
       refreshData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating voucher:', error);
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật voucher');
+      const errorObj = error as { response?: { data?: { message?: string } } };
+      toast.error(errorObj?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật voucher');
     } finally {
       setIsSubmitting(false);
     }
@@ -130,9 +141,10 @@ function VouchersPageContent() {
       toast.success('Xóa voucher thành công!');
       setIsDeleteModalOpen(false);
       refreshData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting voucher:', error);
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi xóa voucher');
+      const errorObj = error as { response?: { data?: { message?: string } } };
+      toast.error(errorObj?.response?.data?.message || 'Có lỗi xảy ra khi xóa voucher');
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +207,7 @@ function VouchersPageContent() {
   };
 
   // Xử lý thay đổi filter (sử dụng useCallback)
-  const handleFilterChange = useCallback((newFilters: any) => {
+  const handleFilterChange = useCallback((newFilters: VoucherFilters) => {
     setFilters(newFilters);
     setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
   }, []); // Không có dependencies bên ngoài, chỉ cần tạo 1 lần
@@ -207,8 +219,7 @@ function VouchersPageContent() {
     setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi số lượng hiển thị
   }, []); // Không có dependencies bên ngoài, chỉ cần tạo 1 lần
 
-  // Tính toán số voucher đã sử dụng (nếu không có sẵn từ API)
-  const usedVouchers = voucherStats?.unusedVouchers || 0;
+  // usedVouchers variable removed as it's not used
 
   // Hiển thị loading khi đang kiểm tra xác thực
   if (authLoading) {

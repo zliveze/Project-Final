@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { FiCalendar, FiBarChart2, FiTrendingUp, FiDownload, FiFilter, FiArrowLeft } from 'react-icons/fi';
+import { FiBarChart2, FiTrendingUp, FiDownload, FiFilter, FiArrowLeft } from 'react-icons/fi';
+// FiCalendar removed as it's not used
 import AdminLayout from '@/components/admin/AdminLayout';
 import OrderStatsAdvanced from '@/components/admin/orders/OrderStatsAdvanced';
 import Script from 'next/script';
@@ -36,6 +37,91 @@ interface CategoryData {
   value: number;
 }
 
+// Define types for Chart.js to replace 'any'
+interface ChartWindow extends Window {
+  Chart?: {
+    new (ctx: CanvasRenderingContext2D, config: ChartConfig): ChartInstance;
+  };
+  trendChartInstance?: ChartInstance;
+  categoryChartInstance?: ChartInstance;
+  productChartInstance?: ChartInstance;
+}
+
+interface ChartInstance {
+  destroy(): void;
+}
+
+interface ChartConfig {
+  type: string;
+  data: ChartData;
+  options: ChartOptions;
+}
+
+interface ChartData {
+  labels: string[];
+  datasets: ChartDataset[];
+}
+
+interface ChartDataset {
+  label?: string;
+  data: number[];
+  borderColor?: string;
+  backgroundColor?: string | string[];
+  borderWidth?: number;
+  fill?: boolean;
+  tension?: number;
+  yAxisID?: string;
+  borderDash?: number[];
+}
+
+interface ChartOptions {
+  responsive: boolean;
+  maintainAspectRatio: boolean;
+  plugins: {
+    legend: {
+      position: string;
+      align?: string;
+      labels?: {
+        boxWidth: number;
+      };
+    };
+    tooltip: {
+      mode?: string;
+      intersect?: boolean;
+      callbacks?: {
+        label: (context: TooltipContext) => string;
+      };
+    };
+  };
+  scales?: Record<string, ScaleConfig>;
+  interaction?: {
+    mode: string;
+    axis: string;
+    intersect: boolean;
+  };
+}
+
+interface ScaleConfig {
+  type?: string;
+  display?: boolean;
+  position?: string;
+  title?: {
+    display: boolean;
+    text: string;
+  };
+  grid?: {
+    drawOnChartArea: boolean;
+  };
+}
+
+interface TooltipContext {
+  raw: number;
+  label: string;
+  dataset: {
+    data: number[];
+  };
+}
+
 const OrderTrendsPage: React.FC = () => {
   const router = useRouter();
   const [periodType, setPeriodType] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
@@ -44,7 +130,8 @@ const OrderTrendsPage: React.FC = () => {
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
   const [topCategories, setTopCategories] = useState<CategoryData[]>([]);
   const [topProducts, setTopProducts] = useState<CategoryData[]>([]);
-  const [trendChartData, setTrendChartData] = useState({
+  const [trendChartData] = useState({
+  // setTrendChartData removed as it's not used
     week: {
       labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
       revenue: [15.5, 18.7, 21.3, 25.8, 28.4, 22.1, 16.5],
@@ -267,14 +354,15 @@ const OrderTrendsPage: React.FC = () => {
   // Vẽ biểu đồ xu hướng
   useEffect(() => {
     // Kiểm tra xem thư viện Chart đã được load hay chưa
-    if (typeof window !== 'undefined' && (window as any).Chart && !isLoading) {
+    const chartWindow = window as ChartWindow;
+    if (typeof window !== 'undefined' && chartWindow.Chart && !isLoading) {
       const renderTrendChart = () => {
         const trendChart = document.getElementById('trendChart');
         if (!trendChart) return;
 
         // Xóa biểu đồ cũ nếu tồn tại
-        if ((window as any).trendChartInstance) {
-          (window as any).trendChartInstance.destroy();
+        if (chartWindow.trendChartInstance) {
+          chartWindow.trendChartInstance.destroy();
         }
 
         const ctx = (trendChart as HTMLCanvasElement).getContext('2d');
@@ -285,7 +373,7 @@ const OrderTrendsPage: React.FC = () => {
         const ordersData = trendChartData[periodType].orders;
 
         // Vẽ biểu đồ xu hướng
-        (window as any).trendChartInstance = new (window as any).Chart(ctx, {
+        chartWindow.trendChartInstance = new chartWindow.Chart(ctx, {
           type: 'line',
           data: {
             labels: labels,
@@ -371,24 +459,25 @@ const OrderTrendsPage: React.FC = () => {
   
   // Vẽ biểu đồ danh mục và sản phẩm
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).Chart && !isLoading && topCategories.length > 0 && topProducts.length > 0) {
+    const chartWindow = window as ChartWindow;
+    if (typeof window !== 'undefined' && chartWindow.Chart && !isLoading && topCategories.length > 0 && topProducts.length > 0) {
       // Vẽ biểu đồ danh mục
       const renderCategoryChart = () => {
         const categoriesChart = document.getElementById('categoriesChart');
         if (!categoriesChart) return;
-        
+
         // Xóa biểu đồ cũ nếu tồn tại
-        if ((window as any).categoryChartInstance) {
-          (window as any).categoryChartInstance.destroy();
+        if (chartWindow.categoryChartInstance) {
+          chartWindow.categoryChartInstance.destroy();
         }
-        
+
         const ctxCategories = (categoriesChart as HTMLCanvasElement).getContext('2d');
         if (!ctxCategories) return;
-        
+
         const categories = topCategories.map(item => item.name);
         const categoryValues = topCategories.map(item => item.value);
-        
-        (window as any).categoryChartInstance = new (window as any).Chart(ctxCategories, {
+
+        chartWindow.categoryChartInstance = new chartWindow.Chart(ctxCategories, {
           type: 'doughnut',
           data: {
             labels: categories,
@@ -417,7 +506,7 @@ const OrderTrendsPage: React.FC = () => {
               },
               tooltip: {
                 callbacks: {
-                  label: function(context: any) {
+                  label: function(context: TooltipContext) {
                     const value = context.raw;
                     const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
                     const percentage = Math.round((value * 100) / total);
@@ -438,19 +527,19 @@ const OrderTrendsPage: React.FC = () => {
       const renderProductChart = () => {
         const productsChart = document.getElementById('productsChart');
         if (!productsChart) return;
-        
+
         // Xóa biểu đồ cũ nếu tồn tại
-        if ((window as any).productChartInstance) {
-          (window as any).productChartInstance.destroy();
+        if (chartWindow.productChartInstance) {
+          chartWindow.productChartInstance.destroy();
         }
-        
+
         const ctxProducts = (productsChart as HTMLCanvasElement).getContext('2d');
         if (!ctxProducts) return;
-        
+
         const products = topProducts.map(item => item.name);
         const productCounts = topProducts.map(item => item.count);
-        
-        (window as any).productChartInstance = new (window as any).Chart(ctxProducts, {
+
+        chartWindow.productChartInstance = new chartWindow.Chart(ctxProducts, {
           type: 'pie',
           data: {
             labels: products,
@@ -479,7 +568,7 @@ const OrderTrendsPage: React.FC = () => {
               },
               tooltip: {
                 callbacks: {
-                  label: function(context: any) {
+                  label: function(context: TooltipContext) {
                     const count = context.raw;
                     const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
                     const percentage = Math.round((count * 100) / total);

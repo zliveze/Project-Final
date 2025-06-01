@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// useCallback removed as it's not used
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -9,10 +10,12 @@ import OrderDetailModal from '@/components/admin/orders/OrderDetailModal';
 import OrderEditForm from '@/components/admin/orders/OrderEditForm';
 import OrderConfirmDelete from '@/components/admin/orders/OrderConfirmDelete';
 import OrderFilter from '@/components/admin/orders/OrderFilter';
-import { FiAlertCircle, FiFilter, FiDownload, FiRefreshCw, FiTrendingUp, FiCalendar, FiList, FiBarChart2, FiClock } from 'react-icons/fi';
+import { FiFilter, FiDownload, FiRefreshCw, FiTrendingUp, FiList, FiBarChart2, FiClock } from 'react-icons/fi';
+// FiAlertCircle and FiCalendar removed as they're not used
 import { Toaster, toast } from 'react-hot-toast';
 import Script from 'next/script';
-import { useAdminOrder, AdminOrderProvider } from '@/contexts';
+import { useAdminOrder } from '@/contexts';
+// AdminOrderProvider removed as it's not used
 
 // Định nghĩa interface cho OrderFilterState
 interface OrderFilterState {
@@ -30,15 +33,7 @@ interface OrderFilterState {
   };
 }
 
-// Định nghĩa interface cho dữ liệu thống kê
-interface StatsData {
-  totalOrders: number;
-  totalRevenue: number;
-  pendingOrders: number;
-  processingOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-}
+// StatsData interface removed as it's not used
 
 // Định nghĩa interface cho loại xem
 type ViewMode = 'list' | 'advanced' | 'edit';
@@ -46,15 +41,15 @@ type ViewMode = 'list' | 'advanced' | 'edit';
 function AdminOrdersContent() {
   const router = useRouter();
   const {
-    orders,
-    orderStats,
-    loading: isContextLoading,
-    fetchOrders,
+    // orders - removed as it's not used
+    // orderStats - removed as it's not used
+    // loading: isContextLoading - removed as it's not used
+    // fetchOrders - removed as it's not used
     fetchOrderStats,
-    updateOrderStatus,
+    // updateOrderStatus - removed as it's not used
     cancelOrder,
-    createShipment,
-    getShipmentInfo,
+    // createShipment - removed as it's not used
+    // getShipmentInfo - removed as it's not used
     setFilters,
     refreshData
   } = useAdminOrder();
@@ -72,15 +67,15 @@ function AdminOrdersContent() {
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
   const [periodType, setPeriodType] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
 
-  // Trạng thái dữ liệu thống kê
-  const [statsData, setStatsData] = useState<StatsData>({
-    totalOrders: 0,
-    totalRevenue: 0,
-    pendingOrders: 0,
-    processingOrders: 0,
-    completedOrders: 0,
-    cancelledOrders: 0
-  });
+  // Trạng thái dữ liệu thống kê - removed as they're not used
+  // const [statsData, setStatsData] = useState<StatsData>({
+  //   totalOrders: 0,
+  //   totalRevenue: 0,
+  //   pendingOrders: 0,
+  //   processingOrders: 0,
+  //   completedOrders: 0,
+  //   cancelledOrders: 0
+  // });
 
   // Fetch dữ liệu thống kê
   useEffect(() => {
@@ -110,13 +105,19 @@ function AdminOrdersContent() {
         setRefreshInterval(null);
       }
     }
-  }, [autoRefresh]);
+  }, [autoRefresh, fetchOrderStats, refreshInterval]);
+
+  // Define Chart window interface
+  interface ChartWindow extends Window {
+    Chart?: unknown;
+  }
 
   // Script khởi tạo Chart.js
   useEffect(() => {
     // Kiểm tra xem thư viện Chart đã được load hay chưa
     const checkChartLoaded = () => {
-      if (typeof window !== 'undefined' && (window as any).Chart) {
+      const chartWindow = window as ChartWindow;
+      if (typeof window !== 'undefined' && chartWindow.Chart) {
         console.log('Chart.js đã sẵn sàng cho việc khởi tạo biểu đồ');
       } else {
         // Nếu chưa load thì đợi và thử lại
@@ -174,8 +175,9 @@ function AdminOrdersContent() {
       toast.success('Đã hủy đơn hàng thành công', {
         id: 'cancel-success'
       });
-    } catch (error: any) {
-      toast.error(`Lỗi khi hủy đơn hàng: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Lỗi khi hủy đơn hàng: ${errorMessage}`);
     }
   };
 
@@ -297,13 +299,13 @@ function AdminOrdersContent() {
     });
   };
 
-  // Xử lý thay đổi bộ lọc
-  const handleFilterChange = (newFilters: Partial<OrderFilterState>) => {
-    setFilters(prev => ({
-      ...prev,
-      ...newFilters
-    }));
-  };
+  // Xử lý thay đổi bộ lọc - removed as it's not used
+  // const handleFilterChange = (newFilters: Partial<OrderFilterState>) => {
+  //   setFilters(prev => ({
+  //     ...prev,
+  //     ...newFilters
+  //   }));
+  // };
 
   return (
     <AdminLayout title="Quản lý đơn hàng">
