@@ -2,6 +2,12 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 
+// Define error type to replace 'any'
+interface ApiError {
+  message?: string;
+  [key: string]: unknown;
+}
+
 // Định nghĩa kiểu dữ liệu cho Voucher
 export interface Voucher {
   _id: string;
@@ -88,9 +94,9 @@ export const useUserVoucher = (): UseUserVoucherResult => {
           }
           
           // Trường hợp ID là object từ MongoDB với $oid
-          // @ts-ignore - Bỏ qua kiểm tra kiểu dữ liệu cho trường hợp đặc biệt này
+          // @ts-expect-error MongoDB ObjectId có thể có cấu trúc {$oid: string} mà TypeScript không nhận diện được
           if (userId && userId.$oid) {
-            // @ts-ignore
+            // @ts-expect-error Truy cập thuộc tính $oid của MongoDB ObjectId structure
             return userId.$oid === user._id;
           }
           
@@ -137,6 +143,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
   const fetchAllVouchers = useCallback(async (
     orderValue: number = 0,
     // productIds không được sử dụng trực tiếp trong hàm này nhưng cần giữ để tương thích với các hàm gọi
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _productIds: string[] = []
   ): Promise<{available: Voucher[], unavailable: Voucher[]}> => {
     if (!isAuthenticated) {
@@ -159,9 +166,9 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       const result = processVouchers(allVouchers, orderValue);
       setIsLoading(false);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setIsLoading(false);
-      const errorMsg = err.message || 'Đã xảy ra lỗi khi tải voucher';
+      const errorMsg = (err as ApiError)?.message || 'Đã xảy ra lỗi khi tải voucher';
       setError(errorMsg);
       return {available: [], unavailable: []};
     }
@@ -242,9 +249,9 @@ export const useUserVoucher = (): UseUserVoucherResult => {
         style: { backgroundColor: '#fdf2f8', color: '#db2777', borderLeft: '4px solid #db2777' }
       });
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setIsLoading(false);
-      const errorMsg = err.message || 'Đã xảy ra lỗi khi áp dụng mã giảm giá';
+      const errorMsg = (err as ApiError)?.message || 'Đã xảy ra lỗi khi áp dụng mã giảm giá';
       setError(errorMsg);
       toast.error(errorMsg, {
         position: "bottom-right",
@@ -254,7 +261,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       });
       return null;
     }
-  }, [API_URL, getAuthHeaders, isAuthenticated]);
+  }, [API_URL, getAuthHeaders, isAuthenticated, user?._id, user?.customerLevel]);
 
   // Tìm voucher theo mã code
   const findVoucherByCode = useCallback(async (code: string): Promise<Voucher | null> => {
@@ -278,9 +285,9 @@ export const useUserVoucher = (): UseUserVoucherResult => {
       const data = await response.json();
       setIsLoading(false);
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setIsLoading(false);
-      const errorMsg = err.message || 'Đã xảy ra lỗi khi tìm kiếm mã giảm giá';
+      const errorMsg = (err as ApiError)?.message || 'Đã xảy ra lỗi khi tìm kiếm mã giảm giá';
       setError(errorMsg);
       return null;
     }

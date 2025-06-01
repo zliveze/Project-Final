@@ -1,13 +1,46 @@
-import { useCallback } from 'react';
+// useCallback removed as it's not used
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
 import { useProduct } from '@/contexts/ProductContext';
 import { useCampaign, Campaign } from '@/contexts/CampaignContext';
 
+// Define proper types to replace 'any'
+interface Brand {
+  _id: string;
+  name: string;
+  slug: string;
+  [key: string]: unknown;
+}
+
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  [key: string]: unknown;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  slug: string;
+  [key: string]: unknown;
+}
+
+interface FetchResponse<T> {
+  data: T[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  [key: string]: unknown;
+}
+
 export interface UseVoucherSelectionsResult {
-  brands: any[];
-  categories: any[];
-  products: any[];
+  brands: Brand[];
+  categories: Category[];
+  products: Product[];
   campaigns: Campaign[];
   brandsLoading: boolean;
   categoriesLoading: boolean;
@@ -17,10 +50,10 @@ export interface UseVoucherSelectionsResult {
   categoriesError: string | null;
   productsError: string | null;
   campaignsError: string | null;
-  fetchBrands: (page: number, limit: number) => Promise<any>;
-  fetchCategories: (page: number, limit: number) => Promise<any>;
-  fetchProducts: (page: number, limit: number, search?: string) => Promise<any>;
-  fetchCampaigns: (page: number, limit: number) => Promise<any>;
+  fetchBrands: (page: number, limit: number) => Promise<FetchResponse<Brand>>;
+  fetchCategories: (page: number, limit: number) => Promise<FetchResponse<Category>>;
+  fetchProducts: (page: number, limit: number, search?: string) => Promise<FetchResponse<Product>>;
+  fetchCampaigns: (page: number, limit: number) => Promise<FetchResponse<Campaign>>;
 }
 
 export const useVoucherSelections = (): UseVoucherSelectionsResult => {

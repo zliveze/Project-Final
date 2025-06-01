@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers, FiStar, FiSearch, FiFilter } from 'react-icons/fi';
+import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiList, FiLayers, FiStar } from 'react-icons/fi';
+// FiSearch and FiFilter removed as they're not used
 import toast from 'react-hot-toast';
 import AdminLayout from '@/components/admin/AdminLayout';
 import CategoryTable from '@/components/admin/categories/CategoryTable';
@@ -19,7 +20,7 @@ export default function AdminCategories() {
     categories,
     loading,
     error,
-    totalCategories,
+    // totalCategories - removed as it's not used
     currentPage,
     totalPages,
     fetchCategories,
@@ -144,7 +145,8 @@ export default function AdminCategories() {
   // Xử lý thêm danh mục mới
   const handleAddCategory = async (categoryData: Partial<Category>) => {
     try {
-      const newCategory = await createCategory(categoryData);
+      // newCategory removed as it's not used
+      await createCategory(categoryData);
 
       // Đóng modal
       setShowAddModal(false);
@@ -209,13 +211,15 @@ export default function AdminCategories() {
           duration: 3000,
           position: 'top-right',
         });
-      } catch (apiError: any) {
+      } catch (apiError: unknown) {
         console.error('Lỗi API khi cập nhật danh mục:', apiError);
-        toast.error(`Lỗi: ${apiError.message || 'Không thể cập nhật danh mục'}`);
+        const errorMessage = apiError instanceof Error ? apiError.message : 'Không thể cập nhật danh mục';
+        toast.error(`Lỗi: ${errorMessage}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi tổng thể khi cập nhật danh mục:', error);
-      toast.error(`Lỗi cập nhật: ${error.message || 'Không thể cập nhật danh mục'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật danh mục';
+      toast.error(`Lỗi cập nhật: ${errorMessage}`);
     }
   };
 

@@ -1,4 +1,5 @@
-import { User, WishlistItem, Order, Notification, Review, Address } from '../components/profile/types';
+import { User, WishlistItem, Order, Notification, Review } from '../components/profile/types';
+// Address removed as it's not used
 
 // Mock data cho người dùng
 export const mockUser: User = {

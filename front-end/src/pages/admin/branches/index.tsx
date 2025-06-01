@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { FiPlus, FiAlertCircle, FiMapPin, FiPhone, FiCalendar, FiClock } from 'react-icons/fi';
+import { useState } from 'react';
+// useEffect removed as it's not used
+import { FiPlus, FiAlertCircle, FiMapPin, FiPhone, FiClock } from 'react-icons/fi';
+// FiCalendar removed as it's not used
 import AdminLayout from '../../../components/admin/AdminLayout';
 import BranchList from '@/components/admin/branches/BranchList';
 import { useBranches } from '@/contexts/BranchContext'; // BranchProvider đã được cung cấp bởi AppProviders
@@ -11,13 +13,13 @@ import BranchDeleteConfirmModal from '@/components/admin/branches/BranchDeleteCo
 function BranchesContent() {
   const {
     branches,
-    loading,
+    // loading - removed as it's not used
     error,
     statistics,
     pagination,
     fetchBranches,
     deleteBranch,
-    forceDeleteBranch
+    // forceDeleteBranch - removed as it's not used
   } = useBranches();
 
   const [showAddModal, setShowAddModal] = useState(false);

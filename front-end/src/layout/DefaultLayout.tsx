@@ -3,12 +3,12 @@ import MainHeader from '@/components/common/header/MainHeader'
 import Footer from '@/components/common/Footer'
 import Breadcrum, { BreadcrumItem } from '@/components/common/Breadcrum'
 import BackgroundAnimation from '@/components/common/BackgroundAnimation'
-import { HeaderProvider } from '@/contexts/HeaderContext'
+// HeaderProvider removed as it's not used
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
-import { useCart } from '@/contexts/user/cart/CartContext'
-import { useWishlist } from '@/contexts/user/wishlist/WishlistContext'
+// useCart removed as it's not used
+// useWishlist removed as it's not used
 
 interface DefaultLayoutProps {
   children: React.ReactNode;

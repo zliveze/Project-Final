@@ -13,6 +13,9 @@ import { useCampaign } from '@/contexts/CampaignContext';
 import { toast } from 'react-hot-toast';
 import { Banner as BannerFormType } from '@/components/admin/banners/BannerForm';
 
+// BannerDetailProps and BannerDeleteConfirmProps removed as they're not used
+// The components already have their own prop types defined
+
 enum ModalType {
   NONE = 'none',
   VIEW = 'view',
@@ -27,11 +30,11 @@ export default function AdminBanners() {
     banners,
     loading,
     error,
-    statistics,
-    totalBanners,
-    currentPage,
-    totalPages,
-    itemsPerPage,
+    // statistics - removed as it's not used
+    // totalBanners - removed as it's not used
+    // currentPage - removed as it's not used
+    // totalPages - removed as it's not used
+    // itemsPerPage - removed as it's not used
     fetchBanners,
     fetchBannerById,
     createBanner,
@@ -86,7 +89,7 @@ export default function AdminBanners() {
     return () => {
       router.events.off('routeChangeComplete', handleRouteComplete);
     };
-  }, [router.isReady, fetchBanners, fetchStatistics]);
+  }, [router.isReady, router.events, fetchBanners, fetchStatistics, fetchActiveCampaigns]);
 
   // Mở modal xem chi tiết banner
   const handleViewBanner = async (id: string) => {
@@ -94,7 +97,7 @@ export default function AdminBanners() {
       const banner = await fetchBannerById(id);
       setCurrentBanner(banner as BannerFormType);
       setModalType(ModalType.VIEW);
-    } catch (error) {
+    } catch {
       toast.error('Không thể lấy thông tin banner');
     }
   };
@@ -111,7 +114,7 @@ export default function AdminBanners() {
       const banner = await fetchBannerById(id);
       setCurrentBanner(banner as BannerFormType);
       setModalType(ModalType.EDIT);
-    } catch (error) {
+    } catch {
       toast.error('Không thể lấy thông tin banner');
     }
   };
@@ -122,7 +125,7 @@ export default function AdminBanners() {
       const banner = await fetchBannerById(id);
       setCurrentBanner(banner as BannerFormType);
       setModalType(ModalType.DELETE);
-    } catch (error) {
+    } catch {
       toast.error('Không thể lấy thông tin banner');
     }
   };
@@ -138,7 +141,7 @@ export default function AdminBanners() {
     try {
       await toggleBannerStatus(id);
       toast.success('Đã thay đổi trạng thái banner');
-    } catch (error) {
+    } catch {
       toast.error('Không thể thay đổi trạng thái banner');
     }
   };
@@ -148,7 +151,7 @@ export default function AdminBanners() {
     try {
       await changeBannerOrder(id, direction);
       toast.success('Đã thay đổi thứ tự banner');
-    } catch (error) {
+    } catch {
       toast.error('Không thể thay đổi thứ tự banner');
     }
   };
@@ -244,7 +247,7 @@ export default function AdminBanners() {
             onClose={handleCloseModal}
             showFooter={false}
           >
-            <BannerDetail banner={currentBanner as any} />
+            <BannerDetail banner={currentBanner} />
           </BannerModal>
         ) : null;
 
@@ -292,7 +295,7 @@ export default function AdminBanners() {
             onConfirm={handleConfirmDelete}
             isSubmitting={isSubmitting}
           >
-            <BannerDeleteConfirm banner={currentBanner as any} />
+            <BannerDeleteConfirm banner={currentBanner} />
           </BannerModal>
         ) : null;
 

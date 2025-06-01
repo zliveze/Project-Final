@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
+// useRouter removed as it's not used
 import { FiPlus, FiGrid, FiCheckCircle, FiXCircle, FiStar, FiSearch } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import BrandTable from '@/components/admin/brands/BrandTable';
@@ -14,157 +14,31 @@ import { useBrands } from '@/contexts/BrandContext';
 import toast from 'react-hot-toast';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
-// Dữ liệu mẫu cho thương hiệu
-const sampleBrands = [
-  {
-    id: 'BRD-001',
-    name: 'Innisfree',
-    slug: 'innisfree',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'Innisfree Logo'
-    },
-    description: 'Thương hiệu mỹ phẩm từ Hàn Quốc',
-    origin: 'Hàn Quốc',
-    website: 'https://www.innisfree.com',
-    featured: true,
-    status: 'active',
-    socialMedia: {
-      facebook: 'https://facebook.com/innisfree',
-      instagram: 'https://instagram.com/innisfree',
-      youtube: 'https://youtube.com/innisfree'
-    },
-    productCount: 28,
-    createdAt: '2025-03-15T08:30:00Z',
-    updatedAt: '2025-03-15T10:15:00Z'
-  },
-  {
-    id: 'BRD-002',
-    name: 'The Face Shop',
-    slug: 'the-face-shop',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'The Face Shop Logo'
-    },
-    description: 'Thương hiệu mỹ phẩm từ Hàn Quốc',
-    origin: 'Hàn Quốc',
-    website: 'https://www.thefaceshop.com',
-    featured: false,
-    status: 'active',
-    socialMedia: {
-      facebook: 'https://facebook.com/thefaceshop',
-      instagram: 'https://instagram.com/thefaceshop',
-      youtube: ''
-    },
-    productCount: 22,
-    createdAt: '2025-03-14T09:15:00Z',
-    updatedAt: '2025-03-14T11:45:00Z'
-  },
-  {
-    id: 'BRD-003',
-    name: 'Laneige',
-    slug: 'laneige',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'Laneige Logo'
-    },
-    description: 'Thương hiệu mỹ phẩm cao cấp từ Hàn Quốc',
-    origin: 'Hàn Quốc',
-    website: 'https://www.laneige.com',
-    featured: true,
-    status: 'active',
-    socialMedia: {
-      facebook: 'https://facebook.com/laneige',
-      instagram: 'https://instagram.com/laneige',
-      youtube: 'https://youtube.com/laneige'
-    },
-    productCount: 15,
-    createdAt: '2025-03-13T10:20:00Z',
-    updatedAt: '2025-03-13T14:30:00Z'
-  },
-  {
-    id: 'BRD-004',
-    name: 'Maybelline',
-    slug: 'maybelline',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'Maybelline Logo'
-    },
-    description: 'Thương hiệu mỹ phẩm từ Mỹ',
-    origin: 'Hoa Kỳ',
-    website: 'https://www.maybelline.com',
-    featured: false,
-    status: 'active',
-    socialMedia: {
-      facebook: 'https://facebook.com/maybelline',
-      instagram: 'https://instagram.com/maybelline',
-      youtube: 'https://youtube.com/maybelline'
-    },
-    productCount: 32,
-    createdAt: '2025-03-12T08:40:00Z',
-    updatedAt: '2025-03-12T16:20:00Z'
-  },
-  {
-    id: 'BRD-005',
-    name: 'L\'Oréal',
-    slug: 'loreal',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'L\'Oréal Logo'
-    },
-    description: 'Thương hiệu mỹ phẩm từ Pháp',
-    origin: 'Pháp',
-    website: 'https://www.loreal.com',
-    featured: true,
-    status: 'active',
-    socialMedia: {
-      facebook: 'https://facebook.com/loreal',
-      instagram: 'https://instagram.com/loreal',
-      youtube: 'https://youtube.com/loreal'
-    },
-    productCount: 40,
-    createdAt: '2025-03-11T07:50:00Z',
-    updatedAt: '2025-03-11T13:10:00Z'
-  },
-  {
-    id: 'BRD-006',
-    name: 'Nivea',
-    slug: 'nivea',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: 'Nivea Logo'
-    },
-    description: 'Thương hiệu chăm sóc da từ Đức',
-    origin: 'Đức',
-    website: 'https://www.nivea.com',
-    featured: false,
-    status: 'inactive',
-    socialMedia: {
-      facebook: 'https://facebook.com/nivea',
-      instagram: '',
-      youtube: ''
-    },
-    productCount: 0,
-    createdAt: '2025-03-10T11:30:00Z',
-    updatedAt: '2025-03-10T15:45:00Z'
-  }
-];
+// sampleBrands removed as it's not used
+
+// Define proper types to replace 'any'
+interface BrandFilters {
+  search?: string;
+  status?: string;
+  featured?: boolean;
+  [key: string]: unknown;
+}
 
 export default function AdminBrands() {
-  const router = useRouter();
+  // router removed as it's not used
   const { isAuthenticated, accessToken } = useAdminAuth();
   const {
     brands,
     statistics,
     pagination,
     loading,
-    error,
+    // error - removed as it's not used
     fetchBrands,
     createBrand,
     updateBrand,
     deleteBrand,
-    toggleBrandStatus,
-    toggleBrandFeatured
+    // toggleBrandStatus - removed as it's not used
+    // toggleBrandFeatured - removed as it's not used
   } = useBrands();
 
   // Pagination states
@@ -195,7 +69,7 @@ export default function AdminBrands() {
       try {
         setLoadError(null);
         // Tạo đối tượng filters
-        const filters: Record<string, any> = {};
+        const filters: BrandFilters = {};
 
         // Thêm tìm kiếm nếu có
         if (searchTerm.trim()) {
@@ -213,9 +87,10 @@ export default function AdminBrands() {
 
         await fetchBrands(currentPage, itemsPerPage, filters);
         setIsInitialized(true);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Lỗi khi tải dữ liệu thương hiệu:', err);
-        setLoadError(err.message || 'Có lỗi xảy ra khi tải dữ liệu thương hiệu');
+        const errorMessage = err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu thương hiệu';
+        setLoadError(errorMessage);
         // Không hiển thị toast ở đây vì đã được xử lý trong context
       }
     };
@@ -226,7 +101,7 @@ export default function AdminBrands() {
     }, 300);
 
     return () => clearTimeout(delaySearch);
-  }, [currentPage, itemsPerPage, isAuthenticated, accessToken, searchTerm, statusFilter]);
+  }, [currentPage, itemsPerPage, isAuthenticated, accessToken, searchTerm, statusFilter, fetchBrands]);
 
   // Tính toán tổng số trang
   const totalPages = useMemo(() => {
@@ -319,7 +194,7 @@ export default function AdminBrands() {
     try {
       setLoadError(null);
       // Tạo đối tượng filters
-      const filters: Record<string, any> = {};
+      const filters: BrandFilters = {};
 
       // Thêm tìm kiếm nếu có
       if (searchTerm.trim()) {
@@ -338,9 +213,10 @@ export default function AdminBrands() {
       await fetchBrands(currentPage, itemsPerPage, filters);
       setIsInitialized(true);
       toast.success('Đã tải lại dữ liệu thành công');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi tải lại dữ liệu thương hiệu:', err);
-      setLoadError(err.message || 'Có lỗi xảy ra khi tải lại dữ liệu thương hiệu');
+      const errorMessage = err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải lại dữ liệu thương hiệu';
+      setLoadError(errorMessage);
     }
   };
 

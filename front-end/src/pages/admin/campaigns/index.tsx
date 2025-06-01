@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
+// useRouter removed as it's not used
 import { FiPlus, FiAlertTriangle } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import CampaignTable from '@/components/admin/campaigns/CampaignTable';
@@ -13,13 +13,13 @@ import { Campaign } from '@/contexts/CampaignContext'; // Import Campaign type f
 import { useCampaign } from '@/contexts/CampaignContext'; // Import the hook
 
 export default function AdminCampaigns() {
-  const router = useRouter();
+  // router removed as it's not used
   const {
     campaigns,
-    selectedCampaign,
-    stats,
+    // selectedCampaign - removed as it's not used
+    // stats - removed as it's not used
     isLoading,
-    error,
+    // error - removed as it's not used
     currentPage,
     totalItems,
     itemsPerPage,
@@ -56,7 +56,6 @@ export default function AdminCampaigns() {
 
   // Fetch campaigns on mount and when filters/pagination change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchCampaigns(
       currentPage,
       itemsPerPage,
@@ -67,16 +66,14 @@ export default function AdminCampaigns() {
       filters.endDateFrom || undefined,
       filters.endDateTo || undefined
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, filters]);
+  }, [currentPage, itemsPerPage, filters, fetchCampaigns]);
 
   // Reset state on unmount
   useEffect(() => {
     return () => {
       resetState();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resetState]);
 
   // Handlers for table actions
   const handleViewCampaign = useCallback(async (id: string) => {
