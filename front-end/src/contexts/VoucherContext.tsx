@@ -1,7 +1,48 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useAdminAuth } from './AdminAuthContext';
+
+// Define error type to replace 'any'
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+  [key: string]: unknown;
+}
+
+// Define raw voucher data from API
+interface RawVoucherData {
+  _id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minimumOrderValue: number;
+  startDate: string; // Raw date as string from API
+  endDate: string; // Raw date as string from API
+  usageLimit: number;
+  usedCount: number;
+  usedByUsers: string[];
+  applicableProducts: string[];
+  applicableCategories: string[];
+  applicableBrands: string[];
+  applicableEvents: string[];
+  applicableCampaigns: string[];
+  applicableUserGroups: {
+    all: boolean;
+    new: boolean;
+    specific: string[];
+    levels?: string[];
+  };
+  isActive: boolean;
+  createdAt?: string; // Raw date as string from API
+  updatedAt?: string; // Raw date as string from API
+  showSpecificProducts?: boolean;
+}
 
 // Định nghĩa kiểu dữ liệu cho Voucher
 export interface Voucher {
@@ -112,16 +153,16 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   // Cấu hình Axios với token xác thực
-  const getAuthHeaders = () => {
+  const getAuthHeaders = useCallback(() => {
     return {
       headers: {
         Authorization: `Bearer ${accessToken}`
       }
     };
-  };
+  }, [accessToken]);
 
   // Hàm chuyển đổi dữ liệu ngày từ chuỗi sang Date
-  const formatVoucherDates = (voucher: any): Voucher => {
+  const formatVoucherDates = (voucher: RawVoucherData): Voucher => {
     return {
       ...voucher,
       startDate: new Date(voucher.startDate),
@@ -132,7 +173,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   // Lấy danh sách voucher (có phân trang)
-  const getVouchers = async (queryParams?: VoucherQueryParams): Promise<void> => {
+  const getVouchers = useCallback(async (queryParams?: VoucherQueryParams): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -192,14 +233,15 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       setPaginatedVouchers(formattedData);
       setVouchers(formattedData.data);
       setIsLoading(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || 'Không thể tải danh sách voucher';
+      const errorMsg = apiError.response?.data?.message || 'Không thể tải danh sách voucher';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi tải danh sách voucher:', err);
     }
-  };
+  }, [API_URL, getAuthHeaders]);
 
   // Lấy thông tin voucher bằng ID
   const getVoucherById = async (id: string): Promise<Voucher | null> => {
@@ -215,9 +257,10 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       const voucher = formatVoucherDates(response.data);
       setIsLoading(false);
       return voucher;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || `Không thể tìm thấy voucher với ID ${id}`;
+      const errorMsg = apiError.response?.data?.message || `Không thể tìm thấy voucher với ID ${id}`;
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi tải thông tin voucher:', err);
@@ -246,9 +289,10 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
         setIsLoading(false);
         return null;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || `Không thể tìm thấy voucher với mã ${code}`;
+      const errorMsg = apiError.response?.data?.message || `Không thể tìm thấy voucher với mã ${code}`;
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi tải thông tin voucher:', err);
@@ -283,9 +327,10 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(false);
       toast.success('Tạo voucher mới thành công!');
       return newVoucher;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || 'Không thể tạo voucher mới';
+      const errorMsg = apiError.response?.data?.message || 'Không thể tạo voucher mới';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi tạo voucher:', err);
@@ -320,9 +365,10 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(false);
       toast.success('Cập nhật voucher thành công!');
       return updatedVoucher;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || 'Không thể cập nhật voucher';
+      const errorMsg = apiError.response?.data?.message || 'Không thể cập nhật voucher';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi cập nhật voucher:', err);
@@ -346,9 +392,10 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(false);
       toast.success('Xóa voucher thành công!');
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || 'Không thể xóa voucher';
+      const errorMsg = apiError.response?.data?.message || 'Không thể xóa voucher';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi xóa voucher:', err);
@@ -357,7 +404,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   // Lấy thống kê voucher
-  const getVoucherStatistics = async (): Promise<void> => {
+  const getVoucherStatistics = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -369,14 +416,15 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       setStatistics(response.data);
       setIsLoading(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || 'Không thể tải thống kê voucher';
+      const errorMsg = apiError.response?.data?.message || 'Không thể tải thống kê voucher';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('Lỗi khi tải thống kê voucher:', err);
     }
-  };
+  }, [API_URL, getAuthHeaders]);
 
   useEffect(() => {
     // Chỉ tải dữ liệu khi đã đăng nhập
@@ -384,7 +432,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
       getVouchers();
       getVoucherStatistics();
     }
-  }, [isAuthenticated, accessToken]);
+  }, [isAuthenticated, accessToken, getVouchers, getVoucherStatistics]);
 
   const contextValue: VoucherContextType = {
     vouchers,

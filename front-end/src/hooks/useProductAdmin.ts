@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import Cookies from 'js-cookie';
 
+// Define error type to replace 'any'
+interface ApiError {
+  message?: string;
+  [key: string]: unknown;
+}
+
 // Định nghĩa interface cho ProductImage (tương tự backend)
 export interface ProductImageAdmin {
   url: string;
@@ -212,11 +218,12 @@ export const useProductAdmin = ({
       setItemsPerPage(data.limit);
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching products:', error);
       }
-      setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu sản phẩm');
+      setError(apiError.message || 'Có lỗi xảy ra khi tải dữ liệu sản phẩm');
       return null;
     } finally {
       setLoading(false);
@@ -314,9 +321,10 @@ export const useProductAdmin = ({
       clearSelection();
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       console.error('Error deleting products:', error);
-      setError(error.message || 'Có lỗi xảy ra khi xóa sản phẩm');
+      setError(apiError.message || 'Có lỗi xảy ra khi xóa sản phẩm');
       return false;
     } finally {
       setLoading(false);
@@ -352,9 +360,10 @@ export const useProductAdmin = ({
       await fetchProducts();
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       console.error('Error updating products status:', error);
-      setError(error.message || 'Có lỗi xảy ra khi cập nhật trạng thái sản phẩm');
+      setError(apiError.message || 'Có lỗi xảy ra khi cập nhật trạng thái sản phẩm');
       return false;
     } finally {
       setLoading(false);
@@ -390,9 +399,10 @@ export const useProductAdmin = ({
       await fetchProducts();
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       console.error('Error updating products flag:', error);
-      setError(error.message || 'Có lỗi xảy ra khi cập nhật flag sản phẩm');
+      setError(apiError.message || 'Có lỗi xảy ra khi cập nhật flag sản phẩm');
       return false;
     } finally {
       setLoading(false);

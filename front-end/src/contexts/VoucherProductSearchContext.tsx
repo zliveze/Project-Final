@@ -30,11 +30,22 @@ interface ProductResponse {
   status?: string;
 }
 
+// Define error type to replace 'any'
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+  [key: string]: unknown;
+}
+
 interface VoucherProductSearchContextType {
   products: Product[];
   pagination: Pagination | null;
   loading: boolean;
-  error: any;
+  error: string | null;
   searchProducts: (params: SearchParams) => Promise<void>;
 }
 
@@ -44,7 +55,7 @@ export const VoucherProductSearchProvider: React.FC<{ children: React.ReactNode 
   const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -109,9 +120,10 @@ export const VoucherProductSearchProvider: React.FC<{ children: React.ReactNode 
       });
 
       console.log('Đã tải được', transformedProducts.length, 'sản phẩm');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
       console.error('Lỗi khi tìm kiếm sản phẩm:', err);
-      setError(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tải sản phẩm');
+      setError(apiError.response?.data?.message || apiError.message || 'Có lỗi xảy ra khi tải sản phẩm');
       setProducts([]);
       setPagination(null);
     } finally {
