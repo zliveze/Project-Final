@@ -13,6 +13,9 @@ interface CartSummaryProps {
   onProceedToCheckout: () => void;
   onClearVoucher?: () => void; // Optional prop to clear voucher
   onShowVoucherList?: () => void; // Optional prop to show voucher list
+  isSelectionMode?: boolean; // Whether we're showing selected items only
+  totalItemCount?: number; // Total items in cart (for selection mode)
+  hasSelection?: boolean; // Whether any items are selected
 }
 
 const CartSummary: React.FC<CartSummaryProps> = ({
@@ -25,7 +28,10 @@ const CartSummary: React.FC<CartSummaryProps> = ({
   onApplyVoucher,
   onProceedToCheckout,
   onClearVoucher,
-  onShowVoucherList
+  onShowVoucherList,
+  isSelectionMode = false,
+  totalItemCount = 0,
+  hasSelection = false
 }) => {
   const [code, setCode] = useState('');
 
@@ -45,12 +51,40 @@ const CartSummary: React.FC<CartSummaryProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Tóm tắt đơn hàng</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        {isSelectionMode ? 'Sản phẩm đã chọn' : 'Tóm tắt đơn hàng'}
+      </h2>
+
+      {/* Hiển thị thông báo selection mode */}
+      {isSelectionMode && (
+        <div className="mb-4 p-3 bg-pink-50 rounded-md border border-pink-200">
+          <div className="flex items-center text-sm text-pink-700">
+            {hasSelection ? (
+              <>
+                <FiCheck className="mr-2" />
+                <span>Đã chọn {itemCount} trong tổng số {totalItemCount} sản phẩm</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>Chưa chọn sản phẩm nào để thanh toán</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Thông tin giá */}
       <div className="space-y-3 mb-6">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Tạm tính ({itemCount} sản phẩm)</span>
+          <span className="text-gray-600">
+            {isSelectionMode
+              ? (hasSelection ? `Tạm tính (${itemCount} sản phẩm đã chọn)` : 'Tạm tính (0 sản phẩm)')
+              : `Tạm tính (${itemCount} sản phẩm)`
+            }
+          </span>
           <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(subtotal)}đ</span>
         </div>
 
@@ -143,14 +177,17 @@ const CartSummary: React.FC<CartSummaryProps> = ({
       {/* Nút thanh toán */}
       <button
         onClick={onProceedToCheckout}
-        disabled={itemCount === 0}
+        disabled={isSelectionMode ? !hasSelection : itemCount === 0}
         className={`w-full py-3 rounded-md font-medium flex items-center justify-center ${
-          itemCount === 0
+          (isSelectionMode ? !hasSelection : itemCount === 0)
             ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
             : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:opacity-90 transition-opacity'
         }`}
       >
-        Tiến hành thanh toán
+        {isSelectionMode && !hasSelection
+          ? 'Vui lòng chọn sản phẩm'
+          : 'Tiến hành thanh toán'
+        }
         <FiChevronRight className="ml-1" />
       </button>
 

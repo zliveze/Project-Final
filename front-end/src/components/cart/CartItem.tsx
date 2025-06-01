@@ -30,6 +30,11 @@ interface CartItemProps {
   selectedBranchId?: string; // Add selected branch
   onUpdateQuantity: (itemId: string, quantity: number, showToast?: boolean, selectedBranchId?: string) => void;
   onRemove: (itemId: string) => void;
+  // Selection props
+  isSelected?: boolean;
+  canSelect?: boolean;
+  onSelect?: (itemId: string) => void;
+  onUnselect?: (itemId: string) => void;
 }
 
 const CartItem: React.FC<CartItemProps> = ({
@@ -48,7 +53,12 @@ const CartItem: React.FC<CartItemProps> = ({
   branchInventory = [],
   selectedBranchId,
   onUpdateQuantity,
-  onRemove
+  onRemove,
+  // Selection props
+  isSelected = false,
+  canSelect = true,
+  onSelect,
+  onUnselect
 }) => {
   // State for branch selection modal
   const [showBranchModal, setShowBranchModal] = React.useState(false);
@@ -113,6 +123,15 @@ const CartItem: React.FC<CartItemProps> = ({
   const savedAmount = originalPrice ? (originalPrice - price) * quantity : 0;
   const discountPercentage = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
+  // Handle checkbox selection
+  const handleCheckboxChange = (checked: boolean) => {
+    if (checked) {
+      onSelect?.(_id);
+    } else {
+      onUnselect?.(_id);
+    }
+  };
+
   // Handle branch selection
   const handleSelectBranch = (branchId: string) => {
     setShowBranchModal(false);
@@ -153,6 +172,29 @@ const CartItem: React.FC<CartItemProps> = ({
         initialBranchId={selectedBranchId}
         onSelectBranch={handleSelectBranch}
       />
+
+      {/* Checkbox để chọn sản phẩm */}
+      <div className="flex items-start mr-3 mt-1">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={(e) => handleCheckboxChange(e.target.checked)}
+          disabled={!canSelect || !inStock}
+          className={`w-4 h-4 rounded border-2 focus:ring-2 focus:ring-pink-500 ${
+            canSelect && inStock
+              ? 'text-pink-600 border-gray-300 focus:border-pink-500'
+              : 'text-gray-400 border-gray-200 cursor-not-allowed'
+          }`}
+          title={
+            !inStock
+              ? 'Sản phẩm hết hàng'
+              : !canSelect
+                ? 'Không thể chọn sản phẩm khác chi nhánh'
+                : 'Chọn sản phẩm để thanh toán'
+          }
+        />
+      </div>
+
       {/* Ảnh sản phẩm */}
       <div className="md:w-24 md:h-24 w-full h-32 relative mb-3 md:mb-0 flex-shrink-0">
         <Link href={`/product/${slug}`}>

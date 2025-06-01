@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context
@@ -51,18 +51,27 @@ const CartPage: NextPage = () => {
   const { user } = useAuth();
   const {
     cartItems,
+    selectedItems,
     isLoading,
     error,
     subtotal,
+    selectedSubtotal,
     itemCount,
+    selectedItemCount,
     discount,
     shipping,
-    total,
+    selectedTotal,
     voucherCode,
     debouncedUpdateCartItem,
     removeCartItem,
     applyVoucher,
-    clearVoucher
+    clearVoucher,
+    selectItem,
+    unselectItem,
+    selectAllItemsInBranch,
+    unselectAllItemsInBranch,
+    canSelectItem,
+    getSelectedBranchId
   } = useCart();
 
   // Sử dụng hook branches để lấy thông tin chi nhánh
@@ -75,7 +84,6 @@ const CartPage: NextPage = () => {
   // Sử dụng hook useUserVoucher để lấy danh sách voucher
   const {
     fetchApplicableVouchers,
-    fetchUnavailableVouchers,
     availableVouchers,
     unavailableVouchers
   } = useUserVoucher();
@@ -90,11 +98,18 @@ const CartPage: NextPage = () => {
   // Lấy danh sách voucher khi giỏ hàng thay đổi
   useEffect(() => {
     if (cartItems.length > 0 && !isLoading) {
-      const productIds = cartItems.map(item => item.productId);
+      // Nếu có sản phẩm được chọn, chỉ tính voucher cho sản phẩm đó
+      const relevantItems = selectedItemCount > 0
+        ? cartItems.filter(item => selectedItems.includes(item._id))
+        : cartItems;
+
+      const productIds = relevantItems.map(item => item.productId);
+      const relevantSubtotal = selectedItemCount > 0 ? selectedSubtotal : subtotal;
+
       // Chỉ cần gọi một hàm này sẽ tự động cập nhật cả availableVouchers và unavailableVouchers
-      fetchApplicableVouchers(subtotal, productIds);
+      fetchApplicableVouchers(relevantSubtotal, productIds);
     }
-  }, [cartItems, subtotal, isLoading, fetchApplicableVouchers]);
+  }, [cartItems, subtotal, selectedSubtotal, selectedItems, selectedItemCount, isLoading, fetchApplicableVouchers]);
 
   // State for recommended products
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
@@ -154,19 +169,23 @@ const CartPage: NextPage = () => {
 
   // Xử lý nút thanh toán
   const handleProceedToCheckout = () => {
-    if (itemCount === 0) {
-        toast.warn('Giỏ hàng của bạn đang trống.');
+    if (selectedItemCount === 0) {
+        toast.warn('Vui lòng chọn ít nhất một sản phẩm để thanh toán.');
         return;
     }
-    // Check if any item is out of stock
-    const outOfStockItems = cartItems.filter(item => !item.inStock);
+
+    // Lấy các sản phẩm được chọn
+    const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
+    // Check if any selected item is out of stock
+    const outOfStockItems = selectedCartItems.filter(item => !item.inStock);
     if (outOfStockItems.length > 0) {
-        toast.error(`Sản phẩm "${outOfStockItems[0].name}" đã hết hàng. Vui lòng xóa khỏi giỏ hàng để tiếp tục.`);
+        toast.error(`Sản phẩm "${outOfStockItems[0].name}" đã hết hàng. Vui lòng bỏ chọn hoặc xóa khỏi giỏ hàng để tiếp tục.`);
         return;
     }
 
     // Kiểm tra xem có sản phẩm nào chưa chọn chi nhánh không
-    const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
+    const itemsWithoutBranch = selectedCartItems.filter(item => !item.selectedBranchId);
     if (itemsWithoutBranch.length > 0) {
         toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng chọn chi nhánh để tiếp tục.`);
         return;
@@ -264,7 +283,7 @@ const CartPage: NextPage = () => {
       <div className="bg-gray-50 min-h-screen py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold text-gray-800 mb-6">Giỏ hàng</h1>
-
+        
           {/* Display general error message from context */}
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -286,77 +305,141 @@ const CartPage: NextPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Cart Items Section */}
               <div className="lg:col-span-2">
-                {groupedCartItems.map(group => (
-                  <div key={group.branchId} className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-4">
-                    <div className="mb-4 pb-2 border-b border-gray-200">
-                      <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-semibold text-gray-800">
-                          {group.branchId === 'no-branch' ? (
-                            <span className="text-gray-700">Sản phẩm chưa chọn chi nhánh</span>
-                          ) : (
-                            <div className="flex flex-col">
-                              <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md">
-                                <span className="text-pink-600 mr-2">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                                  </svg>
-                                </span>
-                                <span className="text-pink-700">{group.branchName}</span>
+                {groupedCartItems.map(group => {
+                  // Tính toán trạng thái checkbox cho nhóm
+                  const selectableItems = group.items.filter(item => item.inStock && item.selectedBranchId);
+                  const selectedItemsInGroup = selectableItems.filter(item => selectedItems.includes(item._id));
+                  const isAllSelected = selectableItems.length > 0 && selectedItemsInGroup.length === selectableItems.length;
+                  const isPartiallySelected = selectedItemsInGroup.length > 0 && selectedItemsInGroup.length < selectableItems.length;
+                  const canSelectGroup = group.branchId !== 'no-branch' && selectableItems.length > 0;
+
+                  // Kiểm tra xem có thể chọn nhóm này không (dựa trên chi nhánh đã chọn)
+                  const selectedBranchId = getSelectedBranchId();
+                  const canSelectThisGroup = canSelectGroup && (!selectedBranchId || selectedBranchId === group.branchId);
+
+                  const handleGroupCheckboxChange = (checked: boolean) => {
+                    if (checked) {
+                      selectAllItemsInBranch(group.branchId);
+                    } else {
+                      unselectAllItemsInBranch(group.branchId);
+                    }
+                  };
+
+                  return (
+                    <div key={group.branchId} className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-4">
+                      <div className="mb-4 pb-2 border-b border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center">
+                            {/* Checkbox chọn tất cả cho nhóm */}
+                            {canSelectGroup && (
+                              <div className="mr-3">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllSelected}
+                                  ref={(input) => {
+                                    if (input) input.indeterminate = isPartiallySelected;
+                                  }}
+                                  onChange={(e) => handleGroupCheckboxChange(e.target.checked)}
+                                  disabled={!canSelectThisGroup}
+                                  className={`w-4 h-4 rounded border-2 focus:ring-2 focus:ring-pink-500 ${
+                                    canSelectThisGroup
+                                      ? 'text-pink-600 border-gray-300 focus:border-pink-500'
+                                      : 'text-gray-400 border-gray-200 cursor-not-allowed'
+                                  }`}
+                                  title={
+                                    !canSelectThisGroup && selectedBranchId && selectedBranchId !== group.branchId
+                                      ? 'Không thể chọn sản phẩm khác chi nhánh'
+                                      : 'Chọn tất cả sản phẩm trong chi nhánh'
+                                  }
+                                />
                               </div>
-                              {group.address && (
-                                <span className="text-xs text-gray-500 mt-1 ml-7">{group.address}</span>
+                            )}
+
+                            <h2 className="text-lg font-semibold text-gray-800">
+                              {group.branchId === 'no-branch' ? (
+                                <span className="text-gray-700">Sản phẩm chưa chọn chi nhánh</span>
+                              ) : (
+                                <div className="flex flex-col">
+                                  <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md">
+                                    <span className="text-pink-600 mr-2">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                      </svg>
+                                    </span>
+                                    <span className="text-pink-700">{group.branchName}</span>
+                                  </div>
+                                  {group.address && (
+                                    <span className="text-xs text-gray-500 mt-1 ml-7">{group.address}</span>
+                                  )}
+                                </div>
                               )}
-                            </div>
-                          )}
-                        </h2>
-                        <span className="text-sm bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-medium">
-                          {group.items.length} sản phẩm
-                        </span>
+                            </h2>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {selectedItemsInGroup.length > 0 && (
+                              <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded-md font-medium">
+                                {selectedItemsInGroup.length} đã chọn
+                              </span>
+                            )}
+                            <span className="text-sm bg-gray-100 px-2 py-1 rounded-md text-gray-600 font-medium">
+                              {group.items.length} sản phẩm
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* List of cart items in this branch */}
+                      <div className="space-y-1">
+                        {group.items.map(item => (
+                          <CartItem
+                            key={item._id} // key vẫn là item._id (unique CartProduct ID)
+                            _id={item._id} // Truyền item._id (unique CartProduct ID) cho prop _id của CartItem
+                            productId={item.productId}
+                            variantId={item.variantId} // Vẫn truyền actual variantId cho prop variantId
+                            name={item.name}
+                            slug={item.slug}
+                            image={item.image}
+                            brand={item.brand}
+                            price={item.price}
+                            originalPrice={item.originalPrice}
+                            quantity={item.quantity}
+                            selectedOptions={item.selectedOptions}
+                            inStock={item.inStock}
+                            maxQuantity={item.maxQuantity}
+                            branchInventory={item.branchInventory || []}
+                            selectedBranchId={item.selectedBranchId}
+                            onUpdateQuantity={handleUpdateQuantity}
+                            onRemove={handleRemoveItem}
+                            // Selection props
+                            isSelected={selectedItems.includes(item._id)}
+                            canSelect={canSelectItem(item._id)}
+                            onSelect={selectItem}
+                            onUnselect={unselectItem}
+                          />
+                        ))}
                       </div>
                     </div>
-
-                    {/* List of cart items in this branch */}
-                    <div className="space-y-1">
-                      {group.items.map(item => (
-                        <CartItem
-                          key={item._id} // key vẫn là item._id (unique CartProduct ID)
-                          _id={item._id} // Truyền item._id (unique CartProduct ID) cho prop _id của CartItem
-                          productId={item.productId}
-                          variantId={item.variantId} // Vẫn truyền actual variantId cho prop variantId
-                          name={item.name}
-                          slug={item.slug}
-                          image={item.image}
-                          brand={item.brand}
-                          price={item.price}
-                          originalPrice={item.originalPrice}
-                          quantity={item.quantity}
-                          selectedOptions={item.selectedOptions}
-                          inStock={item.inStock}
-                          maxQuantity={item.maxQuantity}
-                          branchInventory={item.branchInventory || []}
-                          selectedBranchId={item.selectedBranchId}
-                          onUpdateQuantity={handleUpdateQuantity}
-                          onRemove={handleRemoveItem}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Cart Summary Section */}
               <div className="lg:col-span-1">
                 <CartSummary
-                  subtotal={subtotal}
-                  discount={discount}
+                  subtotal={selectedItemCount > 0 ? selectedSubtotal : 0}
+                  discount={selectedItemCount > 0 ? discount : 0}
                   shipping={shipping}
-                  total={total}
-                  itemCount={itemCount}
+                  total={selectedItemCount > 0 ? selectedTotal : 0}
+                  itemCount={selectedItemCount}
                   voucherCode={voucherCode}
                   onApplyVoucher={handleApplyVoucher}
                   onProceedToCheckout={handleProceedToCheckout}
                   onClearVoucher={clearVoucher}
                   onShowVoucherList={handleShowVoucherModal}
+                  isSelectionMode={true}
+                  totalItemCount={itemCount}
+                  hasSelection={selectedItemCount > 0}
                 />
               </div>
             </div>
