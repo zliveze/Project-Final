@@ -10,6 +10,16 @@ import { BreadcrumItem } from '@/components/common/Breadcrum';
 import { useUserOrder } from '@/contexts/user/UserOrderContext';
 
 // Định nghĩa kiểu dữ liệu
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  variantId?: string;
+  variantName?: string;
+}
+
 interface OrderData {
   shippingAddress: {
     fullName: string;
@@ -22,7 +32,7 @@ interface OrderData {
     notes?: string;
   };
   paymentMethod: string;
-  items: any[];
+  items: OrderItem[];
   subtotal: number;
   tax?: number;
   shippingFee: number;
@@ -50,7 +60,8 @@ const PaymentSuccessPage: NextPage = () => {
       const savedOrderCreatedAt = localStorage.getItem('orderCreatedAt');
 
       // Lấy tham số từ URL query
-      const { extraData, resultCode, message, session_id } = router.query;
+      const { extraData, session_id } = router.query;
+      // resultCode và message không được sử dụng trong logic hiện tại
 
       let extractedOrderNumber = '';
 
@@ -120,8 +131,9 @@ const PaymentSuccessPage: NextPage = () => {
         try {
           const parsedData = JSON.parse(savedOrderData);
           setOrderData(parsedData);
-        } catch (error) {
+        } catch {
           // Xử lý lỗi khi phân tích dữ liệu đơn hàng
+          console.error('Error parsing saved order data');
           router.push('/cart');
         }
       } else {
