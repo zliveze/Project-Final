@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 // Performance optimization utilities for GSAP
 export const performanceUtils = {
   // Force hardware acceleration for elements
-  set3D: (elements: any) => {
+  set3D: (elements: HTMLElement | HTMLElement[] | NodeListOf<HTMLElement> | string) => {
     gsap.set(elements, { 
       force3D: true,
       transformPerspective: 1000,
@@ -18,7 +18,7 @@ export const performanceUtils = {
   },
 
   // Lazy loading with intersection observer
-  lazyAnimate: (elements: NodeListOf<Element>, animation: any) => {
+  lazyAnimate: (elements: NodeListOf<Element>, animation: gsap.TweenVars) => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -38,7 +38,7 @@ export const performanceUtils = {
   // Preload and cache animations
   preloadAnimations: () => {
     // Pre-create commonly used timelines to reduce creation overhead
-    const commonTimelines = {
+    const commonTimelines: Record<string, gsap.core.Timeline> = {
       fadeIn: gsap.timeline({ paused: true }),
       slideUp: gsap.timeline({ paused: true }),
       scale: gsap.timeline({ paused: true })
@@ -91,10 +91,10 @@ export const performanceUtils = {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
       // Check for low-end device indicators
       navigator.hardwareConcurrency <= 2 ||
-      (navigator as any).deviceMemory <= 2 ||
+      (navigator as { deviceMemory?: number }).deviceMemory <= 2 ||
       // Check for slow connection
-      (navigator as any).connection?.effectiveType === 'slow-2g' ||
-      (navigator as any).connection?.effectiveType === '2g';
+      (navigator as { connection?: { effectiveType?: string } }).connection?.effectiveType === 'slow-2g' ||
+      (navigator as { connection?: { effectiveType?: string } }).connection?.effectiveType === '2g';
 
     return {
       isLowPower,
@@ -136,7 +136,7 @@ export const performanceUtils = {
 
   // Memory management for long-running animations
   memoryManager: {
-    animationPool: new Map(),
+    animationPool: new Map<string, gsap.core.Timeline>(),
     
     getAnimation: (key: string, factory: () => gsap.core.Timeline) => {
       if (!performanceUtils.memoryManager.animationPool.has(key)) {
@@ -211,7 +211,7 @@ export const initPerformanceOptimizations = () => {
 
 // Export performance-optimized animation presets
 export const optimizedAnimations = {
-  fadeIn: (target: any, options: any = {}) => {
+  fadeIn: (target: string | Element | Element[], options: gsap.TweenVars = {}) => {
     return gsap.fromTo(target,
       { opacity: 0 },
       { 
@@ -223,7 +223,7 @@ export const optimizedAnimations = {
     );
   },
 
-  slideUp: (target: any, options: any = {}) => {
+  slideUp: (target: string | Element | Element[], options: gsap.TweenVars = {}) => {
     return gsap.fromTo(target,
       { y: 30, opacity: 0 },
       {
@@ -236,7 +236,7 @@ export const optimizedAnimations = {
     );
   },
 
-  scaleIn: (target: any, options: any = {}) => {
+  scaleIn: (target: string | Element | Element[], options: gsap.TweenVars = {}) => {
     return gsap.fromTo(target,
       { scale: 0.8, opacity: 0 },
       {
@@ -249,7 +249,7 @@ export const optimizedAnimations = {
     );
   },
 
-  staggerReveal: (targets: any, options: any = {}) => {
+  staggerReveal: (targets: string | Element | Element[], options: gsap.TweenVars = {}) => {
     return gsap.fromTo(targets,
       { y: 40, opacity: 0 },
       {
