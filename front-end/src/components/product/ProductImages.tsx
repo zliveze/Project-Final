@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
 import { formatImageUrl } from '@/utils/imageUtils';
@@ -78,7 +78,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
     setMainImage(images[newIndex]);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomed) return;
 
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -86,12 +86,12 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
     const y = ((e.clientY - top) / height) * 100;
 
     setZoomPosition({ x, y });
-  };
+  }, [isZoomed]);
 
-  const handleZoomToggle = (e: React.MouseEvent) => {
+  const handleZoomToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setIsZoomed(!isZoomed);
-  };
+  }, [isZoomed]);
 
   return (
     <div className="flex flex-col">
@@ -171,6 +171,8 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
                 alt={image.alt || `${productName} - Ảnh ${index + 1}`}
                 fill
                 className="object-cover"
+                loading="lazy"
+                sizes="64px"
                 onError={(e) => handleImageError(e)}
               />
               {/* Display Variant Name */}

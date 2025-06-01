@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiChevronRight } from 'react-icons/fi';
+import { FiChevronRight, FiGift } from 'react-icons/fi';
 
 interface OrderItem {
   _id: string;
@@ -13,6 +13,16 @@ interface OrderItem {
     url: string;
     alt: string;
   };
+  gifts?: Array<{
+    giftId: string;
+    name: string;
+    description?: string;
+    value: number;
+    image: {
+      url: string;
+      alt: string;
+    };
+  }>;
 }
 
 import { ShippingService } from '@/contexts/user/UserOrderContext';
@@ -55,31 +65,66 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       {/* Danh sách sản phẩm */}
       <div className="max-h-80 overflow-y-auto mb-4 pr-2">
         {items.map((item) => (
-          <div key={item._id} className="flex py-3 border-b border-gray-100">
-            <div className="w-16 h-16 relative flex-shrink-0">
-              <Image
-                src={item.image.url}
-                alt={item.image.alt}
-                fill
-                className="object-cover rounded-md"
-              />
-              <div className="absolute -top-2 -right-2 w-5 h-5 bg-pink-600 rounded-full flex items-center justify-center text-white text-xs">
-                {item.quantity}
+          <div key={item._id} className="py-3 border-b border-gray-100">
+            <div className="flex">
+              <div className="w-16 h-16 relative flex-shrink-0">
+                <Image
+                  src={item.image.url}
+                  alt={item.image.alt}
+                  fill
+                  className="object-cover rounded-md"
+                />
+                <div className="absolute -top-2 -right-2 w-5 h-5 bg-pink-600 rounded-full flex items-center justify-center text-white text-xs">
+                  {item.quantity}
+                </div>
+              </div>
+              <div className="ml-3 flex-grow">
+                <Link href={`/product/${item.slug}`} className="text-sm font-medium text-gray-800 hover:text-pink-600 line-clamp-2">
+                  {item.name}
+                </Link>
+                <div className="flex justify-between mt-1">
+                  <span className="text-sm text-gray-500">
+                    {new Intl.NumberFormat('vi-VN').format(item.price)}đ x {item.quantity}
+                  </span>
+                  <span className="text-sm font-medium text-pink-600">
+                    {new Intl.NumberFormat('vi-VN').format(item.price * item.quantity)}đ
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="ml-3 flex-grow">
-              <Link href={`/product/${item.slug}`} className="text-sm font-medium text-gray-800 hover:text-pink-600 line-clamp-2">
-                {item.name}
-              </Link>
-              <div className="flex justify-between mt-1">
-                <span className="text-sm text-gray-500">
-                  {new Intl.NumberFormat('vi-VN').format(item.price)}đ x {item.quantity}
-                </span>
-                <span className="text-sm font-medium text-pink-600">
-                  {new Intl.NumberFormat('vi-VN').format(item.price * item.quantity)}đ
-                </span>
+
+            {/* Hiển thị quà tặng */}
+            {item.gifts && item.gifts.length > 0 && (
+              <div className="mt-2 ml-19">
+                <div className="flex items-center gap-1 mb-1">
+                  <FiGift className="text-pink-500" size={12} />
+                  <span className="text-xs font-medium text-pink-600">Quà tặng kèm:</span>
+                </div>
+                <div className="space-y-1">
+                  {item.gifts.map((gift) => (
+                    <div key={gift.giftId} className="flex items-center gap-2 bg-pink-50 px-2 py-1 rounded-md border border-pink-100">
+                      <div className="w-8 h-8 relative flex-shrink-0">
+                        <Image
+                          src={gift.image.url}
+                          alt={gift.image.alt}
+                          fill
+                          className="object-cover rounded-sm"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-pink-700 truncate">{gift.name}</div>
+                        {gift.description && (
+                          <div className="text-xs text-pink-600 truncate">{gift.description}</div>
+                        )}
+                      </div>
+                      <div className="text-xs font-medium text-pink-600">
+                        {new Intl.NumberFormat('vi-VN').format(gift.value)}đ
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
       </div>

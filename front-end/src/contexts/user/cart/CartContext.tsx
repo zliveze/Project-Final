@@ -32,6 +32,36 @@ interface Combination {
     additionalPrice?: number; // Giá cộng thêm vào giá variant
 }
 
+// Interface cho quà tặng
+interface ProductGift {
+    giftId: string;
+    name: string;
+    description?: string;
+    image?: {
+        url: string;
+        alt: string;
+    };
+    quantity: number;
+    value: number;
+    type: 'product' | 'sample' | 'voucher' | 'other';
+    conditions: {
+        minPurchaseAmount: number;
+        minQuantity: number;
+        startDate: string;
+        endDate: string;
+        limitedQuantity: number;
+    };
+    status: 'active' | 'inactive' | 'out_of_stock';
+}
+
+// Interface cho flags sản phẩm
+interface ProductFlags {
+    isBestSeller: boolean;
+    isNew: boolean;
+    isOnSale: boolean;
+    hasGifts: boolean;
+}
+
 // Interface cho Product được populate trong Cart Item
 // Cần khớp với select và populate trong carts.service.ts
 interface PopulatedProduct {
@@ -56,6 +86,9 @@ interface PopulatedProduct {
         };
         // Thêm các trường khác nếu có
     };
+    // Thêm flags và gifts cho chức năng quà tặng
+    flags?: ProductFlags;
+    gifts?: ProductGift[];
 }
 
 
@@ -121,6 +154,9 @@ export interface CartProduct {
     };
     // Thêm các trường khác của cosmetic_info nếu cần
   };
+  // Thêm thông tin quà tặng
+  hasGifts?: boolean; // Sản phẩm có quà tặng hay không
+  availableGifts?: ProductGift[]; // Danh sách quà tặng khả dụng cho sản phẩm này
 }
 
 interface CartContextType {
@@ -263,6 +299,34 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             quantity: inv.quantity
           })) || [];
 
+          // Check for gifts and filter available ones
+          const hasGifts = productData.flags?.hasGifts || false;
+          let availableGifts: ProductGift[] = [];
+
+          if (hasGifts && productData.gifts && productData.gifts.length > 0) {
+            const currentDate = new Date();
+            const itemTotal = item.price * item.quantity;
+
+            // Filter gifts based on conditions
+            availableGifts = productData.gifts.filter(gift => {
+              // Check if gift is active
+              if (gift.status !== 'active') return false;
+
+              // Check date range
+              const startDate = new Date(gift.conditions.startDate);
+              const endDate = new Date(gift.conditions.endDate);
+              if (currentDate < startDate || currentDate > endDate) return false;
+
+              // Check minimum purchase amount
+              if (itemTotal < gift.conditions.minPurchaseAmount) return false;
+
+              // Check minimum quantity
+              if (item.quantity < gift.conditions.minQuantity) return false;
+
+              return true;
+            });
+          }
+
           // 3. Kết hợp dữ liệu từ BackendCartItem, PopulatedProduct, và EmbeddedVariant
 
           // Enhance selectedOptions with more detailed information from the variant if not provided
@@ -379,6 +443,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isProductWithoutVariants: isProductWithoutVariants, // Flag to identify products without variants
             // Gán cosmetic_info từ productData
             cosmetic_info: productData.cosmetic_info,
+            // Thêm thông tin quà tặng
+            hasGifts: hasGifts,
+            availableGifts: availableGifts,
           } as CartProduct;
         } catch (err: any) {
           console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);

@@ -1,10 +1,32 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiTrash2, FiMinus, FiPlus, FiMapPin } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiMapPin, FiGift } from 'react-icons/fi';
 import { formatImageUrl } from '@/utils/imageUtils';
 import BranchSelectionModal from './BranchSelectionModal';
 import { useBranches } from '@/hooks/useBranches';
+
+// Interface cho quà tặng
+interface ProductGift {
+  giftId: string;
+  name: string;
+  description?: string;
+  image?: {
+    url: string;
+    alt: string;
+  };
+  quantity: number;
+  value: number;
+  type: 'product' | 'sample' | 'voucher' | 'other';
+  conditions: {
+    minPurchaseAmount: number;
+    minQuantity: number;
+    startDate: string;
+    endDate: string;
+    limitedQuantity: number;
+  };
+  status: 'active' | 'inactive' | 'out_of_stock';
+}
 
 interface CartItemProps {
   _id: string; // This will now be the unique CartProduct ID (e.g., variantId-combinationId)
@@ -35,6 +57,9 @@ interface CartItemProps {
   canSelect?: boolean;
   onSelect?: (itemId: string) => void;
   onUnselect?: (itemId: string) => void;
+  // Gift props
+  hasGifts?: boolean;
+  availableGifts?: ProductGift[];
 }
 
 const CartItem: React.FC<CartItemProps> = ({
@@ -58,7 +83,10 @@ const CartItem: React.FC<CartItemProps> = ({
   isSelected = false,
   canSelect = true,
   onSelect,
-  onUnselect
+  onUnselect,
+  // Gift props
+  hasGifts = false,
+  availableGifts = []
 }) => {
   // State for branch selection modal
   const [showBranchModal, setShowBranchModal] = React.useState(false);
@@ -295,6 +323,36 @@ const CartItem: React.FC<CartItemProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Hiển thị quà tặng */}
+            {hasGifts && availableGifts.length > 0 && (
+              <div className="mt-2">
+                <div className="flex items-center gap-1 mb-1">
+                  <FiGift className="text-pink-500" size={14} />
+                  <span className="text-xs font-medium text-pink-600">Quà tặng kèm:</span>
+                </div>
+                <div className="space-y-1">
+                  {availableGifts.map((gift, index) => (
+                    <div key={gift.giftId || index} className="flex items-center gap-2 bg-pink-50 px-2 py-1 rounded-md border border-pink-100">
+                      <div className="flex-1">
+                        <div className="text-xs font-medium text-pink-700">{gift.name}</div>
+                        {gift.description && (
+                          <div className="text-xs text-pink-600">{gift.description}</div>
+                        )}
+                        <div className="text-xs text-pink-500">
+                          Số lượng: {gift.quantity} | Giá trị: {new Intl.NumberFormat('vi-VN').format(gift.value)}đ
+                        </div>
+                      </div>
+                      <div className="text-xs bg-pink-200 text-pink-700 px-1.5 py-0.5 rounded font-medium">
+                        {gift.type === 'product' ? 'Sản phẩm' :
+                         gift.type === 'sample' ? 'Mẫu thử' :
+                         gift.type === 'voucher' ? 'Voucher' : 'Khác'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

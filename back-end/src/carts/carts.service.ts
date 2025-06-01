@@ -36,7 +36,7 @@ export class CartsService {
     const cart = await this.cartModel.findOne({ userId }).populate({
         path: 'items.productId',
         model: 'Product',
-        select: 'name slug images variants inventory brandId', // Add brandId
+        select: 'name slug images variants inventory brandId flags gifts', // Add flags and gifts for gift functionality
         populate: { // Populate brand details from Product
             path: 'brandId',
             model: 'Brand',
@@ -273,7 +273,7 @@ export class CartsService {
         const populatedCart = await this.cartModel.findById(cart._id).populate({
             path: 'items.productId',
             model: 'Product',
-            select: 'name slug images variants inventory brandId', // Add brandId
+            select: 'name slug images variants inventory brandId flags gifts', // Add flags and gifts for gift functionality
             populate: { // Populate brand details from Product
                 path: 'brandId',
                 model: 'Brand',
@@ -493,7 +493,7 @@ export class CartsService {
         const populatedCart = await this.cartModel.findById(cart._id).populate({
             path: 'items.productId',
             model: 'Product',
-            select: 'name slug images variants inventory brandId', // Add brandId
+            select: 'name slug images variants inventory brandId flags gifts', // Add flags and gifts for gift functionality
              populate: { // Populate brand details from Product
                 path: 'brandId',
                 model: 'Brand',
@@ -585,7 +585,7 @@ export class CartsService {
         const populatedCart = await this.cartModel.findById(cart._id).populate({
             path: 'items.productId',
             model: 'Product',
-            select: 'name slug images variants inventory brandId', // Add brandId
+            select: 'name slug images variants inventory brandId flags gifts', // Add flags and gifts for gift functionality
              populate: { // Populate brand details from Product
                 path: 'brandId',
                 model: 'Brand',

@@ -36,6 +36,16 @@ interface OrderItem {
     url: string;
     alt: string;
   };
+  gifts?: Array<{
+    giftId: string;
+    name: string;
+    description?: string;
+    value: number;
+    image: {
+      url: string;
+      alt: string;
+    };
+  }>;
 }
 
 // Loại địa chỉ từ profile user
@@ -88,10 +98,14 @@ const PaymentsPage: NextPage = () => {
   // Lấy dữ liệu giỏ hàng từ CartContext
   const {
     cartItems,
+    selectedItems,
+    selectedSubtotal,
+    selectedItemCount,
     subtotal,
     discount,
     shipping,
     total: cartTotal,
+    selectedTotal,
     voucherCode,
     voucherId,
     isLoading: cartLoading,
@@ -99,16 +113,16 @@ const PaymentsPage: NextPage = () => {
     clearCart
   } = useCart();
 
-  // Tính tổng chi phí bao gồm cả phí vận chuyển
-  const [total, setTotal] = useState<number>(cartTotal + shipping);
+  // Tính tổng chi phí bao gồm cả phí vận chuyển - sử dụng selectedTotal thay vì cartTotal
+  const [total, setTotal] = useState<number>(selectedTotal + shipping);
 
   // Cập nhật tổng chi phí khi phí vận chuyển hoặc giá trị giỏ hàng thay đổi
   useEffect(() => {
-    const newTotal = cartTotal + shipping;
+    const newTotal = selectedTotal + shipping;
     setTotal(newTotal);
 
 
-  }, [cartTotal, shipping, subtotal, discount]);
+  }, [selectedTotal, shipping, selectedSubtotal, discount]);
 
   // State
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -128,12 +142,15 @@ const PaymentsPage: NextPage = () => {
   // Thêm state mới để quản lý việc sửa địa chỉ
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
-  // Hàm để lấy thông tin chi nhánh từ sản phẩm trong giỏ hàng
+  // Hàm để lấy thông tin chi nhánh từ sản phẩm được chọn trong giỏ hàng
   const getSelectedBranchId = (): string => {
-    // Tìm sản phẩm đầu tiên có selectedBranchId
-    const itemWithBranch = cartItems.find(item => item.selectedBranchId);
+    // Lấy các sản phẩm được chọn
+    const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
+    // Tìm sản phẩm đầu tiên có selectedBranchId trong các sản phẩm được chọn
+    const itemWithBranch = selectedCartItems.find(item => item.selectedBranchId);
     if (itemWithBranch && itemWithBranch.selectedBranchId) {
-      console.log('Sử dụng branchId từ sản phẩm:', itemWithBranch.selectedBranchId);
+      console.log('Sử dụng branchId từ sản phẩm được chọn:', itemWithBranch.selectedBranchId);
       return itemWithBranch.selectedBranchId;
     }
 
@@ -143,12 +160,12 @@ const PaymentsPage: NextPage = () => {
     return defaultBranchId;
   };
 
-  // Chuyển đổi từ CartItems sang OrderItems và tính phí vận chuyển
+  // Chuyển đổi từ CartItems sang OrderItems và tính phí vận chuyển - chỉ sử dụng sản phẩm được chọn
   useEffect(() => {
     if (!cartLoading) {
-      if (itemCount === 0) {
-        // Nếu giỏ hàng trống, chuyển hướng về trang giỏ hàng
-        toast.info('Giỏ hàng của bạn đang trống.', {
+      if (selectedItemCount === 0) {
+        // Nếu không có sản phẩm nào được chọn, chuyển hướng về trang giỏ hàng
+        toast.info('Vui lòng chọn sản phẩm để thanh toán.', {
           position: "bottom-right",
           autoClose: 3000,
           theme: "light"
@@ -157,14 +174,18 @@ const PaymentsPage: NextPage = () => {
         return;
       }
 
-      // Convert cartItems to orderItems format
-      const items: OrderItem[] = cartItems.map(item => ({
+      // Lấy các sản phẩm được chọn
+      const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
+      // Convert selected cartItems to orderItems format
+      const items: OrderItem[] = selectedCartItems.map(item => ({
         _id: item.variantId,
         name: item.name,
         slug: item.slug,
         price: item.price,
         quantity: item.quantity,
-        image: item.image
+        image: item.image,
+        gifts: item.availableGifts || [] // Thêm thông tin quà tặng
       }));
 
       setOrderItems(items);
@@ -175,7 +196,7 @@ const PaymentsPage: NextPage = () => {
         calculateShippingFeeForAddress(shippingInfo);
       }
     }
-  }, [cartItems, cartLoading, router, itemCount, shippingInfo, calculateShippingFeeForAddress]);
+  }, [cartItems, selectedItems, selectedItemCount, cartLoading, router, itemCount, shippingInfo, calculateShippingFeeForAddress]);
 
   // Tải danh sách địa chỉ của người dùng
   useEffect(() => {
@@ -258,13 +279,16 @@ const PaymentsPage: NextPage = () => {
     fetchUserAddresses();
   }, [user]);
 
-  // Hàm tính tổng trọng lượng của các sản phẩm trong giỏ hàng
+  // Hàm tính tổng trọng lượng của các sản phẩm được chọn trong giỏ hàng
   const calculateTotalWeight = React.useCallback((): number => {
     // Khởi tạo trọng lượng
     let totalWeight = 0;
 
-    // Lấy trọng lượng thực tế từ cosmetic_info
-    cartItems.forEach(item => {
+    // Lấy các sản phẩm được chọn
+    const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
+    // Lấy trọng lượng thực tế từ cosmetic_info của các sản phẩm được chọn
+    selectedCartItems.forEach(item => {
       // Truy cập cosmetic_info.volume.value, không sử dụng giá trị mặc định
       const itemWeight = item.cosmetic_info?.volume?.value || 0;
       totalWeight += itemWeight * item.quantity;
@@ -319,8 +343,11 @@ const PaymentsPage: NextPage = () => {
       let senderProvinceCode: number | null = null;
       let senderDistrictCode: number | null = null;
 
-      // Lấy thông tin chi nhánh từ sản phẩm đầu tiên có selectedBranchId
-      const itemWithBranchId = cartItems.find(item => item.selectedBranchId);
+      // Lấy các sản phẩm được chọn
+      const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
+      // Lấy thông tin chi nhánh từ sản phẩm đầu tiên có selectedBranchId trong các sản phẩm được chọn
+      const itemWithBranchId = selectedCartItems.find(item => item.selectedBranchId);
 
       if (itemWithBranchId && itemWithBranchId.selectedBranchId) {
         try {
@@ -388,9 +415,9 @@ const PaymentsPage: NextPage = () => {
       // Chuẩn bị dữ liệu cho API tính phí vận chuyển theo đúng cấu trúc API getPriceAll của Viettel Post
       // Sử dụng trọng lượng thực tế của sản phẩm và địa chỉ thực tế của chi nhánh và người dùng
       const shippingFeeData = {
-        PRODUCT_WEIGHT: totalWeight, // Sử dụng trọng lượng thực tế từ cartItems
-        PRODUCT_PRICE: Math.max(subtotal - discount, 10000),
-        MONEY_COLLECTION: Math.max(subtotal - discount, 10000),
+        PRODUCT_WEIGHT: totalWeight, // Sử dụng trọng lượng thực tế từ selectedCartItems
+        PRODUCT_PRICE: Math.max(selectedSubtotal - discount, 10000),
+        MONEY_COLLECTION: Math.max(selectedSubtotal - discount, 10000),
         SENDER_PROVINCE: senderProvinceCode, // Sử dụng mã tỉnh thực tế của chi nhánh
         SENDER_DISTRICT: senderDistrictCode, // Sử dụng mã quận thực tế của chi nhánh
         RECEIVER_PROVINCE: receiverProvinceCode, // Sử dụng mã tỉnh của người dùng
@@ -721,9 +748,9 @@ const PaymentsPage: NextPage = () => {
       return;
     }
 
-    // Kiểm tra xem giỏ hàng có sản phẩm không
-    if (itemCount === 0) {
-      toast.error('Giỏ hàng của bạn đang trống. Không thể đặt hàng.', {
+    // Kiểm tra xem có sản phẩm được chọn không
+    if (selectedItemCount === 0) {
+      toast.error('Vui lòng chọn sản phẩm để thanh toán.', {
         position: "bottom-right",
         autoClose: 3000,
         theme: "light"
@@ -795,17 +822,20 @@ const PaymentsPage: NextPage = () => {
       // Lấy branchId từ sản phẩm trong giỏ hàng hoặc sử dụng giá trị mặc định
       const selectedBranchId = getSelectedBranchId();
 
+      // Lấy các sản phẩm được chọn
+      const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+
       // Kiểm tra xem có sản phẩm nào không có selectedBranchId không
-      const itemsWithoutBranch = cartItems.filter(item => !item.selectedBranchId);
+      const itemsWithoutBranch = selectedCartItems.filter(item => !item.selectedBranchId);
       if (itemsWithoutBranch.length > 0) {
         toast.error(`Sản phẩm "${itemsWithoutBranch[0].name}" chưa chọn chi nhánh. Vui lòng quay lại giỏ hàng để chọn chi nhánh.`);
         setIsProcessing(false);
         return;
       }
 
-      // Tạo dữ liệu đơn hàng
+      // Tạo dữ liệu đơn hàng - chỉ sử dụng sản phẩm được chọn
       const orderData: CreateOrderDto = {
-        items: cartItems.map(item => ({
+        items: selectedCartItems.map(item => ({
           productId: item.productId,
           variantId: item.variantId || '',
           name: item.name,
@@ -814,7 +844,7 @@ const PaymentsPage: NextPage = () => {
           price: item.price,
           options: item.selectedOptions || {}
         })),
-        subtotal,
+        subtotal: selectedSubtotal,
         tax: 0,
         shippingFee: shipping,
         totalPrice: total,
@@ -1160,7 +1190,7 @@ const PaymentsPage: NextPage = () => {
                 {/* Tóm tắt đơn hàng sử dụng dữ liệu từ CartContext */}
                 <OrderSummary
                   items={orderItems}
-                  subtotal={subtotal}
+                  subtotal={selectedSubtotal}
                   discount={discount}
                   shipping={shipping}
                   total={total}
