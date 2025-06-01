@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
-import fs from 'fs';
-import path from 'path';
 import { v2 as cloudinary } from 'cloudinary';
+// Removed unused imports: fs and path
 
 // Configure Cloudinary
 cloudinary.config({

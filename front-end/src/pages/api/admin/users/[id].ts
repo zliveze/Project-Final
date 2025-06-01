@@ -29,9 +29,10 @@ export default async function handler(
 
       const data = await response.json();
       return res.status(response.status).json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi lấy dữ liệu thống kê:', error);
-      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: errorMessage });
     }
   }
 
@@ -52,9 +53,10 @@ export default async function handler(
 
       const data = await response.json();
       return res.status(response.status).json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi lấy dữ liệu người dùng:', error);
-      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: errorMessage });
     }
   } else if (req.method === 'PUT') {
     try {
@@ -85,9 +87,10 @@ export default async function handler(
 
       const data = await response.json();
       return res.status(200).json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi cập nhật thông tin người dùng:', error);
-      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: errorMessage });
     }
   } else if (req.method === 'PATCH') {
     try {
@@ -108,9 +111,10 @@ export default async function handler(
 
       const data = await response.json();
       return res.status(response.status).json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi cập nhật thông tin người dùng:', error);
-      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: errorMessage });
     }
   } else if (req.method === 'DELETE') {
     try {
@@ -138,9 +142,10 @@ export default async function handler(
       // Nếu có lỗi, backend sẽ trả về JSON với thông báo lỗi
       const data = await response.json().catch(() => ({ message: 'Không thể xóa người dùng' }));
       return res.status(response.status).json(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi khi xóa người dùng:', error);
-      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: errorMessage });
     }
   } else {
     return res.status(405).json({ message: 'Phương thức không được hỗ trợ' });

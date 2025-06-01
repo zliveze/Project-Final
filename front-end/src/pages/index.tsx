@@ -14,7 +14,6 @@ import { useActiveEvents } from '@/hooks/useActiveEvents';
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
-  const [showContent, setShowContent] = useState(false);
   const { hasActiveEvents } = useActiveEvents();
 
   // Handle page loading
@@ -22,14 +21,13 @@ export default function Home() {
     // Simulate minimum loading time for smooth experience
     const timer = setTimeout(() => {
       setIsLoading(false);
-      setShowContent(true);
     }, 1000);
 
     return () => clearTimeout(timer);
   }, []);
 
   const handleLoaderComplete = () => {
-    setShowContent(true);
+    setIsLoading(false);
   };
 
   return (

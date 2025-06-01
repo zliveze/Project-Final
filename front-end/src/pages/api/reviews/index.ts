@@ -82,8 +82,9 @@ export default async function handler(
           try {
             const errorData = await response.json();
             return res.status(response.status).json(errorData);
-          } catch (e) {
+          } catch {
             // Nếu không thể parse JSON, trả về text
+            console.error('Error parsing error response JSON');
             const errorText = await response.text();
             return res.status(response.status).send(errorText);
           }
@@ -93,8 +94,9 @@ export default async function handler(
         try {
           const data = await response.json();
           return res.status(201).json(data);
-        } catch (e) {
+        } catch {
           // Nếu không thể parse JSON, trả về text
+          console.error('Error parsing success response JSON');
           const text = await response.text();
           return res.status(201).send(text);
         }

@@ -22,28 +22,11 @@ import { useBranches } from '@/hooks/useBranches';
 import { useUserVoucher } from '@/hooks/useUserVoucher';
 
 import { CartProduct } from '@/contexts/user/cart/CartContext';
+import { RecommendedProduct } from '@/contexts/user/RecommendationContext';
 
 // Mở rộng CartProduct để bao gồm branchName
 interface ExtendedCartProduct extends CartProduct {
   branchInventory?: Array<{ branchId: string; quantity: number; branchName?: string }>;
-}
-
-// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý
-interface RecommendedProduct {
-  _id: string;
-  name: string;
-  slug: string;
-  price: number;
-  currentPrice: number;
-  image: {
-    url: string;
-    alt: string;
-  };
-  brand: {
-    name: string;
-    slug: string;
-  };
-  inStock: boolean;
 }
 
 const CartPage: NextPage = () => {
@@ -462,7 +445,7 @@ const CartPage: NextPage = () => {
           {!isLoading && recommendedProducts.length > 0 && (
             <div className="mt-16">
               <RecommendedProducts
-                products={recommendedProducts as any[]}
+                products={recommendedProducts}
               />
             </div>
           )}

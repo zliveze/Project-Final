@@ -2,7 +2,8 @@ import React from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import { FiAlertCircle, FiHome, FiShoppingCart, FiHelpCircle, FiXCircle, FiAlertTriangle, FiCreditCard, FiDollarSign, FiRefreshCw } from 'react-icons/fi';
+import { FiHome, FiXCircle, FiRefreshCw } from 'react-icons/fi';
+// Removed unused imports: FiAlertCircle, FiShoppingCart, FiHelpCircle, FiAlertTriangle, FiCreditCard, FiDollarSign
 import DefaultLayout from '@/layout/DefaultLayout';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
 

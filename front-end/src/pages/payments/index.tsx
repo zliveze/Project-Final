@@ -22,18 +22,8 @@ import { useUserPayment } from '@/contexts/user/UserPaymentContext';
 // API
 import { UserApiService } from '@/contexts/user/UserApiService';
 
-// Định nghĩa kiểu dữ liệu User rõ ràng hơn
-type UserProfile = {
-  _id: string;
-  name: string;
-  email: string;
-  phoneNumber?: string;
-  phone?: string; // Thêm trường phone vì có thể API trả về cả hai trường
-  addresses?: UserAddress[];
-  customerLevel?: string;
-  role: string;
-  [key: string]: any; // Cho phép các trường khác
-}
+// UserProfile interface removed as it's not used in the component
+// The user object from AuthContext already provides the necessary typing
 
 // Thêm lại OrderItem interface đã bị mất
 interface OrderItem {
@@ -65,6 +55,30 @@ interface UserAddress {
   provinceName?: string;
   districtName?: string;
   wardName?: string;
+  district?: string;
+  ward?: string;
+}
+
+// Interface cho API response khi lưu địa chỉ
+interface AddressApiResponse {
+  _id: string;
+  addressLine: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  isDefault?: boolean;
+  provinceCode?: string;
+  districtCode?: string;
+  wardCode?: string;
+  provinceName?: string;
+  districtName?: string;
+  wardName?: string;
+}
+
+// Interface cho user response từ API
+interface UserApiResponse {
+  addresses?: AddressApiResponse[];
 }
 
 const PaymentsPage: NextPage = () => {
@@ -161,7 +175,7 @@ const PaymentsPage: NextPage = () => {
         calculateShippingFeeForAddress(shippingInfo);
       }
     }
-  }, [cartItems, cartLoading, router, itemCount, shippingInfo]);
+  }, [cartItems, cartLoading, router, itemCount, shippingInfo, calculateShippingFeeForAddress]);
 
   // Tải danh sách địa chỉ của người dùng
   useEffect(() => {
@@ -181,7 +195,7 @@ const PaymentsPage: NextPage = () => {
               const addressParts: string[] = defaultAddress.addressLine.split(',').map((part: string) => part.trim());
               const addressData: ShippingInfo = {
                 fullName: user.name || '',
-                phone: user.phoneNumber || (user as any).phone || '', // Đảm bảo số điện thoại được lấy từ profile
+                phone: user.phoneNumber || user.phone || '', // Đảm bảo số điện thoại được lấy từ profile
                 email: user.email || '',
                 address: addressParts[0] || '',
                 city: defaultAddress.city || defaultAddress.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
@@ -220,7 +234,7 @@ const PaymentsPage: NextPage = () => {
               const initialShippingInfo: Partial<ShippingInfo> = {
                 fullName: user.name || '',
                 email: user.email || '',
-                phone: user.phoneNumber || (user as any).phone || ''
+                phone: user.phoneNumber || user.phone || ''
               };
 
               setShippingInfo(initialShippingInfo as ShippingInfo);
@@ -245,7 +259,7 @@ const PaymentsPage: NextPage = () => {
   }, [user]);
 
   // Hàm tính tổng trọng lượng của các sản phẩm trong giỏ hàng
-  const calculateTotalWeight = (): number => {
+  const calculateTotalWeight = React.useCallback((): number => {
     // Khởi tạo trọng lượng
     let totalWeight = 0;
 
@@ -261,10 +275,10 @@ const PaymentsPage: NextPage = () => {
 
     // Trả về trọng lượng thực tế, không áp dụng giá trị mặc định
     return totalWeight;
-  };
+  }, [cartItems]);
 
   // Hàm tính phí vận chuyển dựa trên địa chỉ và trọng lượng
-  const calculateShippingFeeForAddress = async (address: ShippingInfo) => {
+  const calculateShippingFeeForAddress = React.useCallback(async (address: ShippingInfo) => {
     if (!address.provinceCode || !address.districtCode || !address.wardCode) {
       setShippingError('Không thể tính phí vận chuyển do thiếu thông tin địa chỉ');
       setCalculatedShipping(32000); // Sử dụng phí mặc định
@@ -420,13 +434,14 @@ const PaymentsPage: NextPage = () => {
         updateShipping(32000);
         setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
       }
-    } catch (error) {
+    } catch {
+      console.error('Error calculating shipping fee');
       setShippingError('Có lỗi xảy ra khi tính phí vận chuyển');
       setCalculatedShipping(32000); // Sử dụng phí mặc định
       updateShipping(32000);
       setAvailableServices([]); // Xóa các dịch vụ vận chuyển khả dụng
     }
-  };
+  }, [cartItems, subtotal, discount, calculateShippingFeeAll, updateShipping, calculateTotalWeight]);
 
   // Xử lý khi chọn địa chỉ
   const handleSelectAddress = (addressId: string) => {
@@ -462,7 +477,7 @@ const PaymentsPage: NextPage = () => {
 
       const addressData: ShippingInfo = {
         fullName: user?.name || '',
-        phone: user?.phoneNumber || (user as any)?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
+        phone: user?.phoneNumber || user?.phone || '', // Đảm bảo số điện thoại được lấy từ profile
         email: user?.email || '',
         address: addressParts[0] || '',
         city: selectedAddress.city || selectedAddress.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
@@ -547,7 +562,7 @@ const PaymentsPage: NextPage = () => {
   const saveAddressToAccount = async (addressData: ShippingInfo) => {
     try {
       // Tạo đối tượng địa chỉ từ dữ liệu form
-      const formattedAddress: any = {
+      const formattedAddress: Partial<AddressApiResponse> = {
         addressLine: `${addressData.address}, ${addressData.ward}, ${addressData.district}`,
         city: addressData.city || addressData.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
         state: addressData.district || addressData.districtName || '',
@@ -566,7 +581,7 @@ const PaymentsPage: NextPage = () => {
 
 
 
-      let updatedUser;
+      let updatedUser: UserApiResponse | undefined;
 
       // Kiểm tra xem đang cập nhật địa chỉ hay tạo mới
       if (editingAddressId) {
@@ -601,7 +616,7 @@ const PaymentsPage: NextPage = () => {
       // Cập nhật danh sách địa chỉ
       if (updatedUser && updatedUser.addresses) {
         // Chuyển đổi địa chỉ từ API sang UserAddress
-        const convertedAddresses: UserAddress[] = updatedUser.addresses.map((addr: any) => ({
+        const convertedAddresses: UserAddress[] = updatedUser.addresses.map((addr: AddressApiResponse) => ({
           _id: addr._id,
           addressLine: addr.addressLine,
           city: addr.city || addr.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
@@ -655,7 +670,7 @@ const PaymentsPage: NextPage = () => {
       console.log('Thông tin địa chỉ đã thay đổi, tính lại phí vận chuyển');
       calculateShippingFeeForAddress(shippingInfo);
     }
-  }, [shippingInfo]);
+  }, [shippingInfo, calculateShippingFeeForAddress]);
 
   // Xử lý khi người dùng chọn dịch vụ vận chuyển
   const handleSelectShippingService = (serviceCode: string, fee: number) => {
@@ -874,10 +889,11 @@ const PaymentsPage: NextPage = () => {
         // Các phương thức thanh toán khác (chưa hỗ trợ)
         throw new Error('Phương thức thanh toán chưa được hỗ trợ');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi khi đặt hàng:', error);
       setIsProcessing(false);
-      setErrorMessage(error.message || 'Đã xảy ra lỗi khi xử lý đơn hàng. Vui lòng thử lại sau.');
+      const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi khi xử lý đơn hàng. Vui lòng thử lại sau.';
+      setErrorMessage(errorMessage);
 
       // Xử lý lỗi, chuyển đến trang thất bại
       router.push('/payments/fail');
@@ -893,7 +909,7 @@ const PaymentsPage: NextPage = () => {
   const convertAddressToShippingInfo = (address: UserAddress): ShippingInfo => {
     return {
       fullName: user?.name || '',
-      phone: user?.phoneNumber || (user as any)?.phone || '',
+      phone: user?.phoneNumber || user?.phone || '',
       email: user?.email || '',
       address: address.addressLine,
       city: address.city || address.provinceName || '', // Ưu tiên sử dụng city, nếu không có thì dùng provinceName
@@ -1032,7 +1048,7 @@ const PaymentsPage: NextPage = () => {
                               <div>
                                 <p className="font-medium text-gray-800">{user?.name}</p>
                                 <p className="text-sm text-gray-600">
-                                  <span className="font-medium">Điện thoại:</span> {user?.phoneNumber || (user as any)?.phone || 'Chưa có số điện thoại'}
+                                  <span className="font-medium">Điện thoại:</span> {user?.phoneNumber || user?.phone || 'Chưa có số điện thoại'}
                                 </p>
                                 <p className="text-sm text-gray-600 mt-1">
                                   <span className="font-medium">Địa chỉ:</span> {address.addressLine}
