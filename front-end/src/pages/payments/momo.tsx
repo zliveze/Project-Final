@@ -4,8 +4,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { FiAlertCircle, FiArrowLeft, FiSmartphone } from 'react-icons/fi';
 import DefaultLayout from '@/layout/DefaultLayout';
-import { useUserPayment } from '@/contexts/user/UserPaymentContext';
-import { useCart } from '@/contexts/user/cart/CartContext';
+// Removed unused imports: useUserPayment and useCart
 
 const MomoPaymentPage: NextPage = () => {
   const router = useRouter();
