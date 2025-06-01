@@ -38,6 +38,9 @@ const COLORS = {
 const recentLogs: {[key: string]: {timestamp: number, count: number}} = {};
 const LOG_DEBOUNCE_TIME = 1000; // 1 giây
 
+// Định nghĩa kiểu dữ liệu cho dữ liệu log
+type LogData = string | number | boolean | null | undefined | object;
+
 /**
  * Tạo một logger cho một module cụ thể
  * @param moduleName Tên module (component, context, service, etc.)
@@ -49,7 +52,7 @@ export function createLogger(moduleName: string) {
     : moduleName.padEnd(currentConfig.moduleNameMaxLength, ' ');
 
   // Kiểm tra xem log có bị trùng lặp không
-  const checkDuplicate = (level: string, action: string, data: any): boolean => {
+  const checkDuplicate = (level: string, action: string, data: LogData): boolean => {
     // Tạo key duy nhất cho log này
     const dataStr = data !== undefined ? JSON.stringify(data) : '';
     const logKey = `${level}:${moduleName}:${action}:${dataStr}`;
@@ -82,7 +85,7 @@ export function createLogger(moduleName: string) {
    * @param action Hành động đang thực hiện
    * @param data Dữ liệu cần log (optional)
    */
-  const debug = (action: string, data?: any) => {
+  const debug = (action: string, data?: LogData) => {
     if (currentConfig.level < LogLevel.DEBUG) return;
 
     // Kiểm tra xem module này có được bật log chi tiết không
@@ -112,7 +115,7 @@ export function createLogger(moduleName: string) {
    * @param action Hành động đang thực hiện
    * @param data Dữ liệu cần log (optional)
    */
-  const info = (action: string, data?: any) => {
+  const info = (action: string, data?: LogData) => {
     if (currentConfig.level < LogLevel.INFO) return;
 
     // Kiểm tra xem module này có được bật log chi tiết không
@@ -142,7 +145,7 @@ export function createLogger(moduleName: string) {
    * @param action Hành động đang thực hiện
    * @param data Dữ liệu cần log (optional)
    */
-  const warn = (action: string, data?: any) => {
+  const warn = (action: string, data?: LogData) => {
     if (currentConfig.level < LogLevel.WARN) return;
 
     const truncatedAction = action.length > currentConfig.actionNameMaxLength
@@ -166,7 +169,7 @@ export function createLogger(moduleName: string) {
    * @param action Hành động đang thực hiện
    * @param error Lỗi cần log
    */
-  const error = (action: string, error: any) => {
+  const error = (action: string, error: Error | string | unknown) => {
     if (currentConfig.level < LogLevel.ERROR) return;
 
     const truncatedAction = action.length > currentConfig.actionNameMaxLength

@@ -12,13 +12,13 @@ export const isAuthenticated = (): boolean => {
 
 /**
  * Kiểm tra xác thực và xử lý chuyển hướng nếu chưa đăng nhập
- * @param {Function} callback - Hàm callback được gọi nếu người dùng đã đăng nhập
+ * @param {() => void} callback - Hàm callback được gọi nếu người dùng đã đăng nhập
  * @param {boolean} redirect - Có chuyển hướng người dùng đến trang đăng nhập hay không
  * @param {string} message - Thông báo hiển thị khi chưa đăng nhập
  * @returns {boolean} true nếu người dùng đã đăng nhập, false nếu chưa
  */
 export const checkAuth = (
-  callback?: Function,
+  callback?: () => void,
   redirect = true,
   message = 'Vui lòng đăng nhập để thực hiện chức năng này'
 ): boolean => {

@@ -15,21 +15,38 @@ export const getActiveEvents = async (): Promise<EventFromAPI[]> => {
   try {
     const response = await axiosInstance.get<EventFromAPI[]>(`${API_URL}/events/active`);
     return response.data;
-  } catch (error: any) { // Typed error as any for simplicity, consider more specific type if available
+  } catch (error: unknown) { // Thay thế any bằng unknown để an toàn hơn
     console.error('Error fetching active events:', error);
     // It's better to throw the error and let the component handle it
     // This allows for more specific error messages or UI changes in the component
-    if (error.response && error.response.data && error.response.status) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const errorWithResponse = error as { 
+        response?: { 
+          data?: { message?: string }, 
+          status?: number 
+        },
+        request?: unknown
+      };
+      
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
-      const message = typeof error.response.data.message === 'string' ? error.response.data.message : JSON.stringify(error.response.data.message);
-      throw new Error(`Server responded with ${error.response.status}: ${message || 'Failed to fetch active events'}`);
-    } else if (error.request) {
-      // The request was made but no response was received
-      throw new Error('No response from server while fetching active events.');
+      if (errorWithResponse.response && errorWithResponse.response.data && errorWithResponse.response.status) {
+        const message = typeof errorWithResponse.response.data.message === 'string' 
+          ? errorWithResponse.response.data.message 
+          : JSON.stringify(errorWithResponse.response.data.message);
+        throw new Error(`Server responded with ${errorWithResponse.response.status}: ${message || 'Failed to fetch active events'}`);
+      } else if (errorWithResponse.request) {
+        // The request was made but no response was received
+        throw new Error('No response from server while fetching active events.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error('Error fetching active events: ' + (errorMessage || 'Unknown error'));
+      }
     } else {
-      // Something happened in setting up the request that triggered an Error
-      throw new Error('Error fetching active events: ' + (error.message || 'Unknown error'));
+      // Fallback for unexpected error types
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error('Error fetching active events: ' + errorMessage);
     }
   }
 };
