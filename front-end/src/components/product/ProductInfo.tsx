@@ -300,7 +300,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       0
     );
 
-    console.log(`Selected combination ${selectedCombination.combinationId} has totalStock: ${combinationTotalStock}`);
+    // Debug logging only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Selected combination ${selectedCombination.combinationId} has totalStock: ${combinationTotalStock}`);
+    }
   }
 
   // Use the appropriate total stock based on whether the product has variants and combinations
@@ -407,8 +410,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         };
       });
 
-      // We can't directly modify selectedVariant, but we can log the updated inventory
-      console.log('Updated inventory with branch names:', updatedInventory);
+      // Debug logging only in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Updated inventory with branch names:', updatedInventory);
+      }
 
       // If there's a selected combination, update its inventory with branch names
       if (selectedCombination && selectedVariant.combinationInventory) {
@@ -425,7 +430,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             };
           });
 
-          console.log('Updated combination inventory with branch names:', updatedCombinationInventory);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Updated combination inventory with branch names:', updatedCombinationInventory);
+          }
         }
       }
     }
@@ -441,7 +448,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         };
       });
 
-      console.log('Updated product inventory with branch names:', updatedInventory);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Updated product inventory with branch names:', updatedInventory);
+      }
     }
   }, [selectedVariant, selectedCombination, branches, preloadBranches, hasVariants, productInventory]);
 
@@ -610,7 +619,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
     // Double-check variantId requirement if variants exist
     if (variants && variants.length > 0 && !variantIdToAdd) {
-        console.error("Lỗi logic: Có variants nhưng không có selectedVariant.variantId");
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Lỗi logic: Có variants nhưng không có selectedVariant.variantId");
+        }
         showErrorToast('Đã xảy ra lỗi, không thể xác định phiên bản sản phẩm.');
         return;
     }
@@ -672,7 +683,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             );
         } else {
              // This case should ideally not be reached due to the check above, but added for safety
-             console.error("Lỗi logic: Không thể thêm vào giỏ hàng vì thiếu variantId dù có variants.");
+             if (process.env.NODE_ENV === 'development') {
+               console.error("Lỗi logic: Không thể thêm vào giỏ hàng vì thiếu variantId dù có variants.");
+             }
              showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
              return; // Exit if variantId is missing when required
         }
@@ -685,7 +698,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             optionsForBackend, // Options might be empty, which is fine
             priceToSend // Truyền giá khuyến mãi
         );
-        console.log('Added product without variants to cart with empty string variantId');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Added product without variants to cart with empty string variantId');
+        }
     }
 
     // Don't reset branch selection after adding to cart
@@ -728,7 +743,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
 
       // Check if variantId is required but missing
       if (!variantId) {
-          console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Lỗi logic: Thiếu variantId khi cần thiết cho wishlist.");
+          }
           showErrorToast('Vui lòng chọn lại phiên bản sản phẩm.');
           return;
       }
