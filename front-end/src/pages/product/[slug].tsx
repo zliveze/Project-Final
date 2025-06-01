@@ -20,16 +20,149 @@ import ProductPromotions from '@/components/product/ProductPromotions';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { BrandWithLogo } from '@/components/product/ProductInfo'; // Import BrandWithLogo
 
+// Define proper types to replace 'any'
+interface Review {
+  _id: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RecommendedProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  price: number;
+  currentPrice: number;
+  imageUrl?: string;
+}
+
+interface Branch {
+  _id: string;
+  name: string;
+  address: string;
+  phone?: string;
+}
+
+interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  image?: string;
+}
+
+interface Event {
+  _id: string;
+  title: string;
+  products: Array<{
+    productId: string;
+    adjustedPrice: number;
+    variants?: Array<{
+      variantId: string;
+      adjustedPrice: number;
+      combinations?: Array<{
+        combinationId: string;
+        adjustedPrice: number;
+      }>;
+    }>;
+  }>;
+}
+
+interface Campaign {
+  _id: string;
+  title: string;
+  products: Array<{
+    productId: string;
+    adjustedPrice: number;
+    variants?: Array<{
+      variantId: string;
+      adjustedPrice: number;
+      combinations?: Array<{
+        combinationId: string;
+        adjustedPrice: number;
+      }>;
+    }>;
+  }>;
+}
+
+// Extended interfaces for promotion support
+interface VariantWithPromotion extends Variant {
+  promotionPrice?: number;
+  promotion?: {
+    type: string;
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
+}
+
+interface VariantCombinationWithPromotion extends VariantCombination {
+  promotionPrice?: number;
+  promotion?: {
+    type: string;
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  sku: string;
+  description?: {
+    short?: string;
+    full?: string;
+  };
+  price: number;
+  currentPrice: number;
+  status: string;
+  brandId?: string;
+  categoryIds?: string[];
+  cosmetic_info?: Record<string, unknown>;
+  variants?: VariantWithPromotion[];
+  flags?: Record<string, unknown>;
+  gifts?: unknown[];
+  reviews?: {
+    averageRating: number;
+    reviewCount: number;
+  };
+  images?: Array<{
+    url: string;
+    alt?: string;
+    isPrimary?: boolean;
+  }>;
+  tags?: string[];
+  inventory?: unknown[];
+  variantInventory?: Array<{
+    variantId: string;
+    quantity: number;
+  }>;
+  combinationInventory?: Array<{
+    variantId: string;
+    quantity: number;
+  }>;
+  seo?: Record<string, unknown>;
+  promotion?: {
+    type: string;
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
+}
+
 interface ProductPageProps {
-  product: any; // Keep 'any' for now, or define a full Product type
-  fullBrand: BrandWithLogo; // Add full brand details
-  productCategories: CategoryWithImage[]; // Add specific categories for the product
-  reviews: any[]; // Define Review type if needed
-  recommendedProducts: any[]; // Define RecommendedProduct type if needed
-  branches: any[]; // Define Branch type if needed
-  categories: any[]; // Keep all categories for SEO/other uses for now
-  events: any[]; // Define Event type if needed
-  campaigns: any[]; // Define Campaign type if needed
+  product: Product;
+  fullBrand: BrandWithLogo;
+  productCategories: CategoryWithImage[];
+  reviews: Review[];
+  recommendedProducts: RecommendedProduct[];
+  branches: Branch[];
+  categories: Category[];
+  events: Event[];
+  campaigns: Campaign[];
   isAuthenticated: boolean;
   hasPurchased: boolean;
   hasReviewed: boolean;
@@ -41,7 +174,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
   fullBrand, // Destructure new prop
   productCategories, // Destructure new prop
   reviews,
-  recommendedProducts,
+  // recommendedProducts - removed as it's not used in the component
   branches, // Keep for ProductInventory
   categories, // Keep for ProductSEO
   events,
@@ -63,11 +196,11 @@ const ProductPage: React.FC<ProductPageProps> = ({
     if (isAuthenticated && product?._id && logProductView) {
       // Ghi lại thời điểm bắt đầu xem
       setStartViewTime(Date.now());
-      
+
       // Ghi lại hoạt động xem sản phẩm
       logProductView(product._id);
     }
-    
+
     // Khi component unmount, ghi lại thời gian đã xem
     return () => {
       if (isAuthenticated && product?._id && logProductView && startViewTime > 0) {
@@ -77,26 +210,26 @@ const ProductPage: React.FC<ProductPageProps> = ({
         }
       }
     };
-  }, [isAuthenticated, product?._id, logProductView]);
+  }, [isAuthenticated, product?._id, logProductView, startViewTime]);
 
   // Process variants to include total stock information and combination inventory
   const processedVariants = React.useMemo(() => {
     if (!product?.variants?.length) return [];
 
-    return product.variants.map((variant: any) => {
+    return product.variants.map((variant: Variant) => {
       // Get variant inventory from product.variantInventory
       const variantInventory = product.variantInventory?.filter(
-        (inv: any) => inv.variantId === variant.variantId
+        (inv) => inv.variantId === variant.variantId
       ) || [];
 
       // Get combination inventory for this variant
       const combinationInventory = product.combinationInventory?.filter(
-        (inv: any) => inv.variantId === variant.variantId
+        (inv) => inv.variantId === variant.variantId
       ) || [];
 
       // Calculate total stock across all branches for this variant
       const totalStock = variantInventory.reduce(
-        (sum: number, inv: any) => sum + (inv.quantity || 0),
+        (sum: number, inv) => sum + (inv.quantity || 0),
         0
       );
 
@@ -105,7 +238,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
       console.log('Variant inventory details:', variantInventory);
 
       // Process combinations if they exist
-      let combinations = variant.combinations || [];
+      const combinations = variant.combinations || [];
       if (combinations.length > 0) {
         console.log(`Variant ${variant.variantId} has ${combinations.length} combinations`);
         console.log('Combination inventory details:', combinationInventory);
@@ -126,7 +259,8 @@ const ProductPage: React.FC<ProductPageProps> = ({
     return processedVariants.length > 0 ? processedVariants[0] : null;
   });
 
-  const [selectedCombination, setSelectedCombination] = useState<VariantCombination | null>(null);
+  // selectedCombination is not currently used in the component but kept for future implementation
+  const [, setSelectedCombination] = useState<VariantCombination | null>(null);
 
   // Handler to update the selected variant and combination state
   const handleSelectVariant = (variant: Variant | null, combination?: VariantCombination | null) => {
@@ -145,7 +279,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
     return { name: colorString, code: '' };
   };
 
-  const getVariantName = (variant: Variant): string | undefined => {
+  const getVariantName = React.useCallback((variant: Variant): string | undefined => {
     const parts: string[] = [];
     if (variant.options?.color) {
       const { name } = parseColorString(variant.options.color);
@@ -158,16 +292,16 @@ const ProductPage: React.FC<ProductPageProps> = ({
       parts.push(`Tone: ${variant.options.shades.join(', ')}`);
     }
     return parts.length > 0 ? parts.join(' | ') : undefined;
-  };
+  }, []);
 
   // --- Image Aggregation and Initial Image Logic ---
   const { allImages, initialImageUrl } = React.useMemo(() => {
     // 1. Get Base Product Images
     const baseImages: ImageType[] = product?.images
-      ?.filter((img: any): img is { url: string, alt: string, isPrimary?: boolean } =>
+      ?.filter((img): img is { url: string, alt?: string, isPrimary?: boolean } =>
         typeof img === 'object' && img !== null && typeof img.url === 'string'
       )
-      .map((img: any): ImageType => ({
+      .map((img): ImageType => ({
         url: formatImageUrl(img.url),
         alt: img.alt || product.name,
         isPrimary: img.isPrimary ?? false,
@@ -179,7 +313,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
       ?.flatMap((variant: Variant) => {
         const variantName = getVariantName(variant);
         // Assuming variant.images are URLs or objects with { url: string, alt?: string, isPrimary?: boolean }
-        return variant.images?.map((imgData: any): ImageType | null => {
+        return variant.images?.map((imgData: string | { url: string; alt?: string; isPrimary?: boolean }): ImageType | null => {
           let url: string | undefined;
           let alt: string | undefined;
           let isPrimary: boolean | undefined;
@@ -212,9 +346,9 @@ const ProductPage: React.FC<ProductPageProps> = ({
     let initialUrl: string | undefined;
     if (selectedVariant?.images && selectedVariant.images.length > 0) {
       // Find primary image of selected variant, or just the first image
-      const selectedVariantImageUrls = selectedVariant.images.map((imgData: any) =>
+      const selectedVariantImageUrls = selectedVariant.images.map((imgData: string | { url: string; alt?: string; isPrimary?: boolean }) =>
         typeof imgData === 'string' ? imgData : (typeof imgData === 'object' && imgData?.url ? imgData.url : null)
-      ).filter(url => url);
+      ).filter((url): url is string => url !== null);
 
       const primaryVariantImage = uniqueImages.find(img =>
         selectedVariantImageUrls.includes(img.url) && img.isPrimary
@@ -230,7 +364,7 @@ const ProductPage: React.FC<ProductPageProps> = ({
 
     return { allImages: uniqueImages, initialImageUrl: initialUrl };
 
-  }, [selectedVariant, product?.images, product?.variants, product?.name]);
+  }, [selectedVariant, product?.images, product?.variants, product?.name, getVariantName]);
 
 
   return (
@@ -487,8 +621,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       const combinationPromotionMap = new Map<string, { price: number; type: 'event' | 'campaign'; name: string; id?: string }>();
 
       // Xử lý active events
-      activeEvents.forEach((event: any) => {
-        event.products.forEach((productInEvent: any) => {
+      activeEvents.forEach((event: Event) => {
+        event.products.forEach((productInEvent) => {
           const productIdStr = productInEvent.productId.toString();
           if (productIdStr === product._id.toString()) {
             // Xử lý khuyến mãi cho sản phẩm gốc
@@ -505,7 +639,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
             // Xử lý khuyến mãi cho biến thể
             if (productInEvent.variants && productInEvent.variants.length > 0) {
-              productInEvent.variants.forEach((variantInEvent: any) => {
+              productInEvent.variants.forEach((variantInEvent) => {
                 if (variantInEvent.variantId) {
                   const variantIdStr = variantInEvent.variantId.toString();
                   const variantKey = `${productIdStr}_${variantIdStr}`;
@@ -523,7 +657,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
                   // Xử lý khuyến mãi cho tổ hợp
                   if (variantInEvent.combinations && variantInEvent.combinations.length > 0) {
-                    variantInEvent.combinations.forEach((combinationInEvent: any) => {
+                    variantInEvent.combinations.forEach((combinationInEvent) => {
                       if (combinationInEvent.combinationId) {
                         const combinationIdStr = combinationInEvent.combinationId.toString();
                         const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
@@ -549,8 +683,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       });
 
       // Xử lý active campaigns
-      activeCampaigns.forEach((campaign: any) => {
-        campaign.products.forEach((productInCampaign: any) => {
+      activeCampaigns.forEach((campaign: Campaign) => {
+        campaign.products.forEach((productInCampaign) => {
           const productIdStr = productInCampaign.productId.toString();
           if (productIdStr === product._id.toString()) {
             // Xử lý khuyến mãi cho sản phẩm gốc
@@ -567,7 +701,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
             // Xử lý khuyến mãi cho biến thể
             if (productInCampaign.variants && productInCampaign.variants.length > 0) {
-              productInCampaign.variants.forEach((variantInCampaign: any) => {
+              productInCampaign.variants.forEach((variantInCampaign) => {
                 if (variantInCampaign.variantId) {
                   const variantIdStr = variantInCampaign.variantId.toString();
                   const variantKey = `${productIdStr}_${variantIdStr}`;
@@ -585,7 +719,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
                   // Xử lý khuyến mãi cho tổ hợp
                   if (variantInCampaign.combinations && variantInCampaign.combinations.length > 0) {
-                    variantInCampaign.combinations.forEach((combinationInCampaign: any) => {
+                    variantInCampaign.combinations.forEach((combinationInCampaign) => {
                       if (combinationInCampaign.combinationId) {
                         const combinationIdStr = combinationInCampaign.combinationId.toString();
                         const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
@@ -626,7 +760,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
       // Thêm thông tin khuyến mãi vào biến thể
       if (product.variants && product.variants.length > 0) {
-        product.variants = product.variants.map((variant: any) => {
+        product.variants = product.variants.map((variant: VariantWithPromotion) => {
           if (variant.variantId) {
             const variantIdStr = variant.variantId.toString();
             const variantKey = `${productIdStr}_${variantIdStr}`;
@@ -644,7 +778,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
             // Thêm thông tin khuyến mãi vào tổ hợp
             if (variant.combinations && variant.combinations.length > 0) {
-              variant.combinations = variant.combinations.map((combination: any) => {
+              variant.combinations = variant.combinations.map((combination: VariantCombinationWithPromotion) => {
                 if (combination.combinationId) {
                   const combinationIdStr = combination.combinationId.toString();
                   const combinationKey = `${productIdStr}_${variantIdStr}_${combinationIdStr}`;
@@ -674,7 +808,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // --- LOGGING: Check fetched product and variant data ---
     console.log(`getServerSideProps: Fetched product with ID: ${product._id}`);
     if (product.variants && product.variants.length > 0) {
-      console.log(`getServerSideProps: Variants found:`, product.variants.map((v: any) => ({ variantId: v.variantId, sku: v.sku, options: v.options })));
+      console.log(`getServerSideProps: Variants found:`, product.variants.map((v: VariantWithPromotion) => ({ variantId: v.variantId, sku: v.sku, options: v.options })));
     } else {
       console.log(`getServerSideProps: No variants found for this product.`);
     }

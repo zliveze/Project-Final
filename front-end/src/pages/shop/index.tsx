@@ -87,8 +87,8 @@ export default function Shop() {
     filters,
     setFilters,
     changePage,
-    selectedCampaign,
-    itemsPerPage
+    selectedCampaign
+    // itemsPerPage - removed as it's not used
   } = useShopProduct();
 
   const router = useRouter();
@@ -101,7 +101,7 @@ export default function Shop() {
 
   // Memoized helper functions
   const getCategoryName = useCallback((categoryId: string): string => {
-    const category = categories.find((cat: any) =>
+    const category = categories.find((cat: { _id?: string; id?: string; name: string }) =>
       (cat._id === categoryId) || (cat.id === categoryId)
     );
 
@@ -124,7 +124,7 @@ export default function Shop() {
   }, [categories, products]);
 
   const getBrandName = useCallback((brandId: string): string => {
-    const brand = brands.find((brand: any) =>
+    const brand = brands.find((brand: { _id?: string; id?: string; name: string }) =>
       (brand._id === brandId) || (brand.id === brandId)
     );
     return brand ? brand.name : brandId;
@@ -242,8 +242,8 @@ export default function Shop() {
 
     setFilters(newFiltersFromShopFilters, false);
 
-    const currentRouterQuery = { ...router.query };
-    const combinedQuery: Record<string, any> = {};
+    // currentRouterQuery is not used, removed to fix ESLint warning
+    const combinedQuery: Record<string, string> = {};
 
     const effectiveFilters = { ...filters, ...newFiltersFromShopFilters };
 

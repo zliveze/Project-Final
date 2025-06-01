@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRouter } from 'next/router'; // Import useRouter for redirection
 
@@ -95,8 +95,8 @@ const WishlistPage: NextPage = () => {
   const router = useRouter();
 
   // State for recommended products and categories (keep using sample data for now)
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>(sampleRecommendedProducts);
-  const [categories, setCategories] = useState<Category[]>(sampleCategories);
+  const [recommendedProducts] = useState<RecommendedProduct[]>(sampleRecommendedProducts);
+  const [categories] = useState<Category[]>(sampleCategories);
 
   // Redirect if not authenticated after loading
   useEffect(() => {
@@ -156,17 +156,18 @@ const WishlistPage: NextPage = () => {
   };
 
   // Xử lý thêm sản phẩm gợi ý vào wishlist (Use context function)
-  const handleAddToWishlist = (product: RecommendedProduct) => {
-    // Assuming recommended products don't have variants for simplicity,
-    // or we need a way to select a variant first.
-    // For now, let's assume we add the base product or a default variant.
-    // We need the variantId for the backend. This needs clarification.
-    // **Temporary:** Show a warning that this feature needs variant selection.
-    toast.warn('Tính năng thêm từ gợi ý cần chọn biến thể (chưa hoàn thiện).');
-    // If a default variant logic exists or no variants:
-    // const defaultVariantId = 'some-default-id'; // Or determine based on product
-    // addToWishlist(product._id, defaultVariantId);
-  };
+  // Note: This function is currently not used but kept for future implementation
+  // const handleAddToWishlist = (product: RecommendedProduct) => {
+  //   // Assuming recommended products don't have variants for simplicity,
+  //   // or we need a way to select a variant first.
+  //   // For now, let's assume we add the base product or a default variant.
+  //   // We need the variantId for the backend. This needs clarification.
+  //   // **Temporary:** Show a warning that this feature needs variant selection.
+  //   toast.warn('Tính năng thêm từ gợi ý cần chọn biến thể (chưa hoàn thiện).');
+  //   // If a default variant logic exists or no variants:
+  //   // const defaultVariantId = 'some-default-id'; // Or determine based on product
+  //   // addToWishlist(product._id, defaultVariantId);
+  // };
 
   // Tính toán thống kê
   const calculateStats = () => {
@@ -206,11 +207,11 @@ const WishlistPage: NextPage = () => {
     };
   };
 
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { label: 'Trang chủ', href: '/' },
-    { label: 'Danh sách yêu thích', href: '/wishlist' }
-  ];
+  // Breadcrumb items (currently not used but kept for future implementation)
+  // const breadcrumbItems = [
+  //   { label: 'Trang chủ', href: '/' },
+  //   { label: 'Danh sách yêu thích', href: '/wishlist' }
+  // ];
 
   // Lấy thống kê
   const stats = calculateStats();
