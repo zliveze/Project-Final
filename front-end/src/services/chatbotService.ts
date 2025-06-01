@@ -1,5 +1,84 @@
 import axios, { AxiosResponse } from 'axios';
-import { ChatMessage, RecommendedProduct, UserPreferences } from '@/contexts/chatbot/ChatbotContext';
+import { ChatMessage, UserPreferences } from '@/contexts/chatbot/ChatbotContext';
+// RecommendedProduct removed as it's not used
+
+// Define types to replace 'any'
+interface AttachedProduct {
+  productId: string;
+  productName: string;
+  adjustedPrice: number;
+  originalPrice: number;
+  image: string;
+  [key: string]: unknown;
+}
+
+interface AttachedCategory {
+  id: string;
+  name: string;
+  description: string;
+  level: number;
+  [key: string]: unknown;
+}
+
+interface AttachedBrand {
+  id: string;
+  name: string;
+  description: string;
+  origin: string;
+  [key: string]: unknown;
+}
+
+interface AttachedEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  discountInfo: string;
+  products?: AttachedProduct[];
+  [key: string]: unknown;
+}
+
+interface AttachedCampaign {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  startDate: Date;
+  endDate: Date;
+  products?: AttachedProduct[];
+  [key: string]: unknown;
+}
+
+interface MessageMetadata {
+  userIntent?: string;
+  confidence?: number;
+  processingTime?: number;
+  contextUsed?: string[];
+  [key: string]: unknown;
+}
+
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+  [key: string]: unknown;
+}
+
+interface SearchProductResult {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  currentPrice?: number;
+  brand: string;
+  imageUrl?: string;
+  [key: string]: unknown;
+}
 
 // API Base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -103,12 +182,12 @@ export interface GetHistoryResponse {
     role: 'user' | 'assistant';
     content: string;
     type: 'TEXT' | 'PRODUCT_RECOMMENDATION' | 'SEARCH_RESULT';
-    attachedProducts?: any[];
-    attachedCategories?: any[];
-    attachedBrands?: any[];
-    attachedEvents?: any[];
-    attachedCampaigns?: any[];
-    metadata?: any;
+    attachedProducts?: AttachedProduct[];
+    attachedCategories?: AttachedCategory[];
+    attachedBrands?: AttachedBrand[];
+    attachedEvents?: AttachedEvent[];
+    attachedCampaigns?: AttachedCampaign[];
+    metadata?: MessageMetadata;
     isHelpful?: boolean;
     feedback?: string;
     createdAt: Date;
@@ -220,10 +299,11 @@ export class ChatbotService {
       );
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
+      const apiError = error as ApiError;
       throw new Error(
-        error.response?.data?.message || 
+        apiError.response?.data?.message ||
         'Không thể gửi tin nhắn. Vui lòng thử lại.'
       );
     }
@@ -238,7 +318,7 @@ export class ChatbotService {
     limit: number = 20
   ): Promise<GetHistoryResponse> {
     const maxRetries = 2;
-    let lastError: any;
+    let lastError: ApiError;
 
     // Lấy userId từ localStorage hoặc sessionStorage
     const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -276,8 +356,8 @@ export class ChatbotService {
         );
 
         return response.data;
-      } catch (error: any) {
-        lastError = error;
+      } catch (error: unknown) {
+        lastError = error as ApiError;
         console.error(`Error getting chat history (attempt ${attempt + 1}):`, error);
 
         // Don't retry on certain errors
@@ -310,23 +390,24 @@ export class ChatbotService {
       brandId?: string;
       limit?: number;
     }
-  ): Promise<any[]> {
+  ): Promise<SearchProductResult[]> {
     try {
       const requestData: SearchProductsRequest = {
         query,
         ...filters,
       };
 
-      const response: AxiosResponse<any[]> = await apiClient.post(
+      const response: AxiosResponse<SearchProductResult[]> = await apiClient.post(
         ENDPOINTS.SEARCH_PRODUCTS,
         requestData
       );
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error searching products:', error);
+      const apiError = error as ApiError;
       throw new Error(
-        error.response?.data?.message || 
+        apiError.response?.data?.message ||
         'Không thể tìm kiếm sản phẩm. Vui lòng thử lại.'
       );
     }
@@ -372,10 +453,11 @@ export class ChatbotService {
       );
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error providing feedback:', error);
+      const apiError = error as ApiError;
       throw new Error(
-        error.response?.data?.message || 
+        apiError.response?.data?.message ||
         'Không thể gửi phản hồi. Vui lòng thử lại.'
       );
     }
@@ -392,10 +474,11 @@ export class ChatbotService {
         });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error checking chatbot health:', error);
+      const apiError = error as ApiError;
       throw new Error(
-        error.response?.data?.message ||
+        apiError.response?.data?.message ||
         'Không thể kiểm tra trạng thái chatbot.'
       );
     }
@@ -481,7 +564,7 @@ export class ChatbotService {
   /**
    * Format error message for display
    */
-  static formatErrorMessage(error: any): string {
+  static formatErrorMessage(error: ApiError): string {
     if (error.response?.status === 400) {
       return 'Tin nhắn không hợp lệ. Vui lòng kiểm tra lại.';
     }
@@ -505,9 +588,10 @@ export class ChatbotService {
       // Thử gọi health endpoint trước
       await this.healthCheck();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       // Nếu lỗi là 404, thử gọi API khác thay thế (có thể là API public nào đó)
-      if (error.response?.status === 404) {
+      if (apiError.response?.status === 404) {
         try {
           // Thử ping API base URL (không cần đăng nhập)
           await axios.get(API_BASE_URL, { timeout: 3000 });
@@ -517,9 +601,9 @@ export class ChatbotService {
           return false;
         }
       }
-      
+
       // Nếu lỗi là 401 (unauthorized), vẫn coi như API hoạt động
-      if (error.response?.status === 401) {
+      if (apiError.response?.status === 401) {
         return true;
       }
       
