@@ -125,14 +125,18 @@ export interface CartProduct {
 
 interface CartContextType {
   cartItems: CartProduct[];
+  selectedItems: string[]; // Array of selected item IDs
   itemCount: number;
+  selectedItemCount: number; // Count of selected items
   subtotal: number;
+  selectedSubtotal: number; // Subtotal of selected items only
   isLoading: boolean;
   error: string | null;
   appliedVoucher: VoucherApplyResult | null;
   discount: number;
   shipping: number;
   total: number;
+  selectedTotal: number; // Total of selected items only
   voucherCode: string;
   voucherId: string;
   fetchCart: () => Promise<void>;
@@ -144,12 +148,21 @@ interface CartContextType {
   applyVoucher: (code: string) => Promise<boolean>;
   clearVoucher: () => void;
   updateShipping: (amount: number) => void;
+  // Selection functions
+  selectItem: (itemId: string) => boolean; // Returns true if selection is allowed
+  unselectItem: (itemId: string) => void;
+  selectAllItemsInBranch: (branchId: string) => boolean; // Returns true if selection is allowed
+  unselectAllItemsInBranch: (branchId: string) => void;
+  clearSelection: () => void;
+  canSelectItem: (itemId: string) => boolean; // Check if item can be selected based on branch rules
+  getSelectedBranchId: () => string | null; // Get the branch ID of selected items
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartProduct[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voucherCode, setVoucherCode] = useState<string>('');
@@ -544,11 +557,37 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      // If quantity hasn't changed, do nothing
      if (currentItem.quantity === validQuantity && currentItem.selectedBranchId === selectedBranchId && !price) return true; // Check selectedBranchId too
 
+     // Kiểm tra nếu chi nhánh thay đổi và có sản phẩm đã được chọn
+     const isChangingBranch = selectedBranchId && currentItem.selectedBranchId !== selectedBranchId;
+     let updatedSelectedItems = [...selectedItems];
+
+     if (isChangingBranch && selectedItems.length > 0) {
+       // Nếu đang thay đổi chi nhánh và có sản phẩm đã chọn
+       const currentSelectedBranchId = getSelectedBranchId();
+
+       if (currentSelectedBranchId && currentSelectedBranchId !== selectedBranchId) {
+         // Nếu chi nhánh mới khác với chi nhánh đã chọn, bỏ chọn tất cả sản phẩm
+         updatedSelectedItems = [];
+         toast.info('Đã bỏ chọn các sản phẩm khác chi nhánh do thay đổi chi nhánh', {
+           position: "bottom-right",
+           autoClose: 3000,
+           hideProgressBar: true,
+         });
+       }
+     }
+
      // Store this update in the pending queue
      pendingUpdates.current[itemId] = validQuantity; // Use itemId as key
 
      // Optimistic UI update: Cập nhật state ngay lập tức
      const originalItems = [...cartItems];
+     const originalSelectedItems = [...selectedItems];
+
+     // Cập nhật selectedItems nếu có thay đổi
+     if (updatedSelectedItems.length !== selectedItems.length) {
+       setSelectedItems(updatedSelectedItems);
+     }
+
      setCartItems(prevItems =>
        prevItems.map(item => {
          if (item._id === itemId) { // Match by itemId
@@ -635,6 +674,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setError(message);
       // Rollback optimistic update nếu API thất bại
       setCartItems(originalItems);
+      setSelectedItems(originalSelectedItems);
       return false;
     }
   };
@@ -756,11 +796,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Subtotal tính dựa trên giá LÚC THÊM VÀO GIỎ (price từ BackendCartItem đã được map vào CartProduct)
   const subtotal = cartItems.reduce((sum: number, item: CartProduct) => sum + item.price * item.quantity, 0);
 
+  // Tính toán cho sản phẩm được chọn
+  const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
+  const selectedItemCount = selectedCartItems.reduce((sum: number, item: CartProduct) => sum + item.quantity, 0);
+  const selectedSubtotal = selectedCartItems.reduce((sum: number, item: CartProduct) => sum + item.price * item.quantity, 0);
+
   // Tính toán giảm giá từ voucher đã áp dụng
   const discount = appliedVoucher ? appliedVoucher.discountAmount : 0;
 
   // Tính tổng tiền sau khi áp dụng giảm giá (phí vận chuyển sẽ được tính ở trang thanh toán)
   const total = subtotal - discount;
+  const selectedTotal = selectedSubtotal - discount;
 
   // Hàm áp dụng voucher
   const applyVoucher = async (code: string): Promise<boolean> => {
@@ -770,11 +816,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      // Lấy danh sách ID sản phẩm trong giỏ hàng
-      const productIds = cartItems.map(item => item.productId);
+      // Lấy danh sách ID sản phẩm - ưu tiên sản phẩm được chọn nếu có
+      const relevantItems = selectedItems.length > 0
+        ? cartItems.filter(item => selectedItems.includes(item._id))
+        : cartItems;
+
+      const productIds = relevantItems.map(item => item.productId);
+      const relevantSubtotal = selectedItems.length > 0 ? selectedSubtotal : subtotal;
 
       // Gọi API áp dụng voucher
-      const result = await applyVoucherApi(code, subtotal, productIds);
+      const result = await applyVoucherApi(code, relevantSubtotal, productIds);
 
       if (result) {
         setVoucherCode(code);
@@ -808,19 +859,165 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setShipping(amount);
   };
 
+  // Selection functions
+  const getSelectedBranchId = (): string | null => {
+    if (selectedItems.length === 0) return null;
+
+    const selectedItem = cartItems.find(item => selectedItems.includes(item._id));
+    return selectedItem?.selectedBranchId || null;
+  };
+
+  const canSelectItem = (itemId: string): boolean => {
+    const item = cartItems.find(i => i._id === itemId);
+    if (!item || !item.selectedBranchId) return false;
+
+    const selectedBranchId = getSelectedBranchId();
+
+    // Nếu chưa có item nào được chọn, có thể chọn item này
+    if (!selectedBranchId) return true;
+
+    // Nếu đã có item được chọn, chỉ có thể chọn item cùng chi nhánh
+    return item.selectedBranchId === selectedBranchId;
+  };
+
+  const selectItem = (itemId: string): boolean => {
+    const item = cartItems.find(i => i._id === itemId);
+    if (!item || !item.selectedBranchId) {
+      toast.warn('Vui lòng chọn chi nhánh cho sản phẩm trước khi thêm vào đơn hàng');
+      return false;
+    }
+
+    const currentSelectedBranchId = getSelectedBranchId();
+
+    // Nếu đã có sản phẩm được chọn từ chi nhánh khác
+    if (currentSelectedBranchId && currentSelectedBranchId !== item.selectedBranchId) {
+      // Bỏ chọn tất cả sản phẩm hiện tại và chọn sản phẩm mới
+      setSelectedItems([itemId]);
+      toast.info('Đã bỏ chọn sản phẩm khác chi nhánh và chọn sản phẩm mới', {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+      });
+      return true;
+    }
+
+    // Nếu chưa có sản phẩm nào được chọn hoặc cùng chi nhánh
+    setSelectedItems(prev => {
+      if (!prev.includes(itemId)) {
+        return [...prev, itemId];
+      }
+      return prev;
+    });
+    return true;
+  };
+
+  const unselectItem = (itemId: string): void => {
+    setSelectedItems(prev => prev.filter(id => id !== itemId));
+  };
+
+  const selectAllItemsInBranch = (branchId: string): boolean => {
+    const branchItems = cartItems.filter(item =>
+      item.selectedBranchId === branchId && item.inStock
+    );
+
+    if (branchItems.length === 0) return false;
+
+    // Kiểm tra xem có thể chọn tất cả items trong branch này không
+    const selectedBranchId = getSelectedBranchId();
+    if (selectedBranchId && selectedBranchId !== branchId) {
+      // Bỏ chọn tất cả sản phẩm hiện tại và chọn tất cả sản phẩm trong chi nhánh mới
+      const branchItemIds = branchItems.map(item => item._id);
+      setSelectedItems(branchItemIds);
+      toast.info('Đã bỏ chọn sản phẩm khác chi nhánh và chọn tất cả sản phẩm trong chi nhánh mới', {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+      });
+      return true;
+    }
+
+    const branchItemIds = branchItems.map(item => item._id);
+    setSelectedItems(prev => {
+      const newSelected = [...prev];
+      branchItemIds.forEach(id => {
+        if (!newSelected.includes(id)) {
+          newSelected.push(id);
+        }
+      });
+      return newSelected;
+    });
+    return true;
+  };
+
+  const unselectAllItemsInBranch = (branchId: string): void => {
+    const branchItemIds = cartItems
+      .filter(item => item.selectedBranchId === branchId)
+      .map(item => item._id);
+
+    setSelectedItems(prev => prev.filter(id => !branchItemIds.includes(id)));
+  };
+
+  const clearSelection = (): void => {
+    setSelectedItems([]);
+  };
+
+  // Hàm helper để kiểm tra và làm sạch selection khi có thay đổi chi nhánh
+  const validateAndCleanSelection = useCallback(() => {
+    if (selectedItems.length === 0) return;
+
+    const validSelectedItems = selectedItems.filter(itemId => {
+      const item = cartItems.find(i => i._id === itemId);
+      return item && item.selectedBranchId;
+    });
+
+    if (validSelectedItems.length === 0) {
+      setSelectedItems([]);
+      return;
+    }
+
+    // Kiểm tra xem tất cả sản phẩm được chọn có cùng chi nhánh không
+    const firstItemBranchId = cartItems.find(i => i._id === validSelectedItems[0])?.selectedBranchId;
+    const allSameBranch = validSelectedItems.every(itemId => {
+      const item = cartItems.find(i => i._id === itemId);
+      return item?.selectedBranchId === firstItemBranchId;
+    });
+
+    if (!allSameBranch) {
+      // Nếu không cùng chi nhánh, chỉ giữ lại sản phẩm đầu tiên
+      setSelectedItems([validSelectedItems[0]]);
+      toast.info('Đã bỏ chọn các sản phẩm khác chi nhánh', {
+        position: "bottom-right",
+        autoClose: 2000,
+        hideProgressBar: true,
+      });
+    } else if (validSelectedItems.length !== selectedItems.length) {
+      // Nếu có sản phẩm không hợp lệ, cập nhật lại danh sách
+      setSelectedItems(validSelectedItems);
+    }
+  }, [selectedItems, cartItems]);
+
+  // Chạy validation khi cartItems thay đổi
+  useEffect(() => {
+    validateAndCleanSelection();
+  }, [cartItems, validateAndCleanSelection]);
+
   // Không cập nhật phí vận chuyển ở đây nữa, phí vận chuyển sẽ được tính ở trang thanh toán
 
   return (
     <CartContext.Provider value={{
         cartItems,
+        selectedItems,
         itemCount,
+        selectedItemCount,
         subtotal,
+        selectedSubtotal,
         isLoading,
         error,
         appliedVoucher,
         discount,
         shipping,
         total,
+        selectedTotal,
         voucherCode,
         voucherId,
         fetchCart: fetchAndPopulateCart,
@@ -831,7 +1028,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         clearCart,
         applyVoucher,
         clearVoucher,
-        updateShipping
+        updateShipping,
+        selectItem,
+        unselectItem,
+        selectAllItemsInBranch,
+        unselectAllItemsInBranch,
+        clearSelection,
+        canSelectItem,
+        getSelectedBranchId
     }}>
       {children}
     </CartContext.Provider>
