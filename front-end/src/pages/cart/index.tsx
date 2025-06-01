@@ -191,6 +191,13 @@ const CartPage: NextPage = () => {
         return;
     }
 
+    // Kiểm tra xem tất cả sản phẩm được chọn có cùng chi nhánh không
+    const branchIds = [...new Set(selectedCartItems.map(item => item.selectedBranchId))];
+    if (branchIds.length > 1) {
+        toast.error('Không thể thanh toán sản phẩm từ nhiều chi nhánh khác nhau. Vui lòng chọn sản phẩm từ cùng một chi nhánh.');
+        return;
+    }
+
     // Thêm thông báo thành công khi chuyển trang
     toast.success('Đang chuyển đến trang thanh toán...', {
         position: "bottom-right",
@@ -416,6 +423,9 @@ const CartPage: NextPage = () => {
                             canSelect={canSelectItem(item._id)}
                             onSelect={selectItem}
                             onUnselect={unselectItem}
+                            // Gift props
+                            hasGifts={item.hasGifts}
+                            availableGifts={item.availableGifts}
                           />
                         ))}
                       </div>
