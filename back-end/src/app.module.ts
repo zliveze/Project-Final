@@ -25,6 +25,7 @@ import { CommonModule } from './common/common.module';
 import { WebsocketModule } from './websocket/websocket.module'; // Import WebsocketModule
 import { SharedModule } from './shared/shared.module'; // Import SharedModule
 import { RecommendationsModule } from './recommendations/recommendations.module'; // Import RecommendationsModule
+import { ChatbotModule } from './chatbot/chatbot.module'; // Import ChatbotModule
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UserActivityInterceptor } from './recommendations/interceptors/user-activity.interceptor';
 
@@ -62,6 +63,7 @@ import { UserActivityInterceptor } from './recommendations/interceptors/user-act
     WebsocketModule, // Add WebsocketModule here
     SharedModule, // Add SharedModule here
     RecommendationsModule, // Add RecommendationsModule here
+    ChatbotModule, // Add ChatbotModule here
   ],
   controllers: [AppController],
   providers: [

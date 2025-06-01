@@ -3,6 +3,8 @@ import MainHeader from '@/components/common/header/MainHeader'
 import Footer from '@/components/common/Footer'
 import Breadcrum, { BreadcrumItem } from '@/components/common/Breadcrum'
 import BackgroundAnimation from '@/components/common/BackgroundAnimation'
+import ChatbotPopup from '@/components/chatbot/ChatbotPopup'
+import { ChatbotProvider } from '@/contexts/chatbot/ChatbotContext'
 // HeaderProvider removed as it's not used
 import { useRouter } from 'next/router'
 import { ToastContainer } from 'react-toastify'
@@ -132,40 +134,46 @@ export default function DefaultLayout({ children, breadcrumItems }: DefaultLayou
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <div className="fixed inset-0 z-0">
-        <BackgroundAnimation />
+    <ChatbotProvider>
+      <div className="min-h-screen flex flex-col relative">
+        <div className="fixed inset-0 z-0">
+          <BackgroundAnimation />
+        </div>
+        {/* Header không sử dụng sticky và z-index */}
+        <div className="w-full">
+          <MainHeader />
+        </div>
+        <div className="relative">
+           {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
+        </div>
+        <main className="flex-grow relative">
+           {children}
+        </main>
+        <div className="relative">
+          <Footer />
+        </div>
+        
+        {/* Chatbot Popup */}
+        <ChatbotPopup />
+        
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          style={{ zIndex: 1000 }}
+          toastStyle={{
+            marginBottom: '60px',
+            marginRight: '10px'
+          }}
+          theme="light"
+        />
       </div>
-      {/* Header không sử dụng sticky và z-index */}
-      <div className="w-full">
-        <MainHeader />
-      </div>
-      <div className="relative">
-         {router.asPath !== '/' && <Breadcrum items={getBreadcrumItems()} />}
-      </div>
-      <main className="flex-grow relative">
-         {children}
-      </main>
-      <div className="relative">
-        <Footer />
-      </div>
-      <ToastContainer
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        style={{ zIndex: 1000 }}
-        toastStyle={{
-          marginBottom: '60px',
-          marginRight: '10px'
-        }}
-        theme="light"
-      />
-    </div>
+    </ChatbotProvider>
   )
 }
