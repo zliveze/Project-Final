@@ -24,7 +24,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Hàm kiểm tra đường dẫn
     const checkPath = (path: string) => {
-      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product') || path.startsWith('/admin/events') || path.startsWith('/admin/campaigns');
+      return path.startsWith('/admin/products') || path.startsWith('/shop') || path.startsWith('/product') || path.startsWith('/admin/events') || path.startsWith('/admin/campaigns') || path.startsWith('/admin/vouchers');
     };
 
     // Kiểm tra ngay lập tức dựa trên window.location
@@ -143,11 +143,13 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (currentPath.startsWith('/admin/vouchers')) {
     pageSpecificProviders = (
-      <EventsProvider> {/* EventsProvider có thể cần thiết cho VoucherProvider */}
-        <VoucherProvider>
-          {pageSpecificProviders}
-        </VoucherProvider>
-      </EventsProvider>
+      <ProductProvider> {/* ProductProvider cần thiết cho VoucherForm để chọn sản phẩm */}
+        <EventsProvider> {/* EventsProvider cần thiết cho VoucherProvider */}
+          <VoucherProvider>
+            {pageSpecificProviders}
+          </VoucherProvider>
+        </EventsProvider>
+      </ProductProvider>
     );
   }
 

@@ -154,8 +154,30 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
 
     try {
-      const response = await axios.get(`${API_URL}/events/active`);
-      return response.data.map(formatEventData);
+      // Thử endpoint /events/active trước, nếu không có thì dùng /events
+      let response;
+      try {
+        response = await axios.get(`${API_URL}/events/active`);
+      } catch (activeError: any) {
+        // Nếu endpoint /events/active không tồn tại, dùng /events và lọc events đang hoạt động
+        console.log('Endpoint /events/active không khả dụng, sử dụng /events');
+        response = await axios.get(`${API_URL}/events`);
+      }
+
+      const allEvents = response.data.map(formatEventData);
+
+      // Lọc chỉ lấy events đang hoạt động (trong khoảng thời gian hiện tại)
+      const now = new Date();
+      const activeEvents = allEvents.filter((event: Event) => {
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        return startDate <= now && now <= endDate;
+      });
+
+      // Cập nhật state events với danh sách events đang hoạt động
+      setEvents(activeEvents);
+
+      return activeEvents;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Không thể tải dữ liệu sự kiện đang hoạt động';
       setError(errorMessage);
@@ -503,11 +525,13 @@ export const EventsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Tự động tải dữ liệu khi component được mount hoặc route thay đổi
   useEffect(() => {
     const loadData = async () => {
-      // Chỉ load events khi ở các trang liên quan
+      // Load events cho các trang liên quan
       const isUserRelatedPage = !router.pathname.startsWith('/admin') &&
                                !router.pathname.startsWith('/auth');
+      const isAdminVouchersPage = router.pathname.startsWith('/admin/vouchers');
+      const isAdminEventsPage = router.pathname.startsWith('/admin/events');
 
-      if (isUserRelatedPage) {
+      if (isUserRelatedPage || isAdminVouchersPage || isAdminEventsPage) {
         await fetchEvents();
       }
     };
