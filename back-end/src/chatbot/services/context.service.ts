@@ -21,6 +21,11 @@ export interface ProductContext {
   ingredients: string[];
   tags: string[];
   status: string;
+  images: Array<{
+    url: string;
+    alt: string;
+    isPrimary: boolean;
+  }>;
   flags: {
     isBestSeller: boolean;
     isNew: boolean;
@@ -157,7 +162,7 @@ export class ContextService {
         .find({ status: 'active' })
         .populate('brandId', 'name')
         .populate('categoryIds', 'name')
-        .select('name slug price currentPrice description cosmetic_info tags flags')
+        .select('name slug price currentPrice description cosmetic_info tags flags images')
         .limit(100) // Limit to prevent too much data
         .lean()
         .exec();
@@ -170,13 +175,18 @@ export class ContextService {
         currentPrice: product.currentPrice,
         description: product.description?.short || product.description?.full || '',
         brand: (product.brandId as any)?.name || '',
-        categories: Array.isArray(product.categoryIds) ? 
+        categories: Array.isArray(product.categoryIds) ?
           product.categoryIds.map((cat: any) => cat.name).filter(Boolean) : [],
         skinTypes: product.cosmetic_info?.skinType || [],
         concerns: product.cosmetic_info?.concerns || [],
         ingredients: product.cosmetic_info?.ingredients || [],
         tags: product.tags || [],
         status: product.status,
+        images: (product.images || []).map((img: any) => ({
+          url: img.url,
+          alt: img.alt || product.name,
+          isPrimary: img.isPrimary || false,
+        })),
         flags: {
           isBestSeller: product.flags?.isBestSeller || false,
           isNew: product.flags?.isNew || false,
@@ -298,47 +308,141 @@ export class ContextService {
 
   async searchProducts(query: string, limit: number = 10): Promise<ProductContext[]> {
     try {
-      const products = await this.productModel
+      // Nếu query rỗng, trả về sản phẩm phổ biến
+      if (!query || query.trim() === '') {
+        const products = await this.productModel
+          .find({ status: 'active' })
+          .populate('brandId', 'name')
+          .populate('categoryIds', 'name')
+          .select('name slug price currentPrice description cosmetic_info tags flags images')
+          .sort({ soldCount: -1, createdAt: -1 }) // Sắp xếp theo độ phổ biến
+          .limit(limit)
+          .lean()
+          .exec();
+
+        return this.mapProductsToContext(products);
+      }
+
+      // Chuẩn hóa query
+      const searchQuery = query.trim().toLowerCase();
+      this.logger.log(`Searching products with query: "${searchQuery}"`);
+
+      let products: any[] = [];
+
+      // Bước 1: Thử MongoDB text search trước (nếu có text index)
+      try {
+        products = await this.productModel
+          .find({
+            status: 'active',
+            $text: { $search: searchQuery }
+          })
+          .populate('brandId', 'name')
+          .populate('categoryIds', 'name')
+          .select('name slug price currentPrice description cosmetic_info tags flags images sku')
+          .sort({
+            score: { $meta: 'textScore' }, // Sắp xếp theo độ liên quan
+            soldCount: -1
+          })
+          .limit(limit)
+          .lean()
+          .exec();
+
+        if (products.length > 0) {
+          this.logger.log(`Text search found ${products.length} products`);
+          return this.mapProductsToContext(products);
+        }
+      } catch (textSearchError) {
+        this.logger.warn('Text search not available, falling back to regex search');
+      }
+
+      // Bước 2: Tìm kiếm regex với nhiều điều kiện
+      const searchRegex = new RegExp(searchQuery, 'i');
+
+      products = await this.productModel
         .find({
           status: 'active',
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { 'description.short': { $regex: query, $options: 'i' } },
-            { 'description.full': { $regex: query, $options: 'i' } },
-            { tags: { $in: [new RegExp(query, 'i')] } },
-            { 'cosmetic_info.concerns': { $in: [new RegExp(query, 'i')] } },
-            { 'cosmetic_info.skinType': { $in: [new RegExp(query, 'i')] } },
+            { name: { $regex: searchRegex } },
+            { sku: { $regex: searchRegex } },
+            { 'description.short': { $regex: searchRegex } },
+            { 'description.full': { $regex: searchRegex } },
+            { tags: { $in: [searchRegex] } },
+            { 'cosmetic_info.concerns': { $in: [searchRegex] } },
+            { 'cosmetic_info.skinType': { $in: [searchRegex] } },
+            { 'cosmetic_info.ingredients': { $in: [searchRegex] } },
+            { 'cosmetic_info.usage': { $regex: searchRegex } },
           ]
         })
         .populate('brandId', 'name')
         .populate('categoryIds', 'name')
-        .select('name slug price currentPrice description cosmetic_info tags flags')
+        .select('name slug price currentPrice description cosmetic_info tags flags images sku')
+        .sort({ soldCount: -1, 'flags.isBestSeller': -1, createdAt: -1 })
         .limit(limit)
         .lean()
         .exec();
 
-      return products.map(product => ({
-        id: product._id.toString(),
-        name: product.name,
-        slug: product.slug || '',
-        price: product.price,
-        currentPrice: product.currentPrice,
-        description: product.description?.short || product.description?.full || '',
-        brand: (product.brandId as any)?.name || '',
-        categories: Array.isArray(product.categoryIds) ? 
-          product.categoryIds.map((cat: any) => cat.name).filter(Boolean) : [],
-        skinTypes: product.cosmetic_info?.skinType || [],
-        concerns: product.cosmetic_info?.concerns || [],
-        ingredients: product.cosmetic_info?.ingredients || [],
-        tags: product.tags || [],
-        status: product.status,
-        flags: {
-          isBestSeller: product.flags?.isBestSeller || false,
-          isNew: product.flags?.isNew || false,
-          isOnSale: product.flags?.isOnSale || false,
-          hasGifts: product.flags?.hasGifts || false,
-        },
-      }));
+      if (products.length > 0) {
+        this.logger.log(`Regex search found ${products.length} products`);
+        return this.mapProductsToContext(products);
+      }
+
+      // Bước 3: Tìm kiếm từng từ riêng lẻ với fuzzy matching
+      if (searchQuery.includes(' ')) {
+        const keywords = searchQuery.split(' ').filter(word => word.length > 1);
+        const keywordRegexes = keywords.map(keyword => new RegExp(keyword, 'i'));
+
+        products = await this.productModel
+          .find({
+            status: 'active',
+            $or: [
+              { name: { $in: keywordRegexes } },
+              { 'description.short': { $in: keywordRegexes } },
+              { 'description.full': { $in: keywordRegexes } },
+              { tags: { $in: keywordRegexes } },
+              { 'cosmetic_info.concerns': { $in: keywordRegexes } },
+              { 'cosmetic_info.skinType': { $in: keywordRegexes } },
+            ]
+          })
+          .populate('brandId', 'name')
+          .populate('categoryIds', 'name')
+          .select('name slug price currentPrice description cosmetic_info tags flags images sku')
+          .sort({ soldCount: -1, createdAt: -1 })
+          .limit(limit)
+          .lean()
+          .exec();
+
+        if (products.length > 0) {
+          this.logger.log(`Keyword search found ${products.length} products`);
+          return this.mapProductsToContext(products);
+        }
+      }
+
+      // Bước 4: Tìm kiếm partial match (chứa một phần từ khóa)
+      const partialRegex = new RegExp(`.*${searchQuery}.*`, 'i');
+      products = await this.productModel
+        .find({
+          status: 'active',
+          $or: [
+            { name: { $regex: partialRegex } },
+            { tags: { $in: [partialRegex] } },
+            { 'description.short': { $regex: partialRegex } },
+          ]
+        })
+        .populate('brandId', 'name')
+        .populate('categoryIds', 'name')
+        .select('name slug price currentPrice description cosmetic_info tags flags images sku')
+        .sort({ soldCount: -1, createdAt: -1 })
+        .limit(limit)
+        .lean()
+        .exec();
+
+      if (products.length > 0) {
+        this.logger.log(`Partial match found ${products.length} products`);
+      } else {
+        this.logger.log(`No products found for query: "${searchQuery}"`);
+      }
+
+      return this.mapProductsToContext(products);
     } catch (error) {
       this.logger.error('Error searching products:', error);
       return [];
@@ -354,7 +458,7 @@ export class ContextService {
         })
         .populate('brandId', 'name')
         .populate('categoryIds', 'name')
-        .select('name slug price currentPrice description cosmetic_info tags flags')
+        .select('name slug price currentPrice description cosmetic_info tags flags images')
         .limit(10)
         .lean()
         .exec();
@@ -367,13 +471,18 @@ export class ContextService {
         currentPrice: product.currentPrice,
         description: product.description?.short || product.description?.full || '',
         brand: (product.brandId as any)?.name || '',
-        categories: Array.isArray(product.categoryIds) ? 
+        categories: Array.isArray(product.categoryIds) ?
           product.categoryIds.map((cat: any) => cat.name).filter(Boolean) : [],
         skinTypes: product.cosmetic_info?.skinType || [],
         concerns: product.cosmetic_info?.concerns || [],
         ingredients: product.cosmetic_info?.ingredients || [],
         tags: product.tags || [],
         status: product.status,
+        images: (product.images || []).map((img: any) => ({
+          url: img.url,
+          alt: img.alt || product.name,
+          isPrimary: img.isPrimary || false,
+        })),
         flags: {
           isBestSeller: product.flags?.isBestSeller || false,
           isNew: product.flags?.isNew || false,
@@ -396,7 +505,7 @@ export class ContextService {
         })
         .populate('brandId', 'name')
         .populate('categoryIds', 'name')
-        .select('name slug price currentPrice description cosmetic_info tags flags')
+        .select('name slug price currentPrice description cosmetic_info tags flags images')
         .limit(10)
         .lean()
         .exec();
@@ -409,13 +518,18 @@ export class ContextService {
         currentPrice: product.currentPrice,
         description: product.description?.short || product.description?.full || '',
         brand: (product.brandId as any)?.name || '',
-        categories: Array.isArray(product.categoryIds) ? 
+        categories: Array.isArray(product.categoryIds) ?
           product.categoryIds.map((cat: any) => cat.name).filter(Boolean) : [],
         skinTypes: product.cosmetic_info?.skinType || [],
         concerns: product.cosmetic_info?.concerns || [],
         ingredients: product.cosmetic_info?.ingredients || [],
         tags: product.tags || [],
         status: product.status,
+        images: (product.images || []).map((img: any) => ({
+          url: img.url,
+          alt: img.alt || product.name,
+          isPrimary: img.isPrimary || false,
+        })),
         flags: {
           isBestSeller: product.flags?.isBestSeller || false,
           isNew: product.flags?.isNew || false,
@@ -429,9 +543,40 @@ export class ContextService {
     }
   }
 
+  // Helper method để map products thành ProductContext
+  private mapProductsToContext(products: any[]): ProductContext[] {
+    return products.map(product => ({
+      id: product._id.toString(),
+      name: product.name,
+      slug: product.slug || '',
+      price: product.price,
+      currentPrice: product.currentPrice,
+      description: product.description?.short || product.description?.full || '',
+      brand: (product.brandId as any)?.name || '',
+      categories: Array.isArray(product.categoryIds) ?
+        product.categoryIds.map((cat: any) => cat.name).filter(Boolean) : [],
+      skinTypes: product.cosmetic_info?.skinType || [],
+      concerns: product.cosmetic_info?.concerns || [],
+      ingredients: product.cosmetic_info?.ingredients || [],
+      tags: product.tags || [],
+      status: product.status,
+      images: (product.images || []).map((img: any) => ({
+        url: img.url,
+        alt: img.alt || product.name,
+        isPrimary: img.isPrimary || false,
+      })),
+      flags: {
+        isBestSeller: product.flags?.isBestSeller || false,
+        isNew: product.flags?.isNew || false,
+        isOnSale: product.flags?.isOnSale || false,
+        hasGifts: product.flags?.hasGifts || false,
+      },
+    }));
+  }
+
   async clearCache(): Promise<void> {
     this.contextCache = null;
     this.lastCacheUpdate = null;
     this.logger.log('Context cache cleared');
   }
-} 
+}

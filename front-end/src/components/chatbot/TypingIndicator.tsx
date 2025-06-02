@@ -7,7 +7,7 @@ export default function TypingIndicator() {
       <div className="flex max-w-[80%]">
         {/* Avatar */}
         <div className="flex-shrink-0 mr-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-500 text-white">
             <Bot className="w-4 h-4" />
           </div>
         </div>

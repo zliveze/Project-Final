@@ -75,7 +75,7 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
   };
 
   return (
-    <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
       <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
         <Calendar className="w-4 h-4 mr-2 text-blue-500" />
         {title}
@@ -130,11 +130,15 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
                             className="flex items-center p-2 border rounded hover:bg-gray-50"
                           >
                             <div className="w-10 h-10 relative bg-gray-100 rounded overflow-hidden mr-2">
-                              <Image 
-                                src={product.image || '/images/products/default.jpg'}
+                              <Image
+                                src={product.image || '/404.png'}
                                 alt={product.productName}
                                 fill
                                 className="object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/404.png';
+                                }}
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -210,11 +214,15 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
                             className="flex items-center p-2 border rounded hover:bg-gray-50"
                           >
                             <div className="w-10 h-10 relative bg-gray-100 rounded overflow-hidden mr-2">
-                              <Image 
-                                src={product.image || '/images/products/default.jpg'}
+                              <Image
+                                src={product.image || '/404.png'}
                                 alt={product.productName}
                                 fill
                                 className="object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/404.png';
+                                }}
                               />
                             </div>
                             <div className="flex-1 min-w-0">

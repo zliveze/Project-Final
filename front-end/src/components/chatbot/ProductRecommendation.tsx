@@ -1,21 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RecommendedProduct } from '@/contexts/chatbot/ChatbotContext';
-import { ShoppingCart, Heart, Star, ExternalLink, PlusCircle } from 'lucide-react';
+import { ShoppingCart, ChevronRight, Eye } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/router';
 
 interface ProductRecommendationProps {
   products: RecommendedProduct[];
 }
 
-const ProductRecommendation: React.FC<ProductRecommendationProps> = ({ products }) => {
-  const router = useRouter();
-  const [showAll, setShowAll] = React.useState(false);
+// Component cho từng sản phẩm với xử lý ảnh riêng biệt
+const ProductCard: React.FC<{ product: RecommendedProduct }> = ({ product }) => {
+  const [imageError, setImageError] = useState(false);
 
-  if (!products || products.length === 0) {
-    return null;
-  }
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN').format(price) + ' ₫';
@@ -27,101 +26,110 @@ const ProductRecommendation: React.FC<ProductRecommendationProps> = ({ products 
     return discount > 0 ? `-${discount}%` : null;
   };
 
-  const handleViewProduct = (productId: string) => {
-    router.push(`/product/${productId}`);
-  };
-
-  const handleAddToCart = (productId: string) => {
-    // TODO: Implement add to cart functionality
-    console.log('Add to cart:', productId);
-  };
-
-  const displayProducts = showAll ? products : products.slice(0, 3);
+  const discount = product.currentPrice && product.price
+    ? calculateDiscount(product.price, product.currentPrice)
+    : null;
 
   return (
-    <div className="w-full my-3 overflow-hidden">
-      <h3 className="font-medium text-gray-700 mb-2">Sản phẩm gợi ý:</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {displayProducts.map((product) => {
-          const discount = product.currentPrice && product.price 
-            ? calculateDiscount(product.price, product.currentPrice) 
-            : null;
-          
-          return (
-            <Link 
-              href={`/product/${product.slug}`} 
-              key={product.id}
-              className="block border rounded-lg p-3 hover:shadow-md transition-shadow group"
-            >
-              <div className="flex flex-col h-full">
-                <div className="relative w-full h-48 bg-gray-100 rounded-md overflow-hidden mb-2">
-                  {product.imageUrl ? (
-                    <Image
-                      src={product.imageUrl}
-                      alt={product.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        // Fallback nếu ảnh lỗi
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/images/products/default.jpg';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <span className="text-gray-400">Không có ảnh</span>
-                    </div>
-                  )}
-                  
-                  {discount && (
-                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      {discount}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-grow">
-                  <h4 className="text-sm font-medium line-clamp-2 mb-1 group-hover:text-pink-600">
-                    {product.name}
-                  </h4>
-                  <p className="text-xs text-gray-500 mb-2">{product.brand}</p>
-                  
-                  <div className="flex items-center space-x-2 mt-auto">
-                    <span className="font-bold text-pink-600">
-                      {formatPrice(product.currentPrice || product.price)}
-                    </span>
-                    
-                    {product.currentPrice && product.currentPrice < product.price && (
-                      <span className="text-xs text-gray-400 line-through">
-                        {formatPrice(product.price)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                <button 
-                  className="mt-2 w-full bg-pink-500 hover:bg-pink-600 text-white py-1.5 px-3 rounded-md text-sm font-medium transition-colors"
-                >
-                  Xem chi tiết
-                </button>
-              </div>
-            </Link>
-          );
-        })}
+    <Link
+      href={`/product/${product.slug}`}
+      className="flex items-center p-3 bg-white border border-gray-200 rounded-xl hover:border-pink-200 hover:shadow-sm transition-all duration-200 group"
+    >
+      {/* Product Image */}
+      <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 mr-3">
+        <Image
+          src={imageError ? '/404.png' : (product.imageUrl || '/404.png')}
+          alt={product.name}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={handleImageError}
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
+        />
+
+        {discount && (
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-md shadow-sm">
+            {discount}
+          </div>
+        )}
       </div>
 
-      {products.length > 3 && (
-        <div className="mt-3 text-center">
-          <button 
+      {/* Product Info */}
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-pink-600 transition-colors">
+          {product.name}
+        </h4>
+
+        {product.brand && (
+          <p className="text-xs text-gray-500 mb-2">{product.brand}</p>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-bold text-pink-600">
+              {formatPrice(product.currentPrice || product.price)}
+            </span>
+
+            {product.currentPrice && product.currentPrice < product.price && (
+              <span className="text-xs text-gray-400 line-through">
+                {formatPrice(product.price)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center text-xs text-gray-400 group-hover:text-pink-500 transition-colors">
+            <Eye className="w-3 h-3 mr-1" />
+            <span>Xem</span>
+            <ChevronRight className="w-3 h-3 ml-1" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+};
+
+const ProductRecommendation: React.FC<ProductRecommendationProps> = ({ products }) => {
+  const [showAll, setShowAll] = React.useState(false);
+
+  if (!products || products.length === 0) {
+    return null;
+  }
+
+  const displayProducts = showAll ? products : products.slice(0, 4);
+
+  return (
+    <div className="w-full my-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center">
+          <ShoppingCart className="w-4 h-4 mr-2 text-pink-500" />
+          Sản phẩm gợi ý
+        </h3>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+          {products.length} sản phẩm
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {displayProducts.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+
+      {products.length > 4 && (
+        <div className="mt-4 text-center">
+          <button
             onClick={() => setShowAll(!showAll)}
-            className="text-xs text-pink-600 hover:text-pink-700 font-medium bg-white py-2 px-4 rounded-full border border-pink-200 hover:shadow-md transition-all flex items-center mx-auto"
+            className="inline-flex items-center text-xs text-pink-600 hover:text-pink-700 font-medium bg-pink-50 hover:bg-pink-100 py-2 px-4 rounded-full border border-pink-200 transition-all duration-200"
           >
             {showAll ? (
-              <>Thu gọn</>
+              <>
+                Thu gọn
+                <ChevronRight className="w-3 h-3 ml-1 rotate-90" />
+              </>
             ) : (
               <>
-                <PlusCircle className="w-3 h-3 mr-1" />
-                Xem thêm {products.length - 3} sản phẩm khác
+                Xem thêm {products.length - 4} sản phẩm
+                <ChevronRight className="w-3 h-3 ml-1" />
               </>
             )}
           </button>

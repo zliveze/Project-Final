@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChatMessage as ChatMessageType, MessageType } from '@/contexts/chatbot/ChatbotContext';
+import { ChatMessage as ChatMessageType } from '@/contexts/chatbot/ChatbotContext';
 import { useChatbot } from '@/contexts/chatbot/ChatbotContext';
 import { User, Bot, ThumbsUp, ThumbsDown, Copy, Check, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
@@ -86,9 +86,9 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         {/* Avatar */}
         <div className={`flex-shrink-0 ${isUser ? 'ml-2 md:ml-3' : 'mr-2 md:mr-3'}`}>
           <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center ${
-            isUser 
-              ? 'bg-pink-500 text-white' 
-              : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+            isUser
+              ? 'bg-pink-500 text-white'
+              : 'bg-purple-500 text-white'
           }`}>
             {isUser ? <User className="w-3 h-3 md:w-4 md:h-4" /> : <Bot className="w-3 h-3 md:w-4 md:h-4" />}
           </div>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { ChatbotService } from '@/services/chatbotService';
 import type { GetHistoryResponse } from '@/services/chatbotService';
+import ChatbotStorageService from '@/services/chatbotStorageService';
 
 // Types - Updated to match backend schemas
 export type MessageType = 'TEXT' | 'PRODUCT_RECOMMENDATION' | 'SEARCH_RESULT' | 'CATEGORY_INFO' | 'BRAND_INFO' | 'EVENT_INFO' | 'ERROR';
@@ -111,7 +112,9 @@ type ChatbotAction =
   | { type: 'SET_CURRENT_SESSION'; payload: ChatSession }
   | { type: 'UPDATE_USER_PREFERENCES'; payload: Partial<UserPreferences> }
   | { type: 'SET_INITIALIZED'; payload: boolean }
-  | { type: 'CLEAR_ERROR' };
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'LOAD_FROM_STORAGE'; payload: { currentSession: ChatSession | null; sessions: ChatSession[]; userPreferences: UserPreferences } }
+  | { type: 'CLEAR_ALL_DATA' };
 
 // Initial state
 const initialState: ChatbotState = {
@@ -234,7 +237,22 @@ function chatbotReducer(state: ChatbotState, action: ChatbotAction): ChatbotStat
           ? { ...state.currentSession, error: null }
           : null,
       };
-    
+
+    case 'LOAD_FROM_STORAGE':
+      return {
+        ...state,
+        currentSession: action.payload.currentSession,
+        sessions: action.payload.sessions,
+        userPreferences: action.payload.userPreferences,
+        isInitialized: true,
+      };
+
+    case 'CLEAR_ALL_DATA':
+      return {
+        ...initialState,
+        isInitialized: true,
+      };
+
     default:
       return state;
   }
@@ -254,6 +272,9 @@ interface ChatbotContextType {
   updateUserPreferences: (preferences: Partial<UserPreferences>) => void;
   provideFeedback: (messageId: string, isHelpful: boolean, feedback?: string) => Promise<void>;
   clearError: () => void;
+  // Storage functions
+  loadFromStorage: () => void;
+  clearAllData: () => void;
 }
 
 const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
@@ -281,11 +302,60 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
     dispatch({ type: 'UPDATE_USER_PREFERENCES', payload: preferences });
   };
 
+  // Storage functions
+  const loadFromStorage = () => {
+    try {
+      if (!ChatbotStorageService.isStorageAvailable()) {
+        console.log('localStorage not available');
+        return;
+      }
+
+      const storedData = ChatbotStorageService.loadChatbotData();
+      if (storedData) {
+        dispatch({ type: 'LOAD_FROM_STORAGE', payload: storedData });
+        console.log('Chatbot data loaded from localStorage');
+      }
+    } catch (error) {
+      console.error('Error loading chatbot data from storage:', error);
+    }
+  };
+
+  const clearAllData = () => {
+    try {
+      ChatbotStorageService.clearChatbotData();
+      dispatch({ type: 'CLEAR_ALL_DATA' });
+      console.log('All chatbot data cleared');
+    } catch (error) {
+      console.error('Error clearing chatbot data:', error);
+    }
+  };
+
+  // Auto-save to localStorage when state changes
+  useEffect(() => {
+    if (state.isInitialized && ChatbotStorageService.isStorageAvailable()) {
+      ChatbotStorageService.saveChatbotData(
+        state.currentSession,
+        state.sessions,
+        state.userPreferences
+      );
+    }
+  }, [state.currentSession, state.sessions, state.userPreferences, state.isInitialized]);
+
+  // Load data from localStorage on mount
+  useEffect(() => {
+    if (!state.isInitialized) {
+      loadFromStorage();
+      // If no data was loaded, mark as initialized
+      if (!state.currentSession && !state.sessions.length) {
+        dispatch({ type: 'SET_INITIALIZED', payload: true });
+      }
+    }
+  }, []); // Run only once on mount
+
   // Initialize chatbot when first opened - Fixed to prevent multiple session creation
   useEffect(() => {
-    if (state.isOpen && !state.isInitialized && !state.currentSession) {
+    if (state.isOpen && state.isInitialized && !state.currentSession) {
       createNewSession();
-      dispatch({ type: 'SET_INITIALIZED', payload: true });
     }
   }, [state.isOpen, state.isInitialized]); // Removed state.currentSession dependency
 
@@ -493,6 +563,8 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
     updateUserPreferences,
     provideFeedback,
     clearError,
+    loadFromStorage,
+    clearAllData,
   };
 
   return (

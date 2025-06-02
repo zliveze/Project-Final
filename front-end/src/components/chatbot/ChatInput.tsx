@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Paperclip } from 'lucide-react';
+import { Send, Mic, MicOff } from 'lucide-react';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -34,7 +34,7 @@ export default function ChatInput({
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -55,11 +55,6 @@ export default function ChatInput({
     }
   };
 
-  const handleFileAttach = () => {
-    // TODO: Implement file attachment functionality
-    console.log('File attachment clicked...');
-  };
-
   const remainingChars = maxLength - message.length;
   const isNearLimit = remainingChars <= 50;
 
@@ -73,24 +68,13 @@ export default function ChatInput({
       )}
 
       <div className="flex items-end space-x-2">
-        {/* Attachment button */}
-        <button
-          type="button"
-          onClick={handleFileAttach}
-          disabled={disabled}
-          className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Đính kèm file"
-        >
-          <Paperclip className="w-4 h-4" />
-        </button>
-
         {/* Text input */}
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
             maxLength={maxLength}
@@ -98,20 +82,20 @@ export default function ChatInput({
             className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             style={{ minHeight: '44px', maxHeight: '120px' }}
           />
-          
-          {/* Voice recording button */}
+
+          {/* Voice recording button - Đơn giản hóa */}
           <button
             type="button"
             onClick={handleVoiceRecord}
             disabled={disabled}
-            className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              isRecording 
-                ? 'text-red-500 bg-red-50 hover:bg-red-100' 
+            className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              isRecording
+                ? 'text-red-500 bg-red-50 hover:bg-red-100'
                 : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
             }`}
             title={isRecording ? 'Dừng ghi âm' : 'Ghi âm'}
           >
-            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
           </button>
         </div>
 
@@ -126,27 +110,27 @@ export default function ChatInput({
         </button>
       </div>
 
-      {/* Quick suggestions */}
+      {/* Quick suggestions - Đơn giản */}
       {message === '' && !disabled && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 mt-2">
           <button
             type="button"
             onClick={() => setMessage('Tôi muốn tìm sản phẩm chăm sóc da')}
-            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             🧴 Chăm sóc da
           </button>
           <button
             type="button"
             onClick={() => setMessage('Gợi ý son môi phù hợp')}
-            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             💄 Son môi
           </button>
           <button
             type="button"
             onClick={() => setMessage('Sản phẩm nào đang khuyến mãi?')}
-            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors"
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             🎉 Khuyến mãi
           </button>
