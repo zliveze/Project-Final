@@ -19,6 +19,14 @@ interface ImportProgress {
   };
 }
 
+// Define types to replace 'any'
+interface ImportProgressData {
+  progress: number;
+  status: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
 // Cờ để bật/tắt log debug
 const DEBUG_MODE = false;
 
@@ -29,7 +37,7 @@ export const useImportProgress = () => {
   const { admin } = useAdminAuth(); // Thay user thành admin
 
   // Debug logger - chỉ log khi DEBUG_MODE = true
-  const debugLog = useCallback((...args: any[]) => {
+  const debugLog = useCallback((...args: unknown[]) => {
     if (DEBUG_MODE) {
       console.log(...args);
     }
@@ -99,29 +107,34 @@ export const useImportProgress = () => {
 
     const eventName = `import-progress-${admin._id}`; // Thay user.id thành admin._id
 
-    const handleProgress = (data: any) => {
+    const handleProgress = (data: unknown) => {
       // Giảm bớt log chi tiết, chỉ log khi debug
       debugLog(`Received progress update - RAW DATA:`, data);
+
+      // Type guard và xử lý dữ liệu
+      let progressData: ImportProgressData;
 
       // Nếu dữ liệu là mảng, lấy phần tử đầu tiên
       if (Array.isArray(data) && data.length > 0) {
         debugLog('Data is an array, using first element');
-        data = data[0];
+        progressData = data[0] as ImportProgressData;
+      } else {
+        progressData = data as ImportProgressData;
       }
 
       // Đảm bảo dữ liệu có định dạng đúng
-      if (data && typeof data === 'object' && 'progress' in data && 'status' in data) {
-        const progressData: ImportProgress = {
-          progress: Number(data.progress),
-          status: data.status as ImportProgress['status'],
-          message: data.message || ''
+      if (progressData && typeof progressData === 'object' && 'progress' in progressData && 'status' in progressData) {
+        const finalProgressData: ImportProgress = {
+          progress: Number(progressData.progress),
+          status: progressData.status as ImportProgress['status'],
+          message: progressData.message || ''
         };
 
         // Xử lý thông tin tổng kết từ message khi hoàn thành
-        if (data.status === 'completed' && data.message) {
+        if (progressData.status === 'completed' && progressData.message) {
           try {
             // Phân tích thông báo để lấy thông tin tổng kết
-            const message = data.message;
+            const message = progressData.message || '';
             const createdMatch = message.match(/(\d+) sản phẩm mới/);
             const updatedMatch = message.match(/(\d+) cập nhật/);
             const errorsMatch = message.match(/(\d+) lỗi/);
@@ -129,7 +142,7 @@ export const useImportProgress = () => {
             const toOutOfStockMatch = message.match(/(\d+) sản phẩm hết hàng/);
             const toActiveMatch = message.match(/(\d+) sản phẩm còn hàng/);
 
-            progressData.summary = {
+            finalProgressData.summary = {
               created: createdMatch ? parseInt(createdMatch[1]) : 0,
               updated: updatedMatch ? parseInt(updatedMatch[1]) : 0,
               errors: [],
@@ -142,10 +155,10 @@ export const useImportProgress = () => {
 
             // Thêm số lượng lỗi vào summary
             if (errorsMatch) {
-              progressData.summary.errors = new Array(parseInt(errorsMatch[1])).fill('Lỗi không xác định');
+              finalProgressData.summary.errors = new Array(parseInt(errorsMatch[1])).fill('Lỗi không xác định');
             }
 
-            debugLog('Extracted summary data:', progressData.summary);
+            debugLog('Extracted summary data:', finalProgressData.summary);
           } catch (error) {
             console.error('Error parsing summary data:', error);
           }
@@ -153,16 +166,16 @@ export const useImportProgress = () => {
 
         // Chỉ log khi tiến trình thay đổi đáng kể hoặc có trạng thái đặc biệt
         if (DEBUG_MODE ||
-            progressData.status === 'completed' ||
-            progressData.status === 'error' ||
-            progressData.progress % 20 === 0) { // Chỉ log mỗi 20% tiến độ
-          debugLog('Cập nhật tiến trình:', progressData);
+            finalProgressData.status === 'completed' ||
+            finalProgressData.status === 'error' ||
+            finalProgressData.progress % 20 === 0) { // Chỉ log mỗi 20% tiến độ
+          debugLog('Cập nhật tiến trình:', finalProgressData);
         }
 
         // Cập nhật trạng thái
-        setProgress(progressData);
+        setProgress(finalProgressData);
       } else {
-        console.error('Nhận được dữ liệu không hợp lệ:', data);
+        console.error('Nhận được dữ liệu không hợp lệ:', progressData);
       }
     };
 

@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getActiveEvents } from '@/services/eventService';
 
-interface EventFromAPI {
-  _id: string;
-  title: string;
-  description: string;
-  slug: string;
-  startDate: string;
-  endDate: string;
-  products: any[];
+// Define error type to replace 'any'
+interface ApiError {
+  message?: string;
+  [key: string]: unknown;
 }
+
+// EventFromAPI removed as it's not used
 
 export const useActiveEvents = () => {
   const [hasActiveEvents, setHasActiveEvents] = useState<boolean>(false);
@@ -29,9 +27,10 @@ export const useActiveEvents = () => {
         
         setHasActiveEvents(eventsWithProducts.length > 0);
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
         console.error('Error checking active events:', err);
-        setError(err.message || 'Không thể kiểm tra sự kiện');
+        setError(apiError.message || 'Không thể kiểm tra sự kiện');
         setHasActiveEvents(false);
       } finally {
         setIsLoading(false);

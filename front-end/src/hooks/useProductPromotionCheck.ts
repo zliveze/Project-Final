@@ -3,6 +3,17 @@ import axios from 'axios';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { toast } from 'react-hot-toast';
 
+// Define error type to replace 'any'
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+  [key: string]: unknown;
+}
+
 // Định nghĩa kiểu dữ liệu cho kết quả kiểm tra
 export interface ProductPromotionCheck {
   productId: string;
@@ -51,8 +62,9 @@ export const useProductPromotionCheck = () => {
       
       setResults(results);
       return results;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Không thể kiểm tra sản phẩm';
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.response?.data?.message || 'Không thể kiểm tra sản phẩm';
       setError(errorMessage);
       toast.error(errorMessage);
       return [];

@@ -14,6 +14,12 @@ interface ProductStatistics {
   onSale: number;
 }
 
+// Define error type to replace 'any'
+interface ApiError {
+  message?: string;
+  [key: string]: unknown;
+}
+
 // API configuration
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const API_URL = BASE_URL;
@@ -97,14 +103,15 @@ export const useApiStats = () => {
       setStatistics(data);
       
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
       console.error('Error fetching statistics:', error);
-      setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu thống kê');
+      setError(apiError.message || 'Có lỗi xảy ra khi tải dữ liệu thống kê');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [accessToken, isAuthenticated, getAuthHeader, checkApiHealth, logout]);
+  }, [accessToken, getAuthHeader, checkApiHealth, logout]);
 
   // Load thống kê khi component mount
   useEffect(() => {

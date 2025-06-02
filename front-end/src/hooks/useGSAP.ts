@@ -7,38 +7,69 @@ if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger)
 }
 
+// Define types to replace 'any'
+type GSAPElement = string | Element | Element[] | NodeList | null
+type GSAPTween = gsap.core.Tween
+type GSAPTimeline = gsap.core.Timeline
+
+interface AnimationOptions {
+  duration?: number
+  ease?: string
+  delay?: number
+  stagger?: number
+  [key: string]: unknown
+}
+
+interface ScrollTriggerOptions {
+  trigger?: GSAPElement
+  start?: string
+  end?: string
+  scrub?: boolean | number
+  onEnter?: () => void
+  onLeave?: () => void
+  onEnterBack?: () => void
+  onLeaveBack?: () => void
+  [key: string]: unknown
+}
+
+interface GSAPContext {
+  gsap: typeof gsap
+  animations: typeof animations
+  ScrollTrigger: typeof ScrollTrigger
+}
+
 // Animation presets
 export const animations = {
   // Fade in from bottom
-  fadeInUp: (element: any, options: any = {}) => {
-    return gsap.fromTo(element, 
+  fadeInUp: (element: GSAPElement, options: AnimationOptions = {}): GSAPTween => {
+    return gsap.fromTo(element,
       { y: 50, opacity: 0 },
-      { 
-        y: 0, 
-        opacity: 1, 
+      {
+        y: 0,
+        opacity: 1,
         duration: 0.8,
         ease: "power3.out",
-        ...options 
+        ...options
       }
     )
   },
 
   // Fade in with scale
-  fadeInScale: (element: any, options: any = {}) => {
+  fadeInScale: (element: GSAPElement, options: AnimationOptions = {}): GSAPTween => {
     return gsap.fromTo(element,
       { scale: 0.8, opacity: 0 },
-      { 
-        scale: 1, 
-        opacity: 1, 
+      {
+        scale: 1,
+        opacity: 1,
         duration: 0.6,
         ease: "back.out(1.7)",
-        ...options 
+        ...options
       }
     )
   },
 
   // Stagger animation for lists
-  staggerReveal: (elements: any, options: any = {}) => {
+  staggerReveal: (elements: GSAPElement, options: AnimationOptions = {}): GSAPTween => {
     return gsap.fromTo(elements,
       { y: 40, opacity: 0 },
       {
@@ -53,15 +84,15 @@ export const animations = {
   },
 
   // Magnetic hover effect
-  magneticHover: (element: any, strength: number = 0.3) => {
-    const btn = element
+  magneticHover: (element: Element, strength: number = 0.3): (() => void) => {
+    const btn = element as HTMLElement
     const handleMouseMove = (e: MouseEvent) => {
       const rect = btn.getBoundingClientRect()
       const centerX = rect.left + rect.width / 2
       const centerY = rect.top + rect.height / 2
       const deltaX = (e.clientX - centerX) * strength
       const deltaY = (e.clientY - centerY) * strength
-      
+
       gsap.to(btn, {
         x: deltaX,
         y: deltaY,
@@ -89,7 +120,7 @@ export const animations = {
   },
 
   // Smooth morphing animation
-  morphShape: (element: any, options: any = {}) => {
+  morphShape: (element: GSAPElement, options: AnimationOptions & { target?: string } = {}): GSAPTween => {
     return gsap.to(element, {
       morphSVG: options.target,
       duration: 0.8,
@@ -99,7 +130,7 @@ export const animations = {
   },
 
   // Parallax effect
-  parallax: (element: any, speed: number = 0.5) => {
+  parallax: (element: GSAPElement, speed: number = 0.5): GSAPTween => {
     return gsap.to(element, {
       yPercent: -50 * speed,
       ease: "none",
@@ -113,7 +144,7 @@ export const animations = {
   },
 
   // Elastic bounce
-  elasticBounce: (element: any, options: any = {}) => {
+  elasticBounce: (element: GSAPElement, options: AnimationOptions = {}): GSAPTween => {
     return gsap.fromTo(element,
       { scale: 0 },
       {
@@ -126,14 +157,14 @@ export const animations = {
   },
 
   // Text reveal animation
-  textReveal: (element: any, options: any = {}) => {
-    const chars = element.textContent.split('')
-    element.innerHTML = chars.map((char: string) => 
+  textReveal: (element: HTMLElement, options: AnimationOptions = {}): GSAPTween => {
+    const chars = element.textContent?.split('') || []
+    element.innerHTML = chars.map((char: string) =>
       `<span style="display: inline-block;">${char === ' ' ? '&nbsp;' : char}</span>`
     ).join('')
-    
+
     const charElements = element.querySelectorAll('span')
-    
+
     return gsap.fromTo(charElements,
       { y: 100, opacity: 0 },
       {
@@ -150,20 +181,21 @@ export const animations = {
 
 // Main useGSAP hook
 export const useGSAP = (
-  callback: (context: any) => void,
-  dependencies: any[] = []
+  callback: (context: GSAPContext) => void,
+  dependencies: React.DependencyList = []
 ) => {
-  const contextRef = useRef<any>()
+  const contextRef = useRef<gsap.Context>()
 
   useLayoutEffect(() => {
     const context = gsap.context(() => {
       callback({ gsap, animations, ScrollTrigger })
     })
-    
+
     contextRef.current = context
-    
+
     return () => context.revert()
-  }, dependencies)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callback, ...dependencies])
 
   return contextRef.current
 }
@@ -172,13 +204,13 @@ export const useGSAP = (
 export const useScrollAnimation = (
   trigger: RefObject<HTMLElement>,
   animation: (element: HTMLElement) => void,
-  options: any = {}
+  options: ScrollTriggerOptions = {}
 ) => {
   useLayoutEffect(() => {
     if (!trigger.current) return
 
     const element = trigger.current
-    
+
     ScrollTrigger.create({
       trigger: element,
       start: "top 80%",
@@ -193,37 +225,37 @@ export const useScrollAnimation = (
         }
       })
     }
-  }, [trigger, animation])
+  }, [trigger, animation, options])
 }
 
 // Performance optimization utilities
 export const gsapUtils = {
   // Force hardware acceleration
-  set3D: (element: any) => {
+  set3D: (element: GSAPElement): void => {
     gsap.set(element, { force3D: true, transformPerspective: 1000 })
   },
 
   // Batch DOM updates
-  batch: (elements: any[], animation: any) => {
+  batch: (elements: GSAPElement[], animation: AnimationOptions): GSAPTween => {
     return gsap.to(elements, { ...animation })
   },
 
   // Kill all animations for cleanup
-  killAll: () => {
+  killAll: (): void => {
     gsap.globalTimeline.clear()
     ScrollTrigger.getAll().forEach(st => st.kill())
   },
 
   // Refresh ScrollTrigger (useful after layout changes)
-  refresh: () => {
+  refresh: (): void => {
     ScrollTrigger.refresh()
   },
 
   // Create timeline with default settings
-  timeline: (options: any = {}) => {
+  timeline: (options: AnimationOptions = {}): GSAPTimeline => {
     return gsap.timeline({
       ease: "power2.out",
       ...options
     })
   }
-} 
+}

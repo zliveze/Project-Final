@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Notification } from '@/components/admin/notifications/NotificationForm';
 
+// Define error type to replace 'any'
+interface ApiError {
+  message?: string;
+  [key: string]: unknown;
+}
+
 interface UseNotificationsProps {
   initialPage?: number;
   initialLimit?: number;
@@ -58,8 +64,9 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       setNotifications(data.data);
       setTotal(data.metadata.total);
       setTotalPages(data.metadata.totalPages);
-    } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu thông báo');
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Có lỗi xảy ra khi tải dữ liệu thông báo');
       toast.error('Có lỗi xảy ra khi tải dữ liệu thông báo');
     } finally {
       setLoading(false);
@@ -77,7 +84,7 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       
       const data = await response.json();
       setStats(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching notification stats:', err);
     }
   }, []);
@@ -101,10 +108,11 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       // Refresh danh sách thông báo và thống kê
       fetchNotifications();
       fetchStats();
-      
+
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Có lỗi xảy ra khi tạo thông báo');
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Có lỗi xảy ra khi tạo thông báo');
       return false;
     }
   };
@@ -128,10 +136,11 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       // Cập nhật state và thống kê
       setNotifications(prev => prev.map(item => item._id === id ? { ...item, ...data } as Notification : item));
       fetchStats();
-      
+
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Có lỗi xảy ra khi cập nhật thông báo');
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Có lỗi xảy ra khi cập nhật thông báo');
       return false;
     }
   };
@@ -151,10 +160,11 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       // Cập nhật state và thống kê
       setNotifications(prev => prev.filter(item => item._id !== id));
       fetchStats();
-      
+
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Có lỗi xảy ra khi xóa thông báo');
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Có lỗi xảy ra khi xóa thông báo');
       return false;
     }
   };
@@ -176,10 +186,11 @@ export const useNotifications = ({ initialPage = 1, initialLimit = 10 }: UseNoti
       // Cập nhật state và thống kê
       setNotifications(prev => prev.map(item => item._id === id ? updatedNotification : item));
       fetchStats();
-      
+
       return true;
-    } catch (err: any) {
-      toast.error(err.message || 'Có lỗi xảy ra khi thay đổi trạng thái thông báo');
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Có lỗi xảy ra khi thay đổi trạng thái thông báo');
       return false;
     }
   };

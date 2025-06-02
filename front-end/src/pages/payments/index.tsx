@@ -101,7 +101,7 @@ const PaymentsPage: NextPage = () => {
     selectedItems,
     selectedSubtotal,
     selectedItemCount,
-    subtotal,
+    // subtotal - removed as it's not used
     discount,
     shipping,
     // total: cartTotal - removed as it's not used
