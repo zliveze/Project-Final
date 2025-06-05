@@ -360,10 +360,38 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const cancelOrder = useCallback(async (id: string, reason: string): Promise<Order | null> => {
     console.log(`[DEBUG_CONTEXT] Bắt đầu hủy đơn hàng ${id} với lý do: ${reason}`);
-    const result = await updateOrderStatus(id, 'cancelled', reason);
-    console.log(`[DEBUG_CONTEXT] Kết quả hủy đơn hàng:`, result);
-    return result;
-  }, [updateOrderStatus]);
+    
+    try {
+      // Kiểm tra trạng thái đơn hàng trước khi hủy
+      const orderToCancel = await fetchOrderDetail(id);
+      
+      if (!orderToCancel) {
+        toast.error('Không tìm thấy thông tin đơn hàng');
+        return null;
+      }
+      
+      // Nếu đơn hàng đã bị hủy trước đó
+      if (orderToCancel.status === 'cancelled') {
+        toast('Đơn hàng này đã bị hủy trước đó', {
+          icon: '⚠️',
+          style: {
+            backgroundColor: '#FEF9C3',
+            color: '#854D0E'
+          }
+        });
+        return orderToCancel;
+      }
+      
+      // Nếu đơn hàng chưa bị hủy, tiến hành hủy
+      const result = await updateOrderStatus(id, 'cancelled', reason);
+      console.log(`[DEBUG_CONTEXT] Kết quả hủy đơn hàng:`, result);
+      return result;
+    } catch (error) {
+      console.error('[DEBUG_CONTEXT] Lỗi khi hủy đơn hàng:', error);
+      handleError(error);
+      return null;
+    }
+  }, [updateOrderStatus, fetchOrderDetail]);
 
   const createShipment = useCallback(async (id: string): Promise<any> => {
     try {

@@ -163,18 +163,25 @@ function AdminOrdersContent() {
 
     try {
       // Sử dụng hàm cancelOrder từ context
-      await cancelOrder(selectedOrderId, 'Đơn hàng bị hủy bởi admin');
-
+      const result = await cancelOrder(selectedOrderId, 'Đơn hàng bị hủy bởi admin');
+      
       // Đóng modal và refresh dữ liệu
       setShowCancelModal(false);
       setSelectedOrderId(null);
-
-      // Chỉ gọi refreshData, không cần handleRefreshData
-      await refreshData();
-
-      toast.success('Đã hủy đơn hàng thành công', {
-        id: 'cancel-success'
-      });
+      
+      // Chỉ gọi refreshData nếu đơn hàng chưa bị hủy trước đó
+      if (result) {
+        await refreshData();
+        
+        // Không hiển thị thông báo thành công nếu đơn hàng đã bị hủy trước đó
+        if (result.status === 'cancelled') {
+          // Thông báo đã được hiển thị từ context
+        } else {
+          toast.success('Đã hủy đơn hàng thành công', {
+            id: 'cancel-success'
+          });
+        }
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Lỗi khi hủy đơn hàng: ${errorMessage}`);
