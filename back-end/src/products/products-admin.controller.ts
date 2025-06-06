@@ -39,7 +39,7 @@ import { createProductImportTemplate } from '../common/utils/excel.util';
 import { createReadStream } from 'fs';
 import { Response } from 'express';
 import { join } from 'path';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 import * as fs from 'fs';
 
 @ApiTags('Admin Products')
@@ -348,18 +348,16 @@ export class ProductsAdminController {
       }
 
       this.logger.log(`Received image upload request: ${image.originalname}, size: ${image.size}, mimetype: ${image.mimetype}`);
-      this.logger.log(`File path: ${image.path}, destination: ${image.destination}`);
 
-      // Kiểm tra thư mục upload có tồn tại không
-      const fs = require('fs');
-      if (!fs.existsSync(image.path)) {
-        this.logger.error(`File path does not exist: ${image.path}`);
-        throw new Error(`File không tồn tại tại đường dẫn: ${image.path}`);
+      // Kiểm tra buffer có tồn tại không
+      if (!image.buffer || image.buffer.length === 0) {
+        this.logger.error('Image buffer is empty or missing');
+        throw new Error('Buffer hình ảnh trống hoặc không tồn tại');
       }
 
-      // Upload image to Cloudinary
-      this.logger.log(`Uploading to Cloudinary from path: ${image.path}`);
-      const result = await this.cloudinaryService.uploadImageFile(image.path, {
+      // Upload image to Cloudinary từ buffer
+      this.logger.log(`Uploading to Cloudinary from buffer`);
+      const result = await this.cloudinaryService.uploadImageBuffer(image.buffer, {
         folder: 'products',
       });
 
@@ -382,8 +380,6 @@ export class ProductsAdminController {
         publicId: result.publicId,
         isPrimary: isPrimary === true || isPrimary === 'true',
       };
-
-      this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`); // Log 1: Confirms imageObj creation
 
       this.logger.log(`Image uploaded to Cloudinary successfully: ${JSON.stringify(imageObj)}`);
 
@@ -409,43 +405,7 @@ export class ProductsAdminController {
     description: 'Products have been successfully imported',
   })
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (req, file, cb) => {
-        const uploadPath = join(process.cwd(), 'uploads');
-        console.log('Upload path:', uploadPath);
-
-        // Kiểm tra thư mục tồn tại
-        fs.access(uploadPath, (err) => {
-          if (err) {
-            // Nếu thư mục không tồn tại, tạo mới
-            console.log('Directory does not exist, creating it');
-            return fs.mkdir(uploadPath, { recursive: true }, (err) => {
-              if (err) return cb(err, uploadPath);
-              console.log('Directory created');
-              return cb(null, uploadPath);
-            });
-          }
-
-          console.log('Directory already exists');
-          // Kiểm tra quyền ghi
-          fs.access(uploadPath, fs.constants.W_OK, (err) => {
-            if (err) {
-              console.log('Directory is not writable');
-              return cb(new Error('Directory is not writable'), uploadPath);
-            }
-            console.log('Directory is writable');
-            return cb(null, uploadPath);
-          });
-        });
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const originalName = file.originalname;
-        const filename = `${uniqueSuffix}-${originalName}`;
-        console.log('Generated filename:', filename);
-        cb(null, filename);
-      }
-    }),
+    storage: memoryStorage(),
     fileFilter: function(req: any, file: any, cb: any) {
       try {
         // Nếu file không tồn tại hoặc không có thuộc tính originalname

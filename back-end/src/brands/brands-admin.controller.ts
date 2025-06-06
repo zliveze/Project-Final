@@ -13,7 +13,7 @@ import { AdminRoles } from '../common/decorators/admin-roles.decorator';
 import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { Express } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -36,14 +36,7 @@ export class BrandsAdminController {
   @ApiResponse({ status: 201, description: 'Upload logo thành công', type: Object })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/temp',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = path.extname(file.originalname);
-          cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
         // Chỉ chấp nhận file ảnh
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
@@ -69,12 +62,12 @@ export class BrandsAdminController {
 
       const tags = ['brand', 'logo'];
       
-      this.logger.debug(`File tải lên: ${file.path}, kích thước: ${file.size} bytes`);
+      this.logger.debug(`File tải lên: kích thước: ${file.size} bytes`);
       
       try {
-        // Upload file lên Cloudinary
-        const result = await this.cloudinaryService.uploadImageFile(
-          file.path,
+        // Upload file lên Cloudinary trực tiếp từ buffer
+        const result = await this.cloudinaryService.uploadImageBuffer(
+          file.buffer,
           {
             folder: 'brands/logos',
             tags,
@@ -87,13 +80,6 @@ export class BrandsAdminController {
         
         this.logger.log(`Upload logo file thành công: ${result.publicId}`);
         
-        // Xóa file tạm sau khi đã upload lên Cloudinary
-        fs.unlink(file.path, (err) => {
-          if (err) {
-            this.logger.error(`Không thể xóa file tạm: ${file.path}`, err);
-          }
-        });
-        
         return {
           url: result.secureUrl,
           publicId: result.publicId,
@@ -102,9 +88,6 @@ export class BrandsAdminController {
           format: result.format
         };
       } catch (cloudinaryError) {
-        // Xóa file tạm nếu upload thất bại
-        fs.unlink(file.path, () => {});
-        
         this.logger.error(`Lỗi từ Cloudinary: ${cloudinaryError.message}`, cloudinaryError.stack);
         throw new HttpException(
           cloudinaryError.message || 'Lỗi khi upload ảnh lên Cloudinary',
@@ -125,14 +108,7 @@ export class BrandsAdminController {
   @ApiResponse({ status: 201, description: 'Upload logo thành công', type: Object })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/temp',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = path.extname(file.originalname);
-          cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
         // Chỉ chấp nhận file ảnh
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
@@ -158,12 +134,12 @@ export class BrandsAdminController {
 
       const tags = ['brand', 'logo'];
       
-      this.logger.debug(`File tải lên: ${file.path}, kích thước: ${file.size} bytes`);
+      this.logger.debug(`File tải lên: kích thước: ${file.size} bytes`);
       
       try {
-        // Upload file lên Cloudinary
-        const result = await this.cloudinaryService.uploadImageFile(
-          file.path,
+        // Upload file lên Cloudinary trực tiếp từ buffer
+        const result = await this.cloudinaryService.uploadImageBuffer(
+          file.buffer,
           {
             folder: 'brands/logos',
             tags,
@@ -176,13 +152,6 @@ export class BrandsAdminController {
         
         this.logger.log(`Upload logo file thành công: ${result.publicId}`);
         
-        // Xóa file tạm sau khi đã upload lên Cloudinary
-        fs.unlink(file.path, (err) => {
-          if (err) {
-            this.logger.error(`Không thể xóa file tạm: ${file.path}`, err);
-          }
-        });
-        
         return {
           url: result.secureUrl,
           publicId: result.publicId,
@@ -191,9 +160,6 @@ export class BrandsAdminController {
           format: result.format
         };
       } catch (cloudinaryError) {
-        // Xóa file tạm nếu upload thất bại
-        fs.unlink(file.path, () => {});
-        
         this.logger.error(`Lỗi từ Cloudinary: ${cloudinaryError.message}`, cloudinaryError.stack);
         throw new HttpException(
           cloudinaryError.message || 'Lỗi khi upload ảnh lên Cloudinary',

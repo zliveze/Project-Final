@@ -202,6 +202,111 @@ export class CloudinaryService {
   }
 
   /**
+   * Tải lên một buffer hình ảnh trực tiếp lên Cloudinary
+   * @param buffer Buffer của file hình ảnh
+   * @param options Tùy chọn tải lên (folder, resourceType, tags, ...)
+   * @returns Thông tin hình ảnh sau khi tải lên
+   */
+  async uploadImageBuffer(
+    buffer: Buffer,
+    options: {
+      folder?: keyof typeof this.folders | string;
+      resourceType?: 'image' | 'video' | 'raw' | 'auto';
+      tags?: string[];
+      transformation?: any;
+      uploadPreset?: string;
+    } = {},
+  ): Promise<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+    format: string;
+    secureUrl: string;
+    resourceType: string;
+    tags?: string[];
+  }> {
+    try {
+      // Kiểm tra buffer
+      if (!buffer || buffer.length === 0) {
+        this.logger.error('Missing or empty buffer in uploadImageBuffer');
+        throw new Error('Missing or empty buffer');
+      }
+
+      const { 
+        folder = 'banner', 
+        resourceType = 'image', 
+        tags = [],
+        transformation = {},
+        uploadPreset = this.defaultUploadPreset
+      } = options;
+
+      const uploadOptions: UploadApiOptions = {
+        upload_preset: uploadPreset,
+        folder: typeof folder === 'string' ? 
+          (this.folders[folder as keyof typeof this.folders] || folder) : 
+          this.folders.banner,
+        resource_type: resourceType,
+        tags: tags,
+        transformation: transformation,
+      };
+
+      this.logger.debug(`Uploading buffer with options: ${JSON.stringify({
+        preset: uploadPreset,
+        folder: uploadOptions.folder,
+        resource_type: resourceType,
+        tags: tags
+      })}`);
+
+      // Chuyển đổi buffer thành dạng mà Cloudinary có thể xử lý
+      const streamifier = require('streamifier');
+      const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+        if (error) {
+          this.logger.error(`Upload buffer to Cloudinary failed: ${error.message}`, error);
+          throw new Error(`Upload buffer to Cloudinary failed: ${error.message}`);
+        }
+      });
+
+      // Tải buffer lên Cloudinary
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          uploadOptions,
+          (error, result) => {
+            if (error) {
+              this.logger.error(`Upload buffer to Cloudinary failed: ${error.message}`, error);
+              return reject(new Error(`Upload buffer to Cloudinary failed: ${error.message}`));
+            }
+            
+            if (!result) {
+              this.logger.error('Upload buffer to Cloudinary failed: No result returned');
+              return reject(new Error('Upload buffer to Cloudinary failed: No result returned'));
+            }
+            
+            this.logger.log(`Uploaded buffer ${resourceType} to Cloudinary: ${result.public_id}`);
+            resolve({
+              url: result.url,
+              secureUrl: result.secure_url,
+              publicId: result.public_id,
+              width: result.width,
+              height: result.height,
+              format: result.format,
+              resourceType: result.resource_type,
+              tags: result.tags,
+            });
+          }
+        );
+        
+        // Pipe buffer vào stream
+        const streamifier = require('streamifier');
+        streamifier.createReadStream(buffer).pipe(uploadStream);
+      });
+    } catch (error) {
+      this.logger.error(`Upload buffer to Cloudinary failed: ${error.message}`, error.stack);
+      throw new Error(`Upload buffer to Cloudinary failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Xóa một hình ảnh khỏi Cloudinary
    * @param publicId ID công khai của hình ảnh
    * @param options Tùy chọn xóa
