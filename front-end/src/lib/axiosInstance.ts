@@ -9,9 +9,14 @@ const clearAuthData = () => {
   Cookies.remove('refreshToken', { path: '/' }); // Cũng nên xóa refresh token nếu có
 };
 
+// Lấy API URL từ biến môi trường
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+console.log('Using API URL:', API_URL); // Log để debug
+
 // Tạo một instance Axios dùng chung
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api', // Đảm bảo có /api
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

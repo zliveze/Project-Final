@@ -42,6 +42,13 @@ async function bootstrap() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Access-Control-Allow-Private-Network'],
+  });
+
+  // Thêm middleware để hỗ trợ private network requests
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    next();
   });
 
   // Cấu hình body parser cho tất cả các route ngoại trừ webhook

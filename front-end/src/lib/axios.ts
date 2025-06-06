@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// You can set up a base URL and other default settings for your Axios instance here.
-// For example, if your API is at http://localhost:5000/api
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Lấy API URL từ biến môi trường
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+console.log('Axios instance using API URL:', API_URL); // Log để debug
 
 const axiosInstance = axios.create({
   baseURL: API_URL,

@@ -55,7 +55,14 @@ server.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Access-Control-Allow-Private-Network'],
 }));
+
+// Thêm middleware để hỗ trợ private network requests
+server.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
 
 // Xử lý OPTIONS request
 server.use(((req: Request, res: Response, next: NextFunction) => {
