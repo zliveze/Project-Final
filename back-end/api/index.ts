@@ -6,7 +6,8 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 // Sử dụng require để tránh lỗi session không phải là function trong môi trường serverless
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const session = require('express-session');
-import * as passport from 'passport';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const passport = require('passport');
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cors from 'cors';
 
