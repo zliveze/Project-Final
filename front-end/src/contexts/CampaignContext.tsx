@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useRouter } from 'next/router';
 
 // Định nghĩa API_URL từ biến môi trường hoặc giá trị mặc định
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
 
 // Định nghĩa kiểu dữ liệu
 

@@ -1,7 +1,7 @@
 import { User, Address, WishlistItem, Order, Notification, Review } from '../../components/profile/types';
 
 // Base API URL từ biến môi trường
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
 
 // Helper function để lấy token từ localStorage
 const getToken = (): string | null => {

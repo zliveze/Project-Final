@@ -3,7 +3,7 @@ import { FiGift, FiCheckCircle, FiAlertTriangle, FiUsers } from 'react-icons/fi'
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
 
 interface VoucherDashboardStats {
   totalVouchers: number;

@@ -4,7 +4,7 @@ import { FiCalendar, FiTrendingUp, FiExternalLink, FiAlertCircle } from 'react-i
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
 
 interface RawEventData {
   _id: string;

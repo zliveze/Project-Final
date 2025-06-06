@@ -122,7 +122,7 @@ const ShopBanner = () => {
 
   // API URL với memoization
   const API_URL = useMemo(() => 
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api', []
+    process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api', []
   );
 
   // Memoized hàm xác định icon

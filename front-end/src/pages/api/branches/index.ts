@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (search) queryParams.append('search', search.toString());
     
     // URL to the backend NestJS API - Sử dụng endpoint user không cần authentication
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/branches?${queryParams.toString()}`;
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api'}/branches?${queryParams.toString()}`;
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

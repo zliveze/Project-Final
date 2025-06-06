@@ -45,7 +45,7 @@ export default function NotificationSection() {
         setLoading(true);
 
         // Sử dụng biến môi trường từ .env
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
         console.log('Đang tải thông báo từ API:', `${apiUrl}/notifications`);
 
         const response = await fetch(`${apiUrl}/notifications`, {

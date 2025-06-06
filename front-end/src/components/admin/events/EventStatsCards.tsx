@@ -3,7 +3,7 @@ import { FiCalendar, FiCheckCircle, FiAlertTriangle, FiTrendingUp } from 'react-
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
 
 interface TopPerformingEventRaw {
   _id: string;

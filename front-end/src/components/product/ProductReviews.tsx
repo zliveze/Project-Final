@@ -191,7 +191,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   useEffect(() => {
     if (productId) {
       // URL của WebSocket server, thường là URL gốc của backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
       const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
 
       console.log('ProductReviews: Connecting to WebSocket at', wsUrl);
@@ -327,7 +327,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
   const эффективныйApiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
                         ? process.env.NEXT_PUBLIC_API_URL
-                        : 'http://localhost:3001/api';
+                        : 'http://backendyumin.vercel.app/api';
 
   const localApiClient = useCallback(() => {
     return axios.create({
