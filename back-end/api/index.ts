@@ -6,7 +6,7 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import * as session from 'express-session';
 import * as passport from 'passport';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as cors from 'cors';
+import cors from 'cors';
 
 // Tạo Express instance
 const server = express();
