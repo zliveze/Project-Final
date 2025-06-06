@@ -8,19 +8,7 @@ import NotificationViewModal from '@/components/admin/notifications/Notification
 import { useNotification } from '@/contexts/NotificationContext';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ConfirmModal from '@/components/common/ConfirmModal';
-
-// Define proper types to replace 'any'
-interface NotificationData {
-  _id?: string;
-  content: string;
-  type: string;
-  isActive: boolean;
-  priority: number;
-  startDate?: string;
-  endDate?: string;
-  targetAudience?: string;
-  [key: string]: unknown;
-}
+import type { Notification } from '@/contexts/NotificationContext';
 
 export default function AdminNotifications() {
   // router removed as it's not used
@@ -103,17 +91,41 @@ export default function AdminNotifications() {
   };
 
   // Xử lý chỉnh sửa thông báo
-  const handleEditNotification = async (data: NotificationData) => {
-    if (!data._id) return;
-    const success = await updateNotification(data._id, data);
+  const handleEditNotification = async (dataFromModal: Partial<Notification>) => {
+    if (!dataFromModal._id) {
+      console.error("Validation Error: _id is required for updating notification.", dataFromModal);
+      // Optionally, set an error state to show to the user
+      return;
+    }
+    // Validate required fields that were mandatory in NotificationData
+    if (!dataFromModal.content || !dataFromModal.type || typeof dataFromModal.isActive !== 'boolean' || typeof dataFromModal.priority !== 'number') {
+      console.error("Validation Error: Required fields missing in notification data for edit.", dataFromModal);
+      // Optionally, set an error state to show to the user
+      return;
+    }
+
+    // Assuming dataFromModal already has dates as Date objects if Notification type defines them as Date
+    const success = await updateNotification(dataFromModal._id, dataFromModal);
     if (success) {
       setShowEditModal(false);
     }
   };
 
   // Xử lý thêm thông báo mới
-  const handleAddNotification = async (data: NotificationData) => {
-    const success = await createNotification(data);
+  const handleAddNotification = async (dataFromModal: Partial<Notification>) => {
+    // Validate required fields that were mandatory in NotificationData
+    if (!dataFromModal.content || !dataFromModal.type || typeof dataFromModal.isActive !== 'boolean' || typeof dataFromModal.priority !== 'number') {
+      console.error("Validation Error: Required fields missing in notification data for add.", dataFromModal);
+      // Optionally, set an error state to show to the user
+      return;
+    }
+
+    // Assuming dataFromModal already has dates as Date objects
+    // Create a copy to safely delete _id if present from modal data (e.g. cloning an existing one)
+    const payload = { ...dataFromModal };
+    delete payload._id; 
+
+    const success = await createNotification(payload);
     if (success) {
       setShowAddModal(false);
     }

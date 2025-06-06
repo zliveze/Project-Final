@@ -3,7 +3,7 @@ import { FiX, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
 import { Category } from '@/contexts/CategoryContext';
-import { Modal, Button } from '@/components/admin/common';
+// import { Modal, Button } from '@/components/admin/common'; // Removed unused imports
 
 interface CategoryAddModalProps {
   isOpen: boolean;

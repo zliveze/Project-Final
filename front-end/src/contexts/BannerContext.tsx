@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
-import { useAdminAuth } from './AdminAuthContext';
 
 // Định nghĩa kiểu dữ liệu cho banner
 export interface Banner {
@@ -94,7 +93,6 @@ const BANNER_API = {
 // Provider component
 export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const router = useRouter();
-  const { accessToken } = useAdminAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +111,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   // Xử lý lỗi chung
-  const handleError = useCallback((error: any) => {
+  const handleError = useCallback((error: Error & { status?: number }) => {
     console.error('Banner operation error:', error);
     const errorMessage = error.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
@@ -159,9 +157,9 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const data = await response.json();
       console.log(`Tải lên ảnh ${type} thành công, URL: ${data.url ? data.url.substring(0, 50) + '...' : 'không có'}`);
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi upload ảnh:', error);
-      handleError(error);
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -212,8 +210,8 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setTotalPages(data.totalPages);
       setItemsPerPage(data.limit);
       setError(null);
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
     } finally {
       setLoading(false);
     }
@@ -235,8 +233,8 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       const data = await response.json();
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -272,10 +270,10 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       try {
         data = JSON.parse(responseText);
-      } catch (parseError: any) {
+      } catch (parseError) {
         console.error('Lỗi phân tích JSON:', parseError);
         console.error('Response text:', responseText.substring(0, 500));
-        throw new Error(`Lỗi phân tích response từ server: ${parseError.message}`);
+        throw new Error(`Lỗi phân tích response từ server: ${(parseError as Error).message}`);
       }
       
       if (!response.ok) {
@@ -289,11 +287,11 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (currentPage === 1) {
         fetchBanners(1, itemsPerPage);
       }
-      
+
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi tạo banner:', error);
-      handleError(error);
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -327,10 +325,10 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           banner._id === id ? data : banner
         )
       );
-      
+
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -366,8 +364,8 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       } else {
         fetchBanners(currentPage, itemsPerPage);
       }
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -397,10 +395,10 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           banner._id === id ? data : banner
         )
       );
-      
+
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -426,10 +424,10 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       // Refresh danh sách sau khi thay đổi thứ tự
       fetchBanners(currentPage, itemsPerPage);
-      
+
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
       throw error;
     } finally {
       setLoading(false);
@@ -452,8 +450,8 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       const data = await response.json();
       setStatistics(data);
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as Error & { status?: number });
     } finally {
       setLoading(false);
     }
@@ -474,7 +472,7 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.message || `Lỗi khi lấy banner active: ${response.status}`);
-        } catch (parseError) {
+        } catch {
           throw new Error(`Lỗi khi lấy banner active: ${response.status}`);
         }
       }
@@ -484,9 +482,9 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       setBanners(data);
       setError(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi khi lấy banner active:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách banner');
+      setError((error as Error).message || 'Lỗi khi lấy danh sách banner');
     } finally {
       setLoading(false);
     }

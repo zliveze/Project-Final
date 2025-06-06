@@ -63,7 +63,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [, setSocket] = useState<Socket | null>(null);
   const [newReviewsCount, setNewReviewsCount] = useState<number>(0);
   const [currentlyViewedUserForReviewsId, setCurrentlyViewedUserForReviewsId] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         'Authorization': token ? `Bearer ${token}` : ''
       }
     });
-  }, [accessToken]);
+  }, []);
 
   // Lấy thống kê đánh giá
   const getReviewStats = useCallback(async (): Promise<Record<string, number>> => {
@@ -241,7 +241,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
       });
 
       // Lắng nghe sự kiện có đánh giá mới được tạo
-      newSocket.on('newReviewCreated', (data: any) => {
+      newSocket.on('newReviewCreated', (data: Record<string, unknown>) => {
         console.log('AdminUserReviewContext: Received newReviewCreated event', data);
 
         // Tăng số lượng đánh giá mới
@@ -258,15 +258,17 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         fetchReviews(1, undefined, 'pending');
 
         // Nếu đánh giá mới thuộc về người dùng đang được xem, làm mới danh sách đánh giá của họ
-        if (data.userId && data.userId === currentlyViewedUserForReviewsId) {
+        if (data.userId && typeof data.userId === 'string' && data.userId === currentlyViewedUserForReviewsId) {
           fetchUserReviews(data.userId);
         }
       });
 
       // Lắng nghe sự kiện cập nhật trạng thái đánh giá
-      newSocket.on('reviewStatusUpdated', (data: any) => {
+      newSocket.on('reviewStatusUpdated', (data: Record<string, unknown>) => {
         console.log('AdminUserReviewContext: Received reviewStatusUpdated event', data);
-        if (data.status && data.reviewId) {
+        if (data.status && typeof data.status === 'string' &&
+            ['pending', 'approved', 'rejected'].includes(data.status) &&
+            data.reviewId && typeof data.reviewId === 'string') {
           let affectedUserId: string | undefined = undefined;
 
           // Cập nhật trạng thái đánh giá trong danh sách reviews chung
@@ -274,7 +276,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
             const updatedReviews = prevReviews.map(review => {
               if (review.reviewId === data.reviewId) {
                 affectedUserId = review.userId; // Lấy userId từ review bị ảnh hưởng
-                return { ...review, status: data.status };
+                return { ...review, status: data.status as 'pending' | 'approved' | 'rejected' };
               }
               return review;
             });
@@ -286,7 +288,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
             const updatedUserReviews = prevUserReviews.map(review => {
               if (review.reviewId === data.reviewId) {
                 affectedUserId = review.userId; // Đảm bảo affectedUserId được set
-                return { ...review, status: data.status };
+                return { ...review, status: data.status as 'pending' | 'approved' | 'rejected' };
               }
               return review;
             });
@@ -309,9 +311,9 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
       });
 
       // Lắng nghe sự kiện xóa đánh giá
-      newSocket.on('reviewDeleted', (data: any) => {
+      newSocket.on('reviewDeleted', (data: Record<string, unknown>) => {
         console.log('AdminUserReviewContext: Received reviewDeleted event', data);
-        if (data.reviewId) {
+        if (data.reviewId && typeof data.reviewId === 'string') {
           let deletedReviewUserId: string | undefined = undefined;
 
           // Tìm userId của review sắp bị xóa từ danh sách reviews hiện tại
@@ -361,7 +363,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         setSocket(null);
       };
     }
-  }, [accessToken, api, fetchUserReviews, currentlyViewedUserForReviewsId, fetchReviews, currentPage]);
+  }, [accessToken, api, fetchUserReviews, currentlyViewedUserForReviewsId, fetchReviews, currentPage, reviews]);
 
   // Phê duyệt đánh giá
   const approveReview = useCallback(async (reviewId: string): Promise<boolean> => {

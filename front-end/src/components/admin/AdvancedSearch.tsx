@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiSearch, FiFilter, FiX, FiChevronDown, FiSliders, FiRefreshCw, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiX, FiSliders, FiRefreshCw, FiCalendar } from 'react-icons/fi';
 
 interface FilterOption {
   id: string;
@@ -496,4 +496,4 @@ export default function AdvancedSearch({
       )}
     </div>
   );
-} 
+}

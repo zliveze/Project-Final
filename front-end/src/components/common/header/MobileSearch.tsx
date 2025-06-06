@@ -141,7 +141,7 @@ export default function MobileSearch({ isOpen, onClose }: MobileSearchProps) {
               <div>
                 <div className="p-4 border-b border-gray-100">
                   <h3 className="text-sm font-medium text-gray-500">
-                    Kết quả tìm kiếm cho "{searchTerm}"
+                    Kết quả tìm kiếm cho &quot;{searchTerm}&quot;
                   </h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3 p-3">

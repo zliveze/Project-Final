@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { FiCalendar, FiCheckCircle, FiClock, FiFileText, FiPause, FiAlertTriangle, FiTrendingUp, FiRefreshCw } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiClock, FiPause, FiAlertTriangle, FiTrendingUp, FiRefreshCw } from 'react-icons/fi'; // Removed FiFileText
 import { useCampaign } from '@/contexts/CampaignContext';
 
 const CampaignStatsCards = () => {
@@ -26,7 +26,7 @@ const CampaignStatsCards = () => {
 
       loadStats();
     }
-  }, []); // Empty dependency array để chỉ chạy một lần
+  }, [dashboardStats, fetchCampaignStats]); // Added dependencies
 
   // Debug logging
   console.log('[CampaignStatsCards] Current state:', {
@@ -198,7 +198,7 @@ const CampaignStatsCards = () => {
                 Thông tin thống kê chi tiết chưa sẵn sàng
               </h3>
               <div className="mt-2 text-sm text-yellow-700">
-                <p>Đang hiển thị thống kê cơ bản. Nhấn "Làm mới" để tải thống kê chi tiết.</p>
+                <p>Đang hiển thị thống kê cơ bản. Nhấn &ldquo;Làm mới&rdquo; để tải thống kê chi tiết.</p>
               </div>
             </div>
           </div>

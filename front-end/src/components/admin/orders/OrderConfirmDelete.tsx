@@ -27,9 +27,13 @@ export default function OrderConfirmDelete({ orderId, isOpen, onClose, onConfirm
       });
       onConfirm();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling order:', error);
-      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${errorMessage}`, {
         id: `cancel-order-error-${orderId}`
       });
       setIsDeleting(false);

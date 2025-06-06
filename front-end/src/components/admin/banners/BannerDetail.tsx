@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { FiExternalLink, FiCalendar, FiTag, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiLink, FiLayers, FiImage, FiInfo } from 'react-icons/fi';
+import { FiCalendar, FiTag, FiCheckCircle, FiXCircle, FiClock, FiLink, FiLayers, FiImage, FiInfo } from 'react-icons/fi';
 import { Banner } from './BannerForm';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';

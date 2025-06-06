@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FiStar, FiChevronLeft, FiChevronRight, FiCheck } from 'react-icons/fi';
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa';
 import { useUserReview, Review } from '../../contexts/user/UserReviewContext';
 import Avatar from '../ui/Avatar';
-import { useGSAP } from '../../hooks/useGSAP';
 
 // Định nghĩa interface cho đánh giá của khách hàng
 interface CustomerReview {
@@ -106,7 +105,7 @@ const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
 
       {/* Content */}
       <p className="text-gray-700 text-sm leading-relaxed mb-3 line-clamp-3">
-        "{review.content}"
+        &ldquo;{review.content}&rdquo;
       </p>
 
       {/* Product info */}
@@ -169,17 +168,17 @@ const CustomerReviewsSection: React.FC = () => {
   }, [fetchFeaturedReviews]);
 
   // Navigation
-  const showPrev = () => {
+  const showPrev = useCallback(() => {
     if (customerReviews.length <= 6) return;
     const newIndex = activeIndex > 0 ? activeIndex - 6 : Math.max(0, customerReviews.length - 6);
     setActiveIndex(newIndex);
-  };
+  }, [activeIndex, customerReviews.length]);
 
-  const showNext = () => {
+  const showNext = useCallback(() => {
     if (customerReviews.length <= 6) return;
     const newIndex = activeIndex + 6 < customerReviews.length ? activeIndex + 6 : 0;
     setActiveIndex(newIndex);
-  };
+  }, [activeIndex, customerReviews.length]);
 
   // Auto slide
   useEffect(() => {
@@ -190,7 +189,7 @@ const CustomerReviewsSection: React.FC = () => {
     }, 8000);
 
     return () => clearInterval(timer);
-  }, [customerReviews.length, activeIndex]);
+  }, [customerReviews.length, activeIndex, showNext]);
 
   // Get visible reviews
   const getVisibleReviews = () => {

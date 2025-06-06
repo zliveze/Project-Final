@@ -5,7 +5,6 @@ import { FiChevronRight, FiShield, FiTruck, FiRefreshCw, FiX, FiCheck, FiTag } f
 interface CartSummaryProps {
   subtotal: number;
   discount: number;
-  shipping: number;
   total: number;
   itemCount: number;
   voucherCode: string;
@@ -21,7 +20,6 @@ interface CartSummaryProps {
 const CartSummary: React.FC<CartSummaryProps> = ({
   subtotal,
   discount,
-  shipping,
   total,
   itemCount,
   voucherCode,

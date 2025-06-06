@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { FiEdit2, FiTrash2, FiEye, FiStar, FiChevronUp, FiChevronDown, FiCheck, FiX } from 'react-icons/fi';
 import Image from 'next/image';
 import { Pagination, Badge, Button } from '@/components/admin/common';
@@ -39,10 +39,13 @@ export default function CategoryTable({
   selectedFeatured: externalSelectedFeatured
 }: CategoryTableProps) {
   // Sử dụng state nội bộ nếu không có prop từ bên ngoài
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedLevel, setSelectedLevel] = useState<number | 'all'>('all');
-  const [selectedFeatured, setSelectedFeatured] = useState<boolean | 'all'>('all');
+  // setSearchTerm, setSelectedStatus, setSelectedLevel, setSelectedFeatured are not used
+  // because effectiveSearchTerm etc. will use external props if available.
+  // If external props are not available, the initial state values are used directly.
+  const [searchTerm] = useState('');
+  const [selectedStatus] = useState('all');
+  const [selectedLevel] = useState<number | 'all'>('all');
+  const [selectedFeatured] = useState<boolean | 'all'>('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Category; direction: 'ascending' | 'descending' } | null>(null);
   const [itemsPerPage] = useState(10);
 
@@ -53,21 +56,24 @@ export default function CategoryTable({
   const effectiveSelectedFeatured = externalSelectedFeatured !== undefined ? externalSelectedFeatured : selectedFeatured;
 
   // Hàm sắp xếp
-  const sortedCategories = [...categories];
-  if (sortConfig && sortConfig.key) {
-    sortedCategories.sort((a, b) => {
-      const aValue = String(a[sortConfig.key as keyof Category] || '');
-      const bValue = String(b[sortConfig.key as keyof Category] || '');
+  const sortedCategories = useMemo(() => {
+    const newSortedCategories = [...categories];
+    if (sortConfig && sortConfig.key) {
+      newSortedCategories.sort((a, b) => {
+        const aValue = String(a[sortConfig.key as keyof Category] || '');
+        const bValue = String(b[sortConfig.key as keyof Category] || '');
 
-      if (aValue < bValue) {
-        return sortConfig.direction === 'ascending' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'ascending' ? 1 : -1;
-      }
-      return 0;
-    });
-  }
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return newSortedCategories;
+  }, [categories, sortConfig]);
 
   // Xử lý sắp xếp khi click vào tiêu đề cột
   const requestSort = (key: keyof Category) => {
@@ -161,7 +167,7 @@ export default function CategoryTable({
         month: '2-digit',
         year: 'numeric',
       }).format(date);
-    } catch (error) {
+    } catch { // error variable is not used
       return dateString.toString();
     }
   };
@@ -333,7 +339,9 @@ export default function CategoryTable({
                       onClick={() => onView(category._id || '')}
                       title="Xem chi tiết"
                       className="text-gray-600 hover:text-gray-900"
-                    />
+                    >
+                      {null}
+                    </Button>
                     <Button
                       variant="light"
                       size="xs"
@@ -341,7 +349,9 @@ export default function CategoryTable({
                       onClick={() => onEdit(category._id || '')}
                       title="Chỉnh sửa"
                       className="text-blue-600 hover:text-blue-900"
-                    />
+                    >
+                      {null}
+                    </Button>
                     <Button
                       variant="light"
                       size="xs"
@@ -349,7 +359,9 @@ export default function CategoryTable({
                       onClick={() => onDelete(category._id || '')}
                       title="Xóa"
                       className="text-red-600 hover:text-red-900"
-                    />
+                    >
+                      {null}
+                    </Button>
                   </div>
                 </td>
               </tr>

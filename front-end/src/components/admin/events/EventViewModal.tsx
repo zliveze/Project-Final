@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, CalendarDays, Tag, Clock, Info, ShoppingBag, Percent, Eye, CheckCircle } from 'lucide-react'; // Added CheckCircle
+import Image from 'next/image'; // Added for next/image
+import { X, CalendarDays, Tag, Clock, Info, ShoppingBag, Percent, Eye, CheckCircle } from 'lucide-react'; // Removed ExternalLink, Added CheckCircle
 import { format, formatDistanceToNow, isAfter, isBefore, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Event, ProductInEvent } from '@/contexts/EventsContext'; // Corrected import
+import { Event } from '@/contexts/EventsContext'; // Corrected import
 
 interface EventViewModalProps {
   isOpen: boolean;
@@ -192,11 +193,18 @@ const EventViewModal: React.FC<EventViewModalProps> = ({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-slate-200">
-                        {event.products.map((product, index) => (
+                        {event.products.map((product) => (
                           <tr key={product.productId + (product.variantId || '') + (product.combinationId || '')} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3">
                               <div className="flex items-center">
-                                <img className="h-10 w-10 rounded-md object-cover border border-slate-200 mr-3" src={product.image || '/placeholder-image.png'} alt={product.name || 'product image'} />
+                                <div className="h-10 w-10 rounded-md overflow-hidden border border-slate-200 mr-3 relative">
+                                  <Image 
+                                    src={product.image || '/placeholder-image.png'} 
+                                    alt={product.name || 'product image'} 
+                                    layout="fill"
+                                    objectFit="cover"
+                                  />
+                                </div>
                                 <div>
                                   <div className="text-sm font-medium text-slate-800 line-clamp-1">{product.name || 'Sản phẩm không tên'}</div>
                                   <div className="text-xs text-slate-500">

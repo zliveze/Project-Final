@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { FiX, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiX, FiEye } from 'react-icons/fi'; // Removed FiEdit2, FiTrash2
 import CategoryDetail from './CategoryDetail';
 import { Category } from '@/contexts/CategoryContext';
-import toast from 'react-hot-toast';
-import { Modal, Button } from '@/components/admin/common';
+// Removed toast
+// Removed Modal, Button
 
 const CategoryDetailModal = ({
   category,
   onClose,
   onEdit,
   onDelete,
-  childrenCount = 0,
+  // childrenCount = 0, // Removed unused prop
   isOpen = false,
   parentCategory = null,
   childCategories = []
@@ -19,13 +19,13 @@ const CategoryDetailModal = ({
   onClose: () => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  childrenCount?: number;
+  // childrenCount?: number; // Removed unused prop
   isOpen: boolean;
   parentCategory?: Category | null;
   childCategories?: Category[];
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false); // Removed unused state
 
   // Cập nhật trạng thái modalVisible khi isOpen thay đổi
   useEffect(() => {

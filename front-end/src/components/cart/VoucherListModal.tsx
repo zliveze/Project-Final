@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FiX, FiTag, FiInfo, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { Voucher } from '@/hooks/useUserVoucher';
 import { formatDate } from '@/utils/dateUtils';
-import Image from 'next/image';
-import { FaPercent, FaTimes, FaSearch, FaCheck } from 'react-icons/fa';
+// import Image from 'next/image'; // Removed unused import
+import { FaSearch } from 'react-icons/fa'; // Removed FaPercent, FaTimes, FaCheck
 import Portal from '@/components/common/Portal';
 
 // Thêm interface mở rộng cho Voucher để bổ sung thuộc tính hasUserUsed
@@ -20,8 +20,8 @@ interface VoucherListModalProps {
   appliedVoucherCode?: string;
   subtotal: number;
   currentUserLevel: string;
-  userId?: string;
-  user?: any;
+  // userId?: string; // Removed unused prop
+  user?: { _id: string; [key: string]: unknown }; // Specified a more concrete type for user
 }
 
 export function VoucherListModal({
@@ -33,7 +33,7 @@ export function VoucherListModal({
   appliedVoucherCode,
   subtotal,
   currentUserLevel,
-  userId,
+  // userId, // Removed unused prop
   user,
 }: VoucherListModalProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -48,7 +48,7 @@ export function VoucherListModal({
   }, []);
 
   // Hàm kiểm tra xem voucher đã được sử dụng bởi người dùng hiện tại chưa
-  const isVoucherUsedByUser = (voucher: Voucher): boolean => {
+  const isVoucherUsedByUser = useCallback((voucher: Voucher): boolean => {
     // Kiểm tra xem voucher có mảng usedByUsers không và user có ID không
     if (!voucher.usedByUsers || !user?._id) return false;
 
@@ -61,15 +61,15 @@ export function VoucherListModal({
       }
 
       // Trường hợp ID là object từ MongoDB với $oid
-      // @ts-ignore - Bỏ qua kiểm tra kiểu dữ liệu cho trường hợp đặc biệt này
+      // @ts-expect-error - Bỏ qua kiểm tra kiểu dữ liệu cho trường hợp đặc biệt MongoDB ObjectId
       if (userId && userId.$oid) {
-        // @ts-ignore
+        // @ts-expect-error - MongoDB ObjectId có thuộc tính $oid
         return userId.$oid === user._id;
       }
 
       return false;
     });
-  };
+  }, [user?._id]);
 
   // Xử lý và phân loại voucher dựa trên trạng thái sử dụng
   const { actualAvailableVouchers, actualUnavailableVouchers } = useMemo(() => {
@@ -105,7 +105,7 @@ export function VoucherListModal({
       actualAvailableVouchers: available,
       actualUnavailableVouchers: unavailable
     };
-  }, [availableVouchers, unavailableVouchers, user, isOpen, isMounted]);
+  }, [availableVouchers, unavailableVouchers, isOpen, isMounted, isVoucherUsedByUser]);
 
   // Lọc voucher theo điều kiện tìm kiếm
   const filteredAvailableVouchers = useMemo(() => {
@@ -149,9 +149,9 @@ export function VoucherListModal({
   };
 
   // Kiểm tra xem voucher có đáp ứng điều kiện đơn hàng tối thiểu không
-  const meetsMinimumOrder = (voucher: VoucherWithUserStatus) => {
-    return subtotal >= voucher.minimumOrderValue;
-  };
+  // const meetsMinimumOrder = (voucher: VoucherWithUserStatus) => { // Removed unused function
+  //   return subtotal >= voucher.minimumOrderValue;
+  // };
 
   // Kiểm tra xem voucher có áp dụng được cho cấp độ khách hàng hiện tại không
   const isApplicableToUserLevel = (voucher: VoucherWithUserStatus) => {

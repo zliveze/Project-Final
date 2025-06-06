@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { FaShoppingBag, FaExternalLinkAlt } from 'react-icons/fa';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { Order } from './types';
 import Portal from '@/components/common/Portal';
@@ -11,8 +12,6 @@ import axiosInstance from '@/lib/axiosInstance';
 interface OrderDetailModalProps {
   order: Order;
   onClose: () => void;
-  onBuyAgain: (orderId: string) => void;
-  onDownloadInvoice: (orderId: string) => void;
   onCancelOrder?: (orderId: string) => void;
   onReturnOrder?: (orderId: string) => void;
 }
@@ -20,8 +19,6 @@ interface OrderDetailModalProps {
 const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   order,
   onClose,
-  onBuyAgain,
-  onDownloadInvoice,
   onCancelOrder,
   onReturnOrder
 }) => {
@@ -170,9 +167,11 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               {order.products.map((product, index) => (
                 <div key={index} className="flex border-b pb-4">
                   <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    <img
+                    <Image
                       src={product.image}
                       alt={product.name}
+                      width={80}
+                      height={80}
                       className="w-full h-full object-cover"
                     />
                   </div>

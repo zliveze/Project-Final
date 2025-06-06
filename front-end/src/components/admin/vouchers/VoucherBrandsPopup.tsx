@@ -3,12 +3,12 @@ import { FiSearch, FiX, FiCheck } from 'react-icons/fi';
 import { useBrands } from '@/contexts/BrandContext';
 import { createPortal } from 'react-dom';
 
-interface Brand {
-  _id?: string;
-  id?: string;
-  name: string;
-  logo?: string;
-}
+// interface Brand { // Removed as it's not used
+//   _id?: string;
+//   id?: string;
+//   name: string;
+//   logo?: string;
+// }
 
 interface VoucherBrandsPopupProps {
   selectedBrands: string[];
@@ -37,7 +37,7 @@ export const VoucherBrandsPopup: React.FC<VoucherBrandsPopupProps> = ({
       fetchBrands(1, 100);
     }
     return () => setMounted(false);
-  }, []);
+  }, [brands, fetchBrands]); // Added brands and fetchBrands to dependency array
 
   // Memoize transformed brands
   const transformedBrands = useMemo(() =>

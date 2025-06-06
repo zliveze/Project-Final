@@ -14,6 +14,11 @@ interface DropdownMenuTriggerProps {
 }
 
 const DropdownMenuTrigger: React.FC<DropdownMenuTriggerProps> = ({ children, asChild = false }) => {
+  if (asChild) {
+    // If asChild is true, we would typically use a library like Radix's Slot
+    // For now, we'll just render as a regular div
+    console.warn("asChild prop is not implemented yet");
+  }
   return <div className="inline-flex cursor-pointer">{children}</div>
 }
 
@@ -23,13 +28,19 @@ interface DropdownMenuContentProps {
   className?: string;
 }
 
-const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({ 
-  children, 
+const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({
+  children,
   align = "center",
   className = ""
 }) => {
+  const alignClasses = {
+    start: "left-0",
+    center: "left-1/2 transform -translate-x-1/2",
+    end: "right-0"
+  };
+
   return (
-    <div className={`absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 ${className}`}>
+    <div className={`absolute mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 ${alignClasses[align]} ${className}`}>
       {children}
     </div>
   )

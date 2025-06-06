@@ -35,7 +35,6 @@ const formatPrice = (price: number) => {
 }
 
 export default function ProductCardShop({
-  id,
   name,
   image,
   price,

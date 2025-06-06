@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react'; // Removed useEffect
 import { useForm, Controller } from 'react-hook-form';
-import { format } from 'date-fns';
+// import { format } from 'date-fns'; // Removed format
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { FiSave, FiX, FiEye } from 'react-icons/fi';
-import { ChromePicker } from 'react-color';
+import { FiSave, FiX } from 'react-icons/fi'; // Removed FiEye
+import { ChromePicker } from 'react-color'; // Removed ColorResult import
+
+// Local interface for react-color's ColorResult shape
+interface PickerColorResult {
+  hex: string;
+  rgb?: { r: number; g: number; b: number; a?: number };
+  hsl?: { h: number; s: number; l: number; a?: number };
+}
 
 // Định nghĩa kiểu dữ liệu cho thông báo
 export type Notification = {
@@ -68,12 +75,12 @@ const NotificationForm: React.FC<NotificationFormProps> = ({
   ];
 
   // Xử lý khi thay đổi màu nền
-  const handleBackgroundColorChange = (color: any) => {
+  const handleBackgroundColorChange = (color: PickerColorResult) => {
     setValue('backgroundColor', color.hex);
   };
 
   // Xử lý khi thay đổi màu chữ
-  const handleTextColorChange = (color: any) => {
+  const handleTextColorChange = (color: PickerColorResult) => {
     setValue('textColor', color.hex);
   };
 
@@ -339,4 +346,4 @@ const NotificationForm: React.FC<NotificationFormProps> = ({
   );
 };
 
-export default NotificationForm; 
+export default NotificationForm;

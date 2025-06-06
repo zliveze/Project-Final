@@ -50,9 +50,16 @@ export const useProductVariants = (
   }, []);
 
   // Mở form để chỉnh sửa biến thể
-  const handleOpenEditVariant = useCallback((variant: ExtendedProductVariant) => { // Expect ExtendedProductVariant
-    setCurrentVariantData({ ...variant }); // Load existing data into the form state
-    setEditingVariant(variant); // Store the original variant being edited
+  const handleOpenEditVariant = useCallback((variantToEdit: ProductVariant) => {
+    // Convert ProductVariant to ExtendedProductVariant for internal form state
+    const { images, name, ...restOfVariant } = variantToEdit;
+    const extendedVariantData: ExtendedProductVariant = {
+      ...restOfVariant,
+      name: name || '', // Ensure name is string, fallback if ProductVariant.name is optional
+      images: images ? [...images] : [], // ProductImage[] is assignable to (string | ProductImage)[]
+    };
+    setCurrentVariantData(extendedVariantData);
+    setEditingVariant(extendedVariantData); // Store the original variant (now extended) being edited
     setShowVariantForm(true);
   }, []);
 
@@ -64,7 +71,7 @@ export const useProductVariants = (
   }, []);
 
   // Handler for input changes within the VariantForm
-  const handleVariantChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleVariantChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     // Handle potential number conversion, default to 0 if parsing fails
     const parsedValue = type === 'number' ? (parseFloat(value) || 0) : value;
@@ -81,12 +88,13 @@ export const useProductVariants = (
         // Handle arrays for shades and sizes (convert comma-separated string to array)
         if (optionKey === 'shades' || optionKey === 'sizes') {
           // Lưu lại giá trị cũ để so sánh
-          const oldValues = currentOptions[optionKey] || [];
+          const oldValues = (currentOptions[optionKey] as string[] | undefined) || [];
 
           // Xử lý giá trị mới
-          const arrayValue = typeof parsedValue === 'string'
+          const arrayValue: string[] = typeof parsedValue === 'string'
             ? parsedValue.split(',').map(item => item.trim()).filter(item => item !== '')
-            : parsedValue;
+            : (Array.isArray(parsedValue) ? parsedValue : []);
+
 
           // Tạo options mới với giá trị mới
           const newOptions = {
@@ -95,7 +103,7 @@ export const useProductVariants = (
           };
 
           // Nếu có sự thay đổi trong shades hoặc sizes, cập nhật lại combinations
-          if (JSON.stringify(oldValues.sort()) !== JSON.stringify(arrayValue.sort())) {
+          if (JSON.stringify([...oldValues].sort()) !== JSON.stringify([...arrayValue].sort())) {
             console.log(`Phát hiện thay đổi trong ${optionKey}. Cập nhật lại tổ hợp.`);
 
             // Lưu lại các tổ hợp hiện tại
@@ -131,9 +139,11 @@ export const useProductVariants = (
       }
       // Handle combinations
       else if (name === 'combinations') {
+        // Ensure parsedValue is an array before assigning
+        const combinationsValue = Array.isArray(parsedValue) ? parsedValue : prev.combinations || [];
         return {
           ...prev,
-          combinations: parsedValue
+          combinations: combinationsValue
         };
       }
       // Handle top-level properties
@@ -142,8 +152,8 @@ export const useProductVariants = (
   }, []);
 
   // Hàm tạo tổ hợp từ shades và sizes
-  const generateCombinations = (shades: string[], sizes: string[], existingCombinations: any[] = []) => {
-    const newCombinations: any[] = [];
+  const generateCombinations = (shades: string[], sizes: string[], existingCombinations: Array<{ combinationId?: string; attributes: Record<string, string>; price?: number; additionalPrice?: number; }> = []) => {
+    const newCombinations: Array<{ combinationId?: string; attributes: Record<string, string>; price?: number; additionalPrice?: number; }> = [];
 
     // Nếu có cả shades và sizes, tạo tổ hợp từ cả hai
     if (shades.length > 0 && sizes.length > 0) {
@@ -351,9 +361,9 @@ export const useProductVariants = (
       const processedImages: ProductImage[] = [];
 
       // Process each image
-      finalVariantData.images.forEach((img: any) => {
+      finalVariantData.images.forEach((img: string | ProductImage) => {
         // If it's already a full image object with url
-        if (typeof img === 'object' && img !== null && img.url) {
+        if (typeof img === 'object' && img !== null && 'url' in img && img.url) {
           // Make sure it has all required properties
           const processedImage: ProductImage = {
             url: img.url,

@@ -19,10 +19,23 @@ const getFallbackIcon = (categoryName: string) => {
   return "✨";
 };
 
+interface DisplayCategory {
+  _id: string;
+  name: string;
+  description?: string;
+  slug: string;
+  image?: {
+    url: string;
+    alt?: string;
+  };
+  featured?: boolean;
+  level?: number;
+}
+
 export default function CategorySection() {
   const sectionRef = React.useRef<HTMLDivElement>(null);
   const { featuredCategories, loading, error, fetchFeaturedCategories } = useCategories();
-  const [displayCategories, setDisplayCategories] = useState<any[]>([]);
+  const [displayCategories, setDisplayCategories] = useState<DisplayCategory[]>([]);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // GSAP animations for section entrance - Minimalist approach
@@ -345,4 +358,3 @@ export default function CategorySection() {
     </section>
   )
 }
-

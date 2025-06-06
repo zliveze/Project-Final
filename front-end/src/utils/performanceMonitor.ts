@@ -8,6 +8,10 @@ interface LayoutShiftEntry extends PerformanceEntry {
   hadRecentInput: boolean;
 }
 
+interface FirstInputEntry extends PerformanceEntry {
+  processingStart: DOMHighResTimeStamp;
+}
+
 class PerformanceMonitor {
   private static instance: PerformanceMonitor;
   private metrics: Map<string, number> = new Map();
@@ -42,7 +46,8 @@ class PerformanceMonitor {
         const fidObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
           entries.forEach((entry) => {
-            this.metrics.set('fid', entry.processingStart - entry.startTime);
+            const firstInputEntry = entry as FirstInputEntry;
+            this.metrics.set('fid', firstInputEntry.processingStart - firstInputEntry.startTime);
           });
         });
         fidObserver.observe({ entryTypes: ['first-input'] });

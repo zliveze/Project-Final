@@ -51,7 +51,7 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
         }
       } as React.ChangeEvent<HTMLInputElement>);
     }
-  }, [formData.brandId, currentBrand]);
+  }, [formData.brandId, currentBrand, formData.cosmetic_info?.madeIn, handleInputChange]);
 
   // Xử lý click bên ngoài dropdown để đóng
   useEffect(() => {
@@ -80,7 +80,7 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
            name: 'cosmetic_info.skinType',
            value: [...currentSkinTypes, customSkinType.trim()]
          }
-       } as any); // Cast to any
+       } as unknown as React.ChangeEvent<HTMLInputElement>); // Updated cast
       }
       setCustomSkinType('');
     }
@@ -109,17 +109,17 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
     if (currentSkinTypes.includes(skinTypeLabel)) {
       handleInputChange({
         target: {
-          name: 'cosmetic_info.skinType',
-          value: currentSkinTypes.filter(type => type !== skinTypeLabel)
-        }
-      } as any);
+           name: 'cosmetic_info.skinType',
+           value: currentSkinTypes.filter(type => type !== skinTypeLabel)
+         }
+       } as unknown as React.ChangeEvent<HTMLInputElement>);
     } else {
       handleInputChange({
         target: {
-          name: 'cosmetic_info.skinType',
-          value: [...currentSkinTypes, skinTypeLabel] // Thêm label vào mảng
-        }
-      } as any); // Cast to any to bypass strict type check for manual event
+           name: 'cosmetic_info.skinType',
+           value: [...currentSkinTypes, skinTypeLabel] // Thêm label vào mảng
+         }
+       } as unknown as React.ChangeEvent<HTMLInputElement>); // Updated cast for manual event
     }
     // Không đóng dropdown sau khi chọn để người dùng có thể chọn nhiều loại da
   };
@@ -150,7 +150,7 @@ const CosmeticInfoTab: React.FC<CosmeticInfoTabProps> = ({
            name: 'cosmetic_info.skinType',
            value: currentSkinTypes
          }
-       } as any); // Cast to any to bypass strict type check for manual event
+       } as unknown as React.ChangeEvent<HTMLInputElement>); // Updated cast for manual event
   };
 
   return (

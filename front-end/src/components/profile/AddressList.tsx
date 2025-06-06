@@ -7,10 +7,10 @@ import { Address, User } from './types/index';
 import ViettelPostService, { ProvinceData, DistrictData, WardData } from '@/services/ViettelPostService';
 
 // --- Interfaces & Types ---
-// Use interfaces from ViettelPostService or adapt them
-interface Province extends ProvinceData {} // Use ProvinceData directly
-interface District extends DistrictData {} // Use DistrictData directly
-interface Ward extends WardData {}       // Use WardData directly
+// Use types from ViettelPostService directly
+type Province = ProvinceData;
+type District = DistrictData;
+type Ward = WardData;
 
 // Type for selected location object - now uses IDs
 type SelectedLocation = {
@@ -233,9 +233,8 @@ const AddressList = ({
         const data = await ViettelPostService.getProvinces();
         // Ensure data matches the new Province interface (it should)
         setProvinces(data);
-      } catch (error) {
+      } catch {
         // Error handling is already inside the service
-        // console.error('Lỗi tỉnh/thành phố:', error); // Optional: keep for component-level logging
         toast.error('Lỗi tải Tỉnh/Thành phố.');
         setProvinces([]);
       } finally {
@@ -258,9 +257,8 @@ const AddressList = ({
         const data = await ViettelPostService.getDistricts(selectedProvince.provinceId as number);
         // Ensure data matches the new District interface
         setDistricts(data);
-      } catch (error) {
+      } catch {
         // Error handling is already inside the service
-        // console.error('Lỗi quận/huyện:', error);
         toast.error('Lỗi tải Quận/Huyện.');
         setDistricts([]);
       } finally {
@@ -283,9 +281,8 @@ const AddressList = ({
         const data = await ViettelPostService.getWards(selectedDistrict.districtId as number);
         // Ensure data matches the new Ward interface
         setWards(data);
-      } catch (error) {
+      } catch {
         // Error handling is already inside the service
-        // console.error('Lỗi phường/xã:', error);
         toast.error('Lỗi tải Phường/Xã.');
         setWards([]);
       } finally {
@@ -416,25 +413,20 @@ const AddressList = ({
 
   // startEditing sets initialFormData and selects dropdowns
   const startEditing = useCallback(async (address: Address) => {
+     if (!address._id) return;
      setEditingId(address._id);
      setIsAdding(false);
-     const addressParts = address.addressLine.split(',').map(p => p.trim());
      // --- Editing Logic Update ---
-     // **Assumption**: The `address` object fetched from the backend now includes
-     // `provinceId`, `districtId`, `wardId`. If not, this logic needs rethinking.
-     // We also assume addressLine only contains the specific street/number part.
+     // Use the actual Address structure with codes and names
 
      const {
-       addressLine, // Assuming this is just the street/number part now
-       city,        // Corresponds to provinceName
-       state,       // Corresponds to districtName
-       // wardName is likely part of addressLine in the old format, need to adjust how it's saved/retrieved
+       addressLine,
+       wardCode,
+       districtCode,
+       provinceCode,
        country,
        postalCode,
        isDefault,
-       provinceId, // Assumed to exist on Address type
-       districtId, // Assumed to exist on Address type
-       wardId,     // Assumed to exist on Address type
      } = address;
 
      // Set the initial data for the form state in AddressList
@@ -445,8 +437,12 @@ const AddressList = ({
        isDefault: !!isDefault,
      });
 
-     // Pre-select dropdowns using IDs
-     if (provinceId) {
+     // Pre-select dropdowns using codes (convert to numbers)
+     const provinceId = parseInt(provinceCode, 10);
+     const districtId = parseInt(districtCode, 10);
+     const wardId = parseInt(wardCode, 10);
+
+     if (provinceId && !isNaN(provinceId)) {
        const province = provinces.find(p => p.provinceId === provinceId);
        setSelectedProvince(province ? { provinceId: province.provinceId, provinceName: province.provinceName } : null);
 
@@ -459,7 +455,7 @@ const AddressList = ({
          setSelectedDistrict(district ? { districtId: district.districtId, districtName: district.districtName } : null);
 
          // Fetch wards if district is found
-         if (districtId && district) {
+         if (districtId && !isNaN(districtId) && district) {
            setLoadingWards(true);
            try {
              const fetchedWards = await ViettelPostService.getWards(districtId);
@@ -580,9 +576,9 @@ const AddressList = ({
                   </div>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 items-end sm:items-center flex-shrink-0">
                     <button onClick={() => startEditing(address)} disabled={isSubmitting} className="text-blue-600 hover:text-blue-700 p-1 text-xs sm:text-sm disabled:opacity-50" title="Chỉnh sửa"> <FaEdit /> <span className="hidden sm:inline">Sửa</span> </button>
-                    {!address.isDefault && (<>
-                      <button onClick={() => handleSetDefault(address._id)} disabled={isSubmitting} className="text-green-600 hover:text-green-700 p-1 text-xs sm:text-sm disabled:opacity-50" title="Đặt làm mặc định"> <FaCheck /> <span className="hidden sm:inline">Mặc định</span> </button>
-                      <button onClick={() => handleDelete(address._id)} disabled={isSubmitting} className="text-red-600 hover:text-red-700 p-1 text-xs sm:text-sm disabled:opacity-50" title="Xóa"> <FaTrash /> <span className="hidden sm:inline">Xóa</span> </button>
+                    {!address.isDefault && address._id && (<>
+                      <button onClick={() => handleSetDefault(address._id!)} disabled={isSubmitting} className="text-green-600 hover:text-green-700 p-1 text-xs sm:text-sm disabled:opacity-50" title="Đặt làm mặc định"> <FaCheck /> <span className="hidden sm:inline">Mặc định</span> </button>
+                      <button onClick={() => handleDelete(address._id!)} disabled={isSubmitting} className="text-red-600 hover:text-red-700 p-1 text-xs sm:text-sm disabled:opacity-50" title="Xóa"> <FaTrash /> <span className="hidden sm:inline">Xóa</span> </button>
                     </>)}
                   </div>
                 </div>

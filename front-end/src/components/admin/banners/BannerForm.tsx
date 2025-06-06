@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { FiUpload, FiTrash2, FiLink, FiImage, FiLoader, FiCalendar, FiInfo } from 'react-icons/fi';
+import { FiTrash2, FiLink, FiImage, FiLoader, FiCalendar, FiInfo } from 'react-icons/fi';
 import { useBanner } from '@/contexts/BannerContext';
-import { useCampaign } from '@/contexts/CampaignContext';
+import { useCampaign, Campaign } from '@/contexts/CampaignContext';
 import { toast } from 'react-hot-toast';
 
 // Định nghĩa kiểu dữ liệu cho Banner
@@ -24,13 +24,6 @@ export interface Banner {
   endDate?: string;
   createdAt?: string;
   updatedAt?: string;
-}
-
-// Định nghĩa kiểu dữ liệu cho Campaign (dùng để hiển thị dropdown)
-interface Campaign {
-  _id: string;
-  title: string;
-  type: string;
 }
 
 interface BannerFormProps {
@@ -175,8 +168,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
   // Upload ảnh trực tiếp lên Cloudinary thông qua API
   const handleCloudinaryUpload = async (
     file: File,
-    imageType: 'desktop' | 'mobile',
-    preview: string
+    imageType: 'desktop' | 'mobile'
   ) => {
     try {
       // Bắt đầu uploading
@@ -214,15 +206,16 @@ const BannerForm: React.FC<BannerFormProps> = ({
           if (errors[`${imageType}Image`]) {
             setErrors(prev => ({ ...prev, [`${imageType}Image`]: '' }));
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`Lỗi khi upload ảnh ${imageType}:`, error);
+          const errorMessage = error instanceof Error ? error.message : `Lỗi khi tải lên ảnh ${imageType}`;
           setErrors(prev => ({
             ...prev,
-            [`${imageType}Image`]: error.message || `Lỗi khi tải lên ảnh ${imageType}`
+            [`${imageType}Image`]: errorMessage
           }));
 
           // Hiển thị thông báo lỗi
-          toast.error(`Lỗi khi tải lên ảnh ${imageType}: ${error.message}`);
+          toast.error(`Lỗi khi tải lên ảnh ${imageType}: ${errorMessage}`);
         }
       };
 
@@ -234,11 +227,12 @@ const BannerForm: React.FC<BannerFormProps> = ({
 
         toast.error(`Lỗi khi đọc file ${file.name}`);
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Lỗi khi xử lý ảnh ${imageType}:`, error);
+      const errorMessage = error instanceof Error ? error.message : `Lỗi khi xử lý ảnh ${imageType}`;
       setErrors(prev => ({
         ...prev,
-        [`${imageType}Image`]: error.message || `Lỗi khi xử lý ảnh ${imageType}`
+        [`${imageType}Image`]: errorMessage
       }));
     } finally {
       setIsUploading(prev => ({ ...prev, [imageType]: false }));
@@ -278,7 +272,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
     }
 
     // Upload ảnh lên Cloudinary
-    handleCloudinaryUpload(file, imageType, previewUrl);
+    handleCloudinaryUpload(file, imageType);
   };
 
   // Xóa ảnh
@@ -418,7 +412,7 @@ const BannerForm: React.FC<BannerFormProps> = ({
                   <span>Đến: {new Date(selectedCampaignInfo.endDate).toLocaleDateString('vi-VN')}</span>
                 </div>
                 {selectedCampaignInfo.description && (
-                  <div className="text-gray-600 italic">"{selectedCampaignInfo.description}"</div>
+                  <div className="text-gray-600 italic">&quot;{selectedCampaignInfo.description}&quot;</div>
                 )}
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 // Remove import from BrandForm if defined here now
 // import { Brand } from '@/components/admin/brands/BrandForm';
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const DEBUG_MODE = false;
 
 // Hàm debug có điều kiện
-const debugLog = (message: string, data?: any) => {
+const debugLog = (message: string, data?: unknown) => {
   if (DEBUG_MODE) {
     console.log(`[BrandContext] ${message}`, data || '');
   }
@@ -23,7 +23,7 @@ export interface Brand {
   slug?: string;
   description?: string;
   logo?: {
-    url: string;
+    url?: string;
     alt?: string;
     publicId?: string;
   };
@@ -62,7 +62,13 @@ export interface BrandContextType {
     totalPages: number;
   };
   // Update fetchBrands signature to accept filters
-  fetchBrands: (page: number, limit: number, filters?: Record<string, any>) => Promise<any>; // Return data for ItemSelectionModal
+  fetchBrands: (page: number, limit: number, filters?: Record<string, unknown>) => Promise<{
+    items: Brand[];
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  } | undefined>; // Return data for ItemSelectionModal
   fetchBrand: (id: string) => Promise<Brand | null>;
   createBrand: (brandData: Partial<Brand>) => Promise<Brand | null>;
   updateBrand: (id: string, brandData: Partial<Brand>) => Promise<Brand | null>;
@@ -118,7 +124,29 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   };
 
   // Chuyển đổi dữ liệu từ API sang định dạng frontend
-  const transformBrand = (brandData: any): Brand => {
+  const transformBrand = (brandData: {
+    _id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    logo?: {
+      url: string;
+      alt?: string;
+      publicId?: string;
+    };
+    origin?: string;
+    website?: string;
+    featured?: boolean;
+    status?: string;
+    socialMedia?: {
+      facebook?: string;
+      instagram?: string;
+      youtube?: string;
+    };
+    productCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  }): Brand => {
     return {
       id: brandData._id,
       name: brandData.name,
@@ -143,7 +171,31 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
     };
   };
 
-  const fetchBrands = async (page = 1, limit = 10, filters = {}) => {
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.BRAND_STATISTICS, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        debugLog('Error fetching brand statistics:', response.statusText);
+        return null;
+      }
+
+      const data = await response.json();
+      setStatistics(data);
+      return data;
+    } catch (err) {
+      debugLog('Error fetching brand statistics:', err);
+      return null;
+    }
+  }, [accessToken, API_ENDPOINTS.BRAND_STATISTICS]);
+
+  const fetchBrands = useCallback(async (page = 1, limit = 10, filters = {}) => {
     setLoading(true);
     setError(null);
 
@@ -234,15 +286,16 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
       fetchStatistics();
 
       return data;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error fetching brands:', err);
 
       // Xử lý lỗi
-      if (err.response?.status === 401 ||
-          typeof err.message === 'string' && (
-            err.message.includes('xác thực') ||
-            err.message.includes('Unauthorized') ||
-            err.message.toLowerCase().includes('token')
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 ||
+          typeof error.message === 'string' && (
+            error.message.includes('xác thực') ||
+            error.message.includes('Unauthorized') ||
+            error.message.toLowerCase().includes('token')
           )
       ) {
         debugLog('Phiên đăng nhập hết hạn, đăng xuất và chuyển hướng');
@@ -256,37 +309,15 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
           debugLog('Lỗi khi đăng xuất:', logoutError);
         }
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi lấy danh sách thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi lấy danh sách thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi lấy danh sách thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách thương hiệu');
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, accessToken, logout, router, API_ENDPOINTS.BRANDS, fetchStatistics]);
 
-  const fetchStatistics = async () => {
-    try {
-      const response = await fetch(API_ENDPOINTS.BRAND_STATISTICS, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
 
-      if (!response.ok) {
-        debugLog('Error fetching brand statistics:', response.statusText);
-        return null;
-      }
-
-      const data = await response.json();
-      setStatistics(data);
-      return data;
-    } catch (err: any) {
-      debugLog('Error fetching brand statistics:', err);
-      return null;
-    }
-  };
 
   const fetchBrand = async (id: string): Promise<Brand | null> => {
     setLoading(true);
@@ -308,16 +339,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       const data = await response.json();
       return transformBrand(data);
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error fetching brand details:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi lấy thông tin thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi lấy thông tin thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi lấy thông tin thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy thông tin thương hiệu');
       }
 
       return null;
@@ -332,7 +364,24 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
     try {
       // Chuẩn bị dữ liệu để gửi đến API
-      const apiData: any = {
+      const apiData: {
+        name?: string;
+        description?: string;
+        origin?: string;
+        website?: string;
+        featured?: boolean;
+        status?: string;
+        socialMedia?: {
+          facebook?: string;
+          instagram?: string;
+          youtube?: string;
+        };
+        logo?: {
+          url: string;
+          alt?: string;
+          publicId?: string;
+        };
+      } = {
         name: brandData.name,
         description: brandData.description,
         origin: brandData.origin,
@@ -395,16 +444,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       toast.success('Thêm thương hiệu thành công!');
       return newBrand;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error creating brand:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi thêm thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi thêm thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi thêm thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi thêm thương hiệu');
       }
 
       return null;
@@ -419,7 +469,24 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
     try {
       // Chuẩn bị dữ liệu để gửi đến API
-      const apiData: any = {
+      const apiData: {
+        name?: string;
+        description?: string;
+        origin?: string;
+        website?: string;
+        featured?: boolean;
+        status?: string;
+        socialMedia?: {
+          facebook?: string;
+          instagram?: string;
+          youtube?: string;
+        };
+        logo?: {
+          url: string;
+          alt?: string;
+          publicId?: string;
+        };
+      } = {
         name: brandData.name,
         description: brandData.description,
         origin: brandData.origin,
@@ -477,8 +544,8 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
-        console.error('Lỗi phân tích JSON response:', parseError);
+      } catch {
+        console.error('Lỗi phân tích JSON response');
         debugLog('Response text:', responseText);
         throw new Error('Lỗi khi phân tích dữ liệu phản hồi từ server');
       }
@@ -498,16 +565,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       toast.success('Cập nhật thương hiệu thành công!');
       return updatedBrand;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error updating brand:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi cập nhật thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi cập nhật thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi cập nhật thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi cập nhật thương hiệu');
       }
 
       return null;
@@ -547,16 +615,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       toast.success('Xóa thương hiệu thành công!');
       return true;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error deleting brand:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi xóa thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi xóa thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi xóa thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi xóa thương hiệu');
       }
 
       return false;
@@ -607,16 +676,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       toast.success(`Đã ${newStatus === 'active' ? 'kích hoạt' : 'vô hiệu hóa'} thương hiệu!`);
       return updatedBrand;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error toggling brand status:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi thay đổi trạng thái thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi thay đổi trạng thái thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi thay đổi trạng thái thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi thay đổi trạng thái thương hiệu');
       }
 
       return null;
@@ -667,16 +737,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
 
       toast.success(`Đã ${newFeatured ? 'đánh dấu' : 'bỏ đánh dấu'} thương hiệu nổi bật!`);
       return updatedBrand;
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error toggling brand featured status:', err);
 
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi thay đổi trạng thái nổi bật của thương hiệu');
-        toast.error(err.message || 'Có lỗi xảy ra khi thay đổi trạng thái nổi bật của thương hiệu');
+        setError(error.message || 'Có lỗi xảy ra khi thay đổi trạng thái nổi bật của thương hiệu');
+        toast.error(error.message || 'Có lỗi xảy ra khi thay đổi trạng thái nổi bật của thương hiệu');
       }
 
       return null;
@@ -720,10 +791,11 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         url: data.url,
         publicId: data.publicId
       };
-    } catch (err: any) {
+    } catch (err) {
       debugLog('Error uploading logo:', err);
-      setError(err.message || 'Có lỗi xảy ra khi tải logo');
-      toast.error(err.message || 'Có lỗi xảy ra khi tải logo');
+      const error = err as Error;
+      setError(error.message || 'Có lỗi xảy ra khi tải logo');
+      toast.error(error.message || 'Có lỗi xảy ra khi tải logo');
       return null;
     } finally {
       setLoading(false);
@@ -760,7 +832,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
     };
 
     loadBrands();
-  }, [isAuthenticated, accessToken, router.pathname]);
+  }, [isAuthenticated, accessToken, router.pathname, fetchBrands]);
 
   const value: BrandContextType = {
     brands,

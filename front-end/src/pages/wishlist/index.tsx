@@ -31,6 +31,8 @@ interface RecommendedProduct {
     name: string;
     slug: string;
   };
+  sku: string; // Added sku
+  status: string; // Added status
   inStock: boolean;
   isNew?: boolean;
   rating?: number;
@@ -63,6 +65,8 @@ const sampleRecommendedProducts: RecommendedProduct[] = [
       name: 'CeraVe',
       slug: 'cerave'
     },
+    sku: 'CERAVE-MOIST-CREAM-250ML', // Added sample sku
+    status: 'active', // Added sample status
     inStock: true,
     isNew: true,
     rating: 4.8,
@@ -107,8 +111,8 @@ const WishlistPage: NextPage = () => {
   }, [isAuthenticated, isAuthLoading, router]);
 
   // Xử lý xóa một sản phẩm khỏi wishlist using context function
-  const handleRemoveItem = (productId: string, variantId: string) => {
-    removeFromWishlist(productId, variantId);
+  const handleRemoveItem = (productId: string, variantId?: string | null) => { // Allow variantId to be string, null, or undefined
+    removeFromWishlist(productId, variantId || undefined); // Pass undefined if null or empty
     // Toast messages are handled by the context
   };
 
@@ -118,7 +122,7 @@ const WishlistPage: NextPage = () => {
       // TODO: Implement backend endpoint and context function for clearing all
       // For now, just remove one by one locally and show toast
       if (wishlistItems.length > 0) {
-        wishlistItems.forEach(item => removeFromWishlist(item.productId, item.variantId)); // Remove one by one for now
+        wishlistItems.forEach(item => removeFromWishlist(item.productId, item.variantId || undefined)); // Pass undefined if null
         toast.success('Đã xóa tất cả sản phẩm khỏi danh sách yêu thích (tạm thời)', {
             position: "bottom-right",
             autoClose: 3000,
@@ -287,9 +291,9 @@ const WishlistPage: NextPage = () => {
                     </h2>
                     {wishlistItems.map((item: ContextWishlistItem) => ( // Use imported type
                       <WishlistItem
-                        key={`${item.productId}-${item.variantId}`} // Use combined key
+                        key={`${item.productId}-${item.variantId || 'no-variant'}`} // Use combined key, handle null variantId for key
                         productId={item.productId} // Pass productId correctly
-                        variantId={item.variantId} // Pass variantId
+                        variantId={item.variantId || ''} // Pass empty string if null or undefined
                         name={item.name}
                         slug={item.slug}
                         price={item.price}
@@ -298,7 +302,7 @@ const WishlistPage: NextPage = () => {
                         brand={item.brand || { name: 'N/A', slug: '#' }} // Handle null brand
                         inStock={item.inStock}
                         variantOptions={item.variantOptions} // Pass variant options
-                        onRemove={() => handleRemoveItem(item.productId, item.variantId)} // Pass both IDs
+                        onRemove={() => handleRemoveItem(item.productId, item.variantId)} // item.variantId is string or ''
                       />
                     ))}
                   </div>

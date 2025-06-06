@@ -1,37 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiSave, FiX, FiUpload, FiGlobe, FiFacebook, FiInstagram, FiYoutube, FiInfo } from 'react-icons/fi';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 
-// Định nghĩa interfaces cho Brand
-export interface BrandLogo {
-  url?: string;
-  alt: string;
-  publicId?: string;
-}
-
-export interface BrandSocialMedia {
-  facebook: string;
-  instagram: string;
-  youtube: string;
-}
-
-export interface Brand {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  logo: BrandLogo;
-  origin: string;
-  website: string;
-  featured: boolean;
-  status: string;
-  socialMedia: BrandSocialMedia;
-  productCount?: number;
-  createdAt: string;
-  updatedAt: string;
-  logoFile?: File;
-}
+// Local Brand, BrandLogo, BrandSocialMedia interfaces are removed as Brand is now imported.
+// The imported Brand type from BrandContext will be used.
 
 interface BrandFormProps {
   initialData?: Partial<Brand>;
@@ -46,23 +20,37 @@ const BrandForm: React.FC<BrandFormProps> = ({
   onCancel,
   isSubmitting
 }) => {
-  const [formData, setFormData] = useState<Partial<Brand>>({
-    name: '',
-    description: '',
-    logo: {
-      url: 'https://via.placeholder.com/150',
-      alt: ''
-    },
-    origin: '',
-    website: '',
-    featured: false,
-    status: 'active',
-    socialMedia: {
-      facebook: '',
-      instagram: '',
-      youtube: ''
-    },
-    ...(initialData || {})
+  const [formData, setFormData] = useState<Partial<Brand>>(() => {
+    const defaults: Partial<Brand> = {
+      name: '',
+      description: '',
+      logo: {
+        url: 'https://via.placeholder.com/150',
+        alt: '', // Default to empty string, as context Brand.logo.alt can be undefined
+      },
+      origin: '',
+      website: '',
+      featured: false,
+      status: 'active',
+      socialMedia: {
+        facebook: '',
+        instagram: '',
+        youtube: '',
+      },
+    };
+    // Merge initialData with defaults, ensuring nested structures are handled
+    const mergedData = { ...defaults, ...initialData };
+    if (initialData?.logo) {
+      mergedData.logo = { ...defaults.logo, ...initialData.logo };
+    } else {
+      mergedData.logo = defaults.logo;
+    }
+    if (initialData?.socialMedia) {
+      mergedData.socialMedia = { ...defaults.socialMedia, ...initialData.socialMedia };
+    } else {
+      mergedData.socialMedia = defaults.socialMedia;
+    }
+    return mergedData;
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -80,7 +68,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof typeof prev] as Record<string, any> || {}),
+          ...(prev[parent as keyof typeof prev] as unknown as Record<string, unknown> || {}),
           [child]: value
         }
       }));
@@ -194,7 +182,7 @@ const BrandForm: React.FC<BrandFormProps> = ({
     try {
       new URL(url);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   };

@@ -1,6 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import Image from 'next/image'; // Added import for next/image
 import { FiHeart, FiEye, FiTrash2, FiShoppingCart, FiSearch, FiGrid, FiList, FiPackage, FiTag, FiFilter, FiInfo } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+
+interface Variant {
+  _id: string;
+  name: string;
+  price?: number;
+  stock?: number;
+  // Add other relevant variant properties here, e.g., color, size
+}
 
 interface Product {
   productId: {
@@ -9,7 +18,7 @@ interface Product {
     images?: string[];
     price: number;
     status: 'in_stock' | 'out_of_stock' | 'discontinued';
-    variants?: any[];
+    variants?: Variant[];
   };
   variantId?: string;
   addedAt?: string;
@@ -20,15 +29,15 @@ interface UserWishlistTableProps {
   onDelete: (productId: string, variantId: string) => void;
   onView: (productId: string) => void;
   onAddToCart: (productId: string, variantId: string) => void;
-  userId: string;
+  // userId: string; // Removed as it's not used
 }
 
 const UserWishlistTable: React.FC<UserWishlistTableProps> = ({
   wishlistItems,
   onDelete,
   onView,
-  onAddToCart,
-  userId
+  onAddToCart
+  // userId // Removed as it's not used
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
@@ -136,12 +145,13 @@ const UserWishlistTable: React.FC<UserWishlistTableProps> = ({
               key={`${product._id}-${item.variantId || 'default'}`} 
               className="border rounded-lg overflow-hidden transition-all hover:shadow-md"
             >
-              <div className="relative w-full" style={{ paddingBottom: '75%' }}>
+              <div className="relative w-full" style={{ paddingTop: '75%' }}> {/* Changed paddingBottom to paddingTop for aspect ratio with next/image */}
                 {imageUrl ? (
-                  <img 
-                    src={imageUrl} 
-                    alt={product.name} 
-                    className="absolute top-0 left-0 w-full h-full object-cover"
+                  <Image
+                    src={imageUrl}
+                    alt={product.name}
+                    layout="fill"
+                    objectFit="cover"
                   />
                 ) : (
                   <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-100">
@@ -246,12 +256,13 @@ const UserWishlistTable: React.FC<UserWishlistTableProps> = ({
                   <tr key={`${product._id}-${item.variantId || 'default'}`} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden">
+                        <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden relative"> {/* Added relative positioning */}
                           {imageUrl ? (
-                            <img 
-                              className="h-full w-full object-cover" 
-                              src={imageUrl} 
-                              alt={product.name} 
+                            <Image
+                              src={imageUrl}
+                              alt={product.name}
+                              layout="fill"
+                              objectFit="cover"
                             />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center bg-gray-100">
@@ -418,4 +429,4 @@ const UserWishlistTable: React.FC<UserWishlistTableProps> = ({
   );
 };
 
-export default UserWishlistTable; 
+export default UserWishlistTable;

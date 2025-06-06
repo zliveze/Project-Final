@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiX, FiTrash2, FiAlertTriangle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { Category } from '@/contexts/CategoryContext';
-import { Modal, Button } from '@/components/admin/common';
+import { Button } from '@/components/admin/common';
 
 interface CategoryDeleteModalProps {
   category: Category | null;

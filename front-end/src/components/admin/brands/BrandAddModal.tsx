@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiX, FiPlus } from 'react-icons/fi';
-import BrandForm, { Brand } from './BrandForm';
+import BrandForm from './BrandForm'; // Import BrandForm default
+import { Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 
 interface BrandAddModalProps {
   isOpen: boolean;

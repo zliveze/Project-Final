@@ -1,19 +1,20 @@
-import React, { useState, useEffect, useCallback, Fragment } from 'react'; // Import Fragment
+import React, { useState, useEffect, Fragment, useMemo } from 'react'; // Import Fragment & useMemo
+import Image from 'next/image'; // Import next/image
 import { Disclosure, Transition } from '@headlessui/react'; // Import Disclosure and Transition
 import { FiTrash2, FiPlus, FiGift, FiSearch, FiPackage, FiLoader, FiChevronUp, FiChevronDown } from 'react-icons/fi'; // Import Chevron icons
-import { ProductFormData, GiftItem } from '../types'; // GiftItem is now exported
+import { ProductFormData } from '../types'; // GiftItem removed
 import { useProduct } from '@/contexts/ProductContext'; // Import useProduct hook
 import { AdminProduct } from '@/hooks/useProductAdmin'; // Import AdminProduct type
 import { debounce } from 'lodash'; // Import debounce for search
 
 interface GiftsTabProps {
   formData: ProductFormData;
-  handleGiftChange: (index: number, field: string, value: any) => void;
+  handleGiftChange: (index: number, field: string, value: string | number | boolean) => void;
   handleRemoveGift: (index: number) => void;
   handleAddGift: () => void;
   handleGiftImageUrlChange: (index: number, url: string) => void;
   handleGiftImageAltChange: (index: number, alt: string) => void;
-  handleGiftConditionChange: (index: number, conditionField: string, value: any) => void;
+  handleGiftConditionChange: (index: number, conditionField: string, value: string | number | null) => void;
   hasGifts: () => boolean;
   getValidGiftsCount: () => number;
   isViewMode?: boolean;
@@ -47,17 +48,20 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
   const [giftProductError, setGiftProductError] = useState<string | null>(null);
 
   // Debounce search input
-  const debouncedSetSearch = useCallback(debounce((value: string) => {
-    setDebouncedSearchTerm(value);
-  }, 300), []); // 300ms delay
+  const debouncedSearchHandler = useMemo(
+    () => debounce((value: string) => {
+      setDebouncedSearchTerm(value);
+    }, 300),
+    [setDebouncedSearchTerm] 
+  );
 
   useEffect(() => {
-    debouncedSetSearch(searchTerm);
+    debouncedSearchHandler(searchTerm);
     // Cleanup debounce on unmount
     return () => {
-      debouncedSetSearch.cancel();
+      debouncedSearchHandler.cancel();
     };
-  }, [searchTerm, debouncedSetSearch]);
+  }, [searchTerm, debouncedSearchHandler]);
 
   // Fetch products when search modal is shown or search term changes
   useEffect(() => {
@@ -73,7 +77,7 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
           });
           // Ensure result.products is always an array
           setAvailableGiftProducts(Array.isArray(result.products) ? result.products : []);
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("Error fetching products for gifts:", error);
           setGiftProductError("Không thể tải danh sách sản phẩm.");
           setAvailableGiftProducts([]); // Reset on error
@@ -247,15 +251,12 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                             {/* Hiển thị thông tin sản phẩm đã chọn làm quà */}
                             {gift.productId && (
                               <div className="flex items-center bg-white p-2 rounded border border-gray-200">
-                                <img
-                                  src={gift.image?.url || 'https://via.placeholder.com/50'} // Placeholder if no image
-                                  alt={gift.image?.alt || gift.name}
-                                  className="w-10 h-10 object-cover rounded mr-2"
-                                  onError={(e) => { // Handle image loading errors
-                                    const target = e.target as HTMLImageElement;
-                                    target.onerror = null; // Prevent infinite loop
-                                    target.src = 'https://via.placeholder.com/50'; // Fallback image
-                                  }}
+                                <Image
+                                  src={gift.image?.url || 'https://via.placeholder.com/50'}
+                                  alt={gift.image?.alt || gift.name || 'Gift image'}
+                                  width={40}
+                                  height={40}
+                                  className="object-cover rounded mr-2"
                                 />
                                 <div>
                                   <p className="text-sm font-medium">{gift.name}</p>
@@ -293,15 +294,12 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
                                         className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded" // Added rounded
                                         onClick={() => handleSelectProduct(index, product)}
                                       >
-                                        <img
-                                          src={product.image || 'https://via.placeholder.com/40'} // Smaller placeholder
-                                          alt={product.name}
-                                          className="w-8 h-8 object-cover rounded mr-2"
-                                          onError={(e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.onerror = null;
-                                            target.src = 'https://via.placeholder.com/40';
-                                          }}
+                                        <Image
+                                          src={product.image || 'https://via.placeholder.com/40'}
+                                          alt={product.name || 'Product image'}
+                                          width={32}
+                                          height={32}
+                                          className="object-cover rounded mr-2"
                                         />
                                         <div className="flex-1 min-w-0"> {/* Added min-w-0 */}
                                           <p className="text-sm font-medium truncate">{product.name}</p> {/* Added truncate */}
@@ -574,13 +572,13 @@ const GiftsTab: React.FC<GiftsTabProps> = ({
       {/* Chú thích */}
       <div className="bg-blue-50 p-4 rounded-md mt-4">
         <h3 className="text-sm font-medium text-blue-800">Lưu ý:</h3>
-        <ul className="mt-2 text-sm text-blue-700 list-disc pl-5 space-y-1">
-          <li>Quà tặng sẽ được áp dụng khi khách hàng đáp ứng các điều kiện đã thiết lập</li>
-          <li>Quà tặng sẽ được hiển thị trên trang sản phẩm nếu đang trong thời gian khuyến mãi</li>
-          <li>Có thể thiết lập nhiều quà tặng khác nhau với các điều kiện khác nhau</li>
-          <li>Sử dụng tính năng "Chọn sản phẩm" để dễ dàng thêm sản phẩm làm quà tặng</li>
-        </ul>
-      </div>
+          <ul className="mt-2 text-sm text-blue-700 list-disc pl-5 space-y-1">
+            <li>Quà tặng sẽ được áp dụng khi khách hàng đáp ứng các điều kiện đã thiết lập</li>
+            <li>Quà tặng sẽ được hiển thị trên trang sản phẩm nếu đang trong thời gian khuyến mãi</li>
+            <li>Có thể thiết lập nhiều quà tặng khác nhau với các điều kiện khác nhau</li>
+            <li>Sử dụng tính năng &quot;Chọn sản phẩm&quot; để dễ dàng thêm sản phẩm làm quà tặng</li>
+          </ul>
+        </div>
     </div>
   );
 };

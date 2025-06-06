@@ -1,12 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
-import { 
-  FiPlus, 
-  FiBox, 
-  FiTarget, 
-  FiGift, 
-  FiUsers, 
-  FiBarChart3,
+import {
+  FiPlus,
+  FiBox,
+  FiTarget,
+  FiGift,
+  FiUsers,
+  FiBarChart,
   FiDownload,
   FiBell
 } from 'react-icons/fi';
@@ -63,7 +63,7 @@ const QuickActions = () => {
       id: 'view-reports',
       title: 'Báo cáo',
       description: 'Thống kê chi tiết',
-      icon: <FiBarChart3 className="h-5 w-5" />,
+      icon: <FiBarChart className="h-5 w-5" />,
       href: '/admin/reports',
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50 hover:bg-indigo-100'

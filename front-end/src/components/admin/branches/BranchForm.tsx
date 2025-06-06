@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { FiSave, FiX, FiMapPin, FiPhone, FiType } from 'react-icons/fi';
-import { useBranches } from '@/contexts/BranchContext';
 import toast from 'react-hot-toast';
 import ViettelPostService, { ProvinceData, DistrictData, WardData } from '@/services/ViettelPostService'; // Import service và types
 
@@ -69,7 +68,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     try {
       const data = await ViettelPostService.getProvinces();
       setProvinces(data);
-    } catch (error) {
+    } catch {
       toast.error('Lỗi tải danh sách tỉnh/thành phố.');
     } finally {
       setLoadingProvinces(false);
@@ -90,7 +89,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     try {
       const data = await ViettelPostService.getDistricts(provinceId);
       setDistricts(data);
-    } catch (error) {
+    } catch {
       toast.error('Lỗi tải danh sách quận/huyện.');
       // Đảm bảo clear state khi lỗi
       setDistricts([]);
@@ -113,7 +112,7 @@ const BranchForm: React.FC<BranchFormProps> = ({
     try {
       const data = await ViettelPostService.getWards(districtId);
       setWards(data);
-    } catch (error) {
+    } catch {
       toast.error('Lỗi tải danh sách phường/xã.');
       // Đảm bảo clear state khi lỗi
       setWards([]);

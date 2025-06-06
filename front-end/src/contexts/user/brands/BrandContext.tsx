@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 
 // Định nghĩa kiểu dữ liệu cho brand phía người dùng
@@ -53,9 +53,17 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [error, setError] = useState<string | null>(null);
 
   // Chuyển đổi dữ liệu từ API sang định dạng frontend
-  const transformBrand = (brandData: any): Brand => {
+  const transformBrand = (brandData: {
+    _id?: string;
+    id?: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    logo?: { url?: string; alt?: string };
+    featured?: boolean;
+  }): Brand => {
     return {
-      id: brandData._id || brandData.id,
+      id: brandData._id || brandData.id || '',
       name: brandData.name,
       slug: brandData.slug || brandData.name.toLowerCase().replace(/\s+/g, '-'),
       description: brandData.description || '',
@@ -68,7 +76,7 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   // Hàm lấy tất cả thương hiệu
-  const fetchBrands = async () => {
+  const fetchBrands = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -87,16 +95,17 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       setBrands(Array.isArray(data) ? data.map(transformBrand) : []);
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Chi tiết lỗi khi lấy thương hiệu:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách thương hiệu');
+      setError(err.message || 'Lỗi khi lấy danh sách thương hiệu');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Hàm lấy thương hiệu nổi bật
-  const fetchFeaturedBrands = async () => {
+  const fetchFeaturedBrands = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -115,21 +124,22 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       setFeaturedBrands(Array.isArray(data) ? data.map(transformBrand) : []);
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Chi tiết lỗi khi lấy thương hiệu nổi bật:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách thương hiệu nổi bật');
+      setError(err.message || 'Lỗi khi lấy danh sách thương hiệu nổi bật');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Tự động tải dữ liệu khi component được mount hoặc route thay đổi
   useEffect(() => {
     const loadData = async () => {
       // Chỉ load brands khi ở các trang liên quan
-      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') &&
                                !router.pathname.startsWith('/auth');
-      
+
       if (isUserRelatedPage) {
         await Promise.all([
           fetchBrands(),
@@ -139,7 +149,7 @@ export const BrandProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
 
     loadData();
-  }, [router.pathname]);
+  }, [router.pathname, fetchBrands, fetchFeaturedBrands]);
 
   // Chuẩn bị giá trị cho context
   const value: BrandContextType = {

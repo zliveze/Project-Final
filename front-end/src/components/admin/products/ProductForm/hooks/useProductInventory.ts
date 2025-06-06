@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'; // Thêm useCallback
-import { ProductFormData, InventoryItem, BranchItem, VariantInventoryItem, ProductVariant, CombinationInventoryItem } from '../types';
+import { ProductFormData, InventoryItem, BranchItem, ProductVariant } from '../types';
 
 // Helper function to calculate total inventory based on provided form data
 const calculateTotalInventory = (data: ProductFormData): number => {
@@ -59,7 +59,7 @@ export const useProductInventory = (
   /**
    * Cập nhật thông tin tồn kho (cho phép cập nhật số lượng trực tiếp nếu không có biến thể)
    */
-  const handleInventoryChange = (index: number, field: string, value: any) => {
+  const handleInventoryChange = (index: number, field: string, value: string | number | boolean) => {
     if (!formData.inventory || !Array.isArray(formData.inventory)) return;
 
     // Nếu là trường quantity và sản phẩm có biến thể, không cho phép cập nhật trực tiếp
@@ -71,7 +71,7 @@ export const useProductInventory = (
     const updatedInventory = [...formData.inventory];
     updatedInventory[index] = {
       ...updatedInventory[index],
-      [field]: field === 'lowStockThreshold' || field === 'quantity' ? parseInt(value) : value
+      [field]: field === 'lowStockThreshold' || field === 'quantity' ? parseInt(String(value), 10) : String(value)
     };
 
     setFormData(prev => {
@@ -400,9 +400,9 @@ export const useProductInventory = (
     if (!selectedBranchForVariants) return;
 
     // Get the old quantity for this variant
-    const oldVariant = branchVariants.find(v => v.variantId === variantId);
-    const oldQuantity = oldVariant ? oldVariant.quantity : 0;
-    const quantityDifference = quantity - oldQuantity;
+    // const oldVariant = branchVariants.find(v => v.variantId === variantId); // Unused
+    // const oldQuantity = oldVariant ? oldVariant.quantity : 0; // Unused
+    // const quantityDifference = quantity - oldQuantity; // Unused
 
     // Cập nhật state branchVariants
     const updatedBranchVariants = branchVariants.map(variant => {
@@ -528,9 +528,9 @@ export const useProductInventory = (
     if (!selectedBranchForVariants || !selectedVariantForCombinations) return;
 
     // Get the old quantity for this combination
-    const oldCombination = variantCombinations.find(c => c.combinationId === combinationId);
-    const oldQuantity = oldCombination ? oldCombination.quantity : 0;
-    const quantityDifference = quantity - oldQuantity;
+    // const oldCombination = variantCombinations.find(c => c.combinationId === combinationId); // Unused
+    // const oldQuantity = oldCombination ? oldCombination.quantity : 0; // Unused
+    // const quantityDifference = quantity - oldQuantity; // Unused
 
     // Cập nhật state variantCombinations
     const updatedCombinations = variantCombinations.map(combo => {
@@ -646,7 +646,7 @@ export const useProductInventory = (
       const newStatus = totalInventory > 0 ? 'active' : 'out_of_stock';
       return { ...nextFormData, status: newStatus as ProductFormData['status'] };
     });
-  }, [selectedBranchForVariants, selectedVariantForCombinations, variantCombinations, formData, branchVariants, branches]);
+  }, [selectedBranchForVariants, selectedVariantForCombinations, variantCombinations, formData, branchVariants, branches, setFormData]);
 
   return {
     showBranchModal,

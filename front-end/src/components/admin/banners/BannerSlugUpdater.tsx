@@ -70,9 +70,10 @@ const BannerSlugUpdater: React.FC = () => {
       
       toast.success(`Đã cập nhật ${updatedCount} banner thành công!`);
       setIsComplete(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi khi cập nhật banner:', error);
-      setError(error.message || 'Đã xảy ra lỗi khi cập nhật banner');
+      const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi khi cập nhật banner';
+      setError(errorMessage);
       toast.error('Đã xảy ra lỗi khi cập nhật banner');
     } finally {
       setIsUpdating(false);

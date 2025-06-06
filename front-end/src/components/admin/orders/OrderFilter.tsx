@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiFilter, FiX, FiChevronDown, FiChevronUp, FiCalendar, FiSave, FiFolder } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiFilter, FiSave, FiFolder } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
 // Interface cho các trạng thái của đơn hàng
@@ -64,13 +64,13 @@ export default function OrderFilter({ isOpen, onClose, onApply, currentFilters }
     
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setFilters({
-        ...filters,
+      setFilters(prevFilters => ({
+        ...prevFilters,
         [parent]: {
-          ...(filters as any)[parent],
+          ...(prevFilters[parent as 'dateRange' | 'priceRange']),
           [child]: value
         }
-      });
+      }));
     } else {
       setFilters({
         ...filters,
@@ -439,4 +439,4 @@ export default function OrderFilter({ isOpen, onClose, onApply, currentFilters }
       </div>
     </div>
   );
-} 
+}

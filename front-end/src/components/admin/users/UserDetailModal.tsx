@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image'; // Added for Next.js Image
 import {
   FiUser, FiMapPin, FiShoppingBag, FiX, FiEdit,
-  FiMail, FiPhone, FiCalendar, FiCheck, FiClock,
-  FiDollarSign, FiPackage, FiTruck, FiAlertTriangle,
+  FiCheck, FiClock, // FiMail, FiPhone, FiCalendar, FiDollarSign removed
+  FiPackage, FiTruck, FiAlertTriangle,
   FiHeart, FiStar
 } from 'react-icons/fi';
 import UserReviewTab from './UserReviewTab';
@@ -38,15 +39,39 @@ interface UserDetailModalProps {
     googleId?: string;
     addresses?: Address[];
     orders?: OrderSummary[];
-    wishlist?: any[];
-    customerLevel: string;
-    monthlyOrders?: number;
+  wishlist?: WishlistItemRaw[]; // Changed from any[]
+  customerLevel?: string;
+  monthlyOrders?: number;
     totalOrders?: number;
     lastOrderDate?: string;
   };
   isOpen: boolean;
   onClose: () => void;
   onEdit: (id: string) => void;
+}
+
+// Define Wishlist Types
+interface ProductDetails {
+  _id: string;
+  name: string;
+  images: string[];
+  price: number;
+  status: string;
+}
+
+type WishlistItemRaw = string | {
+  _id?: string;
+  name?: string;
+  images?: string[];
+  price?: number;
+  status?: string;
+  productId?: string | Partial<ProductDetails>;
+  variantId?: string;
+};
+
+interface NormalizedWishlistItem {
+  productId: ProductDetails;
+  variantId: string;
 }
 
 // Tab Content Components
@@ -71,8 +96,8 @@ const UserInfoTab: React.FC<{ user: UserDetailModalProps['user'] }> = ({ user })
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <span className="text-sm font-medium text-gray-500 block mb-1">Cấp độ hiện tại</span>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getCustomerLevelColor(user.customerLevel)}`}>
-              {user.customerLevel}
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getCustomerLevelColor(user.customerLevel || 'N/A')}`}>
+              {user.customerLevel || 'N/A'}
             </span>
           </div>
           <div>
@@ -360,7 +385,7 @@ const UserOrderTab: React.FC<{ orders: OrderSummary[] | undefined }> = ({ orders
   );
 };
 
-const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist = [] }) => {
+const UserWishlistTab: React.FC<{ wishlist: WishlistItemRaw[] | undefined }> = ({ wishlist = [] }) => {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
@@ -395,80 +420,80 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
   const isValidWishlist = Array.isArray(wishlist) && wishlist.length > 0;
 
   // Chuẩn hóa dữ liệu wishlist để hiển thị đúng
-  const normalizedWishlist = useMemo(() => {
+  const normalizedWishlist = useMemo((): NormalizedWishlistItem[] => {
     if (!isValidWishlist) return [];
 
-    return wishlist.map(item => {
-      // Nếu item là object với các thuộc tính cơ bản
-      if (typeof item === 'object' && item !== null) {
-        // Nếu item có _id, name, images... trực tiếp (không có productId)
-        if ('_id' in item && 'name' in item) {
-          return {
-            productId: {
-              _id: item._id,
-              name: item.name,
-              images: item.images || [],
-              price: item.price || 0,
-              status: item.status || 'discontinued'
-            },
-            variantId: ''
-          };
-        }
-
-        // Nếu item có productId là object
-        if (item.productId && typeof item.productId === 'object') {
-          return {
-            productId: {
-              _id: item.productId._id || '',
-              name: item.productId.name || `Sản phẩm #${typeof item.productId._id === 'string' ? item.productId._id.substr(-6) : ''}`,
-              images: item.productId.images || [],
-              price: item.productId.price || 0,
-              status: item.productId.status || 'discontinued'
-            },
-            variantId: item.variantId || ''
-          };
-        }
-
-        // Nếu productId là string hoặc không tồn tại
-        const productId = typeof item.productId === 'string' ? item.productId :
-                         (item.productId?._id || 'unknown');
-
-        return {
-          productId: {
-            _id: productId,
-            name: `Sản phẩm #${typeof productId === 'string' ? productId.substr(-6) : ''}`,
-            images: [],
-            price: 0,
-            status: 'discontinued'
-          },
-          variantId: item.variantId || ''
-        };
-      }
-
-      // Nếu item là string (chỉ là ID)
+    return wishlist.map((item: WishlistItemRaw): NormalizedWishlistItem => {
+      // Case 1: item is a string (product ID)
       if (typeof item === 'string') {
         return {
           productId: {
             _id: item,
-            name: `Sản phẩm #${item.substr(-6)}`,
+            name: `Sản phẩm #${item.substring(item.length - 6)}`,
             images: [],
             price: 0,
-            status: 'discontinued'
+            status: 'discontinued',
           },
-          variantId: ''
+          variantId: '',
         };
       }
 
-      // Mặc định nếu không xử lý được
+      // Case 2: item is an object
+      if (typeof item === 'object' && item !== null) {
+        // Subcase 2.1: item itself is the product detail (has _id and name, no productId field)
+        if ('_id' in item && 'name' in item && !item.productId) {
+          return {
+            productId: {
+              _id: item._id as string,
+              name: item.name as string,
+              images: (item.images as string[] | undefined) || [],
+              price: (item.price as number | undefined) || 0,
+              status: (item.status as string | undefined) || 'discontinued',
+            },
+            variantId: (item.variantId as string | undefined) || '',
+          };
+        }
+
+        // Subcase 2.2: item has a productId field
+        if (item.productId) {
+          if (typeof item.productId === 'string') {
+            return {
+              productId: {
+                _id: item.productId,
+                name: `Sản phẩm #${item.productId.substring(item.productId.length - 6)}`,
+                images: [],
+                price: 0,
+                status: 'discontinued',
+              },
+              variantId: (item.variantId as string | undefined) || '',
+            };
+          }
+          if (typeof item.productId === 'object' && item.productId !== null) {
+            const prodDetails = item.productId as Partial<ProductDetails>;
+            return {
+              productId: {
+                _id: prodDetails._id || 'unknown-id',
+                name: prodDetails.name || `Sản phẩm #${(prodDetails._id || 'unknown-id').substring((prodDetails._id || 'unknown-id').length - 6)}`,
+                images: prodDetails.images || [],
+                price: prodDetails.price || 0,
+                status: prodDetails.status || 'discontinued',
+              },
+              variantId: (item.variantId as string | undefined) || '',
+            };
+          }
+        }
+      }
+
+      // Fallback for unhandled cases
       return {
         productId: {
-          _id: 'unknown',
+          _id: 'unknown-fallback-id',
           name: 'Sản phẩm không xác định',
           images: [],
           price: 0,
-          status: 'discontinued'
+          status: 'discontinued',
         },
-        variantId: ''
+        variantId: '',
       };
     });
   }, [wishlist, isValidWishlist]);
@@ -497,10 +522,12 @@ const UserWishlistTab: React.FC<{ wishlist: any[] | undefined }> = ({ wishlist =
               <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                 <div className="relative h-40 mb-3 bg-gray-100 rounded-md overflow-hidden">
                   {product.images && product.images.length > 0 ? (
-                    <img
+                    <Image
                       src={product.images[0]}
                       alt={product.name}
-                      className="h-full w-full object-cover"
+                      layout="fill"
+                      objectFit="cover"
+                      className="h-full w-full"
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiAlertTriangle, FiX, FiTrash2 } from 'react-icons/fi';
-import { Brand } from './BrandForm';
+import { Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 
 interface BrandDeleteModalProps {
   brand: Brand | null;
@@ -25,11 +25,16 @@ const BrandDeleteModal: React.FC<BrandDeleteModalProps> = ({ brand, isOpen, onCl
   }, [isOpen]);
 
   const handleDelete = async () => {
-    if (!brand) return;
+    if (!brand || !brand.id) { // Add check for brand.id
+      console.error("Cannot delete brand: ID is missing or brand is null.");
+      // Optionally, show a toast message to the user
+      setIsDeleting(false); // Ensure isDeleting is reset
+      return;
+    }
 
     setIsDeleting(true);
     try {
-      await onDelete(brand.id);
+      await onDelete(brand.id); // brand.id is now guaranteed to be a string
     } catch (error) {
       console.error('Error deleting brand:', error);
     } finally {

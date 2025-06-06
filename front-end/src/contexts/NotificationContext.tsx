@@ -23,6 +23,32 @@ export interface Notification {
   updatedAt?: Date;
 }
 
+// Interface cho dữ liệu thông báo từ API
+interface NotificationApiData {
+  _id?: string;
+  content: string;
+  type: string;
+  link?: string;
+  priority: number;
+  startDate: string | Date;
+  endDate?: string | Date | null;
+  isActive: boolean;
+  backgroundColor?: string;
+  textColor?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+// Interface cho error response
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+}
+
 export interface NotificationStats {
   total: number;
   active: number;
@@ -156,7 +182,7 @@ apiClient.interceptors.response.use(
 // Provider component
 export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   // Sử dụng context admin auth
-  const { accessToken } = useAdminAuth();
+  useAdminAuth();
   
   // State
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -173,7 +199,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   // Hàm xử lý lỗi
-  const handleError = (error: any) => {
+  const handleError = (error: ApiError) => {
     console.error('Notification API Error:', error);
     const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi không xác định';
     setError(errorMessage);
@@ -182,7 +208,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
   };
 
   // Hàm format dữ liệu thông báo từ API
-  const formatNotification = (notificationData: any): Notification => {
+  const formatNotification = (notificationData: NotificationApiData): Notification => {
     return {
       ...notificationData,
       startDate: notificationData.startDate ? new Date(notificationData.startDate) : new Date(),
@@ -197,7 +223,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
     if (!date) return 'Không giới hạn';
     try {
       return new Date(date).toLocaleDateString('vi-VN');
-    } catch (error) {
+    } catch {
       return String(date);
     }
   };
@@ -229,8 +255,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       const data = response.data;
       
       // Format dữ liệu thông báo
-      const formattedItems = Array.isArray(data.items) 
-        ? data.items.map((item: any) => formatNotification(item))
+      const formattedItems = Array.isArray(data.items)
+        ? data.items.map((item: NotificationApiData) => formatNotification(item))
         : [];
       
       // Cập nhật state
@@ -242,9 +268,9 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
         totalPages: data.totalPages || 1
       });
       setNotifications(formattedItems);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Chi tiết lỗi getNotifications:', error);
-      handleError(error);
+      handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -261,7 +287,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       
       const data = response.data;
       setStats(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Chi tiết lỗi getStatistics:', error);
       // Đặt giá trị mặc định cho stats khi có lỗi
       setStats({
@@ -270,7 +296,7 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
         inactive: 0,
         expiringSoon: 0
       });
-      handleError(error);
+      handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -289,8 +315,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       
       setSelectedNotification(formattedNotification);
       return formattedNotification;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error: unknown) {
+      handleError(error as ApiError);
       return null;
     } finally {
       setIsLoading(false);
@@ -312,8 +338,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       await getStatistics();
       
       return true;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error: unknown) {
+      return handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -339,8 +365,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       }
       
       return true;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error: unknown) {
+      return handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -366,8 +392,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       }
       
       return true;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error: unknown) {
+      return handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -392,8 +418,8 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       }
       
       return true;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error: unknown) {
+      return handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }
@@ -414,11 +440,11 @@ export const NotificationProvider: React.FC<{children: ReactNode}> = ({ children
       }
       
       const data = await response.json();
-      const formattedNotifications = data.map((item: any) => formatNotification(item));
-      
+      const formattedNotifications = data.map((item: NotificationApiData) => formatNotification(item));
+
       setActiveNotifications(formattedNotifications);
-    } catch (error: any) {
-      handleError(error);
+    } catch (error: unknown) {
+      handleError(error as ApiError);
     } finally {
       setIsLoading(false);
     }

@@ -4,9 +4,9 @@ import { ProductFormData, ProductImage } from '../types'; // Remove ProductSeo, 
 /**
  * Hook quản lý dữ liệu form sản phẩm
  */
-export const useProductFormData = (initialData?: any) => {
+export const useProductFormData = (initialData?: Partial<ProductFormData>) => {
   // Khởi tạo dữ liệu ban đầu với việc đảm bảo rằng các đối tượng cần thiết đều tồn tại
-  const initializeData = useCallback((data: any): ProductFormData => {
+  const initializeData = useCallback((data?: Partial<ProductFormData>): ProductFormData => {
     // Tạo một bản sao của dữ liệu hoặc đối tượng trống nếu data là null/undefined
     const result = { ...(data || {}) } as ProductFormData;
 
@@ -152,26 +152,27 @@ export const useProductFormData = (initialData?: any) => {
   };
 
   // Helper function to update nested state immutably
-  const updateNestedState = (obj: any, path: string, value: any): any => {
+  const updateNestedState = <T extends object>(obj: T, path: string, value: unknown): T => {
     const keys = path.split('.');
-    // Create a deep copy to avoid modifying the original object directly
-    let current = JSON.parse(JSON.stringify(obj));
-    let parent = current;
 
-    // Traverse the path to find the target object
+    // Create a shallow copy of the top-level object
+    const newObj = { ...obj };
+
+    // Use a pointer to traverse and update the new object structure
+    let currentLevel: Record<string, unknown> = newObj as Record<string, unknown>;
+
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      // Create nested object if it doesn't exist or is not an object
-      if (parent[key] === undefined || parent[key] === null || typeof parent[key] !== 'object') {
-        parent[key] = {};
-      }
-      parent = parent[key];
+      // If the key doesn't exist or is not an object, create a new object
+      // Also, ensure we are creating a new object for the path to maintain immutability
+      currentLevel[key] = { ...(currentLevel[key] as Record<string, unknown> || {}) };
+      currentLevel = currentLevel[key] as Record<string, unknown>;
     }
 
     const finalKey = keys[keys.length - 1];
-    // Update the value at the final key
-    parent[finalKey] = value;
-    return current; // Return the modified deep copy
+    currentLevel[finalKey] = value;
+    
+    return newObj;
   };
 
 

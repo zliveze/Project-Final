@@ -18,7 +18,7 @@ interface UserAddressTableProps {
   onDelete: (addressId: string) => void;
   onSetDefault: (addressId: string) => void;
   onAdd: () => void;
-  userId: string;
+  // userId: string; // Removed as it's not used
 }
 
 const UserAddressTable: React.FC<UserAddressTableProps> = ({
@@ -26,8 +26,8 @@ const UserAddressTable: React.FC<UserAddressTableProps> = ({
   onEdit,
   onDelete,
   onSetDefault,
-  onAdd,
-  userId
+  onAdd
+  // userId // Removed as it's not used
 }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -424,4 +424,4 @@ const UserAddressTable: React.FC<UserAddressTableProps> = ({
   );
 };
 
-export default UserAddressTable; 
+export default UserAddressTable;

@@ -3,16 +3,16 @@ import { FiEdit2, FiTrash2, FiEye, FiLock, FiLoader } from 'react-icons/fi';
 import Pagination from '@/components/admin/common/Pagination';
 
 export interface User {
-  id: string;
+  _id: string; // Changed from id to _id
   name: string;
   email: string;
   phone: string;
   role: string;
   status: string;
   createdAt: string;
-  customerLevel: string;
-  monthlyOrders: number;
-  totalOrders: number;
+  customerLevel?: string;
+  monthlyOrders?: number;
+  totalOrders?: number;
   lastOrderDate?: string;
   pendingReviews?: number; // Số lượng đánh giá đang chờ duyệt
 }
@@ -58,64 +58,6 @@ interface LoadingRowProps {
   colSpan?: number;
 }
 
-// Dữ liệu mẫu cho người dùng
-const sampleUsers = [
-  {
-    id: 'USR-001',
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@example.com',
-    phone: '0901234567',
-    role: 'user',
-    status: 'active',
-    createdAt: '15/03/2025'
-  },
-  {
-    id: 'USR-002',
-    name: 'Trần Thị B',
-    email: 'tranthib@example.com',
-    phone: '0912345678',
-    role: 'user',
-    status: 'active',
-    createdAt: '14/03/2025'
-  },
-  {
-    id: 'USR-003',
-    name: 'Lê Văn C',
-    email: 'levanc@example.com',
-    phone: '0923456789',
-    role: 'admin',
-    status: 'active',
-    createdAt: '13/03/2025'
-  },
-  {
-    id: 'USR-004',
-    name: 'Phạm Thị D',
-    email: 'phamthid@example.com',
-    phone: '0934567890',
-    role: 'user',
-    status: 'inactive',
-    createdAt: '12/03/2025'
-  },
-  {
-    id: 'USR-005',
-    name: 'Hoàng Văn E',
-    email: 'hoangvane@example.com',
-    phone: '0945678901',
-    role: 'user',
-    status: 'active',
-    createdAt: '11/03/2025'
-  },
-  {
-    id: 'USR-006',
-    name: 'Đỗ Thị F',
-    email: 'dothif@example.com',
-    phone: '0956789012',
-    role: 'user',
-    status: 'blocked',
-    createdAt: '10/03/2025'
-  }
-];
-
 // Tách UserRow thành một component riêng để tối ưu render
 const UserRow = React.memo(({
   user,
@@ -135,7 +77,7 @@ const UserRow = React.memo(({
         hour: '2-digit',
         minute: '2-digit'
       }).format(date);
-    } catch (error) {
+    } catch {
       return 'Không xác định';
     }
   };
@@ -193,7 +135,7 @@ const UserRow = React.memo(({
   };
 
   return (
-    <tr key={user.id} className={`border-b hover:bg-gray-50 transition-colors ${user.pendingReviews ? 'bg-pink-50' : ''}`}>
+    <tr key={user._id} className={`border-b hover:bg-gray-50 transition-colors ${user.pendingReviews ? 'bg-pink-50' : ''}`}>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         <div className="flex items-center">
           <div className="h-10 w-10 flex-shrink-0 mr-3 relative">
@@ -239,7 +181,7 @@ const UserRow = React.memo(({
         <div className="flex justify-end space-x-2">
           {onView && (
             <button
-              onClick={() => onView(user.id)}
+              onClick={() => onView(user._id)}
               className="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-full p-1"
               title="Xem chi tiết"
             >
@@ -248,7 +190,7 @@ const UserRow = React.memo(({
           )}
           {onEdit && (
             <button
-              onClick={() => onEdit(user.id)}
+              onClick={() => onEdit(user._id)}
               className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-full p-1"
               title="Chỉnh sửa"
             >
@@ -257,7 +199,7 @@ const UserRow = React.memo(({
           )}
           {onResetPassword && (
             <button
-              onClick={() => onResetPassword(user.id)}
+              onClick={() => onResetPassword(user._id)}
               className="text-yellow-600 hover:text-yellow-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 rounded-full p-1"
               title="Đặt lại mật khẩu"
             >
@@ -266,7 +208,7 @@ const UserRow = React.memo(({
           )}
           {onDelete && (
             <button
-              onClick={() => onDelete(user.id)}
+              onClick={() => onDelete(user._id)}
               className="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded-full p-1"
               title="Xóa"
             >
@@ -365,12 +307,6 @@ const UserTable: React.FC<UserTableProps> = ({
   onEdit,
   onDelete,
   onResetPassword,
-  searchTerm = '',
-  onSearchTermChange,
-  statusFilter = 'all',
-  onStatusFilterChange,
-  roleFilter = 'all',
-  onRoleFilterChange,
   onPageChange,
   currentPage: externalPage = 1,
   totalPages: externalTotalPages = 1,
@@ -454,7 +390,7 @@ const UserTable: React.FC<UserTableProps> = ({
       <>
         {tableData.currentUsers.map((user: User) => (
           <UserRow
-            key={user.id}
+            key={user._id}
             user={user}
             onView={onView}
             onEdit={onEdit}
@@ -486,7 +422,7 @@ const UserTable: React.FC<UserTableProps> = ({
         />
       </div>
     );
-  }, [currentPage, externalPage, handlePageChange, itemsPerPage, tableData.totalPages, totalItems]);
+  }, [currentPage, externalPage, handlePageChange, itemsPerPage, tableData.totalPages, totalItems, onPageChange]);
 
   // Thêm memo để giảm thiểu re-render không cần thiết cho toàn bộ component
   const TableContent = useMemo(() => (

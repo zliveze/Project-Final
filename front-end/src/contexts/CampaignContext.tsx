@@ -9,6 +9,38 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Định nghĩa kiểu dữ liệu
 
+// Interface cho error response từ API
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      message?: string;
+    };
+    status?: number;
+  };
+  message?: string;
+}
+
+// Interface cho campaign data từ API
+interface CampaignApiData {
+  _id: string;
+  title: string;
+  description: string;
+  type: 'Hero Banner' | 'Sale Event';
+  startDate: string | Date;
+  endDate: string | Date;
+  products: ProductInCampaign[];
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+// Interface cho paginated response từ API
+interface PaginatedApiResponse {
+  campaigns: CampaignApiData[];
+  total: number;
+  page: number | string;
+  limit: number;
+}
+
 // Định nghĩa interface cho tổ hợp biến thể trong campaign
 export interface CombinationInCampaign {
   combinationId: string;
@@ -113,7 +145,7 @@ interface CampaignContextProps {
     startDateTo?: Date,
     endDateFrom?: Date,
     endDateTo?: Date
-  ) => Promise<void>;
+  ) => Promise<Campaign[] | null | undefined>;
   fetchCampaignById: (id: string) => Promise<Campaign | null>;
   createCampaign: (campaignData: Partial<Campaign>) => Promise<Campaign | null>;
   updateCampaign: (id: string, campaignData: Partial<Campaign>) => Promise<Campaign | null>;
@@ -169,7 +201,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
   });
 
   // Hàm xử lý lỗi
-  const handleError = useCallback((error: any) => {
+  const handleError = useCallback((error: ApiErrorResponse) => {
     console.error('Campaign API Error:', error);
     const errorMessage = error?.response?.data?.message || error?.message || 'Đã xảy ra lỗi không xác định';
     setError(errorMessage);
@@ -201,7 +233,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
   }, [logout, router]);
 
   // Hàm chuẩn hóa dữ liệu từ API
-  const normalizeCampaign = (campaignData: any): Campaign => {
+  const normalizeCampaign = (campaignData: CampaignApiData): Campaign => {
     return {
       ...campaignData,
       startDate: campaignData.startDate ? new Date(campaignData.startDate) : new Date(),
@@ -312,10 +344,10 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       if (endDateTo) params.append('endDateTo', endDateTo.toISOString());
 
       const response = await apiClient.get(`/campaigns?${params.toString()}`);
-      const data = response.data;
+      const data = response.data as PaginatedApiResponse;
 
       // Chuẩn hóa dữ liệu chiến dịch
-      const normalizedCampaigns = data.campaigns.map((campaign: any) => normalizeCampaign(campaign));
+      const normalizedCampaigns = data.campaigns.map((campaign: CampaignApiData) => normalizeCampaign(campaign));
 
       setCampaigns(normalizedCampaigns);
       // Đảm bảo data.page luôn được xử lý như một number
@@ -325,8 +357,8 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       setTotalPages(Math.ceil(data.total / data.limit));
 
       return normalizedCampaigns;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -348,12 +380,12 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
     try {
       const response = await apiClient.get(`/campaigns/${id}`);
-      const campaignData = normalizeCampaign(response.data);
+      const campaignData = normalizeCampaign(response.data as CampaignApiData);
 
       setSelectedCampaign(campaignData);
       return campaignData;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -382,15 +414,15 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       };
 
       const response = await apiClient.post('/campaigns', payload);
-      const newCampaign = normalizeCampaign(response.data);
+      const newCampaign = normalizeCampaign(response.data as CampaignApiData);
 
       // Cập nhật state
       setCampaigns(prev => [...prev, newCampaign]);
 
       toast.success('Tạo chiến dịch mới thành công!');
       return newCampaign;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -422,7 +454,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       console.log('[CampaignContext] Update payload:', JSON.stringify(payload, null, 2)); // Log payload chi tiết
 
       const response = await apiClient.patch(`/campaigns/${id}`, payload);
-      const updatedCampaign = normalizeCampaign(response.data);
+      const updatedCampaign = normalizeCampaign(response.data as CampaignApiData);
 
       // Cập nhật state
       setCampaigns(prev =>
@@ -435,8 +467,8 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       toast.success('Cập nhật chiến dịch thành công!');
       return updatedCampaign;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -468,8 +500,8 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       toast.success('Xóa chiến dịch thành công!');
       return true;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiErrorResponse);
       return false;
     } finally {
       setIsLoading(false);
@@ -519,7 +551,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
         { products: restructuredProducts }
       );
 
-      const updatedCampaign = normalizeCampaign(response.data);
+      const updatedCampaign = normalizeCampaign(response.data as CampaignApiData);
 
       // Cập nhật state campaigns
       setCampaigns(prev => prev.map(campaign =>
@@ -533,8 +565,8 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       toast.success('Đã thêm sản phẩm vào chiến dịch thành công', { id: 'campaign-add-product-success' });
       return updatedCampaign;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -576,7 +608,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       const response = await apiClient.delete(url);
 
-      const updatedCampaign = normalizeCampaign(response.data);
+      const updatedCampaign = normalizeCampaign(response.data as CampaignApiData);
 
       // Cập nhật state campaigns
       setCampaigns(prev => prev.map(campaign =>
@@ -590,8 +622,8 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       toast.success('Đã xóa sản phẩm khỏi chiến dịch thành công', { id: 'campaign-remove-product-success' });
       return updatedCampaign;
-    } catch (error: any) {
-      return handleError(error);
+    } catch (error) {
+      return handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -616,7 +648,11 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
     try {
       // Tạo payload với các thông tin cần thiết
-      const payload: any = {
+      const payload: {
+        adjustedPrice: number;
+        variantId?: string;
+        combinationId?: string;
+      } = {
         adjustedPrice
       };
 
@@ -634,7 +670,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
         payload
       );
 
-      const updatedCampaign = normalizeCampaign(response.data);
+      const updatedCampaign = normalizeCampaign(response.data as CampaignApiData);
 
       // Cập nhật state campaigns
       setCampaigns(prev => prev.map(campaign =>
@@ -652,8 +688,9 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
       }
 
       return updatedCampaign;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Không thể cập nhật giá sản phẩm trong chiến dịch';
+    } catch (error) {
+      const apiError = error as ApiErrorResponse;
+      const errorMessage = apiError.response?.data?.message || 'Không thể cập nhật giá sản phẩm trong chiến dịch';
       setError(errorMessage);
       // Luôn hiển thị thông báo lỗi
       toast.error(errorMessage);
@@ -661,7 +698,7 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, accessToken, apiClient, selectedCampaign, handleError]);
+  }, [isAuthenticated, accessToken, apiClient, selectedCampaign]);
 
   // Lấy chiến dịch đang hoạt động (public)
   const fetchActiveCampaigns = useCallback(async (): Promise<void> => {
@@ -670,11 +707,11 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
     try {
       const response = await axios.get(`${API_URL}/campaigns/active`);
-      const activeCampaignsData = response.data.map((campaign: any) => normalizeCampaign(campaign));
+      const activeCampaignsData = (response.data as CampaignApiData[]).map((campaign: CampaignApiData) => normalizeCampaign(campaign));
 
       setActiveCampaigns(activeCampaignsData);
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiErrorResponse);
     } finally {
       setIsLoading(false);
     }
@@ -694,7 +731,15 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       // Chuẩn hóa dữ liệu endDate trong topPerformingCampaigns
       if (statsData.topPerformingCampaigns) {
-        statsData.topPerformingCampaigns = statsData.topPerformingCampaigns.map((campaign: any) => ({
+        statsData.topPerformingCampaigns = statsData.topPerformingCampaigns.map((campaign: {
+          _id: string;
+          title: string;
+          type: string;
+          totalOrders: number;
+          totalRevenue: number;
+          endDate: string | Date;
+          daysLeft: number;
+        }) => ({
           ...campaign,
           endDate: new Date(campaign.endDate)
         }));
@@ -702,12 +747,12 @@ export const CampaignProvider: React.FC<{children: ReactNode}> = ({ children }) 
 
       setDashboardStats(statsData);
       console.log('[fetchCampaignStats] Stats loaded successfully:', statsData);
-    } catch (error: any) {
+    } catch (error) {
       // Không gọi handleError để tránh hiển thị toast error cho stats
       console.error('Error fetching campaign stats:', error);
       setDashboardStats(null);
     }
-  }, [isAuthenticated, accessToken]); // Simplified dependencies
+  }, [isAuthenticated, accessToken, apiClient]);
 
   // Reset state
   const resetState = useCallback(() => {

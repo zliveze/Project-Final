@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiX, FiEdit, FiTrash2, FiExternalLink, FiFacebook, FiInstagram, FiYoutube, FiMapPin, FiGlobe, FiStar, FiCheck, FiInfo, FiCalendar, FiEye } from 'react-icons/fi';
-import Image from 'next/image';
-import { Brand } from './BrandForm';
+import { Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 import { formatDate } from '@/utils/formatDate';
 
 interface BrandDetailModalProps {
@@ -29,13 +28,23 @@ const BrandDetailModal: React.FC<BrandDetailModalProps> = ({ brand, isOpen, onCl
   if (!brand || (!isOpen && !modalVisible)) return null;
 
   const handleEdit = () => {
-    onClose();
-    onEdit(brand.id);
+    if (brand.id) {
+      onClose();
+      onEdit(brand.id);
+    } else {
+      console.error("Cannot edit brand: ID is missing.");
+      // Optionally, show a toast message to the user
+    }
   };
 
   const handleDelete = () => {
-    onClose();
-    onDelete(brand.id);
+    if (brand.id) {
+      onClose();
+      onDelete(brand.id);
+    } else {
+      console.error("Cannot delete brand: ID is missing.");
+      // Optionally, show a toast message to the user
+    }
   };
 
   return (
@@ -135,7 +144,7 @@ const BrandDetailModal: React.FC<BrandDetailModalProps> = ({ brand, isOpen, onCl
                         <FiCalendar className="mr-1.5 h-4 w-4 text-gray-400" />
                         Ngày tạo
                       </div>
-                      <p className="text-gray-900">{formatDate(brand.createdAt, true)}</p>
+                      <p className="text-gray-900">{formatDate(brand.createdAt ? (brand.createdAt instanceof Date ? brand.createdAt.toISOString() : brand.createdAt) : '', true)}</p>
                     </div>
 
                     <div>
@@ -143,7 +152,7 @@ const BrandDetailModal: React.FC<BrandDetailModalProps> = ({ brand, isOpen, onCl
                         <FiCalendar className="mr-1.5 h-4 w-4 text-gray-400" />
                         Cập nhật lần cuối
                       </div>
-                      <p className="text-gray-900">{formatDate(brand.updatedAt, true)}</p>
+                      <p className="text-gray-900">{formatDate(brand.updatedAt ? (brand.updatedAt instanceof Date ? brand.updatedAt.toISOString() : brand.updatedAt) : '', true)}</p>
                     </div>
 
                     <div className="sm:col-span-2">

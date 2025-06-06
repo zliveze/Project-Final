@@ -13,6 +13,21 @@ interface ReviewFormProps {
   onSubmitSuccess: () => void;
 }
 
+interface ExistingImage {
+  url: string;
+  alt?: string;
+  publicId?: string;
+  // Add other properties if known, e.g., public_id, etc.
+  [key: string]: unknown; // Allows for other properties not strictly defined
+}
+
+interface ReviewStatusChangeData {
+  reviewId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  // Add other properties if known
+  [key: string]: unknown;
+}
+
 const ReviewForm: React.FC<ReviewFormProps> = ({
   productId,
   reviewId,
@@ -26,7 +41,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
-  const [existingImages, setExistingImages] = useState<any[]>([]);
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -48,10 +63,10 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
 
             // Lưu trữ hình ảnh hiện có
             if (reviewData.images && reviewData.images.length > 0) {
-              setExistingImages(reviewData.images);
+              setExistingImages(reviewData.images as ExistingImage[]);
 
               // Tạo URL preview cho hình ảnh hiện có
-              const imageUrls = reviewData.images.map((img: any) => img.url);
+              const imageUrls = (reviewData.images as ExistingImage[]).map((img: ExistingImage) => img.url);
               setImagePreviewUrls(imageUrls);
             }
 
@@ -70,7 +85,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
   // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ WebSocket
   useEffect(() => {
     // Tạo hàm xử lý sự kiện client-review-status-changed
-    const handleReviewStatusChange = (data: any) => {
+    const handleReviewStatusChange = (data: ReviewStatusChangeData) => {
       console.log('ReviewForm: Received client-review-status-changed event:', data);
       if (data && data.reviewId === reviewId) {
         setReviewStatus(data.status);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Edit2, Trash2, Eye, Search, Filter, ChevronDown } from 'lucide-react'; // Updated icons
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+// import { vi } from 'date-fns/locale'; // Removed unused import
 import Pagination from '../common/Pagination';
 import { Event } from '@/contexts/EventsContext';
 

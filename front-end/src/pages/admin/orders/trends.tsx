@@ -37,6 +37,19 @@ interface CategoryData {
   value: number;
 }
 
+interface PeriodData {
+  labels: string[];
+  revenue: number[];
+  orders: number[];
+}
+
+interface TrendChartDataType {
+  week: PeriodData;
+  month: PeriodData;
+  quarter: PeriodData;
+  year: PeriodData;
+}
+
 // Define types for Chart.js to replace 'any'
 interface ChartWindow extends Window {
   Chart?: {
@@ -130,7 +143,8 @@ const OrderTrendsPage: React.FC = () => {
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
   const [topCategories, setTopCategories] = useState<CategoryData[]>([]);
   const [topProducts, setTopProducts] = useState<CategoryData[]>([]);
-  const [trendChartData] = useState({
+  const [chartJsLoaded, setChartJsLoaded] = useState(false);
+  const [trendChartData] = useState<TrendChartDataType>({
   // setTrendChartData removed as it's not used
     week: {
       labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
@@ -353,26 +367,23 @@ const OrderTrendsPage: React.FC = () => {
   
   // Vẽ biểu đồ xu hướng
   useEffect(() => {
-    // Kiểm tra xem thư viện Chart đã được load hay chưa
     const chartWindow = window as ChartWindow;
-    if (typeof window !== 'undefined' && chartWindow.Chart && !isLoading) {
+    if (chartJsLoaded && typeof chartWindow.Chart !== 'undefined' && !isLoading) {
       const renderTrendChart = () => {
         const trendChart = document.getElementById('trendChart');
         if (!trendChart) return;
 
-        // Xóa biểu đồ cũ nếu tồn tại
         if (chartWindow.trendChartInstance) {
           chartWindow.trendChartInstance.destroy();
         }
 
         const ctx = (trendChart as HTMLCanvasElement).getContext('2d');
-        if (!ctx) return;
+        if (!ctx || !chartWindow.Chart) return; // Added null check for chartWindow.Chart
 
         const labels = trendChartData[periodType].labels;
         const revenueData = trendChartData[periodType].revenue;
         const ordersData = trendChartData[periodType].orders;
 
-        // Vẽ biểu đồ xu hướng
         chartWindow.trendChartInstance = new chartWindow.Chart(ctx, {
           type: 'line',
           data: {
@@ -452,27 +463,24 @@ const OrderTrendsPage: React.FC = () => {
         });
       };
 
-      // Sử dụng setTimeout để đảm bảo DOM đã được render
       setTimeout(renderTrendChart, 300);
     }
-  }, [periodType, isLoading, trendChartData]);
+  }, [periodType, isLoading, trendChartData, chartJsLoaded]);
   
   // Vẽ biểu đồ danh mục và sản phẩm
   useEffect(() => {
     const chartWindow = window as ChartWindow;
-    if (typeof window !== 'undefined' && chartWindow.Chart && !isLoading && topCategories.length > 0 && topProducts.length > 0) {
-      // Vẽ biểu đồ danh mục
+    if (chartJsLoaded && typeof chartWindow.Chart !== 'undefined' && !isLoading && topCategories.length > 0 && topProducts.length > 0) {
       const renderCategoryChart = () => {
         const categoriesChart = document.getElementById('categoriesChart');
         if (!categoriesChart) return;
 
-        // Xóa biểu đồ cũ nếu tồn tại
         if (chartWindow.categoryChartInstance) {
           chartWindow.categoryChartInstance.destroy();
         }
 
         const ctxCategories = (categoriesChart as HTMLCanvasElement).getContext('2d');
-        if (!ctxCategories) return;
+        if (!ctxCategories || !chartWindow.Chart) return; // Added null check for chartWindow.Chart
 
         const categories = topCategories.map(item => item.name);
         const categoryValues = topCategories.map(item => item.value);
@@ -523,18 +531,16 @@ const OrderTrendsPage: React.FC = () => {
         });
       };
       
-      // Vẽ biểu đồ sản phẩm
       const renderProductChart = () => {
         const productsChart = document.getElementById('productsChart');
         if (!productsChart) return;
 
-        // Xóa biểu đồ cũ nếu tồn tại
         if (chartWindow.productChartInstance) {
           chartWindow.productChartInstance.destroy();
         }
 
         const ctxProducts = (productsChart as HTMLCanvasElement).getContext('2d');
-        if (!ctxProducts) return;
+        if (!ctxProducts || !chartWindow.Chart) return; // Added null check for chartWindow.Chart
 
         const products = topProducts.map(item => item.name);
         const productCounts = topProducts.map(item => item.count);
@@ -581,13 +587,12 @@ const OrderTrendsPage: React.FC = () => {
         });
       };
       
-      // Sử dụng setTimeout để đảm bảo DOM đã được render
       setTimeout(() => {
         renderCategoryChart();
         renderProductChart();
       }, 300);
     }
-  }, [topCategories, topProducts, isLoading]);
+  }, [topCategories, topProducts, isLoading, chartJsLoaded]);
   
   return (
     <AdminLayout title="Phân tích xu hướng đơn hàng">
@@ -595,8 +600,12 @@ const OrderTrendsPage: React.FC = () => {
         <title>Phân tích xu hướng đơn hàng | Yumin Admin</title>
       </Head>
       
-      {/* Import thư viện Chart.js */}
-      <Script src="https://cdn.jsdelivr.net/npm/chart.js"></Script>
+      <Script 
+        src="https://cdn.jsdelivr.net/npm/chart.js"
+        onLoad={() => {
+          setChartJsLoaded(true);
+        }}
+      />
       
       <div className="p-6">
         <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
@@ -634,7 +643,6 @@ const OrderTrendsPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Thông tin giải thích trang phân tích xu hướng */}
         <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg shadow-sm">
           <h2 className="text-lg font-medium text-purple-800 mb-2 flex items-center">
             <FiTrendingUp className="mr-2 text-purple-600" />
@@ -651,7 +659,6 @@ const OrderTrendsPage: React.FC = () => {
           </ul>
         </div>
         
-        {/* Bộ lọc */}
         {showFilters && (
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
             <h2 className="text-lg font-medium text-gray-800 mb-4">Tùy chọn lọc</h2>
@@ -701,13 +708,11 @@ const OrderTrendsPage: React.FC = () => {
           </div>
         )}
         
-        {/* Component thống kê nâng cao */}
         <OrderStatsAdvanced 
           periodType={periodType} 
           onPeriodChange={handlePeriodChange}
         />
         
-        {/* Bảng so sánh */}
         {!isLoading && comparisonData && (
           <div className="bg-white shadow-md rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -799,7 +804,6 @@ const OrderTrendsPage: React.FC = () => {
           </div>
         )}
         
-        {/* Biểu đồ xu hướng */}
         <div className="bg-white shadow-md rounded-lg p-6 mb-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
             <FiTrendingUp className="mr-2 text-indigo-500" />
@@ -838,9 +842,7 @@ const OrderTrendsPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Phân tích danh mục và sản phẩm */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Top danh mục */}
           <div className="bg-white shadow-md rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
               <FiBarChart2 className="mr-2 text-green-500" />
@@ -852,7 +854,6 @@ const OrderTrendsPage: React.FC = () => {
             </div>
           </div>
           
-          {/* Top sản phẩm */}
           <div className="bg-white shadow-md rounded-lg p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
               <FiBarChart2 className="mr-2 text-pink-500" />
@@ -869,4 +870,4 @@ const OrderTrendsPage: React.FC = () => {
   );
 };
 
-export default OrderTrendsPage; 
+export default OrderTrendsPage;

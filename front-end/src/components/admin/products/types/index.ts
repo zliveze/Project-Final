@@ -1,7 +1,5 @@
 // Types for product management
 
-import { ProductFormData } from '../ProductForm/types';
-
 // Các trạng thái sản phẩm
 export type ProductStatus = 'active' | 'out_of_stock' | 'discontinued';
 
@@ -139,4 +137,4 @@ export interface TableColumnConfig {
   visible: boolean;
   width?: string;
   sortable?: boolean;
-} 
+}

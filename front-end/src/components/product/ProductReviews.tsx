@@ -3,10 +3,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiClock, FiX, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
-import { io, Socket } from 'socket.io-client';
+// FiClock removed as it's unused
+import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiX, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
+import { io } from 'socket.io-client';
 import ReviewForm from './ReviewForm';
-import { useUserReview, Review as ReviewType } from '@/contexts/user/UserReviewContext';
+import { useUserReview, Review as ReviewType, ReviewReply } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Cập nhật interface LikeButtonProps, loại bỏ handleLikeReview
@@ -132,11 +133,7 @@ interface ReviewImage {
   alt?: string;
 }
 
-interface ReviewReply {
-  userId: string;
-  content: string;
-  createdAt: string;
-}
+// ReviewReply interface removed as it's unused
 
 interface ProductReviewsProps {
   productId: string;
@@ -151,7 +148,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     fetchProductReviews,
     getReviewStats,
     checkCanReview,
-    toggleLikeReview,
     deleteReview: deleteReviewFromContext,
     loading: contextLoading,
   } = useUserReview();
@@ -184,7 +180,6 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
   const currentUserId = currentUser?._id;
   const [localStorageToken, setLocalStorageToken] = useState<string | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -205,13 +200,20 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         transports: ['websocket', 'polling']
       });
 
-      setSocket(newSocket);
+      // Define types for socket data
+      interface ReviewSocketUpdateData {
+        status?: string;
+        reviewId?: string;
+      }
+      interface ReviewSocketDeleteData {
+        reviewId?: string;
+      }
 
       newSocket.on('connect', () => {
         console.log('ProductReviews: WebSocket connected', newSocket.id);
 
         // Lắng nghe sự kiện cập nhật đánh giá cho sản phẩm cụ thể này
-        newSocket.on(`product-${productId}-review-updated`, (data: any) => {
+        newSocket.on(`product-${productId}-review-updated`, (data: ReviewSocketUpdateData) => {
           console.log(`ProductReviews: Received product-${productId}-review-updated event`, data);
 
           if (data.status && data.reviewId) {
@@ -246,7 +248,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         });
 
         // Lắng nghe sự kiện xóa đánh giá cho sản phẩm cụ thể này
-        newSocket.on(`product-${productId}-review-deleted`, (data: any) => {
+        newSocket.on(`product-${productId}-review-deleted`, (data: ReviewSocketDeleteData) => {
           console.log(`ProductReviews: Received product-${productId}-review-deleted event`, data);
 
           if (data.reviewId) {
@@ -263,7 +265,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         });
 
         // Lắng nghe sự kiện client-review-status-changed từ UserReviewContext
-        newSocket.on('client-review-status-changed', (data: any) => {
+        newSocket.on('client-review-status-changed', (data: ReviewSocketUpdateData) => {
           console.log(`ProductReviews: Received client-review-status-changed event`, data);
 
           if (data.reviewId && data.status) {
@@ -273,7 +275,10 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                 return prevPendingReviews.map(review => {
                   if (review._id === data.reviewId) {
                     // Cập nhật trạng thái đánh giá, nhưng giữ lại đánh giá trong danh sách
-                    return { ...review, status: data.status };
+                    const newStatus = (data.status === 'pending' || data.status === 'approved' || data.status === 'rejected') 
+                                      ? data.status 
+                                      : review.status; // Giữ lại status cũ nếu data.status không hợp lệ
+                    return { ...review, status: newStatus };
                   }
                   return review;
                 });
@@ -316,10 +321,9 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           newSocket.off('connect_error');
           newSocket.close();
         }
-        setSocket(null);
       };
     }
-  }, [productId, fetchProductReviews]);
+  }, [productId, fetchProductReviews, currentUserId, userPendingReviews]); // Added currentUserId and userPendingReviews to dependencies
 
   const эффективныйApiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
                         ? process.env.NEXT_PUBLIC_API_URL
@@ -333,9 +337,38 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
         'Authorization': localStorageToken ? `Bearer ${localStorageToken}` : ''
       }
     });
-  }, [localStorageToken]);
+  }, [localStorageToken, эффективныйApiUrl]); // Added эффективныйApiUrl to dependencies
 
-  const mapReviewData = useCallback((review: any): ReviewType => {
+  // Define a more specific type for incoming review data
+  interface IncomingReviewData {
+    _id?: string;
+    reviewId?: string;
+    productId?: string;
+    variantId?: string;
+    productName?: string;
+    productImage?: string;
+    rating?: number;
+    content?: string;
+    images?: ReviewImage[];
+    likes?: number;
+    status?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    verified?: boolean;
+    isEdited?: boolean;
+    isLiked?: boolean;
+    likedBy?: string[];
+    user?: { _id: string; name: string };
+    replies?: unknown[];
+  }
+
+  const mapReviewData = useCallback((review: IncomingReviewData): ReviewType => {
+    const validStatus = (s?: string): "pending" | "approved" | "rejected" => {
+      if (s === 'pending' || s === 'approved' || s === 'rejected') {
+        return s;
+      }
+      return 'pending';
+    };
     return {
       _id: review._id || review.reviewId || '',
       reviewId: review.reviewId || review._id || '',
@@ -347,7 +380,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       content: review.content || '',
       images: review.images || [],
       likes: review.likes || 0,
-      status: review.status || 'pending',
+      status: validStatus(review.status),
       createdAt: review.createdAt || new Date().toISOString(),
       updatedAt: review.updatedAt,
       verified: review.verified || false,
@@ -355,7 +388,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
       isLiked: review.isLiked || false,
       likedBy: review.likedBy || [],
       user: review.user && review.user.name ? { _id: review.user._id, name: review.user.name } : { _id: '', name: 'Người dùng ẩn danh' },
-      replies: review.replies,
+      replies: review.replies as ReviewReply[] | undefined, // Cast to ReviewReply[] to align with ReviewType
     };
   }, [productId]);
 
@@ -409,7 +442,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
           setCanReviewState({ canReview: false, hasPurchased: false, hasReviewed: false });
         }
 
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Lỗi khi tải dữ liệu đánh giá ban đầu:', error);
       } finally {
         setComponentLoading(false);
@@ -591,7 +624,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('vi-VN');
-    } catch (error) {
+    } catch {
       return 'Không xác định';
     }
   };
@@ -605,21 +638,21 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     document.body.style.overflow = 'hidden';
   };
 
-  const closeImageModal = () => {
+  const closeImageModal = useCallback(() => {
     setIsImageModalOpen(false);
     // Cho phép scroll lại khi đóng modal
     document.body.style.overflow = 'unset';
-  };
+  }, []);
 
-  const nextImage = () => {
+  const nextImage = useCallback(() => {
     setCurrentImageIndex((prevIndex) => (prevIndex + 1) % currentImages.length);
-  };
+  }, [currentImages.length]);
 
-  const prevImage = () => {
+  const prevImage = useCallback(() => {
     setCurrentImageIndex((prevIndex) =>
       prevIndex === 0 ? currentImages.length - 1 : prevIndex - 1
     );
-  };
+  }, [currentImages.length]);
 
   // Xử lý phím bấm cho modal hình ảnh
   useEffect(() => {
@@ -637,7 +670,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isImageModalOpen, currentImages.length]);
+  }, [isImageModalOpen, currentImages.length, nextImage, prevImage, closeImageModal]); // Added nextImage, prevImage, closeImageModal to dependencies
 
   const userReviewForThisProduct = useMemo(() => displayedReviews.find(r => r.user?._id === currentUserId), [displayedReviews, currentUserId]);
   // Người dùng có thể chỉnh sửa đánh giá của họ bất kể trạng thái là gì
@@ -811,7 +844,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       } else {
                         setUserPendingReviews([]);
                       }
-                    } catch (e) {
+                    } catch (e: unknown) {
                         console.error("Error fetching user's pending reviews post-submit:", e);
                         setUserPendingReviews([]);
                     }
@@ -1011,6 +1044,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex justify-center">
                   <div className="relative w-full max-h-[60vh] flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={currentImages[currentImageIndex]?.url}
                       alt={currentImages[currentImageIndex]?.alt || `Ảnh ${currentImageIndex + 1}`}
@@ -1031,6 +1065,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
                       }`}
                       onClick={() => setCurrentImageIndex(index)}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={image.url}
                         alt={image.alt || `Ảnh ${index + 1}`}

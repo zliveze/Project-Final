@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, ChevronDown, ChevronUp, Loader2, ImageOff, Edit3, PackageSearch } from 'lucide-react'; // Updated icons
-import { format } from 'date-fns';
+import Image from 'next/image'; // Import next/image
+import { Trash2, ChevronDown, ChevronUp, ImageOff } from 'lucide-react'; // Updated icons
 import { toast } from 'react-hot-toast';
 // Sử dụng ProductInCampaign từ CampaignContext để đảm bảo tính nhất quán
-import { ProductInCampaign, VariantInCampaign, CombinationInCampaign } from '@/contexts/CampaignContext';
+import { ProductInCampaign } from '@/contexts/CampaignContext';
 
 // Định nghĩa kiểu dữ liệu cho props
 interface CampaignProductsTableProps {
@@ -161,10 +161,12 @@ const CampaignProductsTable: React.FC<CampaignProductsTableProps> = ({
                       <td className="px-4 py-4">
                         <div className="flex items-center">
                           {product.image ? (
-                            <img
+                            <Image
                               className="h-10 w-10 rounded object-cover border border-slate-200"
                               src={product.image}
                               alt={product.name || 'Sản phẩm'}
+                              width={40} // h-10 w-10 translates to 40px
+                              height={40}
                             />
                           ) : (
                             <div className="flex-shrink-0 h-10 w-10 bg-slate-100 rounded flex items-center justify-center">
@@ -239,10 +241,12 @@ const CampaignProductsTable: React.FC<CampaignProductsTableProps> = ({
                             <td className="pl-10 pr-4 py-3 whitespace-nowrap">
                               <div className="flex items-center">
                                 {variant.image ? (
-                                  <img
+                                  <Image
                                     className="h-8 w-8 rounded object-cover border border-slate-200"
                                     src={variant.image}
                                     alt={variant.variantName || 'Biến thể'}
+                                    width={32} // h-8 w-8 translates to 32px
+                                    height={32}
                                   />
                                 ) : (
                                   <div className="flex-shrink-0 h-8 w-8 bg-slate-100 rounded flex items-center justify-center">

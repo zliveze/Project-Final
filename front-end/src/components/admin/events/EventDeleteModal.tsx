@@ -45,8 +45,12 @@ const EventDeleteModal: React.FC<EventDeleteModalProps> = ({
 
       // Đóng modal sau khi xóa thành công
       // onClose(); // Sẽ được gọi từ component cha sau khi deleteEvent thành công
-    } catch (error: any) {
-      toast.error(error.message || 'Đã xảy ra lỗi khi xóa sự kiện!');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Đã xảy ra lỗi khi xóa sự kiện!');
+      }
     } finally {
       setIsDeleting(false);
       // Đảm bảo modal đóng ngay cả khi có lỗi, hoặc để component cha quyết định

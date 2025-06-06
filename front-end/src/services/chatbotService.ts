@@ -318,7 +318,7 @@ export class ChatbotService {
     limit: number = 20
   ): Promise<GetHistoryResponse> {
     const maxRetries = 2;
-    let lastError: ApiError;
+    let lastError: ApiError = { message: 'Không thể tải lịch sử chat. Vui lòng thử lại.' }; // Initialize lastError
 
     // Lấy userId từ localStorage hoặc sessionStorage
     const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -361,7 +361,7 @@ export class ChatbotService {
         console.error(`Error getting chat history (attempt ${attempt + 1}):`, error);
 
         // Don't retry on certain errors
-        if (error.response?.status === 404 || error.response?.status === 401) {
+        if (lastError.response?.status === 404 || lastError.response?.status === 401) {
           break;
         }
 
@@ -574,7 +574,7 @@ export class ChatbotService {
     if (error.response?.status === 429) {
       return 'Bạn đã gửi quá nhiều tin nhắn. Vui lòng chờ một chút.';
     }
-    if (error.response?.status >= 500) {
+    if (typeof error.response?.status === 'number' && error.response.status >= 500) {
       return 'Hệ thống đang bảo trì. Vui lòng thử lại sau.';
     }
     return error.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
@@ -620,4 +620,4 @@ export class ChatbotService {
   }
 }
 
-export default ChatbotService; 
+export default ChatbotService;

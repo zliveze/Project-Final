@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'; // Add useMemo
-import { FaFilter, FaChevronDown, FaChevronUp, FaGift, FaPercent, FaStar, FaHeart, FaRegStar, FaSearch } from 'react-icons/fa';
+import { FaFilter, FaChevronDown, FaChevronUp, FaGift, FaPercent, FaHeart, FaSearch } from 'react-icons/fa';
 // Removed IoMdColorPalette, FaShippingFast as they are no longer used
 import { GiMilkCarton } from 'react-icons/gi';
 import { TbBottle } from 'react-icons/tb';
@@ -7,7 +7,6 @@ import { TbBottle } from 'react-icons/tb';
 import { ShopProductFilters, useShopProduct } from '@/contexts/user/shop/ShopProductContext';
 import { useCategories } from '@/contexts/user/categories/CategoryContext'; // Import Category context hook mới
 import { useBrands } from '@/contexts/user/brands/BrandContext'; // Import Brand context hook mới
-import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import axiosInstance from '@/lib/axiosInstance';
 
@@ -32,7 +31,7 @@ interface ShopFiltersProps {
 
 // Thêm memoized component cho filter option
 const FilterOptionItem = memo<{
-  section: any;
+  section: FilterSection;
   option: { id: string; label: string };
   isChecked: boolean;
   onToggle: (id: string, checked: boolean) => void;
@@ -272,16 +271,14 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
   const [sectionsState, setSectionsState] = useState<FilterSection[]>([]);
   const [showAllBrands, setShowAllBrands] = useState<boolean>(false);
-  const [showAllCategories, setShowAllCategories] = useState<boolean>(false);
 
   // Constants for display limits
   const FEATURED_BRANDS_LIMIT = 6;
   const FILTER_OPTIONS_LIMIT = 8;
 
-  const { categories, loading: loadingCategories } = useCategories(); // Use categories
+  const { categories } = useCategories(); // Use categories
   const { brands, loading: loadingBrands } = useBrands(); // Use brands
-  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, fetchProducts, itemsPerPage, logFilterUse, logSearch } = useShopProduct(); // Get skin type and concern options from context
-  const router = useRouter();
+  const { skinTypeOptions, concernOptions, fetchSkinTypeOptions, fetchConcernOptions, logFilterUse, logSearch } = useShopProduct(); // Get skin type and concern options from context
 
   // Memoized validation function
   const isValidObjectId = useCallback((id: string): boolean => {
@@ -289,12 +286,12 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
   }, []);
 
   // Hàm tracking filter usage
-  const trackFilterUsage = useCallback(async (filterData: any) => {
+  const trackFilterUsage = useCallback(async (filterData: Record<string, unknown>) => {
     if (!isAuthenticated) return;
 
     try {
       await axiosInstance.post('/recommendations/log/filter', filterData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error logging filter usage:', error);
     }
   }, [isAuthenticated]);
@@ -308,8 +305,8 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         icon: <FaFilter />,
         isOpen: sectionsState.find(s => s.title === 'Danh mục')?.isOpen ?? true,
         type: 'checkbox' as const,
-        options: categories.map((cat: any) => ({
-          id: cat._id || cat.id,
+        options: categories.map((cat: { _id?: string; id?: string; name: string }) => ({
+          id: cat._id || cat.id || '',
           label: cat.name
         }))
       },
@@ -319,8 +316,8 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
         icon: <FaHeart />,
         isOpen: sectionsState.find(s => s.title === 'Thương hiệu')?.isOpen ?? true,
         type: 'checkbox' as const,
-        options: brands.map((brand: any) => ({
-          id: brand._id || brand.id,
+        options: brands.map((brand: { _id?: string; id?: string; name: string }) => ({
+          id: brand._id || brand.id || '',
           label: brand.name
         }))
       },
@@ -377,7 +374,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     if (sectionsChanged) {
       setSectionsState(newSections);
     }
-  }, [categories, brands, skinTypeOptions, concernOptions, buildSections, fetchSkinTypeOptions, fetchConcernOptions]);
+  }, [categories, brands, skinTypeOptions, concernOptions, buildSections, fetchSkinTypeOptions, fetchConcernOptions, sectionsState]);
 
   // Mức giá phổ biến - memoized để tránh re-create
   const popularPriceRanges = useMemo(() => [
@@ -408,7 +405,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
     // Sử dụng hàm setter để cập nhật state
     setSearchTerm(filters.search || '');
 
-  }, [filters.search]);
+  }, [filters.search, searchTerm]);
 
   // Function to toggle section visibility
   const toggleSection = (index: number) => {
@@ -735,16 +732,16 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
               </div>
             ))
           ) : (
-            (showAllBrands ? brands : brands.slice(0, FEATURED_BRANDS_LIMIT)).map((brand: any, brandIndex) => (
+            (showAllBrands ? brands : brands.slice(0, FEATURED_BRANDS_LIMIT)).map((brand: { _id?: string; id?: string; name: string }, brandIndex: number) => (
               <div
                 key={`brand-featured-${brand.id || brandIndex}`}
                 className={`border rounded-md p-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
-                  (filters.brandId?.split(',') || []).includes(brand._id || brand.id)
-                    ? 'border-[#d53f8c] bg-[#fdf2f8] shadow-sm' 
+                  (filters.brandId?.split(',') || []).includes(brand._id || brand.id || '')
+                    ? 'border-[#d53f8c] bg-[#fdf2f8] shadow-sm'
                     : 'hover:border-[#d53f8c] hover:bg-gray-50 hover:shadow-sm'
                 }`}
                 onClick={() => {
-                  const brandId = brand._id || brand.id;
+                  const brandId = brand._id || brand.id || '';
                   console.log('Clicked brand:', brand.name, brandId);
                   const currentBrandIds = filters.brandId?.split(',') || [];
                   const isCurrentlySelected = currentBrandIds.includes(brandId);
@@ -784,7 +781,7 @@ const ShopFilters: React.FC<ShopFiltersProps> = ({ filters, onFilterChange, onSe
                     section={section}
                     filters={filters}
                     onToggle={(filterKey, id, checked) => handleCheckboxChange(filterKey as keyof ShopProductFilters, id, checked)}
-                    loading={loadingCategories || loadingBrands}
+                    loading={loadingBrands}
                     limit={FILTER_OPTIONS_LIMIT}
                   />
                 )}

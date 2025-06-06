@@ -95,14 +95,14 @@ const WishlistItems = ({ items, onRemoveFromWishlist, onAddToCart, isLoading = f
                 <Link href={`/shop/product/${item._id}`}>
                   <div className="w-full h-full relative overflow-hidden rounded-md group">
                     <Image
-                      src={item.image || item.imageUrl || '/404.png'}
+                      src={item.image || '/404.png'}
                       alt={item.name}
                       fill
                       className="object-cover rounded-md transition-transform group-hover:scale-110 duration-300"
                     />
-                    {(item.discountPrice || (item.currentPrice && item.currentPrice < item.price)) && (
+                    {(item.currentPrice && item.currentPrice < item.price) && (
                       <div className="absolute top-1 right-1 bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded-sm">
-                        -{Math.round(((item.price - (item.discountPrice || item.currentPrice || 0)) / item.price) * 100)}%
+                        -{Math.round(((item.price - item.currentPrice) / item.price) * 100)}%
                       </div>
                     )}
                   </div>

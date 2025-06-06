@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import NotificationSection from '../NotificationSection';
 import MiddleHeader from './MiddleHeader';
 import BottomHeader from './BottomHeader';
@@ -15,7 +15,6 @@ export default function MainHeader() {
     isMobileMenuOpen,
     setMobileMenuOpen,
     categories,
-    featuredBrands,
     isLoggedIn,
     userProfile,
     cartItemCount,
@@ -44,7 +43,7 @@ export default function MainHeader() {
       <div className="relative">
         <BottomHeader
           categories={categories}
-          featuredBrands={featuredBrands}
+          // featuredBrands={featuredBrands} // Removed as it's no longer a prop of BottomHeader
         />
       </div>
 
@@ -54,7 +53,6 @@ export default function MainHeader() {
           isOpen={isMobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
           categories={categories}
-          featuredBrands={featuredBrands}
           isLoggedIn={isLoggedIn}
           userProfile={userProfile}
         />

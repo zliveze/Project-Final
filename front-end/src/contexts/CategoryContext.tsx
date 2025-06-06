@@ -2,6 +2,15 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { useRouter } from 'next/router';
 import { useAdminAuth } from './AdminAuthContext';
 
+// Interface cho error response
+interface ApiError {
+  message?: string;
+  status?: number;
+  response?: {
+    status?: number;
+  };
+}
+
 // Định nghĩa kiểu dữ liệu cho danh mục
 export interface Category {
   _id?: string;
@@ -101,7 +110,7 @@ const CATEGORY_API = {
 // Provider component
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const router = useRouter();
-  const { accessToken, checkAuth } = useAdminAuth();
+  const { checkAuth } = useAdminAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +160,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [router]);
 
   // Xử lý lỗi chung
-  const handleError = useCallback((error: any) => {
+  const handleError = useCallback((error: ApiError) => {
     console.error('Category operation error:', error);
     const errorMessage = error.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
@@ -182,7 +191,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     try {
       errorData = JSON.parse(responseText);
-    } catch (e) {
+    } catch {
       // Nếu không phải JSON, tạo đối tượng lỗi với văn bản gốc
       errorData = {
         message: `${errorPrefix}: ${response.status} - ${responseText}`,
@@ -191,9 +200,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     // Tạo đối tượng lỗi với thông tin bổ sung
-    const error = new Error(errorData.message || `${errorPrefix}: ${response.status}`);
-    (error as any).status = response.status;
-    (error as any).response = { status: response.status };
+    const error = new Error(errorData.message || `${errorPrefix}: ${response.status}`) as ApiError;
+    error.status = response.status;
+    error.response = { status: response.status };
     throw error;
   }, []);
 
@@ -228,9 +237,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       const data = await response.json();
       console.log(`Tải lên ảnh thành công, URL: ${data.url ? data.url.substring(0, 50) + '...' : 'không có'}`);
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi upload ảnh:', error);
-      handleError(error);
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -278,8 +287,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       setTotalPages(data.pages);
       setItemsPerPage(data.limit);
       setError(null);
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
     } finally {
       setLoading(false);
     }
@@ -300,7 +309,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.message || `Lỗi khi lấy danh mục active: ${response.status}`);
-        } catch (parseError) {
+        } catch {
           throw new Error(`Lỗi khi lấy danh mục active: ${response.status}`);
         }
       }
@@ -310,9 +319,10 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       setCategories(data.items);
       setError(null);
-    } catch (error: any) {
+    } catch (error) {
+      const apiError = error as ApiError;
       console.error('Chi tiết lỗi khi lấy danh mục active:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách danh mục');
+      setError(apiError.message || 'Lỗi khi lấy danh sách danh mục');
     } finally {
       setLoading(false);
     }
@@ -333,8 +343,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       const data = await response.json();
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -354,8 +364,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       const data = await response.json();
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -435,9 +445,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
 
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi tạo danh mục:', error);
-      handleError(error);
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -511,7 +521,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.message || `Lỗi khi cập nhật danh mục: ${response.status}`;
-        } catch (e) {
+        } catch {
           errorMessage = `Lỗi khi cập nhật danh mục: ${response.status}, body: ${responseText}`;
         }
         console.error('Chi tiết lỗi cập nhật:', errorMessage);
@@ -522,8 +532,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       try {
         data = JSON.parse(responseText);
         console.log('Dữ liệu cập nhật thành công:', data);
-      } catch (e) {
-        console.error('Lỗi khi parse JSON từ response:', e);
+      } catch (parseError) {
+        console.error('Lỗi khi parse JSON từ response:', parseError);
         throw new Error('Dữ liệu trả về không hợp lệ');
       }
 
@@ -535,9 +545,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       );
 
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi chi tiết khi cập nhật danh mục:', error);
-      handleError(error);
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -573,8 +583,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       } else {
         fetchCategories(currentPage, itemsPerPage);
       }
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -606,8 +616,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       );
 
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -646,8 +656,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       );
 
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -679,8 +689,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       fetchCategories(currentPage, itemsPerPage);
 
       return data;
-    } catch (error: any) {
-      handleError(error);
+    } catch (error) {
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -713,7 +723,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
           const errorData = JSON.parse(responseText);
           errorMessage = errorData.message || `Lỗi khi tải lên ảnh: ${response.status}`;
-        } catch (e) {
+        } catch {
           errorMessage = `Lỗi khi tải lên ảnh: ${response.status}, body: ${responseText}`;
         }
         console.error('Chi tiết lỗi upload:', errorMessage);
@@ -724,8 +734,8 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       try {
         data = JSON.parse(responseText);
         console.log('Dữ liệu upload ảnh thành công:', data);
-      } catch (e) {
-        console.error('Lỗi khi parse JSON từ response:', e);
+      } catch (parseError) {
+        console.error('Lỗi khi parse JSON từ response:', parseError);
         throw new Error('Dữ liệu trả về không hợp lệ');
       }
 
@@ -737,9 +747,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       );
 
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chi tiết lỗi upload ảnh:', error);
-      handleError(error);
+      handleError(error as ApiError);
       throw error;
     } finally {
       setLoading(false);
@@ -785,9 +795,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       setStatistics(data);
       setError(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi trong quá trình xử lý:', error);
-      handleError(error);
+      handleError(error as ApiError);
     } finally {
       setLoading(false);
     }

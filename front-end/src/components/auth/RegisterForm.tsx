@@ -6,11 +6,12 @@ import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 // import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface RegisterFormProps {
-  onSuccess?: () => void;
+  // onSuccess?: () => void; // Removed unused prop
 }
 
-const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
+const RegisterForm = ({}: RegisterFormProps) => { // Removed onSuccess from destructuring
   const router = useRouter();
   const { register, googleLogin } = useAuth();
   const [formData, setFormData] = useState({

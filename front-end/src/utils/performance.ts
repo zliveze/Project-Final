@@ -86,19 +86,22 @@ export const performanceUtils = {
 
   // Disable animations on low-power devices
   checkPerformance: () => {
-    const isLowPower = 
+    const hasWindow = typeof window !== 'undefined';
+    const hasNavigator = typeof navigator !== 'undefined';
+
+    const isLowPower =
       // Check for reduced motion preference
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      (hasWindow && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
       // Check for low-end device indicators
-      navigator.hardwareConcurrency <= 2 ||
-      (navigator as { deviceMemory?: number }).deviceMemory <= 2 ||
+      (hasNavigator && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 2) ||
+      (hasNavigator && typeof (navigator as unknown as { deviceMemory?: number }).deviceMemory === 'number' && (navigator as unknown as { deviceMemory?: number }).deviceMemory! <= 2) ||
       // Check for slow connection
-      (navigator as { connection?: { effectiveType?: string } }).connection?.effectiveType === 'slow-2g' ||
-      (navigator as { connection?: { effectiveType?: string } }).connection?.effectiveType === '2g';
+      (hasNavigator && (navigator as unknown as { connection?: { effectiveType?: string } }).connection?.effectiveType === 'slow-2g') ||
+      (hasNavigator && (navigator as unknown as { connection?: { effectiveType?: string } }).connection?.effectiveType === '2g');
 
     return {
       isLowPower,
-      shouldReduceAnimations: isLowPower
+      shouldReduceAnimations: isLowPower,
     };
   },
 
@@ -262,4 +265,4 @@ export const optimizedAnimations = {
       }
     );
   }
-}; 
+};

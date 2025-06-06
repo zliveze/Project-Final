@@ -11,17 +11,16 @@ import { UserReviewProvider } from '@/contexts/user/UserReviewContext';
 
 interface UserContextProviderProps {
   children: ReactNode;
-  withShopProduct?: boolean;
 }
 
 /**
  * Provider tích hợp tất cả các context phía người dùng
  * Sử dụng trong index.tsx để cung cấp context cho các trang người dùng
- * 
+ *
  * Lưu ý: HeaderProvider phải được đặt sau CartProvider và WishlistProvider
  * vì HeaderContext cần sử dụng useCart() và useWishlist()
  */
-export const UserContextProvider: React.FC<UserContextProviderProps> = ({ children, withShopProduct = false }) => {
+export const UserContextProvider: React.FC<UserContextProviderProps> = ({ children }) => {
   return (
     <CategoryProvider>
       <BrandProvider>

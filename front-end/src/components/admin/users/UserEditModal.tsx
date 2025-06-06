@@ -5,31 +5,45 @@ import { UserNotifications } from './';
 import { toast } from 'react-hot-toast';
 import { useAdminUser } from '../../../contexts/AdminUserContext';
 
+// Define Address and Wishlist item types
+interface UserAddress {
+  addressId: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  isDefault: boolean;
+}
+
+interface UserWishlistItem {
+  productId: string;
+  variantId: string;
+}
+
+// Define the main User type
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+  customerLevel: string;
+  avatar?: string;
+  googleId?: string;
+  addresses?: UserAddress[];
+  wishlist?: UserWishlistItem[];
+}
+
+// Type for the data submitted by UserForm
+type UserFormData = Partial<User>;
+
 interface UserEditModalProps {
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    status: string;
-    customerLevel: string;
-    avatar?: string;
-    googleId?: string;
-    addresses?: {
-      addressId: string;
-      addressLine: string;
-      city: string;
-      state: string;
-      country: string;
-      postalCode: string;
-      isDefault: boolean;
-    }[];
-    wishlist?: { productId: string; variantId: string }[];
-  };
+  user: User;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (userData: any) => void;
+  onSubmit: (userData: User) => void;
 }
 
 const UserEditModal: React.FC<UserEditModalProps> = ({
@@ -51,32 +65,36 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = async (userData: any) => {
+  const handleSubmit = async (formData: UserFormData) => {
     // Hiển thị thông báo đang xử lý
     const toastId = UserNotifications.info.loading();
     
     try {
       // Kiểm tra xem trạng thái có thay đổi không
-      if (userData.status !== user.status) {
+      if (formData.status && formData.status !== user.status) {
         // Nếu trạng thái thay đổi, gọi API cập nhật trạng thái riêng
-        await updateUserStatus(user._id, userData.status);
-        console.log('Đã cập nhật trạng thái người dùng thành:', userData.status);
+        await updateUserStatus(user._id, formData.status);
+        console.log('Đã cập nhật trạng thái người dùng thành:', formData.status);
       }
       
       // Kiểm tra xem cấp độ khách hàng có thay đổi không
-      if (userData.customerLevel !== user.customerLevel) {
+      if (formData.customerLevel && formData.customerLevel !== user.customerLevel) {
         // Nếu cấp độ thay đổi, gọi API cập nhật cấp độ riêng
-        await updateUserCustomerLevel(user._id, userData.customerLevel);
-        console.log('Đã cập nhật cấp độ khách hàng thành:', userData.customerLevel);
+        await updateUserCustomerLevel(user._id, formData.customerLevel);
+        console.log('Đã cập nhật cấp độ khách hàng thành:', formData.customerLevel);
       }
       
-      // Đảm bảo rằng _id và các trường bắt buộc được giữ nguyên
-      const updatedUserData = {
-        ...userData,
-        _id: user._id,
-        customerLevel: userData.customerLevel || 'Khách hàng mới',
-        addresses: userData.addresses || user.addresses || [],
-        wishlist: userData.wishlist || user.wishlist || [],
+      // Create a base object by merging user and formData.
+      // formData fields take precedence over user fields if they exist.
+      const mergedData = { ...user, ...formData };
+
+      // Đảm bảo rằng _id và các trường bắt buộc được giữ nguyên và logic gốc được bảo toàn
+      const updatedUserData: User = {
+        ...mergedData,
+        _id: user._id, // Explicitly set _id from the original user prop
+        customerLevel: mergedData.customerLevel || 'Khách hàng mới', // Apply default if mergedData.customerLevel is falsy
+        addresses: mergedData.addresses || user.addresses || [], // Apply fallback logic from original code
+        wishlist: mergedData.wishlist || user.wishlist || [],   // Apply fallback logic from original code
       };
       
       // Gọi hàm xử lý cập nhật từ props
@@ -149,4 +167,4 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   );
 };
 
-export default UserEditModal; 
+export default UserEditModal;

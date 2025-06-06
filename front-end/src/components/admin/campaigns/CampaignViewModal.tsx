@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, CalendarDays, Tag, Clock, Info, ShoppingBag, Percent, Eye, CheckCircle, Edit2 } from 'lucide-react';
+import Image from 'next/image'; // Import next/image
+import { X, CalendarDays, Tag, Clock, Info, ShoppingBag, Percent, Eye, CheckCircle, Edit2 } from 'lucide-react'; // Removed ExternalLink
 import { format, formatDistanceToNow, isAfter, isBefore, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Campaign, ProductInCampaign } from '@/contexts/CampaignContext';
@@ -228,13 +229,15 @@ const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
                       </thead>
                       <tbody className="bg-white divide-y divide-slate-200">
                         {campaign.products.map((product: ProductInCampaign) => (
-                          <tr key={`${product.productId}-${product.variantId || ''}`} className="hover:bg-slate-50/50">
+                          <tr key={`${product.productId}-${product.variants?.[0]?.variantId || ''}`} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3">
                               <div className="flex items-center">
-                                <img 
+                                <Image
                                   src={product.image || '/placeholder-image.png'} 
                                   alt={product.name || 'product image'} 
                                   className="h-10 w-10 rounded-md object-cover border border-slate-200 mr-3"
+                                  width={40}
+                                  height={40}
                                 />
                                 <div>
                                   <div className="text-sm font-medium text-slate-800 line-clamp-1">{product.name || 'Sản phẩm không tên'}</div>
@@ -285,4 +288,4 @@ const CampaignViewModal: React.FC<CampaignViewModalProps> = ({
   );
 };
 
-export default CampaignViewModal; 
+export default CampaignViewModal;

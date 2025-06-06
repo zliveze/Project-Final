@@ -44,7 +44,7 @@ export default function AdminLayout({ children, title = 'Yumin Admin' }: AdminLa
     };
 
     verifyAuth();
-  }, [router.pathname]); // Chỉ gọi lại khi router.pathname thay đổi
+  }, [router.pathname, checkAuth, router]); // Chỉ gọi lại khi router.pathname, checkAuth, or router thay đổi
 
   // Nếu đang ở trang đăng nhập, không hiển thị layout
   if (router.pathname === '/admin/auth/login') {

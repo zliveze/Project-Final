@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useGSAP, gsapUtils } from '../../hooks/useGSAP';
 
 interface PageLoaderProps {
@@ -6,7 +6,7 @@ interface PageLoaderProps {
   duration?: number;
 }
 
-export default function PageLoader({ onComplete, duration = 2.5 }: PageLoaderProps) {
+export default function PageLoader({ onComplete }: PageLoaderProps) {
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useGSAP(({ gsap }) => {

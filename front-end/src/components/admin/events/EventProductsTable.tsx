@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, ChevronDown, ChevronUp, Loader2, ImageOff, Edit3, PackageSearch } from 'lucide-react'; // Updated icons
-import { format } from 'date-fns';
+import Image from 'next/image';
+import { Trash2, ChevronDown, ChevronUp, ImageOff, PackageSearch } from 'lucide-react'; // Updated icons
 import { toast } from 'react-hot-toast';
 // Sử dụng ProductInEventData từ EventForm để đảm bảo tính nhất quán
-import { ProductInEventData as ProductInEvent, VariantInEventData as VariantInEvent, CombinationInEventData as CombinationInEvent } from './EventForm';
+import { ProductInEventData as ProductInEvent } from './EventForm';
 
 
 // Định nghĩa kiểu dữ liệu cho props
@@ -12,24 +12,6 @@ interface EventProductsTableProps {
   onRemoveProduct: (productId: string, variantId?: string, combinationId?: string) => void;
   onPriceChange: (productId: string, newPrice: number, variantId?: string, combinationId?: string) => void;
 }
-
-// Sản phẩm mẫu (để hiển thị khi chưa có data)
-const sampleProducts = [
-  {
-    productId: 'prod1',
-    name: 'Sữa Rửa Mặt CeraVe Sạch Sâu Cho Da Thường Đến Da Dầu',
-    image: '/images/sample-product.jpg',
-    originalPrice: 475000,
-    adjustedPrice: 336000,
-  },
-  {
-    productId: 'prod2',
-    name: 'Nước Hoa Hồng Klairs Không Mùi Cho Da Nhạy Cảm 180ml',
-    image: '/images/sample-product.jpg',
-    originalPrice: 435000,
-    adjustedPrice: 208000,
-  }
-];
 
 const EventProductsTable: React.FC<EventProductsTableProps> = ({
   products = [],
@@ -174,11 +156,14 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <div className="flex items-center">
                         {product.image ? (
-                          <img
-                            className="h-10 w-10 rounded-md object-cover border border-slate-200"
-                            src={product.image}
-                            alt={product.name || 'Sản phẩm'}
-                          />
+                          <div className="relative h-10 w-10 rounded-md border border-slate-200 overflow-hidden">
+                            <Image
+                              src={product.image}
+                              alt={product.name || 'Sản phẩm'}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
                         ) : (
                           <div className="flex-shrink-0 h-10 w-10 bg-slate-100 rounded-md flex items-center justify-center">
                             <ImageOff className="h-5 w-5 text-slate-400" />
@@ -195,13 +180,13 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                         </div>
                         {product.variants && product.variants.length > 0 && (
                            <button
-                             type="button" // Explicitly set type
-                             onClick={(e) => handleToggleProductExpand(product.productId, e)}
-                             className="ml-2 p-1 rounded-md hover:bg-slate-100 text-slate-500 hover:text-pink-600 transition-colors"
-                             title={expandedProducts[product.productId] ? "Ẩn biến thể" : "Hiện biến thể"}
-                           >
-                             {expandedProducts[product.productId] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                           </button>
+                              type="button" // Explicitly set type
+                              onClick={(e) => handleToggleProductExpand(product.productId, e)}
+                              className="ml-2 p-1 rounded-md hover:bg-slate-100 text-slate-500 hover:text-pink-600 transition-colors"
+                              title={expandedProducts[product.productId] ? "Ẩn biến thể" : "Hiện biến thể"}
+                            >
+                              {expandedProducts[product.productId] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
                          )}
                       </div>
                     </td>
@@ -252,11 +237,14 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                           <td className="pl-10 pr-4 py-3 whitespace-nowrap">
                             <div className="flex items-center">
                               {variant.image ? (
-                                <img
-                                  className="h-8 w-8 rounded object-cover border border-slate-200"
-                                  src={variant.image}
-                                  alt={variant.variantName || 'Biến thể'}
-                                />
+                                <div className="relative h-8 w-8 rounded border border-slate-200 overflow-hidden">
+                                  <Image
+                                    src={variant.image}
+                                    alt={variant.variantName || 'Biến thể'}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
                               ) : (
                                 <div className="flex-shrink-0 h-8 w-8 bg-slate-100 rounded flex items-center justify-center">
                                   <ImageOff className="h-4 w-4 text-slate-400" />
@@ -272,14 +260,14 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                                 </div>
                               </div>
                                {variant.combinations && variant.combinations.length > 0 && (
-                                <button
-                                  type="button" // Explicitly set type
-                                  onClick={(e) => handleToggleProductExpand(variantKey, e)} // Use variantKey for expanding combinations
-                                  className="ml-2 p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-pink-500 transition-colors"
-                                  title={expandedProducts[variantKey] ? "Ẩn tổ hợp" : "Hiện tổ hợp"}
-                                >
-                                  {expandedProducts[variantKey] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                </button>
+                                 <button
+                                   type="button" // Explicitly set type
+                                   onClick={(e) => handleToggleProductExpand(variantKey, e)} // Use variantKey for expanding combinations
+                                   className="ml-2 p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-pink-500 transition-colors"
+                                   title={expandedProducts[variantKey] ? "Ẩn tổ hợp" : "Hiện tổ hợp"}
+                                 >
+                                   {expandedProducts[variantKey] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                 </button>
                               )}
                             </div>
                           </td>
@@ -394,7 +382,7 @@ const EventProductsTable: React.FC<EventProductsTableProps> = ({
                   <div className="flex flex-col items-center justify-center space-y-3">
                     <PackageSearch className="h-12 w-12 text-slate-400" />
                     <p className="text-slate-600 font-medium">Chưa có sản phẩm nào trong sự kiện</p>
-                    <p className="text-xs text-slate-400">Nhấn nút "Thêm sản phẩm" ở trên để bắt đầu.</p>
+                    <p className="text-xs text-slate-400">Nhấn nút &quot;Thêm sản phẩm&quot; ở trên để bắt đầu.</p>
                   </div>
                 </td>
               </tr>

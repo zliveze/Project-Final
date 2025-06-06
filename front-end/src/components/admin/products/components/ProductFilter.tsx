@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp, FiList, FiCheck } from 'react-icons/fi';
 import { ProductStatus } from './ProductStatusBadge';
 import { useProduct } from '@/contexts/ProductContext';
@@ -13,6 +13,27 @@ interface ProductFilterProps {
   loading?: boolean;
   itemsPerPage?: number;
   onItemsPerPageChange?: (value: number) => void;
+}
+
+// Define types for statistics data
+interface StatisticItem {
+  id?: string;
+  _id?: string;
+  name: string;
+  count: number;
+}
+
+interface StatisticsData {
+  brands?: StatisticItem[];
+  categories?: StatisticItem[];
+  total?: number;
+  active?: number;
+  outOfStock?: number;
+  discontinued?: number;
+  bestSellers?: number;
+  newProducts?: number;
+  onSale?: number;
+  withGifts?: number;
 }
 
 export interface ProductFilterState {
@@ -45,11 +66,12 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
   const { categories: categoriesList, fetchCategories, loading: categoriesLoading } = useCategory();
 
   // Lấy danh sách brands và categories từ statistics nếu có
-  const statisticsBrands = (statistics as any)?.brands || [];
-  const statisticsCategories = (statistics as any)?.categories || [];
+  const typedStatistics = statistics as StatisticsData | undefined;
+  const statisticsBrands: StatisticItem[] = typedStatistics?.brands || [];
+  const statisticsCategories: StatisticItem[] = typedStatistics?.categories || [];
 
   // Hàm chuẩn hóa ID của danh mục và thương hiệu
-  const getNormalizedId = (item: any) => {
+  const getNormalizedId = (item: StatisticItem | { id?: string; _id?: string; name: string }) => {
     return item.id || item._id;
   };
 
@@ -73,7 +95,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
     fetchStatistics();
     fetchBrands(1, 100);
     fetchCategories(1, 100);
-  }, []);
+  }, [fetchStatistics, fetchBrands, fetchCategories]);
 
   // Hàm xử lý khi người dùng bấm vào nút lọc nâng cao
   const handleToggleAdvancedFilters = () => {
@@ -208,23 +230,15 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
 
   // Sử dụng statistics từ context để hiển thị số lượng cho các danh mục, thương hiệu, v.v.
   const getCountForCategory = (categoryId: string) => {
-    if (!(statistics as any)?.categories) return null;
-    const categoryStats = (statistics as any).categories.find((cat: any) => getNormalizedId(cat) === categoryId);
+    if (!typedStatistics?.categories) return null;
+    const categoryStats = typedStatistics.categories.find((cat: StatisticItem) => getNormalizedId(cat) === categoryId);
     return categoryStats ? categoryStats.count : null;
   };
 
   const getCountForBrand = (brandId: string) => {
-    if (!(statistics as any)?.brands) return null;
-    const brandStats = (statistics as any).brands.find((brand: any) => getNormalizedId(brand) === brandId);
+    if (!typedStatistics?.brands) return null;
+    const brandStats = typedStatistics.brands.find((brand: StatisticItem) => getNormalizedId(brand) === brandId);
     return brandStats ? brandStats.count : null;
-  };
-
-  // Hàm kiểm tra xem có dữ liệu brands và categories từ statistics hay không
-  const hasDataFromStatistics = () => {
-    return statistics && (
-      ((statistics as any)?.brands && (statistics as any).brands.length > 0) ||
-      ((statistics as any)?.categories && (statistics as any).categories.length > 0)
-    );
   };
 
   return (
@@ -344,11 +358,11 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
               <div className="space-y-1 max-h-60 overflow-y-auto pr-2 border border-gray-100 rounded-lg p-3 shadow-sm">
                 {/* Lọc danh mục theo từ khóa tìm kiếm */}
                 {(categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
-                  .filter((category: any) =>
+                  .filter((category: { name: string }) =>
                     category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
                   )
-                  .map((category: any) => {
-                    const categoryId = getNormalizedId(category);
+                  .map((category: { id?: string; _id?: string; name: string }) => {
+                    const categoryId = getNormalizedId(category) as string;
                     const categoryCount = getCountForCategory(categoryId);
                     return (
                       <div key={categoryId} className="flex items-center justify-between hover:bg-gray-50 p-1 rounded">
@@ -379,7 +393,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                 {/* Hiển thị thông báo khi không tìm thấy kết quả */}
                 {(categoriesList.length > 0 || statisticsCategories.length > 0 || categories.length > 0) &&
                  (categoriesList.length > 0 ? categoriesList : (statisticsCategories.length > 0 ? statisticsCategories : categories))
-                  .filter((category: any) =>
+                  .filter((category: { name: string }) =>
                     category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
                   ).length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không tìm thấy danh mục phù hợp</p>
@@ -453,11 +467,11 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                   // Ưu tiên sử dụng brands từ context, nếu không có thì sử dụng từ statistics hoặc props
                   // Lọc brands theo từ khóa tìm kiếm
                   (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
-                    .filter((brand: any) =>
+                    .filter((brand: { name: string }) =>
                       brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
                     )
-                    .map((brand: any) => {
-                      const brandId = getNormalizedId(brand);
+                    .map((brand: { id?: string; _id?: string; name: string }) => {
+                      const brandId = getNormalizedId(brand) as string;
                       const brandCount = getCountForBrand(brandId);
                       return (
                         <div key={brandId} className="flex items-center justify-between hover:bg-gray-50 p-1 rounded">
@@ -489,7 +503,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                 {/* Hiển thị thông báo khi không tìm thấy kết quả */}
                 {!combinedLoading && (brandsList.length > 0 || statisticsBrands.length > 0 || brands.length > 0) &&
                  (brandsList.length > 0 ? brandsList : (statisticsBrands.length > 0 ? statisticsBrands : brands))
-                  .filter((brand: any) =>
+                  .filter((brand: { name: string }) =>
                     brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
                   ).length === 0 && (
                   <p className="text-sm text-gray-500 italic">Không tìm thấy thương hiệu phù hợp</p>
@@ -516,9 +530,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Tất cả
                     </label>
                   </div>
-                  {statistics?.total && (
+                  {typedStatistics?.total !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.total}
+                      {typedStatistics.total}
                     </span>
                   )}
                 </div>
@@ -537,9 +551,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Đang bán
                     </label>
                   </div>
-                  {statistics?.active !== undefined && (
+                  {typedStatistics?.active !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.active}
+                      {typedStatistics.active}
                     </span>
                   )}
                 </div>
@@ -558,9 +572,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Hết hàng
                     </label>
                   </div>
-                  {statistics?.outOfStock !== undefined && (
+                  {typedStatistics?.outOfStock !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.outOfStock}
+                      {typedStatistics.outOfStock}
                     </span>
                   )}
                 </div>
@@ -579,9 +593,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Ngừng kinh doanh
                     </label>
                   </div>
-                  {statistics?.discontinued !== undefined && (
+                  {typedStatistics?.discontinued !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.discontinued}
+                      {typedStatistics.discontinued}
                     </span>
                   )}
                 </div>
@@ -606,9 +620,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Bán chạy
                     </label>
                   </div>
-                  {statistics?.bestSellers !== undefined && (
+                  {typedStatistics?.bestSellers !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.bestSellers}
+                      {typedStatistics.bestSellers}
                     </span>
                   )}
                 </div>
@@ -626,9 +640,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Mới
                     </label>
                   </div>
-                  {statistics?.newProducts !== undefined && (
+                  {typedStatistics?.newProducts !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.newProducts}
+                      {typedStatistics.newProducts}
                     </span>
                   )}
                 </div>
@@ -646,9 +660,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Giảm giá
                     </label>
                   </div>
-                  {statistics?.onSale !== undefined && (
+                  {typedStatistics?.onSale !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.onSale}
+                      {typedStatistics.onSale}
                     </span>
                   )}
                 </div>
@@ -666,9 +680,9 @@ const ProductFilter: React.FC<ProductFilterProps> = ({
                       Có quà tặng
                     </label>
                   </div>
-                  {statistics?.withGifts !== undefined && (
+                  {typedStatistics?.withGifts !== undefined && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shadow-sm">
-                      {statistics.withGifts}
+                      {typedStatistics.withGifts}
                     </span>
                   )}
                 </div>

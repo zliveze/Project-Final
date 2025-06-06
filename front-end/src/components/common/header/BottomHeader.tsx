@@ -2,17 +2,16 @@ import React, { useState, useRef, memo } from 'react';
 import Link from 'next/link';
 import { FiMenu, FiChevronDown } from 'react-icons/fi';
 import CategoryMegaMenu from './CategoryMegaMenu';
-import { Category, Brand } from '@/contexts/HeaderContext';
-import { useRouter } from 'next/router';
+import { Category } from '@/contexts/HeaderContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BottomHeaderProps {
   categories: Category[];
-  featuredBrands: Brand[];
+  // featuredBrands: Brand[]; // Removed as it's unused
 }
 
-function BottomHeader({ categories, featuredBrands }: BottomHeaderProps) {
-  const router = useRouter();
+function BottomHeader({ categories }: BottomHeaderProps) {
+  // const router = useRouter(); // Removed as it's unused
   const [showCategories, setShowCategories] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +56,7 @@ function BottomHeader({ categories, featuredBrands }: BottomHeaderProps) {
               href="/shop"
               className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors"
               prefetch={true}
-              onClick={(e) => {
+              onClick={() => { // Removed 'e' as it's unused
                 // Hiển thị trạng thái loading ngay lập tức
                 document.body.classList.add('page-loading');
               }}

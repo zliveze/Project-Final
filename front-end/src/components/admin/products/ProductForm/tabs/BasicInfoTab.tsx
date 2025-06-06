@@ -42,13 +42,13 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
 
     // Kiểm tra thương hiệu và danh mục hợp lệ một cách im lặng (không log)
     if (formData.brandId) {
-      const brandExists = brands.some(brand => brand.id === formData.brandId);
+      // const brandExists = brands.some(brand => brand.id === formData.brandId); // Unused
       // Không log cảnh báo, chỉ kiểm tra cho giao diện
     }
 
     if (formData.categoryIds && formData.categoryIds.length > 0) {
-      formData.categoryIds.forEach(catId => {
-        const categoryExists = categories.some(cat => cat.id === catId);
+      formData.categoryIds.forEach(() => {
+        // const categoryExists = categories.some(cat => cat.id === catId); // Unused
         // Không log cảnh báo, chỉ kiểm tra cho giao diện
       });
     }

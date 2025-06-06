@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 
 // Định nghĩa kiểu dữ liệu cho danh mục phía người dùng
@@ -70,7 +70,18 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [error, setError] = useState<string | null>(null);
 
   // Chuyển đổi dữ liệu từ API sang định dạng frontend
-  const transformCategory = (categoryData: any): Category => {
+  const transformCategory = (categoryData: {
+    _id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    image?: { url?: string; alt?: string };
+    parentId?: string;
+    parent?: { name?: string };
+    level?: number;
+    featured?: boolean;
+    childrenCount?: number;
+  }): Category => {
     return {
       id: categoryData._id,
       name: categoryData.name,
@@ -98,7 +109,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       try {
         const errorJson = JSON.parse(errorText);
         throw new Error(errorJson.message || errorMessage);
-      } catch (e) {
+      } catch {
         // Nếu không phải JSON, trả về text gốc
         throw new Error(errorMessage);
       }
@@ -108,7 +119,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   // Hàm lấy tất cả danh mục
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -122,16 +133,17 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       const categoriesData = data.items || [];
       setCategories(categoriesData.map(transformCategory));
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Chi tiết lỗi khi lấy danh mục:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách danh mục');
+      setError(err.message || 'Lỗi khi lấy danh sách danh mục');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Hàm lấy danh mục nổi bật
-  const fetchFeaturedCategories = async () => {
+  const fetchFeaturedCategories = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -156,16 +168,17 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       setFeaturedCategories(categoriesData.map(transformCategory));
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Chi tiết lỗi khi lấy danh mục nổi bật:', error);
-      setError(error.message || 'Lỗi khi lấy danh sách danh mục nổi bật');
+      setError(err.message || 'Lỗi khi lấy danh sách danh mục nổi bật');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Hàm lấy danh mục dạng cây phân cấp
-  const fetchHierarchicalCategories = async () => {
+  const fetchHierarchicalCategories = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -177,12 +190,24 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       console.log(`Đã lấy cấu trúc phân cấp danh mục thành công`);
       
       // Hàm đệ quy để chuyển đổi cây danh mục
-      const transformHierarchical = (category: any): HierarchicalCategory => {
+      const transformHierarchical = (category: {
+        _id: string;
+        name: string;
+        slug?: string;
+        description?: string;
+        image?: { url?: string; alt?: string };
+        parentId?: string;
+        parent?: { name?: string };
+        level?: number;
+        featured?: boolean;
+        childrenCount?: number;
+        children?: unknown[];
+      }): HierarchicalCategory => {
         const transformed = transformCategory(category);
         if (category.children && Array.isArray(category.children) && category.children.length > 0) {
           return {
             ...transformed,
-            children: category.children.map(transformHierarchical)
+            children: category.children.map((child) => transformHierarchical(child as typeof category))
           };
         }
         return transformed;
@@ -198,13 +223,14 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       setHierarchicalCategories(hierarchicalData.map(transformHierarchical));
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Chi tiết lỗi khi lấy cấu trúc phân cấp danh mục:', error);
-      setError(error.message || 'Lỗi khi lấy cấu trúc phân cấp danh mục');
+      setError(err.message || 'Lỗi khi lấy cấu trúc phân cấp danh mục');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Hàm lấy danh mục theo ID từ cache
   const getCategoryById = (id: string): Category | undefined => {
@@ -241,9 +267,10 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       console.log(`Đã lấy thông tin danh mục ${data.name} thành công`);
       
       return transformCategory(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error(`Chi tiết lỗi khi lấy danh mục theo slug ${slug}:`, error);
-      setError(error.message || 'Lỗi khi lấy thông tin danh mục');
+      setError(err.message || 'Lỗi khi lấy thông tin danh mục');
       return null;
     } finally {
       setLoading(false);
@@ -254,9 +281,9 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     const loadData = async () => {
       // Chỉ load categories khi ở các trang liên quan
-      const isUserRelatedPage = !router.pathname.startsWith('/admin') && 
+      const isUserRelatedPage = !router.pathname.startsWith('/admin') &&
                                !router.pathname.startsWith('/auth');
-      
+
       if (isUserRelatedPage) {
         await Promise.all([
           fetchCategories(),
@@ -267,7 +294,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     loadData();
-  }, [router.pathname]);
+  }, [router.pathname, fetchCategories, fetchFeaturedCategories, fetchHierarchicalCategories]);
 
   // Chuẩn bị giá trị cho context
   const value: CategoryContextType = {

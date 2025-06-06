@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiX, FiEdit } from 'react-icons/fi';
 import BranchForm, { Branch } from './BranchForm';
 import { useBranches } from '@/contexts/BranchContext';
@@ -28,18 +28,7 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
   const [wardName, setWardName] = useState<string>('');
   const [loadingAddressInfo, setLoadingAddressInfo] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setModalVisible(true);
-      loadBranch();
-    } else {
-      setTimeout(() => {
-        setModalVisible(false);
-      }, 300);
-    }
-  }, [isOpen, branchId]);
-
-  const loadProvinceInfo = async (provinceCode: string) => {
+  const loadProvinceInfo = useCallback(async (provinceCode: string) => {
     try {
       const provinces = await ViettelPostService.getProvinces();
       const province = provinces.find(p => p.provinceId === parseInt(provinceCode, 10));
@@ -51,9 +40,9 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       console.error('Lỗi khi lấy thông tin tỉnh/thành phố:', error);
     }
     return null;
-  };
+  }, []);
 
-  const loadDistrictInfo = async (provinceId: number, districtCode: string) => {
+  const loadDistrictInfo = useCallback(async (provinceId: number, districtCode: string) => {
     try {
       const districts = await ViettelPostService.getDistricts(provinceId);
       const district = districts.find(d => d.districtId === parseInt(districtCode, 10));
@@ -65,9 +54,9 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       console.error('Lỗi khi lấy thông tin quận/huyện:', error);
     }
     return null;
-  };
+  }, []);
 
-  const loadWardInfo = async (districtId: number, wardCode: string) => {
+  const loadWardInfo = useCallback(async (districtId: number, wardCode: string) => {
     try {
       const wards = await ViettelPostService.getWards(districtId);
       const ward = wards.find(w => w.wardId === parseInt(wardCode, 10));
@@ -79,9 +68,9 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       console.error('Lỗi khi lấy thông tin phường/xã:', error);
     }
     return null;
-  };
+  }, []);
 
-  const loadAddressInfo = async (provinceCode: string, districtCode: string, wardCode: string) => {
+  const loadAddressInfo = useCallback(async (provinceCode: string, districtCode: string, wardCode: string) => {
     setLoadingAddressInfo(true);
     try {
       if (!provinceCode || !districtCode || !wardCode) {
@@ -100,9 +89,9 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
     } finally {
       setLoadingAddressInfo(false);
     }
-  };
+  }, [loadDistrictInfo, loadProvinceInfo, loadWardInfo]);
 
-  const loadBranch = async () => {
+  const loadBranch = useCallback(async () => {
     if (!branchId) {
       setError('ID chi nhánh không hợp lệ');
       return;
@@ -135,13 +124,24 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       } else {
         setError('Không thể tải thông tin chi nhánh. Vui lòng thử lại sau.');
       }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Lỗi không xác định';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       setError(`Không thể tải thông tin chi nhánh: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [branchId, fetchBranch, loadAddressInfo]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setModalVisible(true);
+      loadBranch();
+    } else {
+      setTimeout(() => {
+        setModalVisible(false);
+      }, 300);
+    }
+  }, [isOpen, branchId, loadBranch]);
 
   const handleSubmit = async (data: Partial<Branch>) => {
     if (!branchId) return;
@@ -163,8 +163,8 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       } else {
         throw new Error('Không nhận được phản hồi từ server');
       }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Lỗi không xác định';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       console.error(`Lỗi khi cập nhật chi nhánh: ${errorMessage}`, error);
     } finally {
       setIsSubmitting(false);

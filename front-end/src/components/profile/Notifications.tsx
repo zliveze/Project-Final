@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaBell, FaCheck, FaFilter, FaTimes, FaCircle, FaExternalLinkAlt, FaShoppingBag, FaGift, FaCog } from 'react-icons/fa';
+import Image from 'next/image';
+import { FaBell, FaCheck, FaTimes, FaCircle, FaExternalLinkAlt, FaShoppingBag, FaGift, FaCog } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { Notification } from './types';
@@ -212,11 +213,12 @@ const Notifications = ({
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-3">
                   {notification.image ? (
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
-                      <img
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gray-100">
+                      <Image
                         src={notification.image}
                         alt={notification.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                     </div>
                   ) : (
@@ -276,4 +278,4 @@ const Notifications = ({
   );
 };
 
-export default Notifications; 
+export default Notifications;

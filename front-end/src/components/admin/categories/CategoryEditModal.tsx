@@ -3,7 +3,7 @@ import { FiX, FiEdit2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import CategoryForm from './CategoryForm';
 import { Category } from '@/contexts/CategoryContext';
-import { Modal, Button } from '@/components/admin/common';
+// import { Modal, Button } from '@/components/admin/common'; // Removed unused imports
 
 interface CategoryEditModalProps {
   category: Category | null;
@@ -33,7 +33,7 @@ const CategoryEditModal: React.FC<CategoryEditModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Partial<Category>) => { // Changed type from any to Partial<Category>
     try {
       setIsSubmitting(true);
 

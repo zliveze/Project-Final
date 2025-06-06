@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { FiX, FiStar, FiEdit } from 'react-icons/fi';
 import { ProductImage } from '../types';
 
@@ -57,10 +58,12 @@ const ImageList: React.FC<ImageListProps> = ({
           className="relative group border rounded-md p-2 hover:shadow-sm"
         >
           <div className="relative pt-[100%] bg-gray-100">
-            <img
-              src={image.preview || image.url}
+            <Image
+              src={image.preview || image.url || '/placeholder.png'} // Added placeholder for safety
               alt={image.alt || productName || 'Product image'}
-              className="absolute inset-0 w-full h-full object-cover"
+              layout="fill"
+              objectFit="cover"
+              className="rounded-md" // Ensure rounded corners if needed
             />
 
             {image.isPrimary && (

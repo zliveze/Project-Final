@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import { useAdminAuth } from './AdminAuthContext';
 import toast from 'react-hot-toast';
@@ -30,7 +30,7 @@ export interface BranchContextType {
     total: number;
     totalPages: number;
   };
-  fetchBranches: (page: number, limit: number) => Promise<void>;
+  fetchBranches: (page: number, limit: number, filters?: Record<string, unknown>) => Promise<void>;
   fetchBranch: (id: string) => Promise<Branch | null>;
   createBranch: (branchData: Partial<Branch>) => Promise<Branch | null>;
   updateBranch: (id: string, branchData: Partial<Branch>) => Promise<Branch | null>;
@@ -77,26 +77,45 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
     BRANCH_STATISTICS: `${API_BASE_URL}/admin/branches/statistics`
   };
 
-  const transformBranch = (branchData: any): Branch => {
+  const transformBranch = (branchData: {
+    _id?: string | { $oid: string };
+    id?: string;
+    name?: string;
+    address?: string;
+    contact?: string;
+    provinceCode?: string;
+    districtCode?: string;
+    wardCode?: string;
+    createdAt?: string | { $date: string };
+    updatedAt?: string | { $date: string };
+  }): Branch => {
     // Xử lý dữ liệu từ MongoDB
-    let id = branchData._id;
-    if (typeof branchData._id === 'object' && branchData._id.$oid) {
+    let id: string = '';
+    if (typeof branchData._id === 'string') {
+      id = branchData._id;
+    } else if (typeof branchData._id === 'object' && branchData._id?.$oid) {
       id = branchData._id.$oid;
+    } else if (branchData.id) {
+      id = branchData.id;
     }
 
-    let createdAt = branchData.createdAt || '';
-    let updatedAt = branchData.updatedAt || '';
+    let createdAt: string = '';
+    let updatedAt: string = '';
 
-    if (typeof branchData.createdAt === 'object' && branchData.createdAt.$date) {
+    if (typeof branchData.createdAt === 'string') {
+      createdAt = branchData.createdAt;
+    } else if (typeof branchData.createdAt === 'object' && branchData.createdAt?.$date) {
       createdAt = new Date(branchData.createdAt.$date).toISOString();
     }
 
-    if (typeof branchData.updatedAt === 'object' && branchData.updatedAt.$date) {
+    if (typeof branchData.updatedAt === 'string') {
+      updatedAt = branchData.updatedAt;
+    } else if (typeof branchData.updatedAt === 'object' && branchData.updatedAt?.$date) {
       updatedAt = new Date(branchData.updatedAt.$date).toISOString();
     }
 
     return {
-      id: id || branchData.id,
+      id: id,
       name: branchData.name || '',
       address: branchData.address || '',
       contact: branchData.contact || '',
@@ -152,7 +171,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
+      } catch {
         throw new Error('Lỗi khi phân tích dữ liệu từ server');
       }
 
@@ -181,12 +200,13 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       fetchStatistics();
       return data;
-    } catch (err: any) {
-      if (err.response?.status === 401 ||
-          typeof err.message === 'string' && (
-            err.message.includes('xác thực') ||
-            err.message.includes('Unauthorized') ||
-            err.message.toLowerCase().includes('token')
+    } catch (err) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 ||
+          typeof error.message === 'string' && (
+            error.message.includes('xác thực') ||
+            error.message.includes('Unauthorized') ||
+            error.message.toLowerCase().includes('token')
           )
       ) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
@@ -199,8 +219,8 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
           console.error('Lỗi khi đăng xuất:', logoutError);
         }
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi lấy danh sách chi nhánh');
-        toast.error(err.message || 'Có lỗi xảy ra khi lấy danh sách chi nhánh');
+        setError(error.message || 'Có lỗi xảy ra khi lấy danh sách chi nhánh');
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy danh sách chi nhánh');
       }
     } finally {
       setLoading(false);
@@ -224,7 +244,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       const data = await response.json();
       setStatistics(data);
       return data;
-    } catch (err: any) {
+    } catch {
       return null;
     }
   };
@@ -247,7 +267,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
+      } catch {
         throw new Error('Lỗi khi phân tích dữ liệu từ server');
       }
 
@@ -257,14 +277,15 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       }
 
       return transformBranch(data);
-    } catch (err: any) {
-      if (err.response?.status === 401 || (typeof err.message === 'string' && err.message.includes('xác thực'))) {
+    } catch (err) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || (typeof error.message === 'string' && error.message.includes('xác thực'))) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi lấy thông tin chi nhánh');
-        toast.error(err.message || 'Có lỗi xảy ra khi lấy thông tin chi nhánh');
+        setError(error.message || 'Có lỗi xảy ra khi lấy thông tin chi nhánh');
+        toast.error(error.message || 'Có lỗi xảy ra khi lấy thông tin chi nhánh');
       }
 
       return null;
@@ -309,14 +330,15 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       toast.success('Thêm chi nhánh thành công!');
       return newBranch;
-    } catch (err: any) {
-      if (err.response?.status === 401 || err.message.includes('xác thực')) {
+    } catch (err) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi thêm chi nhánh');
-        toast.error(err.message || 'Có lỗi xảy ra khi thêm chi nhánh');
+        setError(error.message || 'Có lỗi xảy ra khi thêm chi nhánh');
+        toast.error(error.message || 'Có lỗi xảy ra khi thêm chi nhánh');
       }
 
       return null;
@@ -341,7 +363,7 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
+      } catch {
         throw new Error('Lỗi khi phân tích dữ liệu từ server');
       }
 
@@ -354,14 +376,15 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       toast.success('Cập nhật chi nhánh thành công!');
 
       return transformBranch(data);
-    } catch (err: any) {
-      if (err.response?.status === 401 || (typeof err.message === 'string' && err.message.includes('xác thực'))) {
+    } catch (err) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || (typeof error.message === 'string' && error.message.includes('xác thực'))) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi cập nhật chi nhánh');
-        toast.error(err.message || 'Có lỗi xảy ra khi cập nhật chi nhánh');
+        setError(error.message || 'Có lỗi xảy ra khi cập nhật chi nhánh');
+        toast.error(error.message || 'Có lỗi xảy ra khi cập nhật chi nhánh');
       }
 
       return null;
@@ -400,13 +423,14 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       toast.success('Xóa chi nhánh thành công!');
       return true;
-    } catch (err: any) {
-      if (err.response?.status === 401 || err.message?.includes('xác thực')) {
+    } catch (err) {
+      const error = err as Error & { response?: { status: number } };
+      if (error.response?.status === 401 || error.message?.includes('xác thực')) {
         toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
         await logout();
         router.push('/admin/auth/login');
       } else {
-        const errorMessage = err.message || 'Có lỗi xảy ra khi xóa chi nhánh';
+        const errorMessage = error.message || 'Có lỗi xảy ra khi xóa chi nhánh';
         setError(errorMessage);
         toast.error(errorMessage);
       }
@@ -437,8 +461,8 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
       }
 
       return data;
-    } catch (error: any) {
-      const errorMessage = error.message || 'Có lỗi xảy ra khi kiểm tra số sản phẩm';
+    } catch (error) {
+      const errorMessage = (error as Error).message || 'Có lỗi xảy ra khi kiểm tra số sản phẩm';
       setError(errorMessage);
       return null;
     }
@@ -470,8 +494,8 @@ export const BranchProvider: React.FC<BranchProviderProps> = ({ children }) => {
 
       toast.success(data.message || 'Xóa chi nhánh thành công!');
       return data;
-    } catch (error: any) {
-      const errorMessage = error.message || 'Có lỗi xảy ra khi xóa chi nhánh';
+    } catch (error) {
+      const errorMessage = (error as Error).message || 'Có lỗi xảy ra khi xóa chi nhánh';
       setError(errorMessage);
       toast.error(errorMessage);
       return null;

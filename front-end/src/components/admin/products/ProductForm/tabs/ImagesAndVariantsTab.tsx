@@ -8,6 +8,18 @@ import ImageList from '../components/ImageList';
 import VariantList from '../components/VariantList';
 import VariantForm from '../components/VariantForm'; // Import VariantForm
 
+// Define a local type for the variant data used within this tab, compatible with ExtendedProductVariant
+type TabProductVariant = Omit<ProductVariant, 'images' | 'name'> & {
+  name?: string;
+  images?: (string | ProductImage)[]; // Use ProductImage here
+  combinations?: Array<{
+    combinationId?: string;
+    attributes: Record<string, string>;
+    price?: number;
+    additionalPrice?: number;
+  }>;
+};
+
 interface ImagesAndVariantsTabProps {
   formData: ProductFormData; // Keep formData for images and variants list
   isViewMode?: boolean;
@@ -23,15 +35,15 @@ interface ImagesAndVariantsTabProps {
 
   // Props from the refactored useProductVariants hook
   showVariantForm: boolean;
-  editingVariant: ProductVariant | null; // Original variant being edited
-  currentVariantData: ProductVariant | null; // Data for the form
+  editingVariant: TabProductVariant | null; // Use TabProductVariant
+  currentVariantData: TabProductVariant | null; // Use TabProductVariant
   isVariantProcessing: boolean;
   handleOpenAddVariant: () => void;
   handleOpenEditVariant: (variant: ProductVariant) => void;
   handleCancelVariant: () => void; // Renamed close handler
   handleSaveVariant: () => void; // Updated save handler
   handleDeleteVariant: (variantId: string) => void;
-  handleVariantChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void; // New handler
+  handleVariantChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // New handler - Added HTMLTextAreaElement
   handleVariantImageSelect: (imageId: string) => void; // New handler
 }
 
@@ -54,7 +66,7 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
   showVariantForm,
   editingVariant,
   currentVariantData,
-  isVariantProcessing,
+  // isVariantProcessing, // Removed as it's not used in this tab directly
   handleOpenAddVariant,
   handleOpenEditVariant,
   handleCancelVariant,
@@ -128,7 +140,7 @@ const ImagesAndVariantsTab: React.FC<ImagesAndVariantsTabProps> = ({
             editingVariantIndex={editingVariantIndex} // Pass the index or null
             images={formData.images || []} // Pass all product images for selection
             allVariants={formData.variants || []} // Pass all variants to check which images are already used
-            handleVariantChange={handleVariantChange as any} // Type cast to fix compatibility issue
+            handleVariantChange={handleVariantChange}
             handleVariantImageSelect={handleVariantImageSelect}
             handleSaveVariant={handleSaveVariant}
             handleCancelVariant={handleCancelVariant}

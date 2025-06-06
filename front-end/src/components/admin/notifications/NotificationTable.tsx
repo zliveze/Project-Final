@@ -84,7 +84,7 @@ export default function NotificationTable({
     if (!date) return 'Không giới hạn';
     try {
       return format(new Date(date), 'dd/MM/yyyy');
-    } catch (error) {
+    } catch { // Removed unused 'error' variable
       return String(date);
     }
   };
@@ -279,4 +279,4 @@ export default function NotificationTable({
       </div>
     </div>
   );
-} 
+}

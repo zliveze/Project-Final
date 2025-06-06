@@ -79,7 +79,7 @@ const TestToggleLike: React.FC = () => {
         <ol className="list-decimal list-inside mt-2">
           <li>Nhập một Review ID hợp lệ (24 ký tự hex)</li>
           <li>Chọn trạng thái hiện tại</li>
-          <li>Nhấn "Test Toggle Like" để kiểm tra</li>
+          <li>Nhấn &quot;Test Toggle Like&quot; để kiểm tra</li>
           <li>Kiểm tra console và network tab để xem logs</li>
         </ol>
       </div>

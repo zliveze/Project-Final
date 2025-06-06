@@ -9,8 +9,7 @@ import BrandEditModal from '@/components/admin/brands/BrandEditModal';
 import BrandDetailModal from '@/components/admin/brands/BrandDetailModal';
 import BrandDeleteModal from '@/components/admin/brands/BrandDeleteModal';
 // Đã tích hợp phân trang vào BrandTable
-import { Brand } from '@/components/admin/brands/BrandForm';
-import { useBrands } from '@/contexts/BrandContext';
+import { useBrands, Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 import toast from 'react-hot-toast';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
@@ -172,7 +171,7 @@ export default function AdminBrands() {
     if (!selectedBrand) return;
 
     try {
-      await updateBrand(selectedBrand.id, brandData);
+      await updateBrand(selectedBrand.id || selectedBrand._id || '', brandData);
       setShowEditModal(false);
     } catch (error) {
       console.error('Lỗi khi cập nhật thương hiệu:', error);

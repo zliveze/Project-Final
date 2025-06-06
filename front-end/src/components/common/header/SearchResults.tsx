@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiSearch, FiX, FiClock, FiTrendingUp } from 'react-icons/fi';
-import { motion } from 'framer-motion';
 import { formatCurrency } from '@/utils/format';
 import { useHeader } from '@/contexts/HeaderContext';
 
@@ -150,7 +149,7 @@ export default function SearchResults({
           <FiSearch className="mr-2 text-pink-500" />
           <span className="text-sm">
             {isLoadingMock || loading ? 'Đang tìm kiếm...' : searchTerm ? (
-              <>Kết quả tìm kiếm cho <span className="font-medium text-pink-600">"{searchTerm}"</span></>
+              <>Kết quả tìm kiếm cho <span className="font-medium text-pink-600">&quot;{searchTerm}&quot;</span></>
             ) : (
               <>Tìm kiếm phổ biến</>
             )}

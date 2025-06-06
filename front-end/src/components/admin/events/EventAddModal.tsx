@@ -4,6 +4,17 @@ import toast from 'react-hot-toast';
 import EventForm, { EventFormData } from './EventForm';
 import EventProductAddModal from './EventProductAddModal';
 
+// Define a more specific type for products being added
+// This should align with the structure expected by EventFormData's products array (ProductInEventData)
+interface ProductToAdd {
+  productId: string;
+  variantId?: string;
+  combinationId?: string;
+  adjustedPrice: number; // Added based on the TypeScript error
+  // Add other relevant product properties if needed for validation or display,
+  // such as quantity, originalPrice, etc., if they are part of ProductInEventData
+}
+
 interface EventAddModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -39,7 +50,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
   }, [isOpen]);
 
   // Xử lý thêm sản phẩm vào sự kiện
-  const handleAddProducts = (products: any[]) => {
+  const handleAddProducts = (products: ProductToAdd[]) => {
     try {
       // Giới hạn số lượng sản phẩm có thể thêm vào một lần
       if (formData.products.length + products.length > 50) {
@@ -77,7 +88,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
 
       setShowProductModal(false);
       toast.success(`Đã thêm ${uniqueProducts.length} sản phẩm vào sự kiện`);
-    } catch (error) {
+    } catch { // Removed unused 'error' variable
       toast.error('Có lỗi xảy ra khi thêm sản phẩm');
     }
   };
@@ -125,7 +136,7 @@ const EventAddModal: React.FC<EventAddModalProps> = ({
         endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
         products: []
       });
-    } catch (error) {
+    } catch { // Removed unused 'error' variable
       toast.error('Đã xảy ra lỗi khi thêm sự kiện!');
     } finally {
       setIsSubmitting(false);

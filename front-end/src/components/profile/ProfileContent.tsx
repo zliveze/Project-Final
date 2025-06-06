@@ -7,7 +7,7 @@ import MyReviews from './MyReviews';
 // import AddressManager from './AddressManager'; // Remove import
 import AddressList from './AddressList'; // Import AddressList
 import OrderDetailModal from './OrderDetailModal';
-import { TabType, Order, Notification, Review, WishlistItem, Address, User, OrderStatusType } from './types'; // Khôi phục WishlistItem
+import { TabType, Order, Notification, Review, WishlistItem, Address, User } from './types'; // Khôi phục WishlistItem
 
 interface ProfileContentProps {
   activeTab: TabType;
@@ -26,18 +26,17 @@ interface ProfileContentProps {
   handleDownloadInvoice: (orderId: string) => void;
   handleCancelOrder: (orderId: string) => void;
   handleReturnOrder: (orderId: string) => void;
-  handleBuyAgain: (orderId: string) => void;
   handleMarkAsRead: (notificationId: string) => void;
   handleMarkAllAsRead: () => void;
   handleDeleteNotification: (notificationId: string) => void;
   handleEditReview: (reviewId: string, updatedData: Partial<Review>) => void;
   handleDeleteReview: (reviewId: string) => void;
-  handleOrderStatusFilterChange: (status: OrderStatusType) => void;
   // Add address handlers from context
   handleAddAddress: (address: Omit<Address, '_id'>) => Promise<void>;
   handleUpdateAddress: (updatedAddress: Address) => Promise<void>;
   handleDeleteAddress: (_id: string) => Promise<void>;
   handleSetDefaultAddress: (_id: string) => Promise<void>;
+  handleBuyAgain: (orderId: string) => Promise<void>; // Added handleBuyAgain
   isLoading?: boolean;
 }
 
@@ -58,18 +57,17 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
   handleDownloadInvoice,
   handleCancelOrder,
   handleReturnOrder,
-  handleBuyAgain,
   handleMarkAsRead,
   handleMarkAllAsRead,
   handleDeleteNotification,
   handleEditReview,
   handleDeleteReview,
-  handleOrderStatusFilterChange,
   // Destructure new props
   handleAddAddress,
   handleUpdateAddress,
   handleDeleteAddress,
   handleSetDefaultAddress,
+  handleBuyAgain, // Destructure handleBuyAgain
   isLoading = false
 }) => {
   // Render content based on active tab
@@ -114,7 +112,7 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
             onDownloadInvoice={handleDownloadInvoice}
             onCancelOrder={handleCancelOrder}
             onReturnOrder={handleReturnOrder}
-            onBuyAgain={handleBuyAgain}
+            onBuyAgain={handleBuyAgain} // Pass handleBuyAgain to OrdersTab
           />
         );
       case 'notifications':
@@ -152,8 +150,6 @@ const ProfileContent: React.FC<ProfileContentProps> = ({
         <OrderDetailModal
           order={selectedOrder}
           onClose={() => setShowOrderModal(false)}
-          onBuyAgain={handleBuyAgain}
-          onDownloadInvoice={handleDownloadInvoice}
           onCancelOrder={handleCancelOrder}
           onReturnOrder={handleReturnOrder}
         />

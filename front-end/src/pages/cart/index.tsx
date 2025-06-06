@@ -42,7 +42,6 @@ const CartPage: NextPage = () => {
     itemCount,
     selectedItemCount,
     discount,
-    shipping,
     selectedTotal,
     voucherCode,
     debouncedUpdateCartItem,
@@ -422,7 +421,7 @@ const CartPage: NextPage = () => {
                 <CartSummary
                   subtotal={selectedItemCount > 0 ? selectedSubtotal : 0}
                   discount={selectedItemCount > 0 ? discount : 0}
-                  shipping={shipping}
+                  // shipping={shipping} // Removed shipping prop
                   total={selectedItemCount > 0 ? selectedTotal : 0}
                   itemCount={selectedItemCount}
                   voucherCode={voucherCode}

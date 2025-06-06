@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom'; // Import ReactDOM for Portals
 import { FiSearch, FiX, FiPlus, FiCheck, FiFilter, FiChevronDown, FiChevronUp, FiAlertCircle, FiTag, FiAlertTriangle, FiShoppingBag } from 'react-icons/fi';
 import Image from 'next/image';
-import { ProductInCampaign, VariantInCampaign, CombinationInCampaign } from '@/contexts/CampaignContext';
+import { ProductInCampaign, VariantInCampaign } from '@/contexts/CampaignContext'; // Removed CombinationInCampaign
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useCategory } from '@/contexts/CategoryContext';
@@ -37,12 +37,19 @@ interface ProductFromApiVariant {
   options?: Record<string, string>;
   combinations?: ProductFromApiVariantCombination[];
 }
+
+interface ProductFromApiImage {
+  url: string;
+  alt: string;
+  isPrimary?: boolean;
+}
+
 interface ProductFromApi {
   _id?: string;
   id?: string;
   name: string;
   image: string;
-  images?: Array<{ url: string; alt: string; isPrimary?: boolean }>;
+  images?: ProductFromApiImage[];
   price: number | string;
   currentPrice?: number | string;
   originalPrice?: number | string;
@@ -175,7 +182,8 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
     try {
       const result = await fetchAdminProductList(params);
       if (result && result.products) {
-        const fetchedProductIds = result.products.map(p => (p._id || p.id || '').toString()).filter(id => id);
+        // Ensure correct ID access for fetchedProductIds
+        const fetchedProductIds = result.products.map((p) => (p.id || '').toString()).filter(id => id);
         if (fetchedProductIds.length > 0) {
           const checkResults = await checkProducts(fetchedProductIds);
           const productEventMap = new Map<string, string>();
@@ -186,7 +194,30 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
           }
           setProductsInEvent(productEventMap);
         }
-        setProducts(result.products);
+
+        // Transform AdminProduct[] to ProductFromApi[]
+        const transformedProducts: ProductFromApi[] = result.products.map((p) => ({
+          _id: p.id || '', // AdminProduct uses 'id', map to '_id'
+          id: p.id || '',   // Keep id as well
+          name: p.name || 'Unnamed Product', // Default name
+          image: p.image || '', // Default image
+          images: p.images?.map((img) => ({
+            url: img.url || '', // Default url
+            alt: img.alt || '', // Provide default for alt if undefined
+            isPrimary: img.isPrimary,
+          })) || [], // Ensure images is an array
+          // AdminProduct has price as string, originalPrice and currentPrice as numbers
+          price: p.originalPrice || 0, // Use originalPrice as the main price
+          originalPrice: p.originalPrice || 0,
+          currentPrice: p.currentPrice || p.originalPrice || 0,
+          brandId: p.brandId,
+          brand: p.brand,
+          status: p.status,
+          sku: p.sku,
+          categoryIds: p.categoryIds,
+          variants: [], // AdminProduct doesn't have variants in the list view
+        }));
+        setProducts(transformedProducts);
         setTotalItems(result.total);
         setTotalPages(Math.ceil(result.total / 10));
       } else {
@@ -210,7 +241,7 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
     setSearchTerm(value);
     setPage(1);
   };
-  const handleFilterChange = (name: keyof ProductFilter, value: any) => setTempFilters(prev => ({ ...prev, [name]: value }));
+  const handleFilterChange = (name: keyof ProductFilter, value: string | number | undefined) => setTempFilters(prev => ({ ...prev, [name]: value }));
   const applyFilters = () => {
     setFilters(tempFilters);
     setPage(1);
@@ -254,9 +285,13 @@ const ProductSelectionTable: React.FC<ProductSelectionTableProps> = ({
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(`Không thể lấy thông tin chi tiết sản phẩm ID: ${productId}`);
-      console.error("fetchProductDetails error:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("fetchProductDetails Axios error:", error.toJSON());
+      } else {
+        console.error("fetchProductDetails error:", error);
+      }
       return null;
     }
   };

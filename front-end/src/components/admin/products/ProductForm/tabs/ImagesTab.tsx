@@ -1,6 +1,6 @@
 import React from 'react';
 import { useProductImages } from '../hooks/useProductImages';
-import { FiUpload, FiImage } from 'react-icons/fi';
+import { FiImage } from 'react-icons/fi'; // Removed FiUpload
 import { ProductFormData } from '../types';
 import ImageList from '../components/ImageList';
 
@@ -92,4 +92,4 @@ const ImagesTab: React.FC<ImagesTabProps> = ({ formData, setFormData }) => {
   );
 };
 
-export default ImagesTab; 
+export default ImagesTab;

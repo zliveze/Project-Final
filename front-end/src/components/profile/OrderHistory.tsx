@@ -63,12 +63,12 @@ interface OrderHistoryProps {
 const OrderHistory = ({
   orders,
   onViewOrderDetails,
-  onDownloadInvoice,
+  // onDownloadInvoice, // Removed as InvoiceDownloader component is used directly
   onCancelOrder,
   onReturnOrder,
-  onBuyAgain
+  onBuyAgain // Destructure onBuyAgain
 }: OrderHistoryProps) => {
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  // const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null); // Removed as it's not used
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const formatPrice = (price: number) => {
@@ -145,6 +145,14 @@ const OrderHistory = ({
 
   // Không cần hàm handleDownloadInvoice nữa vì đã sử dụng component InvoiceDownloader
 
+  const handleBuyAgainClick = (orderId: string) => {
+    if (onBuyAgain) {
+      onBuyAgain(orderId);
+    } else {
+      toast.info('Tính năng mua lại đang được phát triển');
+    }
+  };
+
   const handleCancelOrder = (orderId: string) => {
     if (onCancelOrder) {
       onCancelOrder(orderId);
@@ -161,13 +169,7 @@ const OrderHistory = ({
     }
   };
 
-  const handleBuyAgain = (orderId: string) => {
-    if (onBuyAgain) {
-      onBuyAgain(orderId);
-    } else {
-      toast.info('Tính năng mua lại đang được phát triển');
-    }
-  };
+
 
   // Kiểm tra xem đơn hàng có thể hủy không (chỉ hủy được khi đang ở trạng thái pending hoặc confirmed)
   const canCancelOrder = (status: string) => {
@@ -272,14 +274,20 @@ const OrderHistory = ({
                   </button>
                 )}
 
-                {order.status === 'delivered' && (
+                {(order.status === 'delivered' || order.status === 'cancelled') && (
                   <button
-                    onClick={() => handleViewDetails(order._id)}
-                    className="px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded hover:opacity-90 text-xs flex items-center justify-center"
+                    onClick={() => handleBuyAgainClick(order._id)}
+                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-xs flex items-center justify-center"
                   >
-                    <FaShoppingCart className="mr-1" /> Xem sản phẩm
+                    <FaShoppingCart className="mr-1" /> Mua lại
                   </button>
                 )}
+
+                {/* The "Xem sản phẩm" button might be redundant if "Mua lại" takes to cart/product, 
+                    or could be kept if it links to the product page for viewing before buying again.
+                    For now, let's assume "Mua lại" is the primary action for delivered/cancelled orders.
+                    If "Xem sản phẩm" is still needed for 'delivered' orders, it can be added back with different conditions.
+                */}
               </div>
             </div>
 
@@ -309,8 +317,6 @@ const OrderHistory = ({
         <OrderDetailModal
           order={selectedOrder}
           onClose={handleCloseModal}
-          onBuyAgain={handleBuyAgain}
-          onDownloadInvoice={() => {}}
           onCancelOrder={handleCancelOrder}
           onReturnOrder={handleReturnOrder}
         />

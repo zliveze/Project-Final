@@ -141,7 +141,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       setShowProductModal(false);
       toast.success('Đã thêm sản phẩm vào sự kiện. Nhấn Lưu để hoàn tất thay đổi.', { id: 'event-edit-add-product-temp' });
-    } catch (error) {
+    } catch {
       toast.error('Có lỗi xảy ra khi thêm sản phẩm', { id: 'event-edit-add-product-error' });
     }
   };
@@ -192,7 +192,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
       toast.success('Đã xóa sản phẩm khỏi sự kiện. Nhấn Lưu để hoàn tất thay đổi.', { id: 'event-edit-remove-product-temp' });
 
       // Việc gọi API removeProductFromEvent sẽ được thực hiện khi submit form
-    } catch (error) {
+    } catch {
       toast.error('Có lỗi xảy ra khi xóa sản phẩm', { id: 'event-edit-remove-product-error' });
     }
   };
@@ -375,9 +375,13 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
                   false // Không hiển thị toast
                 );
                 console.log('EventEditModal - handleSubmit - Kết quả cập nhật giá:', result ? 'Thành công' : 'Thất bại');
-              } catch (error: any) { // Added :any to error
+              } catch (error: unknown) { 
                 console.error('EventEditModal - handleSubmit - Lỗi khi cập nhật giá:', error);
-                toast.error(`Lỗi khi cập nhật giá: ${error.message || 'Không xác định'}`, { id: 'event-edit-update-price-error' });
+                if (error instanceof Error) {
+                  toast.error(`Lỗi khi cập nhật giá: ${error.message}`, { id: 'event-edit-update-price-error' });
+                } else {
+                  toast.error('Lỗi không xác định khi cập nhật giá.', { id: 'event-edit-update-price-error' });
+                }
               }
               break;
           }
@@ -396,7 +400,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
 
       // Đóng modal
       onClose();
-    } catch (error: any) { // Added :any to error
+    } catch {
       toast.error('Đã xảy ra lỗi khi cập nhật sự kiện!', { id: 'event-update-error' });
     } finally {
       setIsSubmitting(false);

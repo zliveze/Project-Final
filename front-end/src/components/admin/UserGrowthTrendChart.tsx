@@ -16,7 +16,6 @@ interface UserGrowthTrendChartProps {
 
 export default function UserGrowthTrendChart({
   data,
-  title = "Xu hướng tăng trưởng người dùng",
   className = "",
   onRefresh
 }: UserGrowthTrendChartProps) {
@@ -25,7 +24,6 @@ export default function UserGrowthTrendChart({
   const [period, setPeriod] = useState<'6months' | '12months'>('12months');
   const [isLoading, setIsLoading] = useState(false);
   // Không cần animate nữa vì chúng ta đã loại bỏ animation
-  const [maxCount, setMaxCount] = useState(0);
 
   useEffect(() => {
     // Không có dữ liệu
@@ -87,10 +85,6 @@ export default function UserGrowthTrendChart({
 
       filteredData = quarterlyData;
     }
-
-    // Tìm giá trị lớn nhất trong dữ liệu
-    const max = Math.max(...filteredData.map(item => item.count));
-    setMaxCount(max);
 
     // Trì hoãn hiệu ứng để tạo animation
     setTimeout(() => {

@@ -1,10 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { FiGift, FiTrendingUp, FiExternalLink, FiAlertCircle, FiUsers } from 'react-icons/fi';
+import { FiGift, FiExternalLink, FiAlertCircle, FiUsers } from 'react-icons/fi';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+interface RawVoucherData {
+  _id: string;
+  code: string;
+  description: string;
+  usedCount: number;
+  usageLimit: number;
+  discountType: string;
+  discountValue: number;
+  endDate: string | number | Date; // Type from API before conversion
+  daysLeft: number;
+}
 
 interface VoucherDashboardStats {
   totalVouchers: number;
@@ -28,7 +40,7 @@ const VouchersWidget = () => {
   const [dashboardStats, setDashboardStats] = useState<VoucherDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchVoucherStats = async () => {
+  const fetchVoucherStats = useCallback(async () => {
     if (!isAuthenticated || !accessToken) {
       return;
     }
@@ -45,18 +57,18 @@ const VouchersWidget = () => {
 
       // Chuẩn hóa dữ liệu endDate trong topUsedVouchers
       if (statsData.topUsedVouchers) {
-        statsData.topUsedVouchers = statsData.topUsedVouchers.map((voucher: any) => ({
+        statsData.topUsedVouchers = statsData.topUsedVouchers.map((voucher: RawVoucherData) => ({
           ...voucher,
           endDate: new Date(voucher.endDate)
         }));
       }
 
       setDashboardStats(statsData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching voucher stats:', error);
 
       // Log chi tiết lỗi để debug
-      if (error.response) {
+      if (axios.isAxiosError(error) && error.response) {
         console.error('Response error:', error.response.data);
         console.error('Status:', error.response.status);
       }
@@ -71,11 +83,11 @@ const VouchersWidget = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated, accessToken, setIsLoading, setDashboardStats]);
 
   useEffect(() => {
     fetchVoucherStats();
-  }, [isAuthenticated, accessToken]);
+  }, [fetchVoucherStats]);
 
   const formatDiscount = (type: string, value: number) => {
     if (type === 'percentage') {

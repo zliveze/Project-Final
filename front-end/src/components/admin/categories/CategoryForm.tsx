@@ -1,10 +1,10 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, ChangeEvent } from 'react';
 import Image from 'next/image';
-import { FiUpload, FiTrash2, FiLock, FiCheck, FiX } from 'react-icons/fi';
+import { FiUpload, FiX } from 'react-icons/fi';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { Category } from '@/contexts/CategoryContext';
-import toast from 'react-hot-toast';
+
 
 interface CategoryFormProps {
   initialData?: Partial<Category>;
@@ -105,7 +105,7 @@ export default function CategoryForm({
   };
 
   // Xử lý khi upload ảnh
-  const handleImageUpload = (setFieldValue: any, e: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (setFieldValue: (field: string, value: unknown, shouldValidate?: boolean) => void, e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -137,7 +137,7 @@ export default function CategoryForm({
   };
 
   // Xử lý khi xóa ảnh
-  const handleRemoveImage = (setFieldValue: any) => {
+  const handleRemoveImage = (setFieldValue: (field: string, value: unknown, shouldValidate?: boolean) => void) => {
     setImagePreview('');
     setFieldValue('image', null);
     setFieldValue('imageData', undefined);
@@ -148,7 +148,7 @@ export default function CategoryForm({
     <Formik
       initialValues={initialValues}
       validationSchema={validationSchema}
-      onSubmit={(values: any) => {
+      onSubmit={(values: CategoryFormValues) => {
         // Chuyển đổi giá trị từ CategoryFormValues sang Partial<Category>
         const categoryData: Partial<Category> & { imageData?: string } = {
           ...values,
@@ -166,7 +166,7 @@ export default function CategoryForm({
       }}
       enableReinitialize
     >
-      {({ values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue }) => (
+      {({ errors, touched, handleChange, handleSubmit, setFieldValue }) => (
         <Form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
             <div className="p-6">
@@ -423,4 +423,4 @@ export default function CategoryForm({
       )}
     </Formik>
   );
-} 
+}

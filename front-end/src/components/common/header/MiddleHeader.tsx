@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+// import Image from 'next/image'; // Removed as it's unused
 import { FiMenu, FiSearch, FiUser, FiShoppingCart, FiHeart, FiLogOut, FiSettings, FiBell, FiStar, FiChevronDown } from 'react-icons/fi';
 import { UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';

@@ -1,4 +1,4 @@
-import { User, WishlistItem, Order, Notification, Review } from '../components/profile/types';
+import { User, WishlistItem, Order, Notification, Review } from '../components/profile/types/index';
 // Address removed as it's not used
 
 // Mock data cho người dùng
@@ -193,7 +193,7 @@ export const mockOrders: Order[] = [
     products: [
       {
         productId: '2',
-        variantId: null, // Sản phẩm không có biến thể
+        variantId: undefined, // Sản phẩm không có biến thể
         name: 'Serum Vitamin C The Ordinary',
         image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
         options: {}, // Thêm options rỗng

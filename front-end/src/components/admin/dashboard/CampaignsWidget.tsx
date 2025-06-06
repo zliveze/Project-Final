@@ -23,7 +23,7 @@ const CampaignsWidget = () => {
 
       loadStats();
     }
-  }, []); // Empty dependency array để chỉ chạy một lần
+  }, [dashboardStats, fetchCampaignStats]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {

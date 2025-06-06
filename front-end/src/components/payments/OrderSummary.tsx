@@ -234,7 +234,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
 
       {/* Thông tin bổ sung */}
       <div className="mt-4 text-xs text-gray-500">
-        <p>Bằng cách nhấn "Đặt hàng", bạn đồng ý với <Link href="/terms" className="text-pink-600 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-pink-600 hover:underline">Chính sách bảo mật</Link> của chúng tôi.</p>
+        <p>Bằng cách nhấn &ldquo;Đặt hàng&rdquo;, bạn đồng ý với <Link href="/terms" className="text-pink-600 hover:underline">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-pink-600 hover:underline">Chính sách bảo mật</Link> của chúng tôi.</p>
       </div>
     </div>
   );

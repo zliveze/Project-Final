@@ -1,7 +1,17 @@
-import { useState, useEffect, ChangeEvent } from 'react'; // Thêm ChangeEvent
-import { FiX, FiTrash2, FiEdit2, FiPrinter, FiTruck, FiPackage, FiInfo, FiRefreshCw, FiSend, FiRepeat } from 'react-icons/fi'; // Thêm FiSend, FiRepeat
+import { useState, useEffect, ChangeEvent, useCallback } from 'react'; // Thêm ChangeEvent and useCallback
+import Image from 'next/image';
+import { FiX, FiTrash2, FiEdit2, FiPrinter, FiTruck, FiInfo, FiRefreshCw, FiSend, FiRepeat } from 'react-icons/fi'; // Thêm FiSend, FiRepeat
 import { toast } from 'react-hot-toast';
-import { useAdminOrder, Order, OrderItem, OrderTracking } from '@/contexts';
+import { useAdminOrder } from '@/contexts/AdminOrderContext'; // Assuming types are here
+import type { Order, OrderItem, OrderTracking } from '@/contexts/AdminOrderContext'; // Assuming types are here
+
+// Define a simple interface for the user object when order.userId is an object
+interface OrderUser {
+  _id?: string;
+  name?: string;
+  email?: string;
+}
+
 // Import DTO hoặc định nghĩa kiểu cho payload cập nhật VTP
 // Giả sử chúng ta có một enum hoặc kiểu cho các loại cập nhật VTP
 enum ViettelPostUpdateOrderStatusType {
@@ -18,6 +28,7 @@ interface UpdateViettelPostStatusPayload {
   ORDER_NUMBER: string;
   NOTE?: string;
   DATE?: string;
+  [key: string]: unknown;
 }
 
 interface OrderDetailModalProps {
@@ -61,14 +72,28 @@ export default function OrderDetailModal({
   const [vtpUpdateDate, setVtpUpdateDate] = useState('');
   const [resendWebhookReason, setResendWebhookReason] = useState('');
 
+  const fetchTrackingInfo = useCallback(async () => {
+    if (!orderId) return;
 
-  useEffect(() => {
-    if (isOpen && orderId) {
-      fetchOrderDetails();
+    try {
+      setTrackingLoading(true);
+      const trackingData = await fetchOrderTracking(orderId);
+      if (trackingData) {
+        setOrderTracking(trackingData);
+      }
+    } catch (error: unknown) {
+      console.error('Error fetching tracking info:', error);
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Không thể tải thông tin vận đơn: ${errorMessage}`);
+    } finally {
+      setTrackingLoading(false);
     }
-  }, [isOpen, orderId]);
+  }, [orderId, fetchOrderTracking]);
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -90,33 +115,26 @@ export default function OrderDetailModal({
       } else {
         setError('Không tìm thấy thông tin đơn hàng');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching order details:', error);
-      toast.error(`Không thể tải chi tiết đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Không thể tải chi tiết đơn hàng: ${errorMessage}`, {
         id: `view-order-error-${orderId}`
       });
-      setError(`Không thể tải chi tiết đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+      setError(`Không thể tải chi tiết đơn hàng: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId, fetchOrderDetail, fetchTrackingInfo]);
 
-  const fetchTrackingInfo = async () => {
-    if (!orderId) return;
-
-    try {
-      setTrackingLoading(true);
-      const trackingData = await fetchOrderTracking(orderId);
-      if (trackingData) {
-        setOrderTracking(trackingData);
-      }
-    } catch (error: any) {
-      console.error('Error fetching tracking info:', error);
-      toast.error(`Không thể tải thông tin vận đơn: ${error.message || 'Vui lòng thử lại sau'}`);
-    } finally {
-      setTrackingLoading(false);
+  useEffect(() => {
+    if (isOpen && orderId) {
+      fetchOrderDetails();
     }
-  };
+  }, [isOpen, orderId, fetchOrderDetails]);
 
   const handleCreateShipment = async () => {
     if (!order) return;
@@ -133,9 +151,13 @@ export default function OrderDetailModal({
       } else {
         toast.error('Không thể tạo vận đơn. Vui lòng thử lại sau.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating shipment:', error);
-      toast.error(`Không thể tạo vận đơn: ${error.message || 'Vui lòng thử lại sau'}`);
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Không thể tạo vận đơn: ${errorMessage}`);
     } finally {
       setShipmentLoading(false);
     }
@@ -154,9 +176,13 @@ export default function OrderDetailModal({
       } else {
         toast.error('Không thể cập nhật thông tin vận đơn. Vui lòng thử lại sau.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error refreshing tracking info:', error);
-      toast.error(`Không thể cập nhật thông tin vận đơn: ${error.message || 'Vui lòng thử lại sau'}`);
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Không thể cập nhật thông tin vận đơn: ${errorMessage}`);
     } finally {
       setTrackingLoading(false);
     }
@@ -175,9 +201,13 @@ export default function OrderDetailModal({
       } else {
         toast.error('Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại sau.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating order status:', error);
-      toast.error(`Không thể cập nhật trạng thái đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+      let errorMessage = 'Vui lòng thử lại sau';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`Không thể cập nhật trạng thái đơn hàng: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -570,7 +600,7 @@ export default function OrderDetailModal({
                             <span className="text-gray-500">ID khách hàng:</span>
                             <span className="text-gray-400 text-xs">
                               {typeof order.userId === 'object'
-                                ? (order.userId as any)?._id || 'Không có thông tin'
+                                ? (order.userId as OrderUser)?._id || 'Không có thông tin'
                                 : order.userId}
                             </span>
                           </div>
@@ -578,7 +608,7 @@ export default function OrderDetailModal({
                             <span className="text-gray-500">Tên khách hàng:</span>
                             <span>
                               {typeof order.userId === 'object'
-                                ? (order.userId as any)?.name || order.userName || 'Không có thông tin'
+                                ? (order.userId as OrderUser)?.name || order.userName || 'Không có thông tin'
                                 : order.userName || 'Không có thông tin'}
                             </span>
                           </div>
@@ -586,7 +616,7 @@ export default function OrderDetailModal({
                             <span className="text-gray-500">Email:</span>
                             <span>
                               {typeof order.userId === 'object'
-                                ? (order.userId as any)?.email || order.userEmail || 'Không có thông tin'
+                                ? (order.userId as OrderUser)?.email || order.userEmail || 'Không có thông tin'
                                 : order.userEmail || 'Không có thông tin'}
                             </span>
                           </div>
@@ -655,8 +685,8 @@ export default function OrderDetailModal({
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
                                     {item.image && (
-                                      <div className="flex-shrink-0 h-12 w-12 mr-3">
-                                        <img className="h-12 w-12 rounded-md object-cover" src={item.image} alt={item.name} />
+                                      <div className="flex-shrink-0 h-12 w-12 mr-3 relative rounded-md overflow-hidden">
+                                        <Image src={item.image} alt={item.name} fill className="object-cover" />
                                       </div>
                                     )}
                                     <div>
@@ -666,7 +696,7 @@ export default function OrderDetailModal({
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {item.options && Object.entries(item.options).map(([key, value]: [string, any]) => (
+                                  {item.options && Object.entries(item.options).map(([key, value]: [string, string | number | boolean]) => (
                                     <div key={key} className="text-xs">{key}: {String(value)}</div>
                                   ))}
                                   {item.variantId && <div className="text-xs text-gray-400 mt-1">Variant ID: {item.variantId}</div>}

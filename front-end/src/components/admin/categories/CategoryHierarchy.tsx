@@ -195,7 +195,9 @@ export default function CategoryHierarchy({
                   onClick={() => onView(category._id || '')}
                   title="Xem chi tiết"
                   className="text-gray-600 hover:text-gray-900"
-                />
+                >
+                  {null}
+                </Button>
                 <Button
                   variant="light"
                   size="xs"
@@ -203,7 +205,9 @@ export default function CategoryHierarchy({
                   onClick={() => onEdit(category._id || '')}
                   title="Chỉnh sửa"
                   className="text-blue-600 hover:text-blue-900"
-                />
+                >
+                  {null}
+                </Button>
                 <Button
                   variant="light"
                   size="xs"
@@ -211,7 +215,9 @@ export default function CategoryHierarchy({
                   onClick={() => onDelete(category._id || '')}
                   title="Xóa"
                   className="text-red-600 hover:text-red-900"
-                />
+                >
+                  {null}
+                </Button>
               </div>
             </td>
           </tr>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaStarHalfAlt, FaRegStar, FaEdit, FaTrash, FaImage } from 'react-icons/fa';
+import { FaStar, FaStarHalfAlt, FaRegStar, FaEdit, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { Review } from './types';
 
@@ -296,4 +296,4 @@ const MyReviews = ({ reviews, onEditReview, onDeleteReview }: MyReviewsProps) =>
   );
 };
 
-export default MyReviews; 
+export default MyReviews;

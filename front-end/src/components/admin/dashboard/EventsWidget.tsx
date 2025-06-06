@@ -1,10 +1,19 @@
-import React, { useEffect, useState } from 'react';
+ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FiCalendar, FiTrendingUp, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+interface RawEventData {
+  _id: string;
+  title: string;
+  totalOrders: number;
+  totalRevenue: number;
+  endDate: string | number | Date; // Type from API before conversion
+  daysLeft: number;
+}
 
 interface EventDashboardStats {
   totalEvents: number;
@@ -25,54 +34,48 @@ const EventsWidget = () => {
   const [dashboardStats, setDashboardStats] = useState<EventDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchEventStats = async () => {
-    if (!isAuthenticated || !accessToken) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`${API_URL}/events/stats`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-
-      const statsData = response.data;
-
-      // Chuẩn hóa dữ liệu endDate trong topPerformingEvents
-      if (statsData.topPerformingEvents) {
-        statsData.topPerformingEvents = statsData.topPerformingEvents.map((event: any) => ({
-          ...event,
-          endDate: new Date(event.endDate)
-        }));
-      }
-
-      setDashboardStats(statsData);
-    } catch (error: any) {
-      console.error('Error fetching event stats:', error);
-
-      // Log chi tiết lỗi để debug
-      if (error.response) {
-        console.error('Response error:', error.response.data);
-        console.error('Status:', error.response.status);
-      }
-
-      // Tạo dữ liệu mẫu nếu API có lỗi
-      setDashboardStats({
-        totalEvents: 0,
-        activeEvents: 0,
-        expiringSoon: 0,
-        topPerformingEvents: []
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchEventStats();
-  }, [isAuthenticated, accessToken]);
+    const effectFetchEventStats = async () => {
+      if (!isAuthenticated || !accessToken) {
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const response = await axios.get(`${API_URL}/events/stats`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const statsData = response.data;
+
+        // Chuẩn hóa dữ liệu endDate trong topPerformingEvents
+        if (statsData.topPerformingEvents) {
+          statsData.topPerformingEvents = statsData.topPerformingEvents.map((event: RawEventData) => ({
+            ...event,
+            endDate: new Date(event.endDate)
+          }));
+        }
+        setDashboardStats(statsData);
+      } catch (error: unknown) {
+        console.error('Error fetching event stats:', error);
+
+        // Log chi tiết lỗi để debug
+        if (axios.isAxiosError(error) && error.response) {
+          console.error('Response error:', error.response.data);
+          console.error('Status:', error.response.status);
+        }
+
+        // Tạo dữ liệu mẫu nếu API có lỗi
+        setDashboardStats({
+          totalEvents: 0,
+          activeEvents: 0,
+          expiringSoon: 0,
+          topPerformingEvents: []
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    effectFetchEventStats();
+  }, [isAuthenticated, accessToken, setIsLoading, setDashboardStats]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {

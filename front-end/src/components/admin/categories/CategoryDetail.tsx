@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { FiEdit2, FiTrash2, FiStar, FiCheck, FiX } from 'react-icons/fi';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
@@ -57,7 +56,7 @@ export default function CategoryDetail({
         hour: '2-digit',
         minute: '2-digit'
       }).format(date);
-    } catch (error) {
+    } catch { // Removed unused 'error' variable
       return String(dateString);
     }
   };
@@ -369,7 +368,7 @@ export default function CategoryDetail({
                           onClick={() => onEdit(childCategory._id || '')}
                           title="Chỉnh sửa"
                           className="text-blue-600 hover:text-blue-900"
-                        />
+                        ><></></Button>
                         <Button
                           variant="light"
                           size="xs"
@@ -377,7 +376,7 @@ export default function CategoryDetail({
                           onClick={() => onDelete(childCategory._id || '')}
                           title="Xóa"
                           className="text-red-600 hover:text-red-900"
-                        />
+                        ><></></Button>
                       </div>
                     </td>
                   </tr>

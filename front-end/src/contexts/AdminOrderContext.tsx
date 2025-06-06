@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import Cookies from 'js-cookie';
-import { useAdminAuth } from './AdminAuthContext';
 
 // Định nghĩa các interface
 export interface OrderItem {
@@ -56,7 +55,7 @@ export interface Order {
   paymentStatus: string;
   trackingCode?: string;
   notes?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,7 +78,7 @@ export interface OrderTracking {
   }>;
   estimatedDelivery?: string;
   actualDelivery?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export interface OrderStats {
@@ -131,12 +130,12 @@ export interface AdminOrderContextType {
   fetchOrderStats: (period?: string) => Promise<OrderStats | null>;
   updateOrderStatus: (id: string, status: string, reason?: string) => Promise<Order | null>;
   cancelOrder: (id: string, reason: string) => Promise<Order | null>;
-  createShipment: (id: string) => Promise<any>;
-  getShipmentInfo: (id: string) => Promise<any>;
+  createShipment: (id: string) => Promise<Record<string, unknown> | null>;
+  getShipmentInfo: (id: string) => Promise<Record<string, unknown> | null>;
   setFilters: (filters: OrderFilterState) => void;
   refreshData: () => Promise<void>;
-  updateViettelPostStatus: (orderId: string, data: any) => Promise<any>;
-  requestResendViettelPostWebhook: (orderId: string, reason?: string) => Promise<any>;
+  updateViettelPostStatus: (orderId: string, data: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  requestResendViettelPostWebhook: (orderId: string, reason?: string) => Promise<Record<string, unknown> | null>;
 }
 
 // Tạo context
@@ -144,7 +143,6 @@ const AdminOrderContext = createContext<AdminOrderContextType | undefined>(undef
 
 // Provider component
 export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { accessToken } = useAdminAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderDetail, setOrderDetail] = useState<Order | null>(null);
   const [orderTracking, setOrderTracking] = useState<OrderTracking | null>(null);
@@ -192,12 +190,20 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
         'Authorization': token && !isLoginPage ? `Bearer ${token}` : ''
       }
     });
-  }, [accessToken]);
+  }, []);
 
   // Xử lý lỗi
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     console.error('API Error:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
+    let errorMessage = 'Đã xảy ra lỗi';
+
+    if (error && typeof error === 'object') {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi';
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+
     setError(errorMessage);
     toast.error(errorMessage);
   };
@@ -260,8 +266,9 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
         setTotalPages(response.data.totalPages);
 
         // return response.data; // Không cần return ở đây vì hàm là void
-      } catch (apiError: any) {
-        if (apiError.response && apiError.response.status === 404) {
+      } catch (apiError: unknown) {
+        const err = apiError as { response?: { status?: number } };
+        if (err.response && err.response.status === 404) {
           console.warn('API /admin/orders không tồn tại, sử dụng dữ liệu mẫu');
           const mockOrders: Order[] = [ /* ... dữ liệu mẫu ... */ ];
           setOrders(mockOrders);
@@ -393,7 +400,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [updateOrderStatus, fetchOrderDetail]);
 
-  const createShipment = useCallback(async (id: string): Promise<any> => {
+  const createShipment = useCallback(async (id: string): Promise<Record<string, unknown> | null> => {
     try {
       setLoading(true);
       setError(null);
@@ -410,7 +417,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [api, fetchOrderDetail]);
 
-  const getShipmentInfo = useCallback(async (id: string): Promise<any> => {
+  const getShipmentInfo = useCallback(async (id: string): Promise<Record<string, unknown> | null> => {
     try {
       setLoading(true);
       setError(null);
@@ -448,7 +455,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
     await fetchOrderStats(filters.timePeriod);
   }, [fetchOrders, currentPage, filters, fetchOrderStats]);
 
-  const updateViettelPostStatus = useCallback(async (orderId: string, data: any): Promise<any> => {
+  const updateViettelPostStatus = useCallback(async (orderId: string, data: Record<string, unknown>): Promise<Record<string, unknown> | null> => {
     try {
       setLoading(true);
       setError(null);
@@ -474,11 +481,12 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
         console.log(`[DEBUG_CONTEXT] Làm mới thông tin theo dõi đơn hàng ${orderId}`);
         fetchOrderTracking(orderId);
         return response.data;
-      } catch (apiError: any) {
+      } catch (apiError: unknown) {
         console.error(`[DEBUG_CONTEXT] Lỗi API khi cập nhật trạng thái Viettelpost:`, apiError);
+        const err = apiError as { response?: { status?: number; data?: { message?: string } }; message?: string };
 
         // Kiểm tra xem lỗi có phải là do đơn hàng đã hủy không
-        if (apiError.response?.data?.message && apiError.response.data.message.includes('Đơn hàng đã hủy')) {
+        if (err.response?.data?.message && err.response.data.message.includes('Đơn hàng đã hủy')) {
           console.log(`[DEBUG_CONTEXT] Đơn hàng ${orderId} đã được hủy trước đó trên Viettelpost`);
           toast.success('Đơn hàng đã được hủy trước đó trên Viettelpost');
 
@@ -497,7 +505,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
         }
 
         // Nếu là lỗi 500 từ server, vẫn làm mới thông tin đơn hàng
-        if (apiError.response?.status === 500) {
+        if (err.response?.status === 500) {
           console.log(`[DEBUG_CONTEXT] Lỗi server 500 khi cập nhật trạng thái Viettelpost cho đơn hàng ${orderId}`);
 
           // Vẫn làm mới thông tin đơn hàng
@@ -511,14 +519,14 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
             status: 'error_but_continue',
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái Viettelpost, nhưng đơn hàng vẫn được cập nhật trong hệ thống',
             success: true,
-            error: apiError.message
+            error: err.message || 'Unknown error'
           };
         }
 
         // Ném lỗi để xử lý ở catch bên ngoài
         throw apiError;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[DEBUG_CONTEXT] Lỗi khi cập nhật trạng thái Viettelpost:`, error);
       handleError(error);
       return null;
@@ -527,7 +535,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [api, orderDetail, fetchOrderDetail, fetchOrderTracking]);
 
-  const requestResendViettelPostWebhook = useCallback(async (orderId: string, reason?: string): Promise<any> => {
+  const requestResendViettelPostWebhook = useCallback(async (orderId: string, reason?: string): Promise<Record<string, unknown> | null> => {
     try {
       setLoading(true);
       setError(null);

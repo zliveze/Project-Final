@@ -7,6 +7,12 @@ import {
   Title,
   Tooltip,
   Legend,
+  TooltipCallbacks,
+  Chart,
+  CoreChartOptions,
+  TooltipItem,
+  ChartDataset,
+  Element,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { useAdminUser } from '@/contexts/AdminUserContext';
@@ -80,54 +86,60 @@ const UserGrowthChart = () => {
       },
       tooltip: {
         callbacks: {
-          label: function(context: any) {
-            const value = context.parsed.y;
-            return `Tăng trưởng: ${value.toFixed(1)}%`;
+          label: function(tooltipItem: TooltipItem<'bar'>) {
+            const value = tooltipItem.parsed?.y;
+            if (typeof value === 'number') {
+              return `Tăng trưởng: ${value.toFixed(1)}%`;
+            }
+            return '';
           },
-        },
+        } as Partial<TooltipCallbacks<'bar'>>,
       },
     },
     scales: {
       y: {
         beginAtZero: true,
         ticks: {
-          callback: function(value: any) {
-            return value + '%';
+          callback: function(value: string | number) {
+            if (typeof value === 'number') {
+              return value + '%';
+            }
+            return value;
           },
         },
       },
     },
     // Hiển thị số liệu ở đầu cột
     animation: {
-      onComplete: function(this: any) {
-        // Kiểm tra xem chart và ctx có tồn tại không
-        if (!this.chart || !this.chart.ctx) {
+      onComplete: function(context: { chart: Chart<'bar'> }) {
+        const chartInstance = context.chart;
+        if (!chartInstance || !chartInstance.ctx) {
           return;
         }
 
-        const ctx = this.chart.ctx;
+        const ctx = chartInstance.ctx;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = '#374151';
         ctx.font = '12px Arial';
 
-        this.data.datasets.forEach((dataset: any, i: number) => {
-          const meta = this.getDatasetMeta(i);
+        chartInstance.data.datasets.forEach((dataset: ChartDataset<'bar'>, i: number) => {
+          const meta = chartInstance.getDatasetMeta(i);
           if (meta && meta.data) {
-            meta.data.forEach((bar: any, index: number) => {
-              const data = dataset.data[index];
-              if (data !== 0 && bar && typeof bar.x === 'number' && typeof bar.y === 'number') {
+            meta.data.forEach((element: Element, index: number) => {
+              const dataPointValue = dataset.data?.[index] as number;
+              if (dataPointValue !== 0 && element && typeof element.x === 'number' && typeof element.y === 'number') {
                 ctx.fillText(
-                  data.toFixed(1) + '%',
-                  bar.x,
-                  bar.y - 5
+                  dataPointValue.toFixed(1) + '%',
+                  element.x,
+                  element.y - 5
                 );
               }
             });
           }
         });
       }
-    }
+    } as CoreChartOptions<'bar'>['animation']
   };
 
   return (

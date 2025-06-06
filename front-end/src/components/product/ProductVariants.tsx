@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { RadioGroup } from '@headlessui/react';
 
 interface VariantOption {
   color?: string;
@@ -106,7 +105,7 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
         color: firstVariant.options?.color
       }));
     }
-  }, [selectedVariant, selectedCombination, variants]); // Chạy lại khi selectedVariant thay đổi
+  }, [selectedVariant, selectedCombination, variants, selectedOptions.color]); // Chạy lại khi selectedVariant thay đổi
 
 
   // Tìm và chọn tổ hợp phù hợp khi các thuộc tính thay đổi
@@ -296,29 +295,6 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
     }
   };
 
-  // Handle combination selection
-  const handleCombinationSelect = (combinationId: string, variant: Variant) => {
-    setSelectedCombinationId(combinationId);
-    const combination = variant.combinations?.find(c => c.combinationId === combinationId);
-    if (combination) {
-      onSelectVariant(variant, combination);
-    }
-  };
-
-
-  // --- Component Render ---
-
-  // Kiểm tra xem có variant nào không
-  if (!variants || variants.length === 0) {
-    return null;
-  }
-
-  // Determine if any options exist at all
-  const hasAnyOptions = availableColors.length > 0 || availableSizes.length > 0 || availableShades.length > 0;
-  if (!hasAnyOptions) {
-    return null; // Render nothing if no variants have any options
-  }
-
   // Tìm giá của tổ hợp được chọn
   const selectedPriceInfo = React.useMemo(() => {
     if (!selectedVariant) return { originalPrice: null, currentPrice: null, hasPromotion: false };
@@ -353,12 +329,26 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
     }
 
     // Nếu không có combination hoặc không tìm thấy, trả về giá của variant
-    let originalPrice = selectedVariant.price;
-    let currentPrice = selectedVariant.promotionPrice || selectedVariant.price;
-    let hasPromotion = !!selectedVariant.promotion && !!selectedVariant.promotionPrice;
+    const originalPrice = selectedVariant.price; // Changed to const
+    const currentPrice = selectedVariant.promotionPrice || selectedVariant.price; // Changed to const
+    const hasPromotion = !!selectedVariant.promotion && !!selectedVariant.promotionPrice; // Changed to const
 
     return { originalPrice, currentPrice, hasPromotion };
   }, [selectedVariant, selectedCombinationId]);
+
+
+  // --- Component Render ---
+
+  // Kiểm tra xem có variant nào không
+  if (!variants || variants.length === 0) {
+    return null;
+  }
+
+  // Determine if any options exist at all
+  const hasAnyOptions = availableColors.length > 0 || availableSizes.length > 0 || availableShades.length > 0;
+  if (!hasAnyOptions) {
+    return null; // Render nothing if no variants have any options
+  }
 
   return (
     <div className="space-y-5">

@@ -10,7 +10,7 @@ export const useProductGifts = (
   /**
    * Cập nhật thông tin quà tặng (đảm bảo tính bất biến)
    */
-  const handleGiftChange = (index: number, field: string, value: any) => {
+  const handleGiftChange = (index: number, field: string, value: string | number | boolean | Date | undefined | null) => {
     setFormData(prev => {
       // Đảm bảo gifts là một mảng
       const currentGifts = Array.isArray(prev.gifts) ? prev.gifts : [];
@@ -156,7 +156,7 @@ export const useProductGifts = (
   /**
    * Cập nhật điều kiện quà tặng
    */
-  const handleGiftConditionChange = (index: number, conditionField: string, value: any) => {
+  const handleGiftConditionChange = (index: number, conditionField: string, value: string | number | Date | undefined | null) => {
     handleGiftChange(index, `conditions.${conditionField}`, value);
   };
 

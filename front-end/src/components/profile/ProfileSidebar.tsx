@@ -92,10 +92,10 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
                 return (
                   <div className="text-sm text-gray-700">
                     <p className="mb-1">{defaultAddress.addressLine}</p>
-                    {/* Display state (district) and city */}
+                    {/* Display district and province */}
                     <p>
-                      {defaultAddress.state && `${defaultAddress.state}, `}
-                      {defaultAddress.city}, {defaultAddress.country}
+                      {defaultAddress.districtName && `${defaultAddress.districtName}, `}
+                      {defaultAddress.provinceName}, {defaultAddress.country || 'Việt Nam'}
                     </p>
                   </div>
                 );

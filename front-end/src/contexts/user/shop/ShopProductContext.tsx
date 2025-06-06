@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
+import axios from 'axios'; // Import axios for type checking
+import { AxiosError } from 'axios'; // Import AxiosError for type checking
 import axiosInstance from '@/lib/axiosInstance';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../AuthContext';
@@ -28,6 +30,12 @@ export interface UserCampaign {
     adjustedPrice: number;
     image?: string;
   }>;
+}
+
+// Interface for the API response of a campaign, assuming dates are strings
+interface CampaignApiResponse extends Omit<UserCampaign, 'startDate' | 'endDate'> {
+  startDate: string;
+  endDate: string;
 }
 
 // Define the structure for a lightweight product (adjust based on actual API response)
@@ -228,7 +236,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [selectedCampaign, setSelectedCampaign] = useState<UserCampaign | null>(null);
   const [skinTypeOptions, setSkinTypeOptions] = useState<string[]>([]);
   const [concernOptions, setConcernOptions] = useState<string[]>([]);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Sử dụng useRef để tránh re-create function trong mỗi render
   const lastRequestKeyRef = useRef<string>('');
@@ -246,7 +254,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
           result[key] = value;
         }
         return result;
-      }, {} as any);
+      }, {} as Record<string, unknown>);
 
     return `${page}-${limit}-${JSON.stringify(sortedFilters)}`;
   }, []);
@@ -411,9 +419,6 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [filters, itemsPerPage, fetchProducts]);
 
-  // Thêm biến để theo dõi timer debounce cho setFilters
-  const [setFiltersDebounceTimer, setSetFiltersDebounceTimer] = useState<NodeJS.Timeout | null>(null);
-
   // Function to change page
   const changePage = useCallback((newPage: number) => {
     if (newPage > 0 && newPage <= totalPages && newPage !== currentPage) {
@@ -430,66 +435,6 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       fetchProducts(1, newLimit, filters);
     }
   }, [itemsPerPage, filters, fetchProducts]);
-
-  // Initial fetch on component mount
-  useEffect(() => {
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      console.log("ShopProductProvider mounted. Performing initial fetch.");
-
-      // Load options song song
-      Promise.all([
-        fetchSkinTypeOptions(),
-        fetchConcernOptions()
-      ]).then(() => {
-        console.log('Options loaded successfully');
-      });
-
-      // Initial products fetch
-      fetchProducts(currentPage, itemsPerPage, filters);
-    }
-  }, []);
-
-  // Thêm hàm fetchCampaign để lấy thông tin chiến dịch
-  const fetchCampaign = useCallback(async (campaignId: string) => {
-    if (!campaignId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const campaignUrl = `${API_URL}/campaigns/public/${campaignId}`;
-      console.log(`Đang lấy thông tin chiến dịch với URL: ${campaignUrl}`);
-
-      // Thêm logging để debug
-      console.log(`API_URL được sử dụng: ${API_URL}`);
-      console.log(`BASE_URL từ env: ${process.env.NEXT_PUBLIC_API_URL || 'Không có'}`);
-
-      const response = await axiosInstance.get(`/campaigns/public/${campaignId}`);
-      console.log('Status response chiến dịch:', response.status, response.statusText);
-      console.log('Kết quả lấy thông tin chiến dịch:', response.data);
-
-      if (response.data) {
-        const campaignData = {
-          ...response.data,
-          startDate: new Date(response.data.startDate),
-          endDate: new Date(response.data.endDate)
-        };
-
-        setSelectedCampaign(campaignData);
-        console.log('Đã cập nhật selectedCampaign:', campaignData);
-      } else {
-        console.warn('Không nhận được dữ liệu chiến dịch hợp lệ từ API');
-      }
-    } catch (err: any) {
-      console.error('Lỗi khi lấy thông tin chiến dịch:', err.response || err);
-      const errorMessage = err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tải thông tin chiến dịch.';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   // Tối ưu fetchSkinTypeOptions với better caching
   const fetchSkinTypeOptions = useCallback(async (): Promise<string[]> => {
@@ -576,8 +521,80 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, []);
 
+  // Initial fetch on component mount
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      console.log("ShopProductProvider mounted. Performing initial fetch.");
+
+      // Load options song song
+      Promise.all([
+        fetchSkinTypeOptions(),
+        fetchConcernOptions()
+      ]).then(() => {
+        console.log('Options loaded successfully');
+      });
+
+      // Initial products fetch
+      fetchProducts(currentPage, itemsPerPage, filters);
+    }
+  }, [currentPage, filters, itemsPerPage, fetchProducts, fetchSkinTypeOptions, fetchConcernOptions]);
+
+  // Thêm hàm fetchCampaign để lấy thông tin chiến dịch
+  const fetchCampaign = useCallback(async (campaignId: string) => {
+    if (!campaignId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const campaignUrl = `${API_URL}/campaigns/public/${campaignId}`;
+      console.log(`Đang lấy thông tin chiến dịch với URL: ${campaignUrl}`);
+
+      // Thêm logging để debug
+      console.log(`API_URL được sử dụng: ${API_URL}`);
+      console.log(`BASE_URL từ env: ${process.env.NEXT_PUBLIC_API_URL || 'Không có'}`);
+
+      const response = await axiosInstance.get<CampaignApiResponse>(`/campaigns/public/${campaignId}`);
+      console.log('Status response chiến dịch:', response.status, response.statusText);
+      console.log('Kết quả lấy thông tin chiến dịch:', response.data);
+
+      if (response.data) {
+        const campaignData: UserCampaign = {
+          ...response.data,
+          startDate: new Date(response.data.startDate),
+          endDate: new Date(response.data.endDate)
+        };
+
+        setSelectedCampaign(campaignData);
+        console.log('Đã cập nhật selectedCampaign:', campaignData);
+      } else {
+        console.warn('Không nhận được dữ liệu chiến dịch hợp lệ từ API');
+        // Optionally, set an error or clear selectedCampaign
+        // setSelectedCampaign(null); 
+        // setError('Không nhận được dữ liệu chiến dịch.');
+      }
+    } catch (err: unknown) {
+      let errorMessage = 'Đã xảy ra lỗi khi tải thông tin chiến dịch.';
+      if (axios.isAxiosError(err)) {
+        const axiosError = err as AxiosError<{ message?: string }>;
+        console.error('Lỗi Axios khi lấy thông tin chiến dịch:', axiosError.response?.data || axiosError.message, axiosError.toJSON());
+        errorMessage = axiosError.response?.data?.message || axiosError.message || errorMessage;
+      } else if (err instanceof Error) {
+        console.error('Lỗi chung khi lấy thông tin chiến dịch:', err.message);
+        errorMessage = err.message;
+      } else {
+        console.error('Lỗi không xác định khi lấy thông tin chiến dịch:', err);
+      }
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Ghi lại hoạt động tìm kiếm
-  const logSearch = async (searchQuery: string) => {
+  const logSearch = useCallback(async (searchQuery: string) => {
     if (!isAuthenticated) return;
 
     try {
@@ -588,10 +605,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     } catch (error) {
       console.error('Error logging search activity:', error);
     }
-  };
+  }, [isAuthenticated]);
 
   // Thêm vào giỏ hàng và đồng thời ghi lại hoạt động
-  const addToCart = async (productId: string, quantity: number = 1, variantId?: string): Promise<boolean> => {
+  const addToCart = useCallback(async (productId: string, quantity: number = 1, variantId?: string): Promise<boolean> => {
     if (!isAuthenticated) {
       toast.warning('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', {
         position: "bottom-right",
@@ -634,8 +651,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         return false;
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const errorMessage = err.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
       toast.error(errorMessage, {
         position: "bottom-right",
         autoClose: 3000,
@@ -644,10 +662,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.error('Error adding product to cart:', error);
       return false;
     }
-  };
+  }, [isAuthenticated]);
 
   // Thêm vào danh sách yêu thích và đồng thời ghi lại hoạt động
-  const addToWishlist = async (productId: string): Promise<boolean> => {
+  const addToWishlist = useCallback(async (productId: string): Promise<boolean> => {
     if (!isAuthenticated) {
       toast.warning('Vui lòng đăng nhập để thêm sản phẩm vào danh sách yêu thích', {
         position: "bottom-right",
@@ -686,8 +704,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         return false;
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Không thể thêm sản phẩm vào danh sách yêu thích';
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const errorMessage = err.response?.data?.message || 'Không thể thêm sản phẩm vào danh sách yêu thích';
       toast.error(errorMessage, {
         position: "bottom-right",
         autoClose: 3000,
@@ -696,10 +715,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.error('Error adding product to wishlist:', error);
       return false;
     }
-  };
+  }, [isAuthenticated]);
 
   // Ghi lại hoạt động xem sản phẩm
-  const logProductView = async (productId: string, timeSpent?: number) => {
+  const logProductView = useCallback(async (productId: string, timeSpent?: number) => {
     if (!isAuthenticated) return;
 
     try {
@@ -709,10 +728,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     } catch (error) {
       console.error('Error logging product view activity:', error);
     }
-  };
+  }, [isAuthenticated]);
 
   // Ghi lại hoạt động click vào sản phẩm
-  const logProductClick = async (productId: string) => {
+  const logProductClick = useCallback(async (productId: string) => {
     if (!isAuthenticated) return;
 
     try {
@@ -720,10 +739,10 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     } catch (error) {
       console.error('Error logging product click activity:', error);
     }
-  };
+  }, [isAuthenticated]);
 
   // Ghi lại hoạt động sử dụng bộ lọc
-  const logFilterUse = async (filters: {
+  const logFilterUse = useCallback(async (filters: {
     price?: { min?: number; max?: number };
     categoryIds?: string[];
     brandIds?: string[];
@@ -738,7 +757,7 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
     } catch (error) {
       console.error('Error logging filter use activity:', error);
     }
-  };
+  }, [isAuthenticated]);
 
   // Lấy top sản phẩm bán chạy
   const fetchTopProducts = useCallback(async (
@@ -803,7 +822,9 @@ export const ShopProductProvider: React.FC<{ children: ReactNode }> = ({ childre
   }), [
     products, loading, error, totalProducts, currentPage, totalPages, itemsPerPage,
     filters, selectedCampaign, fetchProducts, setFilters, changePage, changeLimit,
-    skinTypeOptions, concernOptions, fetchTopProducts
+    fetchCampaign, fetchConcernOptions, fetchSkinTypeOptions, skinTypeOptions,
+    concernOptions, addToWishlist, addToCart, logSearch, logProductView,
+    logProductClick, logFilterUse, fetchTopProducts
   ]);
 
   return (

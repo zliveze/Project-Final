@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FiUserPlus, FiRefreshCw, FiChevronDown } from 'react-icons/fi';
 import { toast, Toaster } from 'react-hot-toast';
-import UserTable, { User } from './users/UserTable';
+import UserTable from './users/UserTable';
 import { useAdminUser } from '@/contexts/AdminUserContext';
 import AdvancedSearch, { SearchValues } from './AdvancedSearch';
 import Pagination from '@/components/admin/common/Pagination';
@@ -24,14 +24,13 @@ export const UserManagement: React.FC = () => {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const {
-    users,
+    users: contextUsers, // Rename to avoid conflict with local state if any
     stats,
     loading,
     currentPage,
     totalPages,
     fetchUsers,
     getUserDetail,
-    updateUser,
     deleteUser,
     resetPassword
   } = useAdminUser();
@@ -52,7 +51,7 @@ export const UserManagement: React.FC = () => {
     try {
       activeRequest.current = true;
       setIsRefreshing(true);
-      await fetchUsers(
+      await fetchUsers( // fetchUsers from context updates contextUsers
         currentPage,
         itemsPerPage,
         searchValues.searchTerm,
@@ -130,7 +129,7 @@ export const UserManagement: React.FC = () => {
           if (stats?.totalUsers === 0) {
             toast.custom(
               <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-md border border-blue-200 shadow-sm">
-                Không tìm thấy người dùng phù hợp với từ khóa "{normalizedValues.searchTerm}"
+                Không tìm thấy người dùng phù hợp với từ khóa &quot;{normalizedValues.searchTerm}&quot;
               </div>
             );
           }
@@ -157,7 +156,7 @@ export const UserManagement: React.FC = () => {
             if (stats?.totalUsers === 0) {
               toast.custom(
                 <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-md border border-blue-200 shadow-sm">
-                  Không tìm thấy người dùng phù hợp với từ khóa "{normalizedValues.searchTerm}"
+                  Không tìm thấy người dùng phù hợp với từ khóa &quot;{normalizedValues.searchTerm}&quot;
                 </div>
               );
             }
@@ -430,8 +429,8 @@ export const UserManagement: React.FC = () => {
         </div>
         
         <div id="user-table-section">
-          <UserTable 
-            users={users}
+          <UserTable
+            users={contextUsers}
             loading={loading}
             currentPage={currentPage}
             totalItems={stats?.totalUsers || 0}
@@ -462,4 +461,4 @@ export const UserManagement: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};

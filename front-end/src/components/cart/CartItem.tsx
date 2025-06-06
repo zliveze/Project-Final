@@ -64,7 +64,6 @@ interface CartItemProps {
 
 const CartItem: React.FC<CartItemProps> = ({
   _id, // Use the unique CartProduct ID passed as _id
-  variantId, // Keep actual variantId for other uses if needed
   name,
   slug,
   image,
@@ -93,7 +92,7 @@ const CartItem: React.FC<CartItemProps> = ({
   const [imageError, setImageError] = useState(false);
   
   // Use the branches hook to get branch information
-  const { getBranchName, error: branchError, preloadBranches } = useBranches();
+  const { getBranchName, preloadBranches } = useBranches();
 
   // Handle image error
   const handleImageError = () => {
@@ -195,8 +194,6 @@ const CartItem: React.FC<CartItemProps> = ({
           ...b,
           name: b.branchName || getBranchName(b.branchId)
         }))}
-        currentQuantity={quantity}
-        maxQuantity={maxQuantity}
         initialBranchId={selectedBranchId}
         onSelectBranch={handleSelectBranch}
       />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FiGift, FiCheckCircle, FiAlertTriangle, FiUsers } from 'react-icons/fi';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
@@ -22,12 +22,24 @@ interface VoucherDashboardStats {
   }>;
 }
 
+interface ApiVoucher {
+  _id: string;
+  code: string;
+  description: string;
+  usedCount: number;
+  usageLimit: number;
+  discountType: string;
+  discountValue: number;
+  endDate: string; // endDate from API is a string
+  daysLeft: number;
+}
+
 const VoucherStatsCards = () => {
   const { accessToken, isAuthenticated } = useAdminAuth();
   const [dashboardStats, setDashboardStats] = useState<VoucherDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchVoucherStats = async () => {
+  const fetchVoucherStats = useCallback(async () => {
     if (!isAuthenticated || !accessToken) {
       return;
     }
@@ -39,12 +51,12 @@ const VoucherStatsCards = () => {
           Authorization: `Bearer ${accessToken}`
         }
       });
-      
+
       const statsData = response.data;
-      
+
       // Chuẩn hóa dữ liệu endDate trong topUsedVouchers
       if (statsData.topUsedVouchers) {
-        statsData.topUsedVouchers = statsData.topUsedVouchers.map((voucher: any) => ({
+        statsData.topUsedVouchers = statsData.topUsedVouchers.map((voucher: ApiVoucher) => ({
           ...voucher,
           endDate: new Date(voucher.endDate)
         }));
@@ -63,11 +75,11 @@ const VoucherStatsCards = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated, accessToken]);
 
   useEffect(() => {
     fetchVoucherStats();
-  }, [isAuthenticated, accessToken]);
+  }, [fetchVoucherStats]);
 
   const formatDiscount = (type: string, value: number) => {
     if (type === 'percentage') {

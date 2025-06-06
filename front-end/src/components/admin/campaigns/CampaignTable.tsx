@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Edit2, Trash2, Eye, Search, Filter, ChevronDown } from 'lucide-react'; // Updated icons
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+// import { vi } from 'date-fns/locale'; // Removed unused import
 import Pagination from '@/components/admin/common/Pagination';
 import { Campaign } from '@/contexts/CampaignContext'; // Import Campaign type
 
@@ -16,7 +16,7 @@ interface CampaignTableProps {
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (campaign: Campaign) => void; // Pass the whole campaign object
-  onToggleStatus?: (id: string, currentStatus: string) => void; // Keep for potential future use
+  onToggleStatus?: (id: string, currentStatus: string) => void; // Re-added as optional
   onPageChange: (page: number) => void;
   onItemsPerPageChange: (limit: number) => void;
   onSearchChange: (search: string) => void;
@@ -33,7 +33,7 @@ export default function CampaignTable({
   onView, 
   onEdit, 
   onDelete, 
-  onToggleStatus,
+  // onToggleStatus, // Still not destructured as it's not used in this component
   onPageChange,
   onItemsPerPageChange,
   onSearchChange,

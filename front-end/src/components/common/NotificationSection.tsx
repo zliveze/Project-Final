@@ -17,6 +17,20 @@ type Notification = {
   textColor?: string;
 };
 
+// Định nghĩa kiểu dữ liệu thông báo thô từ API
+type RawNotification = {
+  _id: string;
+  content: string;
+  type: string;
+  link?: string;
+  priority: number;
+  startDate: string; // Dữ liệu từ API là chuỗi
+  endDate?: string | null; // Dữ liệu từ API là chuỗi
+  isActive: boolean;
+  backgroundColor?: string;
+  textColor?: string;
+};
+
 export default function NotificationSection() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +80,7 @@ export default function NotificationSection() {
         }
 
         // Chuyển đổi chuỗi ngày thành đối tượng Date
-        const formattedNotifications = data.map((notification: any) => ({
+        const formattedNotifications = data.map((notification: RawNotification) => ({
           ...notification,
           startDate: new Date(notification.startDate),
           endDate: notification.endDate ? new Date(notification.endDate) : null

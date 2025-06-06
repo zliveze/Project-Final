@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { FiSearch, FiX, FiCheck, FiFilter, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { Product } from '@/contexts/ProductContext';
 import { useCategory, Category } from '@/contexts/CategoryContext';
 import { useBrands, Brand } from '@/contexts/BrandContext';
 import { useVoucherProductSearch } from '@/contexts/VoucherProductSearchContext';
@@ -35,8 +35,8 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
 
   // Use Contexts
   const { products, pagination, loading, error: productsError, searchProducts } = useVoucherProductSearch();
-  const { categories, loading: categoriesLoading, fetchCategories } = useCategory();
-  const { brands, loading: brandsLoading, fetchBrands } = useBrands();
+  const { categories, fetchCategories } = useCategory();
+  const { brands, fetchBrands } = useBrands();
 
   const isInitialMount = useRef(true);
   const previousSearchParams = useRef({
@@ -119,7 +119,7 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
       isMounted = false;
       setMounted(false);
     };
-  }, []);
+  }, [mounted, categories.length, brands.length, fetchCategories, fetchBrands, loading, searchProducts, itemsPerPage]);
 
   // Update total pages when pagination changes
   useEffect(() => {
@@ -182,7 +182,7 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
     const pages = [];
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
@@ -407,11 +407,12 @@ export const VoucherProductsPopup: React.FC<VoucherProductsPopupProps> = ({
               >
                 {/* Product Image */}
                 {product.images?.[0]?.url && (
-                  <div className="flex-shrink-0 w-12 h-12 mr-3">
-                    <img
+                  <div className="flex-shrink-0 w-12 h-12 mr-3 relative">
+                    <Image
                       src={product.images[0].url}
                       alt={product.name}
-                      className="w-full h-full object-cover rounded-md"
+                      fill
+                      className="object-cover rounded-md"
                     />
                   </div>
                 )}

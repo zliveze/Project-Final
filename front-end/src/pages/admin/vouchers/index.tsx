@@ -58,31 +58,6 @@ function VouchersPageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Kiểm tra xác thực
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/admin/auth/login');
-    }
-  }, [isAuthenticated, authLoading, router]);
-
-  // Load dữ liệu ban đầu
-  useEffect(() => {
-    if (isAuthenticated) {
-      refreshData();
-    }
-  }, [isAuthenticated, refreshData]);
-
-  // Load vouchers khi thay đổi trang hoặc filters
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchVouchers({
-        page: currentPage,
-        limit: itemsPerPage,
-        ...filters
-      });
-    }
-  }, [currentPage, itemsPerPage, filters, isAuthenticated, fetchVouchers]);
-
   // Làm mới dữ liệu
   const refreshData = useCallback(async () => {
     setIsRefreshing(true);
@@ -98,6 +73,31 @@ function VouchersPageContent() {
       toast.error('Có lỗi xảy ra khi tải dữ liệu');
     }
   }, [currentPage, itemsPerPage, filters, fetchVouchers, fetchVoucherStats]);
+
+  // Kiểm tra xác thực
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/admin/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Load dữ liệu ban đầu
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated, currentPage, itemsPerPage, filters, fetchVouchers, fetchVoucherStats, refreshData]); // Expanded dependencies
+
+  // Load vouchers khi thay đổi trang hoặc filters
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchVouchers({
+        page: currentPage,
+        limit: itemsPerPage,
+        ...filters
+      });
+    }
+  }, [currentPage, itemsPerPage, filters, isAuthenticated, fetchVouchers]);
 
   // Thêm voucher mới
   const handleAddVoucher = async (voucherData: Partial<Voucher>) => {
@@ -207,8 +207,8 @@ function VouchersPageContent() {
   };
 
   // Xử lý thay đổi filter (sử dụng useCallback)
-  const handleFilterChange = useCallback((newFilters: VoucherFilters) => {
-    setFilters(newFilters);
+  const handleFilterChange = useCallback((newFilters: unknown) => { // Changed VoucherFilters to unknown
+    setFilters(newFilters as Record<string, unknown>);
     setCurrentPage(1); // Reset về trang 1 khi thay đổi filter
   }, []); // Không có dependencies bên ngoài, chỉ cần tạo 1 lần
 

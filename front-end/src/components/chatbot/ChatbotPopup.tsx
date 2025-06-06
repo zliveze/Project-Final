@@ -59,12 +59,12 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     }
   }, [state.currentSession?.messages]);
 
-  // Load chat history when chat opens - Fixed dependency to prevent infinite loop
+  // Load chat history when chat opens
   useEffect(() => {
     if (state.isOpen && state.currentSession && state.currentSession.messages.length === 0) {
       loadChatHistory();
     }
-  }, [state.isOpen, state.currentSession?.sessionId]); // Only depend on sessionId, not entire currentSession object
+  }, [state.isOpen, state.currentSession, loadChatHistory]);
 
   // Handle animation when opening/closing
   useEffect(() => {

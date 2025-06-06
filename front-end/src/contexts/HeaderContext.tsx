@@ -155,7 +155,15 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('API response:', data);
 
       // Chuyển đổi dữ liệu từ API sang định dạng SearchProduct
-      const products: SearchProduct[] = data.products.map((product: any) => ({
+      const products: SearchProduct[] = data.products.map((product: {
+        _id: string;
+        name: string;
+        slug: string;
+        price: number;
+        currentPrice?: number;
+        imageUrl?: string;
+        brandName?: string;
+      }) => ({
         _id: product._id,
         name: product.name,
         slug: product.slug,
@@ -270,14 +278,14 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (cart && cart.itemCount !== undefined) {
       setCartItemCount(cart.itemCount);
     }
-  }, [cart?.itemCount]);
+  }, [cart, cart?.itemCount]);
 
   // Cập nhật số lượng sản phẩm trong wishlist từ WishlistContext
   useEffect(() => {
     if (wishlist && wishlist.itemCount !== undefined) {
       setWishlistItemCount(wishlist.itemCount);
     }
-  }, [wishlist?.itemCount]);
+  }, [wishlist, wishlist?.itemCount]);
 
   // Tải dữ liệu từ API khi component được mount
   useEffect(() => {

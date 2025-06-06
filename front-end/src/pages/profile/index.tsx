@@ -36,7 +36,6 @@ const ProfileMain: React.FC = () => {
     handleDeleteNotification,
     handleEditReview,
     handleDeleteReview,
-    handleOrderStatusFilterChange,
     handleTabChange,
     handleLogout,
     // Add address handlers
@@ -101,7 +100,6 @@ const ProfileMain: React.FC = () => {
               handleDeleteNotification={handleDeleteNotification}
               handleEditReview={handleEditReview}
               handleDeleteReview={handleDeleteReview}
-              handleOrderStatusFilterChange={handleOrderStatusFilterChange}
               // Pass address handlers
               handleAddAddress={handleAddAddress}
               handleUpdateAddress={handleUpdateAddress}

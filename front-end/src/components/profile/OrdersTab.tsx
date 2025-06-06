@@ -3,8 +3,8 @@ import { FaShoppingBag } from 'react-icons/fa';
 import { Order as ProfileOrder, OrderStatusType } from './types';
 import OrderFilters from './OrderFilters';
 import OrderHistory from './OrderHistory';
-import { useOrder } from '../../contexts';
-import { toast } from 'react-hot-toast';
+import { useOrder } from '../../contexts'; 
+import { Order as ApiOrder } from '../../contexts/user/OrderContext'; // Corrected import path for ApiOrder
 
 interface OrdersTabProps {
   orders: ProfileOrder[];
@@ -12,7 +12,7 @@ interface OrdersTabProps {
   onDownloadInvoice: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
   onReturnOrder: (orderId: string) => void;
-  onBuyAgain: (orderId: string) => void;
+  onBuyAgain: (orderId: string) => Promise<void>; // Added onBuyAgain
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({
@@ -21,7 +21,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
   onDownloadInvoice,
   onCancelOrder,
   onReturnOrder,
-  onBuyAgain
+  onBuyAgain // Destructure onBuyAgain
 }) => {
   // Sử dụng OrderContext
   const {
@@ -36,18 +36,21 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
   } = useOrder();
 
   // Chuyển đổi từ Order của OrderContext sang Order của ProfileContext
-  const convertOrders = (apiOrders: any[]): ProfileOrder[] => {
+  const convertOrders = (apiOrders: ApiOrder[]): ProfileOrder[] => {
     return apiOrders.map(order => ({
       _id: order._id,
       orderNumber: order.orderNumber,
       createdAt: order.createdAt,
       status: order.status,
-      products: order.items.map((item: any) => ({
+      products: order.items.map((item: { productId: string; variantId?: string; name: string; image?: string; options?: Record<string, unknown>; quantity: number; price: number }) => ({
         productId: item.productId,
         variantId: item.variantId,
         name: item.name,
         image: item.image || '',
-        options: item.options,
+        options: item.options ? {
+          shade: typeof item.options.shade === 'string' ? item.options.shade : undefined,
+          size: typeof item.options.size === 'string' ? item.options.size : undefined,
+        } : undefined,
         quantity: item.quantity,
         price: item.price
       })),
@@ -61,20 +64,11 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
         address: `${order.shippingAddress.addressLine1}, ${order.shippingAddress.ward}, ${order.shippingAddress.district}, ${order.shippingAddress.province}`,
         contact: `${order.shippingAddress.fullName} - ${order.shippingAddress.phone}`
       },
-      tracking: order.tracking ? {
-        status: order.tracking.history.map((hist: any) => ({
-          state: hist.status,
-          description: hist.description || '',
-          timestamp: hist.timestamp
-        })),
-        shippingCarrier: order.tracking.carrier ? {
-          name: order.tracking.carrier.name,
-          trackingNumber: order.tracking.carrier.trackingNumber,
-          trackingUrl: order.tracking.carrier.trackingUrl || ''
-        } : undefined,
-        estimatedDelivery: order.tracking.estimatedDelivery,
-        actualDelivery: order.tracking.actualDelivery
-      } : undefined
+      // ApiOrder (from OrderContext) only has trackingCode. 
+      // ProfileOrder (for OrderHistory) expects a more complex tracking object with status array.
+      // This conversion cannot create that from trackingCode alone.
+      // Setting to undefined to resolve type errors. Detailed tracking should be handled differently.
+      tracking: undefined 
     }));
   };
 
@@ -155,7 +149,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
           onDownloadInvoice={onDownloadInvoice}
           onCancelOrder={onCancelOrder}
           onReturnOrder={onReturnOrder}
-          onBuyAgain={onBuyAgain}
+          onBuyAgain={onBuyAgain} // Pass onBuyAgain to OrderHistory
         />
       )}
     </div>

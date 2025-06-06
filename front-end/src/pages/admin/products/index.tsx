@@ -14,6 +14,7 @@ import ImportSummaryModal from '@/components/admin/ui/ImportSummaryModal';
 // Import các components mới
 import ProductTable from '@/components/admin/products/components/ProductTable';
 import ProductTableSummary from '@/components/admin/products/components/ProductTableSummary';
+import { ProductFormData } from '@/components/admin/products/ProductForm/types'; // Added import for ProductFormData
 import ProductFilter from '@/components/admin/products/components/ProductFilter';
 import BulkActionBar from '@/components/admin/products/components/BulkActionBar';
 import ProductStatusBadge from '@/components/admin/products/components/ProductStatusBadge'; // Added import
@@ -136,7 +137,13 @@ function AdminProducts({
     id: string;
     name: string;
     price: number;
-    status: string;
+    originalPrice?: number; // Added optional property
+    brand?: { id: string; name: string } | string; // Added optional property
+    // image property already exists and is compatible
+    image?: string | { url: string; alt?: string; [key: string]: unknown };
+    stock?: number; // Added optional property
+    status: ProductStatus;
+    sku?: string;
     [key: string]: unknown;
   }
 
@@ -271,17 +278,22 @@ function AdminProducts({
           throw new Error(`Failed to fetch product details: ${response.status}`);
         }
 
-        const productDetails = await response.json();
+        const rawProductDetails: AdminProduct = await response.json();
 
         // Ngừng hiển thị toast loading
         toast.dismiss(loadingToast);
-        debugLog('Đã tải thông tin chi tiết sản phẩm:', productDetails);
+        debugLog('Đã tải thông tin chi tiết sản phẩm:', rawProductDetails);
 
         // Cập nhật dữ liệu và hiển thị modal
-        setSelectedProduct(productDetails);
+        const productForState: Product = {
+          ...rawProductDetails,
+          price: typeof rawProductDetails.price === 'string' ? parseFloat(rawProductDetails.price) : Number(rawProductDetails.price),
+          status: rawProductDetails.status as ProductStatus, // Explicitly cast status
+        };
+        setSelectedProduct(productForState);
         setShowEditProductModal(true);
 
-        toast.success(`Đang sửa sản phẩm: ${productDetails.name}`, {
+        toast.success(`Đang sửa sản phẩm: ${productForState.name}`, {
           duration: 2000,
           icon: <FiEdit className="text-blue-500" />
         });
@@ -304,10 +316,15 @@ function AdminProducts({
         debugLog('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách:', productInList);
 
         // Cập nhật dữ liệu và hiển thị modal
-        setSelectedProduct(productInList);
+        const productToSetFromListEdit: Product = {
+          ...productInList,
+          price: typeof productInList.price === 'string' ? parseFloat(productInList.price) : Number(productInList.price),
+          status: productInList.status as ProductStatus, // Explicitly cast status
+        };
+        setSelectedProduct(productToSetFromListEdit);
         setShowEditProductModal(true);
 
-        toast.success(`Đang sửa sản phẩm: ${productInList.name}`, {
+        toast.success(`Đang sửa sản phẩm: ${productToSetFromListEdit.name}`, {
           duration: 2000,
           icon: <FiEdit className="text-blue-500" />
         });
@@ -343,14 +360,19 @@ function AdminProducts({
           throw new Error(`API responded with status: ${response.status}`);
         }
 
-        const productDetails = await response.json();
+        const productDetails: AdminProduct = await response.json();
 
         toast.dismiss(loadingToast);
         debugLog('Đã tải thông tin chi tiết sản phẩm:', productDetails);
 
-        setSelectedProduct(productDetails);
+        const productForStateView: Product = {
+          ...productDetails,
+          price: typeof productDetails.price === 'string' ? parseFloat(productDetails.price) : Number(productDetails.price),
+          status: productDetails.status as ProductStatus, // Explicitly cast status
+        };
+        setSelectedProduct(productForStateView);
         setShowProductDetailModal(true);
-        toast.success(`Đang xem sản phẩm: ${productDetails.name}`, {
+        toast.success(`Đang xem sản phẩm: ${productForStateView.name}`, {
           duration: 2000,
           icon: <FiEye className="text-gray-500" />
         });
@@ -371,9 +393,14 @@ function AdminProducts({
         toast.dismiss(loadingToast);
         debugLog('Sử dụng sản phẩm từ danh sách:', productInList);
 
-        setSelectedProduct(productInList);
+        const productToSetFromListView: Product = {
+          ...productInList,
+          price: typeof productInList.price === 'string' ? parseFloat(productInList.price) : Number(productInList.price),
+          status: productInList.status as ProductStatus, // Explicitly cast status
+        };
+        setSelectedProduct(productToSetFromListView);
         setShowProductDetailModal(true);
-        toast.success(`Đang xem sản phẩm: ${productInList.name}`, {
+        toast.success(`Đang xem sản phẩm: ${productToSetFromListView.name}`, {
           duration: 2000,
           icon: <FiEye className="text-gray-500" />
         });
@@ -395,7 +422,12 @@ function AdminProducts({
     const product = products.find(p => p.id === id);
 
     if (product) {
-      setSelectedProduct(product);
+      const productToSetDelete: Product = {
+        ...product,
+        price: typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price),
+        status: product.status as ProductStatus, // Explicitly cast status
+      };
+      setSelectedProduct(productToSetDelete);
       setProductToDelete(id); // Thiết lập ID sản phẩm cần xóa
       setShowDeleteModal(true);
     } else {
@@ -699,6 +731,7 @@ function AdminProducts({
       const allProductsToExport: AdminProduct[] = await response.json();
 
       if (!allProductsToExport || allProductsToExport.length === 0) {
+        toast.dismiss(loadingToast); // Dismiss loading toast here
         toast.error('Không có dữ liệu sản phẩm để xuất.', { duration: 3000 });
         toast.dismiss(loadingToast);
         return;
@@ -742,13 +775,14 @@ function AdminProducts({
       // Dữ liệu allProductsToExport từ backend đã là một mảng các object,
       // mỗi object có các key là tiếng Việt tương ứng với desiredHeaders.
       // Chúng ta có thể truyền trực tiếp vào json_to_sheet.
-      const worksheet = XLSX.utils.json_to_sheet(allProductsToExport, { header: desiredHeaders });
+      const worksheet = XLSX.utils.json_to_sheet(allProductsToExport.map(p => p as unknown as Record<string, unknown>), { header: desiredHeaders });
+
 
       // Điều chỉnh độ rộng cột tự động dựa trên desiredHeaders và dữ liệu
       const cols = desiredHeaders.map((headerName) => {
         const headerLength = headerName.length;
         const dataLengths = allProductsToExport.map(product => {
-          const value = product[headerName as keyof typeof product]; // Truy cập giá trị bằng key tiếng Việt
+          const value = (product as unknown as Record<string, unknown>)[headerName];
           return value !== null && value !== undefined ? String(value).length : 0;
         });
         const maxLength = Math.max(headerLength, ...dataLengths);
@@ -771,7 +805,7 @@ function AdminProducts({
       // Đếm số categories phân cấp được xuất
       const hierarchicalCategories = new Set<string>();
       allProductsToExport.forEach(product => {
-        const productData = product as Record<string, unknown>;
+        const productData = product as unknown as Record<string, unknown>;
         const categoryPath = productData['Nhóm hàng (3 cấp)'] as string;
         if (categoryPath && categoryPath !== 'N/A' && categoryPath.includes('>>')) {
           hierarchicalCategories.add(categoryPath);
@@ -817,14 +851,7 @@ function AdminProducts({
     publicId?: string;
   }
 
-  interface ProductData {
-    id?: string;
-    _id?: string;
-    images?: ProductImage[];
-    [key: string]: unknown;
-  }
-
-  const handleSaveNewProduct = async (newProduct: ProductData) => {
+  const handleSaveNewProduct = async (newProduct: ProductFormData): Promise<void> => {
     console.log('Thêm sản phẩm mới:', newProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang thêm sản phẩm mới...');
@@ -837,8 +864,8 @@ function AdminProducts({
       // 2. Prepare product data *without* images for the initial creation
       const productToCreate = { ...newProduct };
       delete productToCreate.images; // Remove images array for the initial create request
-      delete productToCreate.id;     // Ensure no ID is sent for creation
-      delete productToCreate._id;    // Ensure no _id is sent for creation
+      if (productToCreate.id) delete productToCreate.id;     // Ensure no ID is sent for creation
+      if ((productToCreate as { _id?: string })._id) delete (productToCreate as { _id?: string })._id;    // Ensure no _id is sent for creation
       debugLog('Dữ liệu gửi đi cho POST request (tạo sản phẩm):', productToCreate);
 
 
@@ -877,7 +904,7 @@ function AdminProducts({
          throw new Error(errorMessage);
        }
 
-       const createdProduct = await response.json();
+       const createdProduct: AdminProduct = await response.json();
       debugLog('Sản phẩm đã được tạo thành công:', createdProduct);
 
       // 4. Upload images if creation was successful and there are images
@@ -885,17 +912,19 @@ function AdminProducts({
         toast.loading(`Đang tải lên ${imagesToUpload.length} hình ảnh...`, { id: 'image-upload-toast' });
         let uploadSuccessCount = 0;
         for (const image of imagesToUpload) {
-          try {
-            console.log(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${createdProduct.id}`);
-            // Use the uploadProductImage function from the context
-            await uploadProductImage(image.file, createdProduct.id, image.isPrimary);
-            uploadSuccessCount++;
-            console.log(`Tải lên thành công: ${image.file.name}`);
-          } catch (uploadError: unknown) {
-            const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
-            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file?.name}:`, uploadError);
-            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file?.name} - ${errorMessage}`, { duration: 5000 });
-            // Optionally continue uploading other images or stop
+          if (image.file) {
+            try {
+              console.log(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${createdProduct.id}`);
+              // Use the uploadProductImage function from the context
+              await uploadProductImage(image.file, createdProduct.id, image.isPrimary);
+              uploadSuccessCount++;
+              console.log(`Tải lên thành công: ${image.file.name}`);
+            } catch (uploadError: unknown) {
+              const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+              console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
+              toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${errorMessage}`, { duration: 5000 });
+              // Optionally continue uploading other images or stop
+            }
           }
         }
         toast.dismiss('image-upload-toast');
@@ -917,12 +946,11 @@ function AdminProducts({
       setShowAddProductModal(false);
 
       // 5. Fetch final product data *after* uploads to get correct image URLs
-      let finalProduct = createdProduct;
       if (imagesToUpload.length > 0 && createdProduct.id) {
         try {
           debugLog(`Fetching final product data for ID: ${createdProduct.id} after image uploads.`);
           // Assuming fetchProductById exists in the scope or context
-          finalProduct = await fetchProductById(createdProduct.id);
+          const finalProduct = await fetchProductById(createdProduct.id);
           debugLog('Fetched final product data:', finalProduct);
         } catch (fetchError: unknown) {
           const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
@@ -945,7 +973,7 @@ function AdminProducts({
       // Refresh the product list
       fetchProducts();
 
-      return finalProduct; // Return the potentially updated product data
+      // return finalProduct; // No return needed for Promise<void>
     } catch (error: unknown) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
@@ -956,11 +984,11 @@ function AdminProducts({
       });
        // Log the caught error object as well for more context
        console.error("Error during product creation fetch:", error);
-       throw error;
+       throw error; // Re-throw to be caught by ProductForm if needed, or handle appropriately
      }
    };
 
-   const handleUpdateProduct = async (updatedProduct: ProductData) => {
+   const handleUpdateProduct = async (updatedProduct: ProductFormData): Promise<void> => {
     debugLog('Cập nhật sản phẩm (dữ liệu gốc từ form):', updatedProduct);
     // Hiển thị thông báo đang xử lý
     const loadingToast = toast.loading('Đang cập nhật sản phẩm...');
@@ -977,7 +1005,7 @@ function AdminProducts({
         productDataForPatch.images = productDataForPatch.images
           .filter((img: ProductImage) => img.url && !img.file && !img.url.startsWith('blob:')) // Keep only existing images with valid URLs
           .map((img: ProductImage) => ({ // Clean up unnecessary client-side props
-            url: img.url,
+            url: img.url as string, // Cast to string as filter ensures it's defined
             alt: img.alt,
             isPrimary: img.isPrimary,
             publicId: img.publicId,
@@ -987,15 +1015,15 @@ function AdminProducts({
 
 
       // Xác định ID sản phẩm, ưu tiên id trước, sau đó mới dùng _id
-      const productId = productDataForPatch.id || productDataForPatch._id;
+      const productId = productDataForPatch.id || (productDataForPatch as { _id?: string })._id;
 
       if (!productId) {
         throw new Error('Không tìm thấy ID sản phẩm');
       }
 
       // Xóa id và _id khỏi dữ liệu gửi đi để tránh lỗi
-      delete productDataForPatch.id;
-      delete productDataForPatch._id;
+      if (productDataForPatch.id) delete productDataForPatch.id;
+      if ((productDataForPatch as { _id?: string })._id) delete (productDataForPatch as { _id?: string })._id;
 
       // 1. Send the main PATCH request with filtered data
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${productId}`, {
@@ -1012,7 +1040,7 @@ function AdminProducts({
         throw new Error(`Lỗi khi cập nhật sản phẩm: ${response.status} - ${errorText}`);
       }
 
-      const updatedProductResult = await response.json(); // Get the result of the main update
+      await response.json(); // Get the result of the main update
 
       // 2. Upload any new images that have a 'file' property
       const imagesToUpload = originalImages.filter((img: ProductImage) => img.file);
@@ -1022,16 +1050,18 @@ function AdminProducts({
 
         let uploadSuccessCount = 0;
         for (const image of imagesToUpload) {
-          try {
-            debugLog(`Đang tải lên file: ${image.file?.name} cho sản phẩm ID: ${productId}`);
-            await uploadProductImage(image.file, productId, image.isPrimary);
-            uploadSuccessCount++;
-            debugLog(`Tải lên thành công: ${image.file?.name}`);
-          } catch (uploadError: unknown) {
-            const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
-            console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file?.name}:`, uploadError);
-            toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file?.name} - ${errorMessage}`, { duration: 5000 });
-            // Optionally continue uploading other images or stop
+          if (image.file) {
+            try {
+              debugLog(`Đang tải lên file: ${image.file.name} cho sản phẩm ID: ${productId}`);
+              await uploadProductImage(image.file, productId, image.isPrimary);
+              uploadSuccessCount++;
+              debugLog(`Tải lên thành công: ${image.file.name}`);
+            } catch (uploadError: unknown) {
+              const errorMessage = uploadError instanceof Error ? uploadError.message : 'Unknown error';
+              console.error(`Lỗi khi tải lên hình ảnh ${image.alt || image.file.name}:`, uploadError);
+              toast.error(`Lỗi tải lên ảnh: ${image.alt || image.file.name} - ${errorMessage}`, { duration: 5000 });
+              // Optionally continue uploading other images or stop
+            }
           }
         }
          toast.dismiss('image-upload-toast');
@@ -1053,12 +1083,11 @@ function AdminProducts({
       setShowEditProductModal(false);
 
       // 3. Fetch final product data *after* uploads
-      let finalProduct = updatedProductResult;
       if (imagesToUpload.length > 0 && productId) {
          try {
            debugLog(`Fetching final product data for ID: ${productId} after image uploads.`);
            // Assuming fetchProductById exists in the scope or context
-           finalProduct = await fetchProductById(productId);
+           const finalProduct = await fetchProductById(productId);
            debugLog('Fetched final product data:', finalProduct);
            // Optionally update the selectedProduct state if the modal might stay open
            // setSelectedProduct(finalProduct);
@@ -1082,7 +1111,7 @@ function AdminProducts({
       // Refresh the product list to show updated data including new images
       fetchProducts();
 
-      return finalProduct; // Return the potentially updated product data
+      // return finalProduct; // No return needed for Promise<void>
     } catch (error: unknown) {
       // Xử lý lỗi
       toast.dismiss(loadingToast);
@@ -1091,7 +1120,7 @@ function AdminProducts({
       toast.error(`Có lỗi xảy ra khi cập nhật sản phẩm: ${errorMessage}`, {
         duration: 3000
       });
-      throw error;
+      // throw error; // Avoid throwing error if the function is Promise<void>
     }
   };
 
@@ -1423,22 +1452,29 @@ function AdminProducts({
                 {selectedProduct && (
                   <div className="mt-5 p-4 border border-gray-200 rounded-md bg-gray-50">
                     <div className="flex items-start space-x-4">
-                      {selectedProduct.image && (
-                        <Image
-                          src={selectedProduct.image}
-                          alt={selectedProduct.name || 'Product image'}
-                          width={64}
-                          height={64}
-                          className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
-                        />
-                      )}
+                      {(() => {
+                        const image = selectedProduct.image;
+                        const imageUrl = typeof image === 'string' ? image : image?.url;
+                        if (imageUrl) {
+                          return (
+                            <Image
+                              src={imageUrl}
+                              alt={selectedProduct.name || 'Product image'}
+                              width={64}
+                              height={64}
+                              className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                            />
+                          );
+                        }
+                        return null;
+                      })()}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">{selectedProduct.name}</p>
                         <p className="text-xs text-gray-500 mt-1">SKU: {selectedProduct.sku || 'N/A'}</p>
                         {/* Add other relevant details if needed and available */}
                         {/* <p className="text-xs text-gray-500 mt-1">Tạo lúc: {selectedProduct.createdAt ? new Date(selectedProduct.createdAt).toLocaleString('vi-VN') : 'N/A'}</p> */}
                         <div className="mt-2">
-                          <ProductStatusBadge status={selectedProduct.status as 'active' | 'out_of_stock' | 'discontinued'} />
+                          <ProductStatusBadge status={selectedProduct.status} />
                         </div>
                       </div>
                     </div>
@@ -1632,7 +1668,7 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct} // Pass selectedProduct (which holds duplicated data)
+                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
                     onSubmit={handleSaveNewProduct}
                     onCancel={() => setShowAddProductModal(false)}
                   />
@@ -1670,7 +1706,7 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct}
+                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
                     onSubmit={handleUpdateProduct}
                     onCancel={() => setShowEditProductModal(false)}
                   />
@@ -1708,7 +1744,7 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct}
+                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
                     onSubmit={async () => {}} // Use dummy async function for view mode
                     onCancel={() => setShowProductDetailModal(false)}
                     isViewMode={true}
@@ -1818,8 +1854,6 @@ function AdminProducts({
 // ProductProvider đã được cung cấp bởi AppProviders cho đường dẫn /admin/products
 // Không cần wrapper component nữa
 export default AdminProducts;
-
-// --- Server-Side Rendering ---
 
 const ITEMS_PER_PAGE = 10; // Default items per page for initial load
 

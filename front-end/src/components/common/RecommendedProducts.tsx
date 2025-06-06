@@ -86,7 +86,7 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
         fetchSimilarProducts(productId, limit);
       }
     }
-  }, [type, productId, limit, propProducts]);
+  }, [type, productId, limit, propProducts, fetchRecommendedProducts, fetchPersonalizedProducts, fetchSimilarProducts]);
 
   // Hàm placeholder khi context thiếu phương thức
   const placeholderAction = (action: string) => {
@@ -103,13 +103,17 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
 
   // Sử dụng các hàm từ context hoặc tạo hàm placeholder nếu context không tồn tại
   const addToCart = shopProductContext?.addToCart ||
-    ((productId: string, quantity: number) => placeholderAction('thêm vào giỏ hàng')());
+    (() => {
+      return placeholderAction('thêm vào giỏ hàng')();
+    });
 
   const addToWishlist = shopProductContext?.addToWishlist ||
-    ((productId: string) => placeholderAction('thêm vào danh sách yêu thích')());
+    (() => {
+      return placeholderAction('thêm vào danh sách yêu thích')();
+    });
 
-  const logProductClick = shopProductContext?.logProductClick || 
-    ((productId: string) => {
+  const logProductClick = shopProductContext?.logProductClick ||
+    (() => {
       // Nếu không có hàm logProductClick, không làm gì cả
       return;
     });

@@ -139,14 +139,14 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
     if (recommendedProducts.length === 0 && !loadingRecommended) {
       fetchRecommendedProducts();
     }
-  }, []); // Chỉ chạy một lần khi component mount
+  }, [fetchRecommendedProducts, loadingRecommended, recommendedProducts.length]); // Thêm dependencies
 
   // Fetch personalized products khi user đăng nhập
   useEffect(() => {
     if (isAuthenticated && personalizedProducts.length === 0 && !loadingPersonalized) {
       fetchPersonalizedProducts();
     }
-  }, [isAuthenticated]); // Chỉ chạy khi authentication status thay đổi
+  }, [isAuthenticated, fetchPersonalizedProducts, loadingPersonalized, personalizedProducts.length]); // Thêm dependencies
 
   // Memoize context value để tránh re-render
   const value = useMemo(() => ({

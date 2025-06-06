@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave, FiEdit } from 'react-icons/fi';
+import { FiMapPin, FiUser, FiPhone, FiMail, FiHome, FiSave } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 // Import service and data types
 import ViettelPostService, { ProvinceData, DistrictData, WardData } from '@/services/ViettelPostService';
 
 
 // Use interfaces from ViettelPostService
-interface Province extends ProvinceData {}
-interface District extends DistrictData {}
-interface Ward extends WardData {}
+type Province = ProvinceData;
+type District = DistrictData;
+type Ward = WardData;
 
 // Update ShippingInfo to store IDs and potentially names separately
 export interface ShippingInfo {
@@ -69,7 +69,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({
   );
 
   // State để kiểm soát việc chỉnh sửa form
-  const [isEditing, setIsEditing] = useState<boolean>(true);  // Luôn bật chế độ chỉnh sửa mặc định
+  const [isEditing, setIsEditing] = useState<boolean>(!disableEditing);
   
   const [errors, setErrors] = useState<Partial<ShippingInfo>>({});
 
@@ -119,7 +119,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({
         const data = await ViettelPostService.getDistricts(currentProvinceId);
         setDistricts(data);
       } catch (error) {
-        // Error handled in service
+        console.error('Lỗi tải Quận/Huyện:', error);
         // toast.error('Lỗi tải Quận/Huyện.'); // Toast is in service
         setDistricts([]);
       } finally {
@@ -146,7 +146,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({
         const data = await ViettelPostService.getWards(currentDistrictId);
         setWards(data);
       } catch (error) {
-        // Error handled in service
+        console.error('Lỗi tải Phường/Xã:', error);
         // toast.error('Lỗi tải Phường/Xã.'); // Toast is in service
         setWards([]);
       } finally {
@@ -193,11 +193,6 @@ const ShippingForm: React.FC<ShippingFormProps> = ({
 
     setErrors(newErrors);
     return isValid;
-  };
-
-  // Hàm để bắt đầu chỉnh sửa
-  const handleEdit = () => {
-    setIsEditing(true);
   };
 
   // Hàm để hủy chỉnh sửa và quay lại giá trị ban đầu

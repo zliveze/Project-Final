@@ -22,7 +22,7 @@ export interface PopulatedEventProduct {
   soldCount?: number;
   averageRating?: number;
   reviewCount?: number;
-  reviews?: any[];
+  reviews?: object[];
 }
 
 // Cấu trúc dữ liệu sự kiện từ API
@@ -231,18 +231,14 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow duration-300">
         <div className="p-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {eventProducts.map((product, productIndex) => {
-              // Tính discount percentage
-              const discountPercentage = product.originalPrice > 0 && product.adjustedPrice < product.originalPrice 
-                ? Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)
-                : 0;
+            {eventProducts.map((product) => {
+              // Tính discount percentage is handled in EventProductCard
 
               return (
                 <div key={product.productId} className="event-product-card">
                   <EventProductCard
                     product={product}
                     remainingTime={remainingTime}
-                    index={productIndex}
                   />
                 </div>
               );
@@ -307,11 +303,10 @@ const RatingStars = ({ rating }: { rating: number }) => {
 interface EventProductCardProps {
   product: PopulatedEventProduct;
   remainingTime: string;
-  index: number;
 }
 
 // Component sản phẩm event - Style giống RecommendationSection
-const EventProductCard = ({ product, remainingTime, index }: EventProductCardProps) => {
+const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => {
   const [imageError, setImageError] = useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -347,7 +342,7 @@ const EventProductCard = ({ product, remainingTime, index }: EventProductCardPro
   };
 
   // GSAP hover animations - Copy từ RecommendationSection
-  useGSAP(({ gsap }) => {
+  useGSAP(() => {
     if (!cardRef.current) return;
 
     const card = cardRef.current;
@@ -540,11 +535,12 @@ export default function EventsSection() {
           setActiveEvents([]);
         }
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Nếu API thất bại, không hiển thị event nào
-        console.error('Error fetching events:', err);
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        console.error('Error fetching events:', errorMessage);
         setActiveEvents([]);
-        setError(null);
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

@@ -39,12 +39,8 @@ const DashboardStats = () => {
   // Cập nhật thống kê đơn hàng
   useEffect(() => {
     if (orderStats) {
-      // Tính đơn hàng hôm nay
-      const today = new Date().toISOString().split('T')[0];
-      const todayOrderCount = orderStats.dailyStats?.find(stat =>
-        stat.date === today
-      )?.count || 0;
-      setTodayOrders(todayOrderCount);
+      // Sử dụng todayOrders từ orderStats thay vì dailyStats
+      setTodayOrders(orderStats.todayOrders || 0);
 
       // Tính doanh thu tháng này và tỷ lệ tăng trưởng
       if (orderStats.monthlyStats && orderStats.monthlyStats.length > 0) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiStar, FiCheck, FiX, FiTrash2, FiAlertCircle, FiEye, FiImage, FiExternalLink } from 'react-icons/fi';
+import { FiStar, FiCheck, FiX, FiTrash2, FiEye, FiExternalLink } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { useAdminUserReview, Review } from '@/contexts/AdminUserReviewContext';
 import Image from 'next/image';
@@ -404,10 +404,12 @@ const UserReviewTab: React.FC<UserReviewTabProps> = ({ userId }) => {
             >
               <FiX size={20} />
             </button>
-            <img
+            <Image
               src={selectedImage}
               alt="Hình ảnh đánh giá"
-              className="max-h-[90vh] max-w-full object-contain"
+              fill
+              style={{ objectFit: 'contain' }}
+              className="max-h-[90vh] max-w-full" // className might be overridden by fill, but keeping for potential max constraints
             />
           </div>
         </div>

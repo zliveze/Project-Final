@@ -56,9 +56,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
   isViewMode = false
 }) => {
-  // State để theo dõi tab hiện tại
-  const [currentTab, setCurrentTab] = useState(0);
-
   // Sử dụng custom hook để quản lý form data
   const {
     formData,
@@ -109,13 +106,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
   } = useProductVariants(formData, setFormData, formData.images || []); // Pass formData.images here
 
   // Sử dụng BrandContext để lấy danh sách thương hiệu thực
-  const { brands: backendBrands, loading: brandsLoading, fetchBrands } = useBrands();
+  const { brands: backendBrands, fetchBrands } = useBrands();
 
   // Sử dụng CategoryContext để lấy danh sách danh mục thực
-  const { categories: backendCategories, loading: categoriesLoading, fetchCategories } = useCategory();
+  const { categories: backendCategories, fetchCategories } = useCategory();
 
   // Sử dụng BranchContext để lấy danh sách chi nhánh thực
-  const { branches: backendBranches, loading: branchesLoading, fetchBranches } = useBranches();
+  const { branches: backendBranches, fetchBranches } = useBranches();
 
   // Chuyển đổi định dạng cho phù hợp với component
   const [brands, setBrands] = useState<BrandItem[]>([]);
@@ -185,7 +182,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     if (backendBrands && backendBrands.length > 0) {
       // Chuyển đổi từ định dạng backend sang định dạng component
       const formattedBrands = backendBrands.map(brand => ({
-        id: brand.id,
+        id: brand.id || '', // Ensure id is always a string
         name: brand.name,
         origin: brand.origin // Thêm thông tin origin từ brand
       }));
@@ -239,11 +236,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
   //   { id: '5', name: 'Chi nhánh Hải Phòng' }
   // ]);
 
-  // Xử lý khi chuyển tab
-  const handleTabChange = (index: number) => {
-    setCurrentTab(index);
-  };
-
   // Xử lý submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,7 +264,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Tab.Group onChange={handleTabChange}>
+      <Tab.Group>
           <Tab.List className="flex p-1 space-x-1 bg-gray-100 rounded-lg">
           <Tab
             className={({ selected }) =>

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, DollarSign, Plus, Trash2, Palette, Layers, ImagePlus } from 'lucide-react';
-import { ProductVariant, ProductImage } from '../types';
+import Image from 'next/image';
+import { Check, Plus, Palette, Layers, ImagePlus } from 'lucide-react';
+import { ProductVariant, ProductImage as OriginalProductImage } from '../types'; // Renamed to OriginalProductImage
 
-// Mở rộng interface ProductVariant để thêm trường name
-type ExtendedProductVariant = ProductVariant & {
+// Mở rộng interface ProductVariant để thêm trường name và cho phép images là (string | OriginalProductImage)[]
+type ExtendedProductVariant = Omit<ProductVariant, 'images'> & {
   name?: string;
+  images?: (string | OriginalProductImage)[];
 };
 
 interface VariantFormProps {
   currentVariant: ExtendedProductVariant;
   editingVariantIndex: number | null;
-  images: ProductImage[];
+  images: OriginalProductImage[];
   allVariants: ProductVariant[]; // Add all variants to check which images are already used
   handleVariantChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; // Allow TextAreaEvent
   handleVariantImageSelect: (imageId: string) => void;
@@ -606,12 +608,14 @@ const VariantForm: React.FC<VariantFormProps> = ({
                     }
                   }}
                 >
-                  <div className="relative">
+                  <div className="relative w-full h-16"> {/* Ensure parent has dimensions for layout="fill" */}
                     {/* The actual image */}
-                    <img
-                      src={imageSrc}
+                    <Image
+                      src={imageSrc || '/placeholder.png'} // Added placeholder for safety
                       alt={image.alt || `Variant Image ${idx}`}
-                      className="w-full h-16 object-cover rounded transition-all"
+                      layout="fill"
+                      objectFit="cover"
+                      className="rounded transition-all"
                       onError={() => {
                         console.error("Image failed to load:", image.url || image.preview);
                       }}

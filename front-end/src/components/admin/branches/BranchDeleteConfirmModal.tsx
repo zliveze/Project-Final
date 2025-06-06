@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiAlertTriangle, FiX, FiTrash, FiPackage, FiZap } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiAlertTriangle, FiX, FiTrash, FiPackage } from 'react-icons/fi';
 import { useBranches } from '@/contexts/BranchContext';
 
 interface BranchDeleteConfirmModalProps {
@@ -23,6 +23,23 @@ const BranchDeleteConfirmModal: React.FC<BranchDeleteConfirmModalProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [isForceDeleting, setIsForceDeleting] = useState(false);
 
+  const checkProductsCount = useCallback(async () => {
+    if (!branchId) return;
+
+    setLoading(true);
+    try {
+      const result = await getProductsCount(branchId);
+      if (result) {
+        setProductsCount(result.productsCount);
+      }
+    } catch {
+      // Error đã được xử lý trong Context
+      setProductsCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, getProductsCount]);
+
   useEffect(() => {
     if (isOpen) {
       setModalVisible(true);
@@ -33,24 +50,7 @@ const BranchDeleteConfirmModal: React.FC<BranchDeleteConfirmModalProps> = ({
         setProductsCount(null);
       }, 300);
     }
-  }, [isOpen, branchId]);
-
-  const checkProductsCount = async () => {
-    if (!branchId) return;
-
-    setLoading(true);
-    try {
-      const result = await getProductsCount(branchId);
-      if (result) {
-        setProductsCount(result.productsCount);
-      }
-    } catch (error) {
-      // Error đã được xử lý trong Context
-      setProductsCount(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isOpen, branchId, checkProductsCount]);
 
   const handleConfirm = () => {
     onConfirm();

@@ -1,7 +1,18 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { ChatbotService } from '@/services/chatbotService';
-import type { GetHistoryResponse } from '@/services/chatbotService';
 import ChatbotStorageService from '@/services/chatbotStorageService';
+
+// Interface cho error response
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+  [key: string]: unknown;
+}
 
 // Types - Updated to match backend schemas
 export type MessageType = 'TEXT' | 'PRODUCT_RECOMMENDATION' | 'SEARCH_RESULT' | 'CATEGORY_INFO' | 'BRAND_INFO' | 'EVENT_INFO' | 'ERROR';
@@ -350,14 +361,14 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
         dispatch({ type: 'SET_INITIALIZED', payload: true });
       }
     }
-  }, []); // Run only once on mount
+  }, [state.currentSession, state.isInitialized, state.sessions.length]); // Added missing dependencies
 
   // Initialize chatbot when first opened - Fixed to prevent multiple session creation
   useEffect(() => {
     if (state.isOpen && state.isInitialized && !state.currentSession) {
       createNewSession();
     }
-  }, [state.isOpen, state.isInitialized]); // Removed state.currentSession dependency
+  }, [state.isOpen, state.isInitialized, state.currentSession]); // Added state.currentSession dependency
 
   // Send message implementation
   const sendMessage = async (message: string): Promise<void> => {
@@ -406,9 +417,9 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
       const botMessage = ChatbotService.convertToChatMessage(response);
       dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
-      const errorMessage = ChatbotService.formatErrorMessage(error);
+      const errorMessage = ChatbotService.formatErrorMessage(error as ApiError);
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -448,56 +459,56 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
         role: msg.role,
         content: msg.content,
         type: msg.type as MessageType,
-        recommendedProducts: msg.attachedProducts?.map((product: any) => ({
-          id: product.productId || product.id,
-          name: product.name,
-          slug: product.slug || '',
-          price: product.price,
-          currentPrice: product.currentPrice,
-          brand: product.brand,
-          imageUrl: product.imageUrl,
-          reason: product.reason || '',
+        recommendedProducts: msg.attachedProducts?.map((product: Record<string, unknown>) => ({
+          id: (product.productId || product.id) as string,
+          name: product.name as string,
+          slug: (product.slug || '') as string,
+          price: product.price as number,
+          currentPrice: product.currentPrice as number | undefined,
+          brand: product.brand as string,
+          imageUrl: product.imageUrl as string | undefined,
+          reason: (product.reason || '') as string,
         })),
-        relatedCategories: msg.attachedCategories?.map((category: any) => ({
-          id: category.categoryId || category.id,
-          name: category.name,
-          description: category.description,
-          level: category.level,
+        relatedCategories: msg.attachedCategories?.map((category: Record<string, unknown>) => ({
+          id: (category.categoryId || category.id) as string,
+          name: category.name as string,
+          description: category.description as string,
+          level: category.level as number,
         })),
-        relatedBrands: msg.attachedBrands?.map((brand: any) => ({
-          id: brand.brandId || brand.id,
-          name: brand.name,
-          description: brand.description,
-          origin: brand.origin,
+        relatedBrands: msg.attachedBrands?.map((brand: Record<string, unknown>) => ({
+          id: (brand.brandId || brand.id) as string,
+          name: brand.name as string,
+          description: brand.description as string,
+          origin: brand.origin as string,
         })),
-        relatedEvents: msg.attachedEvents?.map((event: any) => ({
-          id: event.eventId || event.id,
-          title: event.title,
-          description: event.description,
-          startDate: new Date(event.startDate),
-          endDate: new Date(event.endDate),
-          discountInfo: event.description || '',
-          products: event.products?.map((product: any) => ({
-            productId: product.productId || product.id,
-            productName: product.name || product.productName,
-            adjustedPrice: product.adjustedPrice,
-            originalPrice: product.originalPrice,
-            image: product.image || product.imageUrl || '',
+        relatedEvents: msg.attachedEvents?.map((event: Record<string, unknown>) => ({
+          id: (event.eventId || event.id) as string,
+          title: event.title as string,
+          description: event.description as string,
+          startDate: new Date(event.startDate as string),
+          endDate: new Date(event.endDate as string),
+          discountInfo: (event.description || '') as string,
+          products: (event.products as Record<string, unknown>[])?.map((product: Record<string, unknown>) => ({
+            productId: (product.productId || product.id) as string,
+            productName: (product.name || product.productName) as string,
+            adjustedPrice: product.adjustedPrice as number,
+            originalPrice: product.originalPrice as number,
+            image: (product.image || product.imageUrl || '') as string,
           })),
         })),
-        relatedCampaigns: msg.attachedCampaigns?.map((campaign: any) => ({
-          id: campaign.campaignId || campaign.id,
-          title: campaign.title,
-          description: campaign.description,
-          type: campaign.type,
-          startDate: new Date(campaign.startDate),
-          endDate: new Date(campaign.endDate),
-          products: campaign.products?.map((product: any) => ({
-            productId: product.productId || product.id,
-            productName: product.name || product.productName,
-            adjustedPrice: product.adjustedPrice,
-            originalPrice: product.originalPrice,
-            image: product.image || product.imageUrl || '',
+        relatedCampaigns: msg.attachedCampaigns?.map((campaign: Record<string, unknown>) => ({
+          id: (campaign.campaignId || campaign.id) as string,
+          title: campaign.title as string,
+          description: campaign.description as string,
+          type: campaign.type as string | undefined,
+          startDate: new Date(campaign.startDate as string),
+          endDate: new Date(campaign.endDate as string),
+          products: (campaign.products as Record<string, unknown>[])?.map((product: Record<string, unknown>) => ({
+            productId: (product.productId || product.id) as string,
+            productName: (product.name || product.productName) as string,
+            adjustedPrice: product.adjustedPrice as number,
+            originalPrice: product.originalPrice as number,
+            image: (product.image || product.imageUrl || '') as string,
           })),
         })),
         metadata: msg.metadata,
@@ -508,13 +519,14 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
 
       dispatch({ type: 'SET_MESSAGES', payload: messages });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading chat history:', error);
       // Chỉ hiển thị lỗi nếu không phải lỗi 404 (session mới chưa có lịch sử) hoặc network error
-      if (error.response?.status !== 404 &&
-          error.code !== 'ERR_NETWORK' &&
-          !error.message.includes('Backend không khả dụng')) {
-        const errorMessage = ChatbotService.formatErrorMessage(error);
+      const errorObj = error as { response?: { status?: number }; code?: string; message?: string };
+      if (errorObj.response?.status !== 404 &&
+          errorObj.code !== 'ERR_NETWORK' &&
+          !errorObj.message?.includes('Backend không khả dụng')) {
+        const errorMessage = ChatbotService.formatErrorMessage(error as ApiError);
         dispatch({ type: 'SET_ERROR', payload: errorMessage });
       } else {
         // Nếu là lỗi network, backend không khả dụng hoặc phiên mới, chỉ tạo phiên chat trống
@@ -544,9 +556,9 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
         dispatch({ type: 'SET_MESSAGES', payload: updatedMessages });
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error providing feedback:', error);
-      const errorMessage = ChatbotService.formatErrorMessage(error);
+      const errorMessage = ChatbotService.formatErrorMessage(error as ApiError);
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     }
   };

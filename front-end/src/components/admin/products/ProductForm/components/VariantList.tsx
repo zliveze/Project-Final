@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Edit, Trash2, AlertCircle, Tag } from 'lucide-react';
 import { ProductVariant, ProductImage } from '../types';
 
@@ -82,17 +83,17 @@ const VariantList: React.FC<VariantListProps> = ({
               </td>
               <td className="px-6 py-4 text-sm text-gray-600">
                 <div className="flex flex-wrap gap-1.5">
-                  {variant.options.color && (
+                  {variant.options?.color && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-50 text-pink-700">
                       Màu: {variant.options.color}
                     </span>
                   )}
-                  {variant.options.shades && variant.options.shades.length > 0 && (
+                  {variant.options?.shades && variant.options.shades.length > 0 && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
                       Tông: {variant.options.shades.join(', ')}
                     </span>
                   )}
-                  {variant.options.sizes && variant.options.sizes.length > 0 && (
+                  {variant.options?.sizes && variant.options.sizes.length > 0 && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                       Kích thước: {variant.options.sizes.join(', ')}
                     </span>
@@ -100,7 +101,7 @@ const VariantList: React.FC<VariantListProps> = ({
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                <span className="text-pink-600">{variant.price.toLocaleString()} ₫</span>
+                <span className="text-pink-600">{variant.price?.toLocaleString() ?? '0'} ₫</span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <div className="flex space-x-1.5">
@@ -109,43 +110,36 @@ const VariantList: React.FC<VariantListProps> = ({
                       // Direct display if the image object has a URL
                       if (typeof imageIdOrObj === 'object' && imageIdOrObj !== null && imageIdOrObj.url) {
                         return (
-                          <img
+                          <Image
                             key={imgIdx}
                             src={imageIdOrObj.url}
                             alt={imageIdOrObj.alt || `Variant ${variant.name || idx + 1} image ${imgIdx + 1}`}
-                            className="w-10 h-10 object-cover rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
+                            width={40}
+                            height={40}
+                            objectFit="cover"
+                            className="rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
                           />
                         );
                       }
 
-                      // If it's a string URL
-                      if (typeof imageIdOrObj === 'string' &&
-                          (imageIdOrObj.startsWith('http') || imageIdOrObj.startsWith('/'))) {
-                        return (
-                          <img
-                            key={imgIdx}
-                            src={imageIdOrObj}
-                            alt={`Variant ${variant.name || idx + 1} image ${imgIdx + 1}`}
-                            className="w-10 h-10 object-cover rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
-                          />
-                        );
-                      }
+                      // If imageIdOrObj is ProductImage, this block is effectively skipped.
+                      // The 'startsWith on never' error occurred because TS determined 'imageIdOrObj' couldn't be a string here
+                      // if variant.images is strictly ProductImage[].
+                      // Assuming variant.images are ProductImage objects, we rely on imageIdOrObj.url or finding by ID.
 
-                      // Extract ID from string or object
-                      const imageId = typeof imageIdOrObj === 'string'
-                        ? imageIdOrObj
-                        : (imageIdOrObj?.id || imageIdOrObj?.publicId || imageIdOrObj?._id);
+                      // Extract ID from ProductImage object
+                      const imageId = imageIdOrObj?.id || imageIdOrObj?.publicId;
 
                       // Find matching image in product images - improved matching logic
                       const matchingImage = images.find(img => {
                         // Try exact match first with all possible ID fields
-                        if (img.id === imageId || img.publicId === imageId || img._id === imageId) {
+                        if (img.id === imageId || img.publicId === imageId) {
                           return true;
                         }
 
-                        // Try partial match if both are strings
+                        // Try partial match if both are strings (and imageId is defined)
                         if (typeof imageId === 'string' && imageId) {
-                          const imgIdStr = String(img.id || img.publicId || img._id || '');
+                          const imgIdStr = String(img.id || img.publicId || ''); // Removed _id
                           if (!imgIdStr) return false;
 
                           // Check if either string contains the other
@@ -164,37 +158,59 @@ const VariantList: React.FC<VariantListProps> = ({
                             }
                           }
                         }
-
                         return false;
                       });
 
                       if (matchingImage) {
                         return (
-                          <img
+                          <Image
                             key={imgIdx}
                             src={matchingImage.preview || matchingImage.url}
                             alt={matchingImage.alt || `Variant ${variant.name || idx + 1} image ${imgIdx + 1}`}
-                            className="w-10 h-10 object-cover rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
+                            width={40}
+                            height={40}
+                            objectFit="cover"
+                            className="rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
                           />
                         );
                       }
 
                       // Try to find image in the variant's own images array if it's an object
+                      // This logic is for cases where the image object itself might have a direct URL not caught by the first check,
+                      // or if it's not found in the main `images` list.
                       if (typeof imageIdOrObj === 'object' && imageIdOrObj !== null) {
-                        // Try to extract any URL-like property
-                        const possibleUrls = ['preview', 'src', 'source', 'path', 'link'];
-                        for (const prop of possibleUrls) {
-                          if (imageIdOrObj[prop] && typeof imageIdOrObj[prop] === 'string' &&
-                             (imageIdOrObj[prop].startsWith('http') || imageIdOrObj[prop].startsWith('/'))) {
+                        // Check specific, known URL properties of ProductImage
+                        if (imageIdOrObj.preview && typeof imageIdOrObj.preview === 'string' && (imageIdOrObj.preview.startsWith('http') || imageIdOrObj.preview.startsWith('/'))) {
+                          return (
+                            <Image
+                              key={`${imgIdx}-preview`}
+                              src={imageIdOrObj.preview}
+                              alt={`Variant ${variant.name || idx + 1} image ${imgIdx + 1} (preview)`}
+                              width={40}
+                              height={40}
+                              objectFit="cover"
+                              className="rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
+                            />
+                          );
+                        }
+                        // The main imageIdOrObj.url should have been caught by the first `if` condition.
+                        // This can be a fallback if that structure was different.
+                        if (imageIdOrObj.url && typeof imageIdOrObj.url === 'string' && (imageIdOrObj.url.startsWith('http') || imageIdOrObj.url.startsWith('/'))) {
+                           // This case should ideally be covered by the first `if` block in the map.
+                           // Adding it here as a robust fallback.
+                           if (!matchingImage) { // Only if not already found by ID and rendered
                             return (
-                              <img
-                                key={imgIdx}
-                                src={imageIdOrObj[prop]}
-                                alt={`Variant ${variant.name || idx + 1} image ${imgIdx + 1}`}
-                                className="w-10 h-10 object-cover rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
-                              />
-                            );
-                          }
+                                <Image
+                                  key={`${imgIdx}-url`}
+                                  src={imageIdOrObj.url}
+                                  alt={`Variant ${variant.name || idx + 1} image ${imgIdx + 1} (direct url)`}
+                                  width={40}
+                                  height={40}
+                                  objectFit="cover"
+                                  className="rounded-md border border-gray-200 shadow-sm hover:border-pink-300 transition-colors duration-200"
+                                />
+                              );
+                           }
                         }
                       }
 

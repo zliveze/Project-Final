@@ -3,9 +3,17 @@ import Link from 'next/link';
 import { FiEye } from 'react-icons/fi';
 import { useAdminOrder } from '@/contexts/AdminOrderContext';
 
+interface RecentOrder {
+  id: string;
+  customer: string;
+  date: string;
+  amount: string;
+  status: string;
+}
+
 export default function RecentOrders() {
   const { orders, loading, fetchOrders } = useAdminOrder();
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
   useEffect(() => {

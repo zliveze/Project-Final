@@ -14,7 +14,7 @@ const BannerDeleteConfirm: React.FC<BannerDeleteConfirmProps> = ({ banner }) => 
     if (!date) return '-';
     try {
       return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi });
-    } catch (err) {
+    } catch {
       return '-';
     }
   };
@@ -110,4 +110,4 @@ const BannerDeleteConfirm: React.FC<BannerDeleteConfirmProps> = ({ banner }) => 
   );
 };
 
-export default BannerDeleteConfirm; 
+export default BannerDeleteConfirm;

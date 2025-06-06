@@ -12,7 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const LoginForm = () => {
   const router = useRouter();
-  const { login, googleLogin, resendVerificationEmail } = useAuth();
+  const { login, resendVerificationEmail } = useAuth(); // Removed googleLogin
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,6 +38,7 @@ const LoginForm = () => {
         showErrorToast('Email hoặc mật khẩu không chính xác');
       }
     } catch (error) {
+      console.error('Login error:', error); // Added console.error
       showErrorToast('Đã xảy ra lỗi khi đăng nhập');
     } finally {
       setLoading(false);
@@ -78,6 +79,7 @@ const LoginForm = () => {
         showErrorToast('Không thể gửi lại email xác minh. Vui lòng thử lại sau.');
       }
     } catch (error) {
+      console.error('Error resending verification email:', error); // Added console.error
       showErrorToast('Đã xảy ra lỗi khi gửi lại email xác minh');
     } finally {
       setResendLoading(false);

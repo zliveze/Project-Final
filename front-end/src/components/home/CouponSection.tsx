@@ -66,9 +66,13 @@ const CouponSection = () => {
 
         setAllCoupons(validCoupons);
         setFilteredCoupons(validCoupons.length > 0 ? [...validCoupons, ...validCoupons] : []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Lỗi khi tải mã giảm giá:", err);
-        setError(err.message || 'Không thể tải danh sách mã giảm giá.');
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Không thể tải danh sách mã giảm giá.');
+        }
         setAllCoupons([]);
         setFilteredCoupons([]);
       } finally {
@@ -102,7 +106,7 @@ const CouponSection = () => {
         });
         setTimeout(() => setCopiedCode(null), 2000);
       })
-      .catch(error => {
+      .catch(() => {
         toast.error('Không thể sao chép mã', {
           position: "bottom-right",
           autoClose: 2000,
@@ -115,7 +119,7 @@ const CouponSection = () => {
   useEffect(() => {
     if (isLoading) return;
 
-    let baseCoupons = [...allCoupons];
+    const baseCoupons = [...allCoupons];
     let filteredLogic = baseCoupons;
     
     if (activeFilter === COUPON_FILTERS.PERCENTAGE) {

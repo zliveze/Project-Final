@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Search, Plus, Filter, ChevronDown, ChevronUp, Package, AlertTriangle, ImageOff, CheckCircle, Loader2 } from 'lucide-react'; // Updated icons
+import Image from 'next/image';
+import { X, Search, Plus, Filter, ChevronDown, Package, AlertTriangle, ImageOff, CheckCircle, Loader2 } from 'lucide-react'; // Updated icons
 import Pagination from '@/components/admin/common/Pagination';
 import { useProduct } from '@/contexts/ProductContext';
 import { useBrands } from '@/contexts/BrandContext';
@@ -22,7 +23,7 @@ interface Variant {
     shades?: string[];
     sizes?: string[];
   };
-  images?: Array<{url: string, alt: string, isPrimary?: boolean}>;
+  images?: Array<{url: string, alt?: string, isPrimary?: boolean}>;
   combinations?: Array<{
     combinationId: string;
     attributes: Record<string, string>;
@@ -51,7 +52,7 @@ interface Product {
     isOnSale?: boolean;
     hasGifts?: boolean;
   };
-  images?: Array<{url: string, alt: string, isPrimary?: boolean}>;
+  images?: Array<{url: string, alt?: string, isPrimary?: boolean}>;
   variants?: Variant[];
 }
 
@@ -219,9 +220,9 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
 
       if (result && result.products) {
         // Lấy danh sách product IDs
-        const fetchedProductIds = result.products.map(product => {
+        const fetchedProductIds = result.products.map((product: Product) => {
           // Đảm bảo luôn có một ID hợp lệ để tham chiếu
-          return ((product as any)._id || product.id || '').toString();
+          return (product._id || product.id || '').toString();
         }).filter(id => id !== ''); // Loại bỏ các ID rỗng
 
         try {
@@ -236,12 +237,12 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
             : fetchedProductIds; // Nếu checkResults không phải mảng, giữ nguyên danh sách
 
           // Lọc danh sách sản phẩm chỉ lấy những sản phẩm không thuộc về Campaign
-          const filteredProducts = result.products.filter(product => {
-            const productId = ((product as any)._id || product.id || '').toString();
+          const filteredProductsFromAPI = result.products.filter((product: Product) => {
+            const productId = (product._id || product.id || '').toString();
             return validProductIds.includes(productId);
           });
 
-          setProducts(filteredProducts);
+          setProducts(filteredProductsFromAPI as Product[]);
         } catch (filterError) {
           console.error('Lỗi khi lọc sản phẩm theo Campaign:', filterError);
           // Nếu lọc thất bại, hiển thị tất cả sản phẩm
@@ -289,7 +290,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
   };
 
   // Xử lý thay đổi filter
-  const handleFilterChange = (name: keyof ProductFilter, value: any) => {
+  const handleFilterChange = (name: keyof ProductFilter, value: string | number | boolean | undefined) => {
     setTempFilters(prev => ({
       ...prev,
       [name]: value
@@ -344,24 +345,6 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
     return selectedProducts.some(product => product.productId === productId);
   };
 
-  // Hàm đếm tổng số biến thể và tổ hợp của một sản phẩm
-  const countVariantsAndCombinations = (product: ProductInEventData) => {
-    let variantCount = 0;
-    let combinationCount = 0;
-
-    if (product.variants && product.variants.length > 0) {
-      variantCount = product.variants.length;
-
-      product.variants.forEach(variant => {
-        if (variant.combinations && variant.combinations.length > 0) {
-          combinationCount += variant.combinations.length;
-        }
-      });
-    }
-
-    return { variantCount, combinationCount };
-  };
-
   // State để theo dõi trạng thái loading khi lấy thông tin chi tiết sản phẩm
   const [loadingProductDetails, setLoadingProductDetails] = useState<Record<string, boolean>>({});
 
@@ -382,7 +365,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch {
       toast.error('Không thể lấy thông tin chi tiết sản phẩm');
       return null;
     } finally {
@@ -686,7 +669,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
       setTimeout(() => {
         onClose();
       }, 100);
-    } catch (error) {
+    } catch {
       toast.error('Đã xảy ra lỗi khi thêm sản phẩm vào sự kiện!');
     } finally {
       setSubmitting(false);
@@ -884,7 +867,7 @@ const EventProductAddModal: React.FC<EventProductAddModalProps> = ({
                           </div>
                         )}
                         {productImage ? (
-                          <img src={productImage} alt={product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                          <Image src={productImage} alt={product.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center bg-slate-200">
                             <ImageOff className="h-10 w-10 text-slate-400" />

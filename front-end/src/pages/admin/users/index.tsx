@@ -7,6 +7,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useAdminUser } from '@/contexts/AdminUserContext';
 import { FiUserPlus, FiRefreshCw, FiChevronDown } from 'react-icons/fi';
 // FiUsers removed as it's not used
+// Removed faulty import: import type { User } from '@/types/user';
 
 // Lazy load các component không cần thiết ngay lập tức
 const UserTable = dynamic(() => import('@/components/admin/users/UserTable'));
@@ -20,27 +21,30 @@ const UserResetPasswordModal = lazy(() => import('@/components/admin/users/UserR
 // Tách UserGrowthChart ra để lazy load sau khi trang đã tải xong
 const UserStats = lazy(() => import('@/components/admin/UserStats'));
 
-// Define proper types to replace 'any'
+// Define a local User type to consolidate requirements for modals
 interface User {
   _id: string;
   name: string;
   email: string;
-  phone?: string;
+  phone: string;     // Required by UserDetailModal
   role: string;
-  isActive: boolean;
-  isBanned: boolean;
-  createdAt: string;
-  [key: string]: unknown;
+  isActive?: boolean; // Optional as DetailedUser might not have it
+  isBanned?: boolean; // Optional as DetailedUser might not have it
+  createdAt: string;   // Required by UserDetailModal
+  status: string;      // Required by UserEditModal & UserDetailModal
+  customerLevel: string; // Required by UserEditModal
+  // Optional fields that might appear
+  updatedAt?: string;
+  googleId?: string;
+  addresses?: Array<Record<string, unknown>>;
+  lastOrderDate?: string;
 }
 
 interface SearchValues {
   searchTerm: string;
-  filters: {
-    status: string;
-    role: string;
-  };
-  dateFrom: string;
-  dateTo: string;
+  filters: Record<string, string>;
+  dateFrom?: string; // Made optional
+  dateTo?: string; // Made optional
 }
 
 // Component loading
@@ -183,7 +187,7 @@ export default function AdminUsers() {
     try {
       const userDetail = await getUserDetail(id);
       if (userDetail) {
-        setSelectedDetailUser(userDetail);
+        setSelectedDetailUser(userDetail as unknown as User); // Cast to local User type
         setShowDetailModal(true);
         toast.success('Đã tải thông tin chi tiết', { id: loadingToast });
       } else {
@@ -201,7 +205,7 @@ export default function AdminUsers() {
     try {
       const userDetail = await getUserDetail(id);
       if (userDetail) {
-        setSelectedUser(userDetail);
+        setSelectedUser(userDetail as unknown as User); // Cast to local User type
         setShowEditModal(true);
         toast.success('Đã tải thông tin người dùng', { id: loadingToast });
       } else {
@@ -397,8 +401,8 @@ export default function AdminUsers() {
           <UserCreateModal
             isOpen={showCreateModal}
             onClose={() => setShowCreateModal(false)}
-            onSubmit={(userData: Partial<User>) => {
-              createUser(userData).then(() => {
+            onSubmit={(userData: Partial<User>) => { // Uses local User type
+              createUser(userData as Record<string, unknown>).then(() => {
                 setShowCreateModal(false);
                 handleRefresh();
               });
@@ -412,13 +416,20 @@ export default function AdminUsers() {
           <UserEditModal
             isOpen={showEditModal}
             onClose={() => setShowEditModal(false)}
-            user={selectedUser}
-            onSubmit={async (userData: User) => {
+            user={selectedUser as unknown as Parameters<typeof UserEditModal>[0]['user']}
+            onSubmit={async (userData: unknown) => { // userData parameter typed as unknown
               try {
-                await updateUser(userData._id, userData);
+                // Assuming _id is present in userData from UserEditModal's onSubmit
+                const userDataRecord = userData as Record<string, unknown>;
+                if (!userData || typeof userDataRecord._id === 'undefined') {
+                  toast.error('User data or ID is missing for update.');
+                  console.error('User data or ID is missing:', userData);
+                  return;
+                }
+                await updateUser(userDataRecord._id as string, userData as Record<string, unknown>);
                 // Tải lại dữ liệu sau khi cập nhật thành công
                 handleRefresh();
-                return true; // Báo cho component con biết đã xử lý thành công
+                // return true; // Removed to better match expected void return (Promise<void> is fine)
               } catch (error) {
                 console.error('Lỗi khi cập nhật người dùng:', error);
                 throw error; // Ném lỗi để component con xử lý
@@ -433,7 +444,7 @@ export default function AdminUsers() {
           <UserDetailModal
             isOpen={showDetailModal}
             onClose={() => setShowDetailModal(false)}
-            user={selectedDetailUser}
+            user={selectedDetailUser as unknown as Parameters<typeof UserDetailModal>[0]['user']}
             onEdit={handleEdit}
           />
         </Suspense>

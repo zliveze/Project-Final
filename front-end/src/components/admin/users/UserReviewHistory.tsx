@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { FiMessageSquare, FiEye, FiStar, FiThumbsUp, FiFilter, FiCalendar, FiSearch, FiGrid, FiList, FiCheck, FiClock, FiXCircle, FiExternalLink, FiImage } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { FiMessageSquare, FiEye, FiStar, FiThumbsUp, FiFilter, FiCalendar, FiSearch, FiGrid, FiList, FiCheck, FiClock, FiXCircle, FiExternalLink } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
 interface ReviewImage {
@@ -26,14 +27,14 @@ interface UserReviewHistoryProps {
   reviews: ReviewItem[];
   onViewReview: (reviewId: string) => void;
   onViewProduct: (productId: string) => void;
-  userId: string;
+  // userId: string; // Commented out as it's unused
 }
 
 const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
   reviews,
   onViewReview,
   onViewProduct,
-  userId
+  // userId // Commented out as it's unused
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
@@ -157,15 +158,15 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
     setIsModalOpen(false);
   };
 
-  const nextImage = () => {
+  const nextImage = useCallback(() => {
     setSelectedImageIndex((prevIndex) => (prevIndex + 1) % currentReviewImages.length);
-  };
+  }, [currentReviewImages.length]);
 
-  const prevImage = () => {
-    setSelectedImageIndex((prevIndex) => 
+  const prevImage = useCallback(() => {
+    setSelectedImageIndex((prevIndex) =>
       prevIndex === 0 ? currentReviewImages.length - 1 : prevIndex - 1
     );
-  };
+  }, [currentReviewImages.length]);
 
   // Xử lý phím bấm cho modal hình ảnh
   useEffect(() => {
@@ -183,7 +184,7 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen, currentReviewImages.length]);
+  }, [isModalOpen, currentReviewImages.length, nextImage, prevImage]);
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden transition-all duration-300">
@@ -298,10 +299,12 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
               }`}
             >
               <div className="relative h-48 bg-gray-200">
-                <img 
+                <Image 
                   src={review.productImage} 
                   alt={review.productName} 
-                  className="w-full h-full object-cover"
+                  layout="fill"
+                  objectFit="cover"
+                  className="w-full h-full" // className might not be directly applicable in the same way, but next/image handles optimization
                 />
                 <div className="absolute top-2 right-2">
                   <span className={`flex items-center text-xs px-2 py-1 rounded-full border ${getStatusColor(review.status)}`}>
@@ -338,11 +341,12 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
                         className="px-1 w-1/3 cursor-pointer transform hover:scale-105 transition-transform duration-200"
                         onClick={() => openImageModal(review, index)}
                       >
-                        <div className="h-16 rounded overflow-hidden">
-                          <img 
+                        <div className="h-16 rounded overflow-hidden relative">
+                          <Image 
                             src={image.url} 
                             alt={image.alt} 
-                            className="h-full w-full object-cover"
+                            layout="fill"
+                            objectFit="cover"
                           />
                         </div>
                       </div>
@@ -400,11 +404,13 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden">
-                    <img 
-                      className="h-full w-full object-cover transition-transform duration-200 hover:scale-110" 
+                  <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden relative">
+                    <Image 
+                      className="transition-transform duration-200 hover:scale-110" 
                       src={review.productImage} 
                       alt={review.productName} 
+                      layout="fill"
+                      objectFit="cover"
                     />
                   </div>
                   <div className="ml-4">
@@ -437,7 +443,7 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
                             className="h-16 w-16 flex-shrink-0 rounded-md overflow-hidden cursor-pointer transform hover:scale-105 transition-transform duration-200"
                             onClick={() => openImageModal(review, index)}
                           >
-                            <img className="h-full w-full object-cover" src={image.url} alt={image.alt} />
+                            <Image className="h-full w-full object-cover" src={image.url} alt={image.alt} layout="fill" objectFit="cover" />
                           </div>
                         ))}
                         {review.images.length > 4 && (
@@ -503,11 +509,13 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
             </button>
             
             <div className="bg-white rounded-lg overflow-hidden shadow-xl">
-              <div className="relative bg-gray-900">
-                <img 
+              <div className="relative bg-gray-900 h-96"> {/* Added h-96 for the parent to constrain Image with layout fill */}
+                <Image 
                   src={currentReviewImages[selectedImageIndex].url} 
                   alt={currentReviewImages[selectedImageIndex].alt} 
-                  className="max-h-96 mx-auto object-contain"
+                  layout="fill"
+                  objectFit="contain"
+                  className="mx-auto" // className might not be directly applicable in the same way
                 />
                 
                 {currentReviewImages.length > 1 && (
@@ -543,7 +551,7 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
                         }`}
                         onClick={() => setSelectedImageIndex(index)}
                       >
-                        <img className="h-full w-full object-cover" src={image.url} alt={image.alt} />
+                        <Image className="h-full w-full object-cover" src={image.url} alt={image.alt} layout="fill" objectFit="cover"/>
                       </div>
                     ))}
                   </div>
@@ -557,4 +565,4 @@ const UserReviewHistory: React.FC<UserReviewHistoryProps> = ({
   );
 };
 
-export default UserReviewHistory; 
+export default UserReviewHistory;

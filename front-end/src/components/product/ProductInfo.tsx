@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { FiHeart, FiShoppingCart, FiMinus, FiPlus, FiShare2, FiAward, FiGift, FiStar, FiMapPin } from 'react-icons/fi';
 // Use standardized toast utility
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '@/utils/toast';
 import ProductVariants, { Variant as ImportedVariant, VariantCombination } from './ProductVariants'; // Import the Variant and VariantCombination interfaces
 
-// Extend the imported Variant interface to include totalStock
+// Extend the imported Variant interface to include totalStock and promotion fields
 interface Variant extends ImportedVariant {
   totalStock?: number;
   inventory?: Array<{ branchId: string; quantity: number; branchName?: string }>;
   combinationInventory?: Array<{ branchId: string; variantId: string; combinationId: string; quantity: number; branchName?: string }>;
+  promotionPrice?: number; // Added from VariantWithPromotion
+  promotion?: { // Added from VariantWithPromotion
+    type: "event" | "campaign";
+    id: string;
+    name: string;
+    adjustedPrice: number;
+  };
 }
 import Link from 'next/link';
 import Image from 'next/image';
@@ -124,20 +131,17 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   initialBranchId,
   onSelectBranch
 }) => {
-  if (!isOpen) return null;
-
-  // Use the branches hook to get branch information
+  // Hooks moved to the top
   const { getBranchName } = useBranches();
-
-  // State for selected branch - initialize with initialBranchId if provided
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(initialBranchId || null);
 
-  // Update selectedBranchId when initialBranchId changes
   useEffect(() => {
     if (initialBranchId) {
       setSelectedBranchId(initialBranchId);
     }
   }, [initialBranchId]);
+
+  if (!isOpen) return null; // Early return after hooks
 
   // Sort branches by quantity (highest first)
   const sortedBranches = [...branches].sort((a, b) => b.quantity - a.quantity);
@@ -391,8 +395,10 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   // Giá cuối cùng hiển thị
   const finalDisplayPrice = displayCurrentPrice;
 
-  // Get product inventory for products without variants
-  const productInventory = !hasVariants ? product?.inventory || [] : [];
+  // Get product inventory for products without variants, memoized
+  const productInventory = useMemo(() => {
+    return !hasVariants ? product?.inventory || [] : [];
+  }, [hasVariants, product]);
 
   // Get branch names for inventory and preload branches
   useEffect(() => {

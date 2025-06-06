@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import formidable from 'formidable';
+import formidable, { File } from 'formidable'; // Import File type
 import { v2 as cloudinary } from 'cloudinary';
 // Removed unused imports: fs and path
 
@@ -31,8 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Parse form data
-    const form = new formidable.IncomingForm();
-    form.keepExtensions = true;
+    const form = new formidable.IncomingForm({ keepExtensions: true });
     
     const { fields, files } = await new Promise<{ fields: formidable.Fields; files: formidable.Files }>((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
@@ -42,13 +41,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Get the image file
-    const imageFile = files.image as formidable.File;
+    let imageFile: File | undefined = undefined;
+    if (files.image) {
+      if (Array.isArray(files.image)) {
+        imageFile = files.image[0];
+      } else {
+        imageFile = files.image;
+      }
+    }
+
     if (!imageFile) {
       return res.status(400).json({ message: 'No image file provided' });
     }
 
     // Get isPrimary field
-    const isPrimary = fields.isPrimary === 'true';
+    let isPrimaryValue: string | undefined = undefined;
+    if (fields.isPrimary) {
+      if (Array.isArray(fields.isPrimary)) {
+        isPrimaryValue = fields.isPrimary[0];
+      } else {
+        isPrimaryValue = fields.isPrimary;
+      }
+    }
+    const isPrimary = isPrimaryValue === 'true';
 
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(imageFile.filepath, {

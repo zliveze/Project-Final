@@ -1,12 +1,12 @@
-import { FC, useState, useMemo } from 'react';
+import { FC, useState } from 'react';
 import { FiEdit2, FiEye, FiTrash2, FiCheck, FiX, FiStar, FiSearch, FiFilter } from 'react-icons/fi';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { useBrands } from '@/contexts/BrandContext';
+import { useBrands, Brand } from '@/contexts/BrandContext'; // Import Brand from BrandContext
 import Pagination from '@/components/admin/common/Pagination';
 
 // Sử dụng type import từ BrandForm để đảm bảo tính nhất quán
-import { Brand } from './BrandForm';
+// import { Brand } from './BrandForm'; // Comment out or remove this line
 
 // Hàm format date đơn giản
 const formatDate = (dateString: string) => {
@@ -55,7 +55,11 @@ const BrandTable: FC<BrandTableProps> = ({
   const { toggleBrandStatus, toggleBrandFeatured } = useBrands();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleToggleStatus = async (id: string) => {
+  const handleToggleStatus = async (id: string | undefined) => {
+    if (!id) {
+      toast.error("Không thể thay đổi trạng thái: ID thương hiệu không hợp lệ.");
+      return;
+    }
     setUpdatingId(id);
     try {
       await toggleBrandStatus(id);
@@ -67,7 +71,11 @@ const BrandTable: FC<BrandTableProps> = ({
     }
   };
 
-  const handleToggleFeatured = async (id: string) => {
+  const handleToggleFeatured = async (id: string | undefined) => {
+    if (!id) {
+      toast.error("Không thể thay đổi trạng thái nổi bật: ID thương hiệu không hợp lệ.");
+      return;
+    }
     setUpdatingId(id);
     try {
       await toggleBrandFeatured(id);
@@ -239,14 +247,15 @@ const BrandTable: FC<BrandTableProps> = ({
                   </button>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 text-sm text-gray-500">
-                  {formatDate(brand.createdAt)}
+                  {formatDate(brand.createdAt instanceof Date ? brand.createdAt.toISOString() : brand.createdAt || '')}
                 </td>
                 <td className="relative whitespace-nowrap py-3.5 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                   <div className="flex justify-end space-x-1">
                     <button
                       type="button"
-                      onClick={() => onView(brand.id)}
-                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors"
+                      onClick={() => brand.id && onView(brand.id)}
+                      disabled={!brand.id}
+                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors disabled:opacity-50"
                       title="Xem chi tiết"
                     >
                       <FiEye className="h-4 w-4" />
@@ -254,8 +263,9 @@ const BrandTable: FC<BrandTableProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onEdit(brand.id)}
-                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors"
+                      onClick={() => brand.id && onEdit(brand.id)}
+                      disabled={!brand.id}
+                      className="text-gray-600 hover:text-pink-600 p-1.5 rounded hover:bg-pink-50 transition-colors disabled:opacity-50"
                       title="Chỉnh sửa"
                     >
                       <FiEdit2 className="h-4 w-4" />
@@ -263,8 +273,9 @@ const BrandTable: FC<BrandTableProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(brand.id)}
-                      className="text-gray-600 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition-colors"
+                      onClick={() => brand.id && onDelete(brand.id)}
+                      disabled={!brand.id}
+                      className="text-gray-600 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
                       title="Xóa"
                     >
                       <FiTrash2 className="h-4 w-4" />

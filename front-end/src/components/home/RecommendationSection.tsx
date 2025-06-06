@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiArrowRight, FiShoppingCart, FiHeart } from 'react-icons/fi';
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRecommendation, RecommendedProduct as ContextRecommendedProduct } from '@/contexts/user/RecommendationContext';
+import { useRecommendation } from '@/contexts/user/RecommendationContext';
 import { useGSAP, gsapUtils } from '@/hooks/useGSAP';
 
 interface LocalRecommendedProduct {
@@ -41,7 +41,7 @@ const RatingStars = ({ rating }: { rating: number }) => {
 };
 
 // Component sản phẩm gợi ý - Copy chính xác từ BestSellerSection
-const RecommendedProductCard = ({ product, index }: { product: LocalRecommendedProduct; index: number }) => {
+const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct; index: number }) => {
   const [imageError, setImageError] = useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -66,7 +66,7 @@ const RecommendedProductCard = ({ product, index }: { product: LocalRecommendedP
   };
 
   // GSAP hover animations - Copy chính xác từ BestSellerSection
-  useGSAP(({ gsap }) => {
+  useGSAP(() => {
     if (!cardRef.current) return;
 
     const card = cardRef.current;

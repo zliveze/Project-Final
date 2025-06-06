@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { showSuccessToast, showErrorToast } from '@/utils/toast';
 import { useAuth } from '@/contexts/AuthContext';
 // import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
-import { FaLock, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
+import { FaLock, FaExclamationTriangle } from 'react-icons/fa'; // Removed FaCheckCircle
 
 interface ResetPasswordFormProps {
   token?: string;

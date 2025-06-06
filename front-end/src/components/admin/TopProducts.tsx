@@ -21,7 +21,7 @@ interface TopProduct {
     id: string;
     name: string;
   }>;
-  flags: any;
+  flags: Record<string, boolean>;
   reviews: {
     averageRating: number;
     totalReviews: number;
@@ -79,9 +79,9 @@ export default function TopProducts() {
       setTopProducts(data.products || []);
 
       console.log(`Fetched ${data.products?.length || 0} top products for period: ${period}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching top products:', error);
-      setError(error.message || 'Không thể tải dữ liệu sản phẩm bán chạy');
+      setError(error instanceof Error ? error.message : 'Không thể tải dữ liệu sản phẩm bán chạy');
       toast.error('Không thể tải dữ liệu sản phẩm bán chạy');
 
       // Fallback to empty array

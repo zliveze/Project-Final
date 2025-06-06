@@ -8,6 +8,11 @@ import ProductRecommendation from './ProductRecommendation';
 import EventInfo from './EventInfo';
 import ReactMarkdown from 'react-markdown';
 
+// Types for ReactMarkdown components
+type MarkdownComponentProps = React.HTMLAttributes<HTMLElement> & {
+  children?: React.ReactNode;
+};
+
 interface ChatMessageProps {
   message: ChatMessageType;
 }
@@ -117,16 +122,16 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                 <div className="whitespace-pre-wrap markdown-content">
                   <ReactMarkdown
                     components={{
-                      p: ({ node, ...props }: any) => <p className="mb-2" {...props} />,
-                      ul: ({ node, ...props }: any) => <ul className="list-disc ml-5 mb-2" {...props} />,
-                      ol: ({ node, ...props }: any) => <ol className="list-decimal ml-5 mb-2" {...props} />,
-                      li: ({ node, ...props }: any) => <li className="mb-1" {...props} />,
-                      a: ({ node, ...props }: any) => <a className="text-blue-500 underline" {...props} />,
-                      strong: ({ node, ...props }: any) => <strong className="font-bold" {...props} />,
-                      em: ({ node, ...props }: any) => <em className="italic" {...props} />,
-                      h1: ({ node, ...props }: any) => <h1 className="text-xl font-bold mb-2" {...props} />,
-                      h2: ({ node, ...props }: any) => <h2 className="text-lg font-bold mb-2" {...props} />,
-                      h3: ({ node, ...props }: any) => <h3 className="text-md font-bold mb-2" {...props} />,
+                      p: ({ ...props }: MarkdownComponentProps) => <p className="mb-2" {...props} />,
+                      ul: ({ ...props }: MarkdownComponentProps) => <ul className="list-disc ml-5 mb-2" {...props} />,
+                      ol: ({ ...props }: MarkdownComponentProps) => <ol className="list-decimal ml-5 mb-2" {...props} />,
+                      li: ({ ...props }: MarkdownComponentProps) => <li className="mb-1" {...props} />,
+                      a: ({ ...props }: MarkdownComponentProps) => <a className="text-blue-500 underline" {...props} />,
+                      strong: ({ ...props }: MarkdownComponentProps) => <strong className="font-bold" {...props} />,
+                      em: ({ ...props }: MarkdownComponentProps) => <em className="italic" {...props} />,
+                      h1: ({ ...props }: MarkdownComponentProps) => <h1 className="text-xl font-bold mb-2" {...props} />,
+                      h2: ({ ...props }: MarkdownComponentProps) => <h2 className="text-lg font-bold mb-2" {...props} />,
+                      h3: ({ ...props }: MarkdownComponentProps) => <h3 className="text-md font-bold mb-2" {...props} />,
                     }}
                   >
                     {message.content}
@@ -279,4 +284,4 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       </div>
     </div>
   );
-} 
+}

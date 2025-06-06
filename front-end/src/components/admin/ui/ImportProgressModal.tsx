@@ -8,7 +8,7 @@ import { FiCheckCircle, FiAlertTriangle, FiLoader } from 'react-icons/fi';
 const DEBUG_MODE = false;
 
 // Hàm debug log - chỉ hiển thị khi DEBUG_MODE = true
-const debugLog = (...args: any[]) => {
+const debugLog = (...args: unknown[]) => {
   if (DEBUG_MODE) {
     console.log(...args);
   }

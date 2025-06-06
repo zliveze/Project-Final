@@ -116,6 +116,61 @@ export interface Product {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
 
+// Interface cho Product Flags
+interface ProductFlags {
+  isBestSeller?: boolean;
+  isNew?: boolean;
+  isOnSale?: boolean;
+  hasGifts?: boolean;
+}
+
+// Interface cho Variant Data
+interface VariantData {
+  variantId?: string;
+  sku: string;
+  options?: {
+    color?: string;
+    shade?: string;
+    size?: string;
+  };
+  price?: number;
+  images?: Array<{
+    url: string;
+    alt?: string;
+    publicId?: string;
+    isPrimary?: boolean;
+  }>;
+}
+
+// Interface cho Cart Item
+interface CartItem {
+  _id: string;
+  productId: string;
+  quantity: number;
+  variantId?: string;
+}
+
+// Interface cho Wishlist Item
+interface WishlistItem {
+  _id: string;
+  productId: string;
+}
+
+// Interface cho Review Response
+interface ReviewResponse {
+  data: Array<{
+    _id: string;
+    rating: number;
+    content: string;
+    userId: string;
+    productId: string;
+    images?: string[];
+    createdAt: string;
+  }>;
+  total: number;
+  totalPages: number;
+}
+
 // Define ProductContext type
 interface ProductContextType {
   products: Product[];
@@ -198,9 +253,9 @@ interface ProductContextType {
   updateInventory: (id: string, branchId: string, quantity: number) => Promise<Product>;
   updateVariantInventory: (id: string, branchId: string, variantId: string, quantity: number) => Promise<Product>;
   updateCombinationInventory: (id: string, branchId: string, variantId: string, combinationId: string, quantity: number) => Promise<Product>;
-  updateProductFlags: (id: string, flags: any) => Promise<Product>;
-  addVariant: (id: string, variantData: any) => Promise<Product>;
-  updateVariant: (id: string, variantId: string, variantData: any) => Promise<Product>;
+  updateProductFlags: (id: string, flags: ProductFlags) => Promise<Product>;
+  addVariant: (id: string, variantData: VariantData) => Promise<Product>;
+  updateVariant: (id: string, variantId: string, variantData: VariantData) => Promise<Product>;
   removeVariant: (id: string, variantId: string) => Promise<Product>;
   fetchStatistics: () => Promise<void>;
   clearProductCache: (id?: string) => void;
@@ -227,12 +282,12 @@ interface ProductContextType {
   addToCart: (productId: string, quantity: number, variantId?: string) => Promise<boolean>;
   removeFromCart: (cartItemId: string) => Promise<boolean>;
   updateCartQuantity: (cartItemId: string, quantity: number) => Promise<boolean>;
-  getCartItems: () => Promise<any[]>;
+  getCartItems: () => Promise<CartItem[]>;
 
   // Phương thức tương tác với wishlist
   addToWishlist: (productId: string) => Promise<boolean>;
   removeFromWishlist: (productId: string) => Promise<boolean>;
-  getWishlistItems: () => Promise<any[]>;
+  getWishlistItems: () => Promise<WishlistItem[]>;
 
   // Phương thức tương tác với đánh giá
   addReview: (
@@ -241,7 +296,7 @@ interface ProductContextType {
     content: string,
     images?: File[]
   ) => Promise<boolean>;
-  getProductReviews: (productId: string, page?: number, limit?: number) => Promise<any>;
+  getProductReviews: (productId: string, page?: number, limit?: number) => Promise<ReviewResponse>;
 }
 
 // Create context
@@ -412,7 +467,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       sku: adminProduct.sku,
       price: adminProduct.originalPrice,
       currentPrice: adminProduct.currentPrice,
-      status: adminProduct.status as any,
+      status: adminProduct.status as 'active' | 'out_of_stock' | 'discontinued',
       brandId: adminProduct.brandId,
       categoryIds: adminProduct.categoryIds,
       inventory: [{ branchId: '1', quantity: adminProduct.stock }],
@@ -448,7 +503,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const isHealthy = await checkApiHealth();
       setApiHealthStatus(isHealthy ? 'online' : 'offline');
       return isHealthy;
-    } catch (error) {
+    } catch {
       setApiHealthStatus('offline');
       return false;
     }
@@ -580,7 +635,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         sortOrder
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching light products:', error);
     }
   }, [handleCheckApiHealth, fetchAdminProducts]);
@@ -600,7 +655,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching product by ID:', error);
       throw error;
     }
@@ -616,7 +671,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching product by slug:', error);
       throw error;
     }
@@ -678,9 +733,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       console.log('Tải lên thành công với kết quả:', result);
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading product image:', error);
-      console.error('Chi tiết lỗi:', error.message);
+      if (error instanceof Error) {
+        console.error('Chi tiết lỗi:', error.message);
+      }
       throw error;
     }
   }, []);
@@ -769,7 +826,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return finalProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating product:', error);
       throw error;
     }
@@ -810,7 +867,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error(`Failed to update product: ${response.status}`);
       }
 
-      const updatedProduct = await response.json();
+      await response.json();
       console.log('Sản phẩm đã được cập nhật thành công');
 
       // Tải lên các hình ảnh có file nhưng chưa có URL
@@ -839,7 +896,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return freshProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating product:', error);
       throw error;
     }
@@ -862,7 +919,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       // Refresh danh sách sản phẩm
       fetchAdminProducts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting product:', error);
       throw error;
     }
@@ -890,7 +947,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return updatedProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating inventory:', error);
       throw error;
     }
@@ -918,7 +975,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return updatedProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating variant inventory:', error);
       throw error;
     }
@@ -946,14 +1003,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return updatedProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating combination inventory:', error);
       throw error;
     }
   }, [fetchAdminProducts]);
 
   // Phương thức PATCH để cập nhật flags sản phẩm
-  const updateProductFlags = useCallback(async (id: string, flags: any): Promise<Product> => {
+  const updateProductFlags = useCallback(async (id: string, flags: ProductFlags): Promise<Product> => {
     try {
       const response = await fetch(`${API_URL}/admin/products/${id}/flags`, {
         method: 'PATCH',
@@ -974,7 +1031,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       fetchAdminProducts();
 
       return updatedProduct;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating product flags:', error);
       throw error;
     }
@@ -984,13 +1041,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchStatistics = useCallback(async (): Promise<void> => {
     try {
       await fetchApiStatistics();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching statistics:', error);
     }
   }, [fetchApiStatistics]);
 
   // Phương thức POST để thêm biến thể sản phẩm
-  const addVariant = useCallback(async (id: string, variantData: any): Promise<Product> => {
+  const addVariant = useCallback(async (id: string, variantData: VariantData): Promise<Product> => {
     try {
       const response = await fetch(`${API_URL}/admin/products/${id}/variants`, {
         method: 'POST',
@@ -1006,14 +1063,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding product variant:', error);
       throw error;
     }
   }, []);
 
   // Phương thức PATCH để cập nhật biến thể sản phẩm
-  const updateVariant = useCallback(async (id: string, variantId: string, variantData: any): Promise<Product> => {
+  const updateVariant = useCallback(async (id: string, variantId: string, variantData: VariantData): Promise<Product> => {
     try {
       const response = await fetch(`${API_URL}/admin/products/${id}/variants/${variantId}`, {
         method: 'PATCH',
@@ -1029,7 +1086,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating product variant:', error);
       throw error;
     }
@@ -1051,14 +1108,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error removing product variant:', error);
       throw error;
     }
   }, []);
 
   // Phương thức cache (giữ lại để tương thích)
-  const clearProductCache = useCallback((id?: string): void => {
+  const clearProductCache = useCallback((): void => {
     // With our new approach, we don't need caching as we use the hooks
     console.log('Cache clearing not needed, using direct API with hooks');
   }, []);
@@ -1085,9 +1142,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const result = await response.json();
       console.log('Dọn dẹp dữ liệu base64 thành công:', result);
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cleaning up base64 data:', error);
-      console.error('Chi tiết lỗi:', error.message);
+      if (error instanceof Error) {
+        console.error('Chi tiết lỗi:', error.message);
+      }
       throw error;
     }
   }, []);
@@ -1199,9 +1258,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         total: data.total || 0,
         totalPages: data.totalPages || 1,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching admin product list:', error);
-      toast.error(`Lỗi khi tải danh sách sản phẩm: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Lỗi khi tải danh sách sản phẩm: ${errorMessage}`);
       return { products: [], total: 0, totalPages: 1 }; // Return empty on error
     }
   }, [handleCheckApiHealth]);
@@ -1248,7 +1308,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Lưu ý: Không cần phải gọi response.json() nữa vì đã đọc và phân tích văn bản phản hồi
       // Chuyển đổi dữ liệu thành cấu trúc Product
       return responseData;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Lỗi khi nhân bản sản phẩm:', error);
       throw error;
     }
@@ -1592,6 +1652,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     deleteProduct,
     updateInventory,
     updateVariantInventory,
+    updateCombinationInventory,
     updateProductFlags,
     addVariant,
     updateVariant,
@@ -1616,48 +1677,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <ProductContext.Provider
-      value={{
-        products,
-        loading,
-        error,
-        totalProducts,
-        currentPage,
-        totalPages,
-        itemsPerPage,
-        apiHealthStatus,
-        checkApiHealth,
-        statistics,
-        uploadProductImage,
-        fetchProducts,
-        fetchLightProducts,
-        fetchProductById,
-        fetchProductBySlug,
-        createProduct,
-        updateProduct,
-        deleteProduct,
-        updateInventory,
-        updateVariantInventory,
-        updateProductFlags,
-        addVariant,
-        updateVariant,
-        removeVariant,
-        fetchStatistics,
-        clearProductCache,
-        cleanupBase64Images,
-        cloneProduct,
-        fetchAdminProductList,
-        addToCart,
-        removeFromCart,
-        updateCartQuantity,
-        getCartItems,
-        addToWishlist,
-        removeFromWishlist,
-        getWishlistItems,
-        addReview,
-        getProductReviews,
-      }}
-    >
+    <ProductContext.Provider value={value}>
       {children}
       {apiHealthStatus === 'offline' && (
         <ApiStatusAlert

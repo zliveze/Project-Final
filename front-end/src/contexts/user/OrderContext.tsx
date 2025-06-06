@@ -87,19 +87,21 @@ export interface OrderContextType {
   totalPages: number;
   currentPage: number;
   totalItems: number;
-  orderStatusFilter: string;
+  orderStatusFilter: OrderStatusType; // Changed to OrderStatusType
   searchOrderQuery: string;
-  fetchOrders: (page?: number, limit?: number, status?: string) => Promise<void>;
+  fetchOrders: (page?: number, limit?: number, status?: OrderStatusType) => Promise<void>; // Changed to OrderStatusType
   fetchOrderDetail: (id: string) => Promise<Order | null>;
   fetchOrderTracking: (id: string) => Promise<OrderTracking | null>;
   cancelOrder: (id: string, reason: string) => Promise<Order | null>;
-  downloadInvoice: (id: string) => Promise<any>;
+  downloadInvoice: (id: string) => Promise<unknown>;
   buyAgain: (id: string) => Promise<boolean>;
-  setOrderStatusFilter: (status: string) => void;
+  setOrderStatusFilter: (status: OrderStatusType) => void; // Changed to OrderStatusType
   setSearchOrderQuery: (query: string) => void;
   searchOrders: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
+
+import { OrderStatusType } from '../../components/profile/types'; // Import OrderStatusType
 
 // Tạo context
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -115,13 +117,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [totalPages, setTotalPages] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
-  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatusType>('all'); // Changed to OrderStatusType
   const [searchOrderQuery, setSearchOrderQuery] = useState<string>('');
 
   // Xử lý lỗi
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     console.error('API Error in OrderContext:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
+    const errorObj = error as { response?: { data?: { message?: string } }; message?: string };
+    const errorMessage = errorObj.response?.data?.message || errorObj.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
 
     // Chỉ hiển thị toast nếu lỗi không phải là lỗi 401 đã được interceptor xử lý
@@ -134,7 +137,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const fetchOrders = useCallback(async (
     page: number = 1,
     limit: number = 10,
-    status: string = orderStatusFilter
+    status: OrderStatusType = orderStatusFilter // Changed to OrderStatusType
   ) => {
     if (!user || !isAuthenticated) return;
 
@@ -298,7 +301,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [currentOrder, user, isAuthenticated]);
 
   // Tải hóa đơn
-  const downloadInvoice = useCallback(async (id: string): Promise<any> => {
+  const downloadInvoice = useCallback(async (id: string): Promise<unknown> => {
     if (!user || !isAuthenticated) return null;
 
     try {
@@ -367,7 +370,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (user && isAuthenticated) {
       fetchOrders(1, 10, orderStatusFilter);
     }
-  }, [orderStatusFilter, fetchOrders, user, isAuthenticated]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderStatusFilter, user, isAuthenticated]); // Removed fetchOrders from deps as it's stable
 
   return (
     <OrderContext.Provider

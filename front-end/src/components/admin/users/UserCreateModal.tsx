@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 interface UserCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (userData: any) => void;
+  onSubmit: (userData: Record<string, unknown>) => void;
 }
 
 const UserCreateModal: React.FC<UserCreateModalProps> = ({
@@ -27,7 +27,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = (userData: any) => {
+  const handleSubmit = (userData: Record<string, unknown>) => {
     // Hiển thị thông báo đang xử lý
     const toastId = UserNotifications.info.loading();
     
@@ -96,4 +96,4 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
   );
 };
 
-export default UserCreateModal; 
+export default UserCreateModal;

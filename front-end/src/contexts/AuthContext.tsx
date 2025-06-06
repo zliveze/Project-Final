@@ -3,17 +3,7 @@ import Cookies from 'js-cookie';
 // Giả định UserApiService có thể được import từ đây
 // Nếu đường dẫn khác, cần điều chỉnh
 import { UserApiService } from './user/UserApiService';
-
-type User = {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
-  customerLevel?: string; // Giữ nguyên định nghĩa User
-  // Thêm các trường khác nếu API profile trả về
-  addresses?: any[]; // Ví dụ
-  phoneNumber?: string; // Ví dụ
-};
+import { User } from '../components/profile/types';
 
 type AuthContextType = {
   user: User | null;
@@ -36,8 +26,6 @@ export const useAuth = () => useContext(AuthContext);
 
 // Base API URL từ biến môi trường
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-// Sử dụng API_URL cho tất cả các endpoint, bao gồm cả auth
-const AUTH_URL = API_URL + '/auth'; // Đảm bảo AUTH_URL cũng có /api
 
 // Hàm lưu token vào cả localStorage và cookie
 const saveToken = (name: string, value: string, expires?: number) => {
@@ -329,7 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let errorData;
         try {
           errorData = await response.json();
-        } catch (e) {
+        } catch {
           // Nếu không parse được JSON, dùng text
           errorData = { message: await response.text() };
         }

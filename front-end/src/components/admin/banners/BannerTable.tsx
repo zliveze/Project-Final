@@ -48,7 +48,7 @@ const BannerTable: React.FC<BannerTableProps> = ({
     if (!date) return '-';
     try {
       return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi });
-    } catch (err) {
+    } catch {
       return '-';
     }
   };

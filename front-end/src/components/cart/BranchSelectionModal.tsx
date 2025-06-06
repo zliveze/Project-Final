@@ -13,8 +13,6 @@ interface BranchSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   branchInventory: BranchInventory[];
-  currentQuantity: number;
-  maxQuantity: number;
   onSelectBranch: (branchId: string) => void;
   initialBranchId?: string; // Add initialBranchId prop
 }
@@ -23,23 +21,18 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   isOpen,
   onClose,
   branchInventory,
-  currentQuantity,
-  maxQuantity,
   onSelectBranch,
   initialBranchId
 }) => {
-  if (!isOpen) return null;
-
   // Use the branches hook to get branch information
   const { getBranchName, preloadBranches } = useBranches();
+  // State for selected branch - initialize with initialBranchId if provided
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(initialBranchId || null);
 
   // Preload branches when modal opens
   useEffect(() => {
     preloadBranches();
   }, [preloadBranches]);
-
-  // State for selected branch - initialize with initialBranchId if provided
-  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(initialBranchId || null);
 
   // Update selectedBranchId when initialBranchId changes
   useEffect(() => {
@@ -47,6 +40,8 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
       setSelectedBranchId(initialBranchId);
     }
   }, [initialBranchId]);
+
+  if (!isOpen) return null;
 
   // Sort branches by available quantity (highest first)
   const sortedBranches = [...branchInventory]

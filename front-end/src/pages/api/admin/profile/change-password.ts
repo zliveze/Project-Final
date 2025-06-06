@@ -69,8 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Trả về lỗi chính xác từ backend
     if (axiosError.response) {
-      const responseData = axiosError.response.data as { message?: string } | undefined;
-      return res.status(axiosError.response.status).json({
+      const responseData = axiosError.response.data;
+      const status = axiosError.response.status || 500; // Default to 500 if status is undefined
+      return res.status(status).json({
         success: false,
         message: responseData?.message || 'Đã xảy ra lỗi khi cập nhật mật khẩu'
       });
@@ -81,4 +82,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: 'Đã xảy ra lỗi khi cập nhật mật khẩu'
     });
   }
-} 
+}

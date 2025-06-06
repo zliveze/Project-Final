@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { FiX, FiUser, FiShoppingCart, FiHeart, FiMapPin, FiPhone, FiChevronDown, FiHome, FiTag, FiStar } from 'react-icons/fi';
-import { Category, Brand, UserProfile } from '@/contexts/HeaderContext';
+import { Category, UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeader } from '@/contexts/HeaderContext';
 import { useRouter } from 'next/router';
@@ -12,7 +12,6 @@ interface MobileSideMenuProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
-  featuredBrands: Brand[];
   isLoggedIn: boolean;
   userProfile: UserProfile | null;
 }
@@ -21,7 +20,6 @@ export default function MobileSideMenu({
   isOpen,
   onClose,
   categories,
-  featuredBrands,
   isLoggedIn,
   userProfile,
 }: MobileSideMenuProps) {

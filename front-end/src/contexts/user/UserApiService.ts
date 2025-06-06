@@ -11,7 +11,8 @@ const getToken = (): string | null => {
   return null;
 };
 
-// Helper function để xử lý lỗi response
+// Helper function để xử lý lỗi response - không sử dụng
+/*
 const handleApiError = async (response: Response) => {
   let errorMessage = 'Đã xảy ra lỗi với máy chủ';
 
@@ -46,6 +47,7 @@ const handleApiError = async (response: Response) => {
 
   throw new Error(errorMessage);
 };
+*/
 
 // Các API services liên quan đến User Profile
 export const UserApiService = {
@@ -90,7 +92,7 @@ export const UserApiService = {
         try {
           const errorData = await response.json();
           throw new Error(errorData.message || `Lỗi ${response.status}: ${response.statusText}`);
-        } catch (jsonError) {
+        } catch {
           // Nếu không phải JSON, ném lỗi với mã trạng thái
           throw new Error(`Lỗi ${response.status}: ${response.statusText}`);
         }
@@ -568,7 +570,7 @@ export const UserApiService = {
   },
 
   // Tải hóa đơn
-  async downloadInvoice(orderId: string): Promise<any> {
+  async downloadInvoice(orderId: string): Promise<unknown> {
     const token = getToken();
     if (!token) throw new Error('Vui lòng đăng nhập để tiếp tục');
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiUsers, FiUserCheck, FiUserMinus, FiUserX, FiBarChart, FiRefreshCw, FiTrendingUp } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiUserMinus, FiUserX, FiBarChart, FiTrendingUp } from 'react-icons/fi';
 import dynamic from 'next/dynamic';
 
 // Lazy load biểu đồ chỉ khi cần thiết

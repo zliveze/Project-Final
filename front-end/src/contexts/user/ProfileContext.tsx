@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { User, WishlistItem, Order, Notification, Review, Address, TabType, OrderStatusType } from '../../components/profile/types';
@@ -83,146 +83,118 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [searchOrderQuery, setSearchOrderQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Kiểm tra xác thực và lấy dữ liệu ban đầu
-  useEffect(() => {
-    // Chỉ thực hiện khi AuthContext đã load xong
-    if (!authLoading) {
-      if (isAuthenticated && authUser) {
-        // Nếu đã xác thực, fetch dữ liệu user profile
-        fetchUserData(authUser._id); // Truyền userId vào fetchUserData
-      } else {
-        // Nếu chưa xác thực, chuyển hướng đến trang đăng nhập chính xác
-        router.push('/auth/login');
-      }
-    }
-  }, [isAuthenticated, authLoading, authUser, router]); // Thêm authLoading và authUser vào dependencies
 
-  // Hàm lấy dữ liệu người dùng từ API - nhận userId làm tham số
-  const fetchUserData = async (userId: string) => {
+  // Hàm lấy dữ liệu người dùng từ API
+  const fetchUserData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Lấy dữ liệu profile
-      console.log('Bắt đầu lấy profile người dùng');
-      let userProfile;
+      let userProfile: User | null = null;
 
+      // 1. Fetch Profile (critical)
       try {
-      // Lấy dữ liệu profile đầy đủ từ API
-      userProfile = await UserApiService.getProfile(); // Gọi API để lấy profile đầy đủ
-      setUser(userProfile); // Cập nhật state với profile đầy đủ
-      console.log('Đã lấy profile đầy đủ từ API:', userProfile);
+        console.log('Bắt đầu lấy profile người dùng');
+        const fetchedProfile = await UserApiService.getProfile();
+        if (fetchedProfile) {
+          setUser(fetchedProfile);
+          userProfile = fetchedProfile;
+          console.log('Đã lấy profile đầy đủ từ API:', userProfile);
+        } else {
+          console.log('Không lấy được profile từ API hoặc profile là null.');
+          throw new Error('Không thể tải dữ liệu người dùng hoặc dữ liệu không tồn tại.');
+        }
+      } catch (profileError) {
+        console.error('Lỗi khi lấy profile từ API:', profileError);
+        if (profileError instanceof Error && profileError.message.includes('Phiên đăng nhập đã hết hạn')) {
+          toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+          await logout();
+          router.push('/auth/login');
+          return; // Stop execution, finally will still run
+        }
+        throw profileError; // Re-throw for other profile errors to be caught by the main catch
+      }
 
-      // Kiểm tra xem userProfile có tồn tại không trước khi tiếp tục
+      // If we reach here, profile was fetched successfully and userProfile should be set.
       if (userProfile && userProfile._id) {
-        // Thực hiện các API call khác với userId đã có (lấy từ userProfile)
+        // Fetch other non-critical data. Each can have its own try/catch.
         try {
           console.log('Đang lấy wishlist với userId:', userProfile._id);
-          // Lấy danh sách wishlist - Tạm thời vô hiệu hóa backend
-          try {
-            const wishlist = await UserApiService.getWishlist();
-            setWishlistItems(wishlist);
-            console.log('Lấy wishlist thành công:', wishlist);
-          } catch (wishlistError) {
-            console.error("Lỗi khi lấy wishlist:", wishlistError);
-            // Set empty wishlist and don't show error to user
-            setWishlistItems([]);
-            // Don't show toast for wishlist errors as they're not critical
-            // toast.warning('Không thể tải danh sách yêu thích. Vui lòng thử lại sau.');
-          }
+          const wishlist = await UserApiService.getWishlist();
+          setWishlistItems(wishlist);
+          console.log('Lấy wishlist thành công:', wishlist);
+        } catch (wishlistError) {
+          console.error("Lỗi khi lấy wishlist:", wishlistError);
+          setWishlistItems([]); // Fallback to empty
+        }
 
-          // Lấy danh sách đơn hàng - Bắt lỗi nếu API chưa tồn tại
-          try {
-            const { orders: userOrders } = await UserApiService.getOrders();
-            setOrders(userOrders);
-            console.log('Đã lấy orders thành công:', userOrders);
-          } catch (orderError) {
-            console.warn("Lỗi khi lấy orders (có thể do API chưa tồn tại):", orderError);
-            // Set orders thành mảng rỗng để tránh lỗi
-            setOrders([]);
-          }
+        try {
+          const { orders: userOrders } = await UserApiService.getOrders();
+          setOrders(userOrders);
+          console.log('Đã lấy orders thành công:', userOrders);
+        } catch (orderError) {
+          console.warn("Lỗi khi lấy orders (có thể do API chưa tồn tại):", orderError);
+          setOrders([]); // Fallback to empty
+        }
 
-          // Lấy danh sách thông báo
+        try {
           const { notifications: userNotifications } = await UserApiService.getNotifications();
           setNotifications(userNotifications);
           console.log('Đã lấy notifications thành công:', userNotifications);
+        } catch (notificationError) {
+            console.warn("Lỗi khi lấy notifications:", notificationError);
+            setNotifications([]); // Fallback to empty
+        }
 
-          // Lấy danh sách đánh giá
+        try {
           const { reviews: userReviews } = await UserApiService.getReviews();
           setReviews(userReviews);
           console.log('Đã lấy reviews thành công:', userReviews);
-        } catch (otherError) {
-          console.error('Lỗi khi lấy dữ liệu bổ sung:', otherError);
-          toast.warning('Một số dữ liệu không thể tải. Vui lòng làm mới trang.');
-
-          // Trong môi trường phát triển, sử dụng dữ liệu mẫu
-          if (process.env.NODE_ENV === 'development') {
-            setWishlistItems(mockWishlistItems);
-            setOrders(mockOrders);
-            setNotifications(mockNotifications);
-            setReviews(mockReviews);
-            console.log('Sử dụng dữ liệu mẫu cho các phần khác trong môi trường phát triển');
-          }
+        } catch (reviewError) {
+            console.warn("Lỗi khi lấy reviews:", reviewError);
+            setReviews([]); // Fallback to empty
         }
       } else {
-        // Xử lý trường hợp userProfile không hợp lệ sau khi gọi API
-        console.error('Dữ liệu profile lấy từ API không hợp lệ:', userProfile);
-        throw new Error('Dữ liệu profile không hợp lệ sau khi gọi API');
+        // This case implies getProfile succeeded but returned invalid data not caught by the first check,
+        // or userProfile was not set correctly. This should be treated as a critical error.
+        console.error('Dữ liệu profile không hợp lệ hoặc null sau khi fetch (unexpected state):', userProfile);
+        throw new Error('Dữ liệu profile không hợp lệ sau khi tải.');
       }
-    } catch (profileError) {
-      console.error('Lỗi khi lấy profile từ API:', profileError);
-
-        // Kiểm tra nếu lỗi là do phiên đăng nhập hết hạn
-        if (profileError instanceof Error &&
-            profileError.message.includes('Phiên đăng nhập đã hết hạn')) {
-          toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
-
-          // Đăng xuất người dùng
-          await logout(); // Sử dụng logout từ useAuth
-
-          // Chuyển hướng đến trang đăng nhập
-          router.push('/auth/login'); // Sửa đường dẫn
-          return;
-        }
-
-        // Hiển thị thông báo lỗi cụ thể nếu có
-        const errorMessage = profileError instanceof Error ?
-          profileError.message : 'Không thể lấy thông tin người dùng';
-
-        toast.error(errorMessage);
-        setError(errorMessage);
-
-        // Nếu lỗi không phải 401, vẫn tiếp tục với mock data trong môi trường dev
-        if (process.env.NODE_ENV === 'development') {
-          setUser(mockUser);
-          setWishlistItems(mockWishlistItems);
-          setOrders(mockOrders);
-          setNotifications(mockNotifications);
-          setReviews(mockReviews);
-          console.log('Sử dụng dữ liệu mẫu trong môi trường phát triển do lỗi profile');
-        } else {
-          return; // Dừng lại nếu không có profile trong môi trường production
-        }
-      }
-    } catch (err) {
+    } catch (err) { // Main catch block for critical errors
       console.error('Lỗi khi lấy dữ liệu người dùng:', err);
       const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
       setError(errorMessage);
       toast.error(errorMessage);
 
-      // Sử dụng dữ liệu mẫu khi có lỗi xảy ra (chỉ dùng cho môi trường dev)
+      // Fallback to mock data in development environment
       if (process.env.NODE_ENV === 'development') {
-        setUser(mockUser);
+        setUser(mockUser); // Ensure mockUser is set if profile fetch failed
         setWishlistItems(mockWishlistItems);
         setOrders(mockOrders);
         setNotifications(mockNotifications);
         setReviews(mockReviews);
         console.log('Sử dụng dữ liệu mẫu trong môi trường phát triển do lỗi tổng thể');
       }
+      // In production, errors are logged and toasted. Session expiry returns earlier.
+      // Other critical errors (like profile fetch failure) will land here.
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [logout, router, setUser, setWishlistItems, setOrders, setNotifications, setReviews, setIsLoading, setError]);
+
+  // Kiểm tra xác thực và lấy dữ liệu ban đầu
+  useEffect(() => {
+    // Chỉ thực hiện khi AuthContext đã load xong
+    if (!authLoading) {
+      if (isAuthenticated && authUser) {
+        // Nếu đã xác thực, fetch dữ liệu user profile
+        fetchUserData(); // Call without arguments
+      } else {
+        // Nếu chưa xác thực, chuyển hướng đến trang đăng nhập chính xác
+        router.push('/auth/login');
+      }
+    }
+  }, [isAuthenticated, authLoading, authUser, router, fetchUserData]); // fetchUserData is now correctly in scope
 
   // Phát hiện tab từ URL query params khi component mount hoặc URL thay đổi
   useEffect(() => {

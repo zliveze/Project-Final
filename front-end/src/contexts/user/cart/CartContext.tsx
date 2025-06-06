@@ -330,7 +330,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // 3. Kết hợp dữ liệu từ BackendCartItem, PopulatedProduct, và EmbeddedVariant
 
           // Enhance selectedOptions with more detailed information from the variant if not provided
-          let enhancedOptions = item.selectedOptions || {};
+          const enhancedOptions = item.selectedOptions || {};
 
           // If we have variant options but no selectedOptions from the cart item,
           // create a more detailed selectedOptions object from the variant data
@@ -447,8 +447,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             hasGifts: hasGifts,
             availableGifts: availableGifts,
           } as CartProduct;
-        } catch (err: any) {
-          console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, err.message);
+        } catch (err: unknown) {
+          const errorObj = err as { message?: string };
+          console.error(`Lỗi khi lấy hoặc xử lý chi tiết variant ${item.variantId}:`, errorObj.message);
           // Có thể thông báo lỗi cụ thể cho item này nếu cần
           return null; // Bỏ qua item nếu có lỗi
         }
@@ -498,9 +499,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setCartItems(populatedItems);
 
-    } catch (err: any) {
-      console.error('Error fetching cart:', err.message);
-      const message = err.message || 'Không thể tải giỏ hàng. Vui lòng thử lại.';
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
+      console.error('Error fetching cart:', errorObj.message);
+      const message = errorObj.message || 'Không thể tải giỏ hàng. Vui lòng thử lại.';
       setError(message);
       setCartItems([]); // Clear cart on UI if there's a critical fetch error
       // toast.error(message); // Optionally show toast error here
@@ -556,19 +558,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return true;
 
-     } catch (err: any) {
+     } catch (err: unknown) {
+      const errorObj = err as { message?: string };
       console.error('Lỗi khi thêm vào giỏ hàng:', err);
       console.error('Chi tiết sản phẩm gặp lỗi:', { productId, variantId, quantity, options });
 
       // Xử lý các trường hợp lỗi cụ thể
-      let message = err.message || 'Thêm vào giỏ hàng thất bại. Có thể sản phẩm đã hết hàng hoặc số lượng không hợp lệ.';
+      let message = errorObj.message || 'Thêm vào giỏ hàng thất bại. Có thể sản phẩm đã hết hàng hoặc số lượng không hợp lệ.';
 
       // Kiểm tra các lỗi cụ thể và cung cấp thông báo hữu ích hơn
-      if (err.message?.includes('not found') || err.message?.includes('không tìm thấy')) {
+      if (errorObj.message?.includes('not found') || errorObj.message?.includes('không tìm thấy')) {
         message = 'Sản phẩm không tồn tại hoặc đã bị xóa khỏi hệ thống.';
-      } else if (err.message?.includes('out of stock') || err.message?.includes('hết hàng')) {
+      } else if (errorObj.message?.includes('out of stock') || errorObj.message?.includes('hết hàng')) {
         message = 'Sản phẩm đã hết hàng. Vui lòng chọn sản phẩm khác.';
-      } else if (err.message?.includes('invalid') || err.message?.includes('không hợp lệ')) {
+      } else if (errorObj.message?.includes('invalid') || errorObj.message?.includes('không hợp lệ')) {
         message = 'Thông tin sản phẩm không hợp lệ. Vui lòng thử lại sau.';
       }
 
@@ -580,25 +583,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Debounce function to prevent rapid API calls
-  const debounce = (callback: Function, delay: number) => {
-    const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-
-    return (...args: any[]) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        callback(...args);
-      }, delay);
-    };
-  };
-
   // Queue for pending updates to prevent conflicting API calls
   const pendingUpdates = useRef<Record<string, number>>({});
 
-  const updateCartItem = async (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number): Promise<boolean> => { // Changed variantId to itemId
+  // Selection functions - moved here to be available for updateCartItem
+  const getSelectedBranchId = useCallback((): string | null => {
+    if (selectedItems.length === 0) return null;
+
+    const selectedItem = cartItems.find(item => selectedItems.includes(item._id));
+    return selectedItem?.selectedBranchId || null;
+  }, [selectedItems, cartItems]);
+
+  const updateCartItem = useCallback(async (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number): Promise<boolean> => { // Changed variantId to itemId
      if (!isAuthenticated) return false;
 
      // Tìm item hiện tại bằng itemId (là _id của CartProduct)
@@ -671,7 +667,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       // Create DTO with quantity, selectedBranchId, and price if provided
-      const dto: any = { quantity: validQuantity };
+      const dto: Record<string, unknown> = { quantity: validQuantity };
 
       // Add price to DTO if provided
       if (price) {
@@ -680,7 +676,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Prepare selectedOptions for the DTO
       // Start with current item's selectedOptions to preserve combinationId
-      let selectedOptions = currentItem.selectedOptions ? { ...currentItem.selectedOptions } : {};
+      const selectedOptions = currentItem.selectedOptions ? { ...currentItem.selectedOptions } : {};
 
       // Add or update selectedBranchId if provided
       if (selectedBranchId) {
@@ -734,9 +730,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return true;
 
-    } catch (err: any) {
-      console.error('Lỗi khi cập nhật giỏ hàng:', err.message);
-      const message = err.message || 'Cập nhật giỏ hàng thất bại. Số lượng có thể không hợp lệ.';
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
+      console.error('Lỗi khi cập nhật giỏ hàng:', errorObj.message);
+      const message = errorObj.message || 'Cập nhật giỏ hàng thất bại. Số lượng có thể không hợp lệ.';
       toast.error(message);
       setError(message);
       // Rollback optimistic update nếu API thất bại
@@ -744,13 +741,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSelectedItems(originalSelectedItems);
       return false;
     }
-  };
+  }, [isAuthenticated, cartItems, selectedItems, getSelectedBranchId]);
 
   // Create a debounced version of updateCartItem
   const debouncedUpdateCartItem = useCallback(
-    debounce((itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number) => { // Changed variantId to itemId
-      updateCartItem(itemId, quantity, showToast, selectedBranchId, price); // Changed variantId to itemId
-    }, 500), // 500ms debounce delay
+    (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string, price?: number) => {
+      // Simple debounce implementation using setTimeout
+      const timeoutId = setTimeout(() => {
+        updateCartItem(itemId, quantity, showToast, selectedBranchId, price);
+      }, 500);
+
+      // Store timeout ID for potential cleanup
+      return () => clearTimeout(timeoutId);
+    },
     [updateCartItem]
   );
 
@@ -808,9 +811,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(errorData.message || 'Failed to remove cart item');
       }
-    } catch (err: any) {
-      console.error('Lỗi khi xóa sản phẩm:', err.message);
-      const message = err.message || 'Xóa sản phẩm thất bại. Vui lòng thử lại.';
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
+      console.error('Lỗi khi xóa sản phẩm:', errorObj.message);
+      const message = errorObj.message || 'Xóa sản phẩm thất bại. Vui lòng thử lại.';
       toast.error(message);
       setError(message);
       // Rollback optimistic update
@@ -845,9 +849,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.info('Đã xóa toàn bộ giỏ hàng');
       // setIsLoading(false);
       return true;
-    } catch (err: any) {
-      console.error('Lỗi khi xóa giỏ hàng:', err.message);
-      const message = err.message || 'Xóa giỏ hàng thất bại. Vui lòng thử lại.';
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string };
+      console.error('Lỗi khi xóa giỏ hàng:', errorObj.message);
+      const message = errorObj.message || 'Xóa giỏ hàng thất bại. Vui lòng thử lại.';
       toast.error(message);
       setError(message);
       // Rollback optimistic update
@@ -924,14 +929,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Hàm cập nhật phí vận chuyển
   const updateShipping = (amount: number) => {
     setShipping(amount);
-  };
-
-  // Selection functions
-  const getSelectedBranchId = (): string | null => {
-    if (selectedItems.length === 0) return null;
-
-    const selectedItem = cartItems.find(item => selectedItems.includes(item._id));
-    return selectedItem?.selectedBranchId || null;
   };
 
   const canSelectItem = (itemId: string): boolean => {

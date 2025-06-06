@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { createContext, useContext, useState } from 'react';
 
 export interface User {
   id: string;
@@ -41,7 +40,6 @@ export const AdminUserContextProvider: React.FC<{ children: React.ReactNode }> =
   const [totalPages, setTotalPages] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const auth = useAuth();
 
   const fetchUsers = async (page: number = 1, limit: number = 10, term?: string) => {
     setLoading(true);

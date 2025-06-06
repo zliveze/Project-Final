@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiStar, FiFilter, FiSearch, FiCheck, FiX, FiTrash2, FiEye, FiExternalLink, FiUser, FiUsers } from 'react-icons/fi';
+import { FiStar, FiFilter, FiSearch, FiCheck, FiX, FiTrash2, FiEye, FiUser, FiUsers } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { useAdminUserReview, Review } from '@/contexts/AdminUserReviewContext';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import UserDetailModal from '@/components/admin/users/UserDetailModal';
-import { useAdminUser } from '@/contexts/AdminUserContext';
+import { useAdminUser, DetailedUser } from '@/contexts/AdminUserContext';
 
 export const ReviewManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('pending');
@@ -17,7 +17,7 @@ export const ReviewManagement: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string>('');
   const router = useRouter();
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedDetailUser, setSelectedDetailUser] = useState<any>(null);
+  const [selectedDetailUser, setSelectedDetailUser] = useState<DetailedUser | null>(null);
   const [loadingUser, setLoadingUser] = useState<boolean>(false);
 
   // Lấy context
@@ -557,9 +557,11 @@ export const ReviewManagement: React.FC = () => {
                   <FiX size={20} />
                 </button>
                 <div className="p-1 bg-white">
-                  <img
+                  <Image
                     src={selectedImage}
                     alt="Hình ảnh đánh giá"
+                    width={800} // Add appropriate width
+                    height={600} // Add appropriate height
                     className="max-h-[80vh] object-contain"
                   />
                 </div>

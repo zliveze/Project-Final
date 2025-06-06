@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiCheck, FiLayers, FiPackage, FiAlertCircle } from 'react-icons/fi';
-import { ProductFormData, BranchItem, ProductVariant, VariantCombination } from '../types';
+import { ProductFormData, BranchItem, ProductVariant } from '../types';
 
 // Thêm style cho animation
 const notificationAnimation = `
@@ -79,7 +79,7 @@ interface InventoryTabProps {
   isViewMode?: boolean;
   showBranchModal: boolean;
   availableBranches: BranchItem[];
-  handleInventoryChange: (index: number, field: string, value: any) => void;
+  handleInventoryChange: (index: number, field: string, value: string | number | boolean) => void;
   handleRemoveInventory: (index: number) => void;
   handleAddBranch: (branchId: string, branchName: string) => void;
   handleShowBranchModal: (branches: BranchItem[]) => void;

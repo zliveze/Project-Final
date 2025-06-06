@@ -49,7 +49,7 @@ export interface Payment {
   method: string;
   status: string;
   transactionId?: string;
-  paymentDetails?: Record<string, any>;
+  paymentDetails?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,7 +61,7 @@ export interface UserPaymentContextType {
   momoPaymentResponse: MomoPaymentResponse | null;
   createStripePaymentIntent: (amount: number, orderId?: string) => Promise<StripePaymentIntent | null>;
   createStripeCheckoutSession: (amount: number, orderId?: string) => Promise<StripeCheckoutSession | null>;
-  createMomoPayment: (amount: number, orderId: string, returnUrl: string, orderData?: any) => Promise<MomoPaymentResponse | null>;
+  createMomoPayment: (amount: number, orderId: string, returnUrl: string, orderData?: Record<string, unknown>) => Promise<MomoPaymentResponse | null>;
   createOrderWithStripe: (orderData: CreateOrderDto) => Promise<{ order?: Order; checkoutUrl: string } | null>;
   createOrderWithMomo: (orderData: CreateOrderDto) => Promise<{ payUrl: string } | null>;
   createOrderWithCOD: (orderData: CreateOrderDto) => Promise<Order | null>;
@@ -77,7 +77,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [stripePaymentIntent, setStripePaymentIntent] = useState<StripePaymentIntent | null>(null);
-  const [stripeCheckoutSession, setStripeCheckoutSession] = useState<StripeCheckoutSession | null>(null);
+  const [, setStripeCheckoutSession] = useState<StripeCheckoutSession | null>(null);
   const [momoPaymentResponse, setMomoPaymentResponse] = useState<MomoPaymentResponse | null>(null);
 
   // Cấu hình Axios với Auth token
@@ -94,9 +94,10 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
   }, []);
 
   // Xử lý lỗi
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     console.error('API Error:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
+    const errorObj = error as { response?: { data?: { message?: string } }; message?: string };
+    const errorMessage = errorObj.response?.data?.message || errorObj.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
     toast.error(errorMessage);
   };
@@ -338,7 +339,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     amount: number,
     orderId: string,
     returnUrl: string,
-    orderData?: any
+    orderData?: Record<string, unknown>
   ): Promise<MomoPaymentResponse | null> => {
     if (!user || !isAuthenticated) return null;
 
@@ -473,7 +474,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     } finally {
       setLoading(false);
     }
-  }, [api, createMomoPayment, user, isAuthenticated]);
+  }, [createMomoPayment, user, isAuthenticated]);
 
   return (
     <UserPaymentContext.Provider

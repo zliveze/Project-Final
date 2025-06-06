@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react'; // Removed useEffect
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { useAdminOrder } from '@/contexts';
@@ -291,22 +291,23 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
     currentPage,
     totalItems,
     fetchOrders,
+    filters, // Added filters to get current filter state
     setFilters
   } = useAdminOrder();
 
   const [selectedStatus, setSelectedStatus] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  // const [searchTerm, setSearchTerm] = useState(''); // Removed unused searchTerm state
 
   // Xử lý tìm kiếm
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setFilters(prev => ({ ...prev, search: term }));
+    // setSearchTerm(term); // Removed as searchTerm state is removed
+    setFilters({ ...filters, search: term });
   };
 
   // Xử lý thay đổi trạng thái
   const handleStatusChange = (status: string) => {
     setSelectedStatus(status);
-    setFilters(prev => ({ ...prev, status }));
+    setFilters({ ...filters, status });
   };
 
   // Xử lý thay đổi trang
@@ -410,13 +411,13 @@ export default function AdminOrderList({ onView, onEdit, onDelete }: AdminOrderL
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {typeof order.userId === 'object'
-                        ? (order.userId as any)?.name || order.userName || 'Khách hàng'
+                      {typeof order.userId === 'object' && order.userId !== null
+                        ? order.userId.name || order.userName || 'Khách hàng'
                         : order.userName || 'Khách hàng'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {typeof order.userId === 'object'
-                        ? (order.userId as any)?.email || order.userEmail || 'Email không có'
+                      {typeof order.userId === 'object' && order.userId !== null
+                        ? order.userId.email || order.userEmail || 'Email không có'
                         : order.userEmail || 'Email không có'}
                     </div>
                   </td>

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -12,7 +12,7 @@ const enableDetailedLogs = process.env.NEXT_PUBLIC_ENABLE_DETAILED_LOGS === 'tru
 /**
  * Hàm logging an toàn - chỉ hiển thị trong môi trường development
  */
-const safeLog = (message: string, data?: any, level: 'info' | 'warn' | 'error' = 'info') => {
+const safeLog = (message: string, data?: unknown, level: 'info' | 'warn' | 'error' = 'info') => {
   // Chỉ log khi được bật trong môi trường development hoặc cấu hình rõ ràng
   if (!enableDetailedLogs) return;
   
@@ -49,35 +49,35 @@ const safeLog = (message: string, data?: any, level: 'info' | 'warn' | 'error' =
 /**
  * Hàm xử lý dữ liệu để loại bỏ thông tin nhạy cảm
  */
-const sanitizeData = (data: any): any => {
+const sanitizeData = (data: unknown): unknown => {
   if (!data) return data;
-  
+
   // Clone để không làm thay đổi dữ liệu gốc
   if (Array.isArray(data)) {
     return data.map(item => sanitizeData(item));
   }
-  
-  if (typeof data === 'object') {
-    const sanitized = { ...data };
-    
+
+  if (typeof data === 'object' && data !== null) {
+    const sanitized = { ...data } as Record<string, unknown>;
+
     // Loại bỏ token và thông tin nhạy cảm
     const sensitiveFields = ['token', 'accessToken', 'refreshToken', 'password', 'Authorization', 'jwt'];
-    
+
     sensitiveFields.forEach(field => {
       if (field.toLowerCase() in sanitized) sanitized[field.toLowerCase()] = '[REDACTED]';
       if (field in sanitized) sanitized[field] = '[REDACTED]';
     });
-    
+
     // Xử lý đệ quy các đối tượng con
     Object.keys(sanitized).forEach(key => {
       if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
         sanitized[key] = sanitizeData(sanitized[key]);
       }
     });
-    
+
     return sanitized;
   }
-  
+
   return data;
 };
 
@@ -122,6 +122,51 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const router = useRouter();
+
+  // Định nghĩa logout function trước để sử dụng trong useEffect
+  const logout = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      // Đánh dấu đã đăng xuất trước để ngăn các yêu cầu API khác
+      sessionStorage.setItem('adminLoggedOut', 'true');
+
+      // Gọi API đăng xuất admin
+      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+
+      if (token) {
+        try {
+          await axios.post(`${API_URL}/admin/auth/logout`, null, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          safeLog('Đã gọi API đăng xuất thành công');
+        } catch (error) {
+          safeLog('Lỗi khi gọi API đăng xuất', error, 'error');
+        }
+      }
+
+      // Xóa token và thông tin admin khỏi localStorage và cookie
+      removeToken('adminToken');
+      removeToken('adminRefreshToken');
+      localStorage.removeItem('adminUser');
+
+      // Cập nhật state
+      setAdmin(null);
+      setAccessToken(null);
+      setIsAuthenticated(false);
+
+      // Chỉ chuyển về trang đăng nhập nếu đang ở trang admin
+      if (router.pathname.startsWith('/admin')) {
+        router.push('/admin/auth/login');
+      }
+    } catch (error) {
+      safeLog('Lỗi đăng xuất admin', error, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
 
   // Khởi tạo axios với interceptor để tự động làm mới token
   useEffect(() => {
@@ -201,7 +246,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Xóa interceptor khi unmount
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, [router.pathname]);
+  }, [router, logout]);
 
   useEffect(() => {
     // Kiểm tra xem admin đã đăng nhập chưa (từ localStorage)
@@ -246,7 +291,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     loadAdminFromStorage();
-  }, [router.pathname]);
+  }, [router]);
 
   // Kiểm tra xem người dùng có quyền admin không
   const checkAuth = async (): Promise<boolean> => {
@@ -347,49 +392,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const logout = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Đánh dấu đã đăng xuất trước để ngăn các yêu cầu API khác
-      sessionStorage.setItem('adminLoggedOut', 'true');
-      
-      // Gọi API đăng xuất admin
-      const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-      
-      if (token) {
-        try {
-          await axios.post(`${API_URL}/admin/auth/logout`, null, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          safeLog('Đã gọi API đăng xuất thành công');
-        } catch (error) {
-          safeLog('Lỗi khi gọi API đăng xuất', error, 'error');
-        }
-      }
-      
-      // Xóa token và thông tin admin khỏi localStorage và cookie
-      removeToken('adminToken');
-      removeToken('adminRefreshToken');
-      localStorage.removeItem('adminUser');
-      
-      // Cập nhật state
-      setAdmin(null);
-      setAccessToken(null);
-      setIsAuthenticated(false);
-      
-      // Chỉ chuyển về trang đăng nhập nếu đang ở trang admin
-      if (router.pathname.startsWith('/admin')) {
-        router.push('/admin/auth/login');
-      }
-    } catch (error) {
-      safeLog('Lỗi đăng xuất admin', error, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   const contextValue: AdminAuthContextType = {
     admin,

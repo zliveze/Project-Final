@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiEye, FiMapPin, FiEdit, FiTrash } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { useBranches } from '@/contexts/BranchContext';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import Pagination from '@/components/admin/common/Pagination';
+
+// Debounce utility function
+function debounce<T extends (...args: string[]) => void>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 interface BranchListProps {
   onView: (id: string) => void;
@@ -25,8 +37,8 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
 
   // Debounced search function
   const debouncedSearch = useCallback(
-    debounce((term: string) => {
-      const filters: any = {};
+    (term: string) => {
+      const filters: { search?: string; sort?: string } = {};
       if (term.trim()) {
         filters.search = term.trim();
       }
@@ -35,8 +47,13 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
       }
       fetchBranches(1, pagination.limit, filters);
       setIsSearching(false);
-    }, 500),
+    },
     [sortField, sortOrder, pagination.limit, fetchBranches]
+  );
+
+  const debouncedSearchWithDelay = useMemo(
+    () => debounce(debouncedSearch, 500),
+    [debouncedSearch]
   );
 
   // Handle search input change
@@ -44,14 +61,14 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
     const value = e.target.value;
     setSearchTerm(value);
     setIsSearching(true);
-    debouncedSearch(value);
+    debouncedSearchWithDelay(value);
   };
 
   // Clear search
   const clearSearch = () => {
     setSearchTerm('');
     setIsSearching(false);
-    const filters: any = {};
+    const filters: { sort?: string } = {};
     if (sortField && sortOrder) {
       filters.sort = `${sortField},${sortOrder}`;
     }
@@ -73,7 +90,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
     setSortOrder(newSortOrder);
 
     // Apply search and sort immediately
-    const filters: any = {};
+    const filters: { search?: string; sort?: string } = {};
     if (searchTerm.trim()) {
       filters.search = searchTerm.trim();
     }
@@ -82,7 +99,7 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
   };
 
   const handlePageChange = (page: number) => {
-    const filters: any = {};
+    const filters: { search?: string; sort?: string } = {};
     if (searchTerm.trim()) {
       filters.search = searchTerm.trim();
     }
@@ -95,30 +112,19 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
   const formatDate = (date: string) => {
     try {
       return format(new Date(date), 'dd/MM/yyyy');
-    } catch (error) {
+    } catch {
       return String(date);
     }
   };
 
-  // Debounce utility function
-  function debounce<T extends (...args: any[]) => any>(
-    func: T,
-    wait: number
-  ): (...args: Parameters<T>) => void {
-    let timeout: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  }
-
   // Load initial data and reset search when component mounts
   useEffect(() => {
-    const filters: any = {};
+    const filters: { sort?: string } = {};
     if (sortField && sortOrder) {
       filters.sort = `${sortField},${sortOrder}`;
     }
     fetchBranches(1, pagination.limit, filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   return (
@@ -191,13 +197,13 @@ const BranchList: React.FC<BranchListProps> = ({ onView, onEdit, onDelete }) => 
         <div className="px-4 py-2 bg-gray-50 border-b text-sm text-gray-600">
           {branches.length > 0 ? (
             <>
-              Tìm thấy <strong>{pagination.total}</strong> kết quả cho "<strong>{searchTerm}</strong>"
+              Tìm thấy <strong>{pagination.total}</strong> kết quả cho &ldquo;<strong>{searchTerm}</strong>&rdquo;
               {pagination.totalPages > 1 && (
                 <span> - Trang {pagination.page}/{pagination.totalPages}</span>
               )}
             </>
           ) : (
-            <>Không tìm thấy kết quả nào cho "<strong>{searchTerm}</strong>"</>
+            <>Không tìm thấy kết quả nào cho &ldquo;<strong>{searchTerm}</strong>&rdquo;</>
           )}
         </div>
       )}

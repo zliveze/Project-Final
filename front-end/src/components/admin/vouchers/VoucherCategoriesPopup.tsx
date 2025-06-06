@@ -35,7 +35,7 @@ export const VoucherCategoriesPopup: React.FC<VoucherCategoriesPopupProps> = ({
       fetchCategories(1, 100);
     }
     return () => setMounted(false);
-  }, []);
+  }, [fetchCategories, categories]);
 
   // Memoize transformed categories
   const transformedCategories = useMemo(() =>

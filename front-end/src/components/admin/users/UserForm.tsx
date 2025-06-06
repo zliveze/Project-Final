@@ -1,35 +1,48 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { UserNotifications } from './';
+import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { FiUser, FiMail, FiPhone, FiShield, FiCheck, FiX, FiUpload, FiInfo, FiAlertCircle } from 'react-icons/fi';
 
+// Define Address and Wishlist item types
+interface UserAddress {
+  addressId: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  isDefault: boolean;
+}
+
+interface UserWishlistItem {
+  productId: string;
+  variantId: string;
+}
+
+// Define the main User type
+interface User {
+  _id?: string; // _id is optional for new users
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+  password?: string;
+  avatar?: string;
+  googleId?: string;
+  customerLevel: string;
+  monthlyOrders?: number;
+  totalOrders?: number;
+  lastOrderDate?: string;
+  addresses?: UserAddress[];
+  wishlist?: UserWishlistItem[];
+}
+
+// Type for the data submitted by UserForm
+type UserFormData = Partial<User>;
+
 interface UserFormProps {
-  initialValues?: {
-    _id?: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    status: string;
-    password?: string;
-    avatar?: string;
-    googleId?: string;
-    customerLevel: string;
-    monthlyOrders?: number;
-    totalOrders?: number;
-    lastOrderDate?: string;
-    addresses?: {
-      addressId: string;
-      addressLine: string;
-      city: string;
-      state: string;
-      country: string;
-      postalCode: string;
-      isDefault: boolean;
-    }[];
-    wishlist?: { productId: string; variantId: string }[];
-  };
-  onSubmit: (formData: any) => void;
+  initialValues?: User;
+  onSubmit: (formData: UserFormData) => void;
   onCancel: () => void;
   isEditMode?: boolean;
 }
@@ -450,4 +463,4 @@ const UserForm: React.FC<UserFormProps> = ({
   );
 };
 
-export default UserForm; 
+export default UserForm;

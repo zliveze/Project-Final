@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import { FiSave, FiX, FiCalendar, FiShoppingBag } from 'react-icons/fi';
-import Image from 'next/image';
 import { vi } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import ProductSelectionTable from './ProductSelectionTable';
 import CampaignProductsTable from './CampaignProductsTable';
 // Import types from context
-import { Campaign, ProductInCampaign, VariantInCampaign, CombinationInCampaign } from '@/contexts/CampaignContext';
+import { Campaign, ProductInCampaign } from '@/contexts/CampaignContext';
 
 interface CampaignFormProps {
   initialData?: Partial<Campaign>; // Use context Campaign type

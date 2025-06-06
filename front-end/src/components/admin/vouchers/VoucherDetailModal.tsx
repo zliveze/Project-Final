@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiX, FiEye, FiClock, FiCheck, FiPercent, FiDollarSign, FiShoppingBag, FiList, FiUsers, FiInfo, FiTag, FiPackage, FiSettings, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiX, FiEye, FiClock, FiCheck, FiShoppingBag, FiList, FiUsers, FiInfo, FiTag, FiPackage, FiSettings, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { Voucher } from '@/contexts/VoucherContext';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import { TabInterface } from './TabInterface';
@@ -18,7 +18,6 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
   onClose,
   voucher
 }) => {
-  const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
   // State quản lý trạng thái mở/đóng của các accordion
@@ -79,7 +78,7 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, voucher]);
+  }, [isOpen, voucher, fetchBrands, fetchCategories, fetchProducts, fetchCampaigns]);
 
   // Hàm toggle accordion
   const toggleSection = (section: string) => {
@@ -110,7 +109,7 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
     if (!voucher?.applicableCategories?.length) return [];
     return voucher.applicableCategories.map(id => {
       // Tìm danh mục trong danh sách categories từ API
-      const category = categories?.find(c => (c._id || c.id) === id);
+      const category = categories?.find(c => c._id === id);
       // Nếu tìm thấy, sử dụng tên thực tế
       if (category) {
         return { id, name: category.name };
@@ -184,13 +183,9 @@ const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setModalVisible(true);
       // Khi modal mở, ngăn scroll của body
       document.body.style.overflow = 'hidden';
     } else {
-      setTimeout(() => {
-        setModalVisible(false);
-      }, 300);
       // Khi modal đóng, cho phép scroll lại
       document.body.style.overflow = 'unset';
     }

@@ -1,6 +1,5 @@
 import { useState, useRef, DragEvent, ChangeEvent, useCallback, useEffect } from 'react';
 import { ProductFormData, ProductImage } from '../types';
-import { useProduct } from '@/contexts/ProductContext';
 
 /**
  * Hook quản lý hình ảnh sản phẩm
@@ -14,7 +13,7 @@ export const useProductImages = (
   const [isUploading, setIsUploading] = useState(false);
 
   // Access the ProductContext for image uploads
-  const { uploadProductImage } = useProduct();
+  // const { uploadProductImage } = useProduct(); // Removed as it's not used in this hook
 
   /**
    * Xử lý upload hình ảnh từ file input
@@ -68,7 +67,7 @@ export const useProductImages = (
       console.log('Added new images with previews to local state. Upload will occur on form save.');
       setIsUploading(false);
     }
-  }, [setFormData]); // Removed dependencies related to immediate upload
+  }, [setFormData, formData.images]);
 
   /**
    * Clean up khi component unmount
@@ -113,7 +112,7 @@ export const useProductImages = (
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       if (fileInputRef.current) {
         fileInputRef.current.files = e.dataTransfer.files;
-        handleImageUpload({ target: { files: e.dataTransfer.files } } as any);
+        handleImageUpload({ target: { files: e.dataTransfer.files } } as unknown as ChangeEvent<HTMLInputElement>);
       }
     }
   }, [handleImageUpload]);

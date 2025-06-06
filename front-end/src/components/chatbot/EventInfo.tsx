@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Tag, ChevronRight, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, ChevronRight, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/router';
 import Link from 'next/link';
 
 interface EventProduct {
@@ -23,6 +22,7 @@ interface EventInfo {
   durationText?: string;
   discountInfo?: string;
   products?: EventProduct[];
+  type?: string; // Added for campaign type
 }
 
 interface EventInfoProps {
@@ -32,7 +32,6 @@ interface EventInfoProps {
 }
 
 export default function EventInfo({ events, campaigns = [], title = "Sự kiện đang diễn ra" }: EventInfoProps) {
-  const router = useRouter();
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
 
@@ -57,21 +56,12 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
     }).format(price);
   };
 
-  const calculateDiscount = (originalPrice: number, adjustedPrice: number) => {
-    if (!adjustedPrice || adjustedPrice >= originalPrice) return 0;
-    return Math.round(((originalPrice - adjustedPrice) / originalPrice) * 100);
-  };
-
   const toggleEvent = (id: string) => {
     setExpandedEventId(expandedEventId === id ? null : id);
   };
 
   const toggleCampaign = (id: string) => {
     setExpandedCampaignId(expandedCampaignId === id ? null : id);
-  };
-
-  const navigateToProduct = (productId: string) => {
-    router.push(`/product/${productId}`);
   };
 
   return (
@@ -181,9 +171,11 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
                 <div className="flex-1">
                   <div className="flex items-center">
                     <h5 className="text-sm font-medium text-gray-900">{campaign.title}</h5>
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
-                      {(campaign as any).type || 'Chiến dịch'}
-                    </span>
+                    {campaign.type && (
+                      <span className="ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
+                        {campaign.type}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center mt-1">
                     <Clock className="w-3 h-3 text-gray-500 mr-1" />
@@ -251,4 +243,4 @@ export default function EventInfo({ events, campaigns = [], title = "Sự kiện
       )}
     </div>
   );
-} 
+}

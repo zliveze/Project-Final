@@ -28,7 +28,6 @@ const formatPrice = (price: number) => {
 }
 
 export default function ProductCardSmall({
-  id,
   name,
   image,
   price,
@@ -36,8 +35,7 @@ export default function ProductCardSmall({
   discount,
   slug,
   flashSale,
-  rating,
-  onClick
+  rating
 }: ProductCardSmallProps) {
   const [imageError, setImageError] = useState(false);
 

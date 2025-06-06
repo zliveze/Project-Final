@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // useMemo removed
 import Image from 'next/image';
 import { FiZoomIn, FiChevronLeft, FiChevronRight, FiImage } from 'react-icons/fi';
 import { formatImageUrl } from '@/utils/imageUtils';
@@ -19,8 +19,81 @@ interface ProductImagesProps {
 }
 
 const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName, initialImageUrl }) => {
-  // Nếu không có ảnh, hiển thị ảnh mặc định
-  if (!images || images.length === 0) {
+  // Helper function, memoized with useCallback as it's used in useEffect dependencies and for useState initialization.
+  const findInitialImage = useCallback((): ImageType | undefined => {
+    if (!images || images.length === 0) {
+      return undefined; // Return undefined if no images
+    }
+    if (initialImageUrl) {
+      const initial = images.find(img => img.url === initialImageUrl);
+      if (initial) return initial;
+    }
+    const primary = images.find(img => img.isPrimary);
+    if (primary) return primary;
+    // Fallback to the first image if images array is not empty
+    return images[0];
+  }, [images, initialImageUrl]);
+
+  // Hooks are now at the top, before any conditional returns.
+  // mainImage can be undefined if findInitialImage returns undefined (e.g., images is empty).
+  const [mainImage, setMainImage] = useState<ImageType | undefined>(() => findInitialImage());
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const initialImg = findInitialImage(); // Uses the useCallback version
+    if (!initialImg || !images || images.length === 0) return 0; // Default to 0 if no initial image or images are empty
+    const index = images.findIndex(img => img.url === initialImg.url);
+    return index >= 0 ? index : 0;
+  });
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+
+  // Define useCallback hooks before any conditional returns
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZoomed) return;
+
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+
+    setZoomPosition({ x, y });
+  }, [isZoomed]);
+
+  const handleZoomToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsZoomed(!isZoomed);
+  }, [isZoomed]);
+
+  // Update mainImage and currentIndex if images or initialImageUrl props change.
+  useEffect(() => {
+    const newInitialSelectedImage = findInitialImage(); // findInitialImage is from useCallback
+
+    if (newInitialSelectedImage) {
+      // If the derived image is different from the current main image, update.
+      if (mainImage?.url !== newInitialSelectedImage.url) {
+        setMainImage(newInitialSelectedImage);
+      }
+      // Always update index if image is found, to ensure consistency.
+      const newIndex = images.findIndex(img => img.url === newInitialSelectedImage.url);
+      if (newIndex !== -1 && currentIndex !== newIndex) {
+        setCurrentIndex(newIndex);
+      } else if (newIndex === -1 && images.length > 0) {
+         // Fallback: if findInitialImage result is not in images (should be rare), or images[0] is the choice
+         if (mainImage?.url !== images[0].url) setMainImage(images[0]); // set to first image
+         if (currentIndex !== 0) setCurrentIndex(0); // set index to 0
+      }
+    } else {
+      // This case means `images` is empty or became empty.
+      if (mainImage !== undefined) {
+        setMainImage(undefined);
+      }
+      if (currentIndex !== 0) {
+        setCurrentIndex(0);
+      }
+    }
+  }, [images, initialImageUrl, findInitialImage, currentIndex, mainImage]); // Added missing dependencies
+
+  // Early return: If there are no images or mainImage couldn't be determined, show placeholder.
+  // This check is now AFTER all hooks have been called.
+  if (!images || images.length === 0 || !mainImage) {
     return (
       <div className="relative h-[450px] w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -31,35 +104,7 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
     );
   }
 
-  // Find the initial image based on initialImageUrl or primary flag or first image
-  const findInitialImage = (): ImageType => {
-    if (initialImageUrl) {
-      const initial = images.find(img => img.url === initialImageUrl);
-      if (initial) return initial;
-    }
-    return images.find(img => img.isPrimary) || images[0];
-  };
-
-  const [mainImage, setMainImage] = useState<ImageType>(findInitialImage());
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    const initialImg = findInitialImage();
-    const index = images.findIndex(img => img.url === initialImg.url);
-    return index >= 0 ? index : 0;
-  });
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
-
-  // Update mainImage if initialImageUrl changes or images array changes
-  useEffect(() => {
-    if (images && images.length > 0) {
-      const newInitialImage = findInitialImage();
-      const newIndex = images.findIndex(img => img.url === newInitialImage.url);
-      setMainImage(newInitialImage);
-      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images, initialImageUrl]); // Re-run if images or initialImageUrl changes
-
+  // Component logic continues, assuming `images` is not empty and `mainImage` is defined (ImageType).
   const handlePrevImage = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (images.length <= 1) return;
@@ -77,21 +122,6 @@ const ProductImages: React.FC<ProductImagesProps> = ({ images = [], productName,
     setCurrentIndex(newIndex);
     setMainImage(images[newIndex]);
   };
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isZoomed) return;
-
-    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - left) / width) * 100;
-    const y = ((e.clientY - top) / height) * 100;
-
-    setZoomPosition({ x, y });
-  }, [isZoomed]);
-
-  const handleZoomToggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsZoomed(!isZoomed);
-  }, [isZoomed]);
 
   return (
     <div className="flex flex-col">

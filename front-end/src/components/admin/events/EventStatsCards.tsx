@@ -1,9 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FiCalendar, FiCheckCircle, FiAlertTriangle, FiTrendingUp } from 'react-icons/fi';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+interface TopPerformingEventRaw {
+  _id: string;
+  title: string;
+  totalOrders: number;
+  totalRevenue: number;
+  endDate: string; 
+  daysLeft: number;
+}
 
 interface EventDashboardStats {
   totalEvents: number;
@@ -24,7 +33,7 @@ const EventStatsCards = () => {
   const [dashboardStats, setDashboardStats] = useState<EventDashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchEventStats = async () => {
+  const fetchEventStats = useCallback(async () => {
     if (!isAuthenticated || !accessToken) {
       return;
     }
@@ -41,7 +50,7 @@ const EventStatsCards = () => {
       
       // Chuẩn hóa dữ liệu endDate trong topPerformingEvents
       if (statsData.topPerformingEvents) {
-        statsData.topPerformingEvents = statsData.topPerformingEvents.map((event: any) => ({
+        statsData.topPerformingEvents = statsData.topPerformingEvents.map((event: TopPerformingEventRaw) => ({
           ...event,
           endDate: new Date(event.endDate)
         }));
@@ -53,11 +62,11 @@ const EventStatsCards = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated, accessToken]); // Dependencies for useCallback
 
   useEffect(() => {
     fetchEventStats();
-  }, [isAuthenticated, accessToken]);
+  }, [fetchEventStats]); // useEffect depends on the memoized fetchEventStats
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {

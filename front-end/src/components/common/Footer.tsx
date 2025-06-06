@@ -1,6 +1,5 @@
 import React from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { FiPhone, FiMail, FiMapPin, FiFacebook, FiInstagram, FiYoutube, FiShoppingBag, FiTag, FiInfo, FiHelpCircle, FiCreditCard } from 'react-icons/fi'
 
 // Thông tin công ty từ model Branches
@@ -54,15 +53,6 @@ const footerLinks = {
     { name: 'Tra cứu đơn hàng', href: '/order-tracking', icon: <FiHelpCircle className="w-4 h-4" /> }
   ]
 }
-
-// Phương thức thanh toán
-const paymentMethods = [
-  { name: 'Visa', image: 'https://placehold.co/50x30/png' },
-  { name: 'MasterCard', image: 'https://placehold.co/50x30/png' },
-  { name: 'Momo', image: 'https://placehold.co/50x30/png' },
-  { name: 'VNPay', image: 'https://placehold.co/50x30/png' },
-  { name: 'ZaloPay', image: 'https://placehold.co/50x30/png' }
-]
 
 // Mạng xã hội
 const socialMedia = {

@@ -167,9 +167,10 @@ export const UserOrderProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Bỏ hook `api` vì đã dùng axiosInstance
 
   // Xử lý lỗi - Kiểm tra nếu lỗi là từ interceptor 401 thì không toast nữa
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     console.error('API Error in UserOrderContext:', error);
-    const errorMessage = error.response?.data?.message || error.message || 'Đã xảy ra lỗi';
+    const errorObj = error as { response?: { data?: { message?: string } }; message?: string };
+    const errorMessage = errorObj.response?.data?.message || errorObj.message || 'Đã xảy ra lỗi';
     setError(errorMessage);
     // Chỉ hiển thị toast nếu lỗi không phải là lỗi 401 đã được interceptor xử lý
     if (errorMessage !== 'Phiên đăng nhập đã hết hạn.') {

@@ -1,5 +1,5 @@
 import { KeyboardEvent } from 'react';
-import { ProductFormData, ProductSeo } from '../types';
+import { ProductFormData } from '../types';
 
 /**
  * Hook quản lý tags cho sản phẩm
@@ -21,7 +21,7 @@ export const useProductTags = (
       if (value && formData.tags && Array.isArray(formData.tags) && !formData.tags.includes(value)) {
         setFormData(prev => ({
           ...prev,
-          tags: [...prev.tags, value]
+          tags: [...(prev.tags || []), value]
         }));
         target.value = '';
       } else if (value) {
@@ -42,7 +42,7 @@ export const useProductTags = (
 
     setFormData(prev => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: (prev.tags || []).filter(tag => tag !== tagToRemove)
     }));
   };
 
@@ -100,7 +100,7 @@ export const useProductTags = (
         ...prev,
         seo: {
           ...prevSeo,
-          keywords: prevSeo.keywords.filter((_, i) => i !== index)
+          keywords: (prevSeo.keywords || []).filter((_, i) => i !== index)
         }
       };
     });

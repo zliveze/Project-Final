@@ -45,7 +45,7 @@ const RatingStars = ({ rating }: { rating: number }) => {
 };
 
 // Component sản phẩm bán chạy - Clean & Minimal design
-const BestSellerCard = ({ product, index }: { product: BestSeller; index: number }) => {
+const BestSellerCard = ({ product }: { product: BestSeller }) => {
   const [imageError, setImageError] = useState(false);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -70,7 +70,7 @@ const BestSellerCard = ({ product, index }: { product: BestSeller; index: number
   };
 
   // GSAP hover animations - Subtle và minimal
-  useGSAP(({ gsap }) => {
+  useGSAP(() => {
     if (!cardRef.current) return;
 
     const card = cardRef.current;
@@ -361,8 +361,8 @@ export default function BestSellerSection() {
         {/* Grid hiển thị 10 sản phẩm đầu (2 hàng x 5 cột) */}
         {firstTenProducts.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
-            {firstTenProducts.map((product, index) => (
-              <BestSellerCard key={product.id} product={product} index={index} />
+            {firstTenProducts.map((product) => (
+              <BestSellerCard key={product.id} product={product} />
             ))}
           </div>
         )}
@@ -399,9 +399,9 @@ export default function BestSellerSection() {
               }}
               className="bestseller-swiper"
             >
-              {remainingProducts.map((product, index) => (
+              {remainingProducts.map((product) => (
                 <SwiperSlide key={product.id}>
-                  <BestSellerCard product={product} index={index + 10} />
+                  <BestSellerCard product={product} />
                 </SwiperSlide>
               ))}
             </Swiper>

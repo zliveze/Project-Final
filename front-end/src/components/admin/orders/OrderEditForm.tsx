@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { FiSave, FiX, FiAlertCircle, FiTrash2 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { useAdminOrder } from '@/contexts';
@@ -48,15 +48,19 @@ interface OrderEditFormProps {
   onSuccess: () => void;
 }
 
+interface OrderUpdateData {
+  notes?: string;
+  shippingAddress?: Partial<ShippingAddress>;
+  paymentStatus?: string;
+  status?: string;
+}
+
 export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEditFormProps) {
-  const router = useRouter();
   const {
     fetchOrderDetail,
     updateOrderStatus,
     cancelOrder,
     updateViettelPostStatus,
-    loading: contextLoading,
-    error: contextError
   } = useAdminOrder();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -84,36 +88,30 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
     },
   });
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrderDetails();
-    }
-  }, [orderId]);
-
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const orderDetail = await fetchOrderDetail(orderId);
+      const orderDetailData = await fetchOrderDetail(orderId);
 
-      if (orderDetail) {
-        setOrder(orderDetail);
+      if (orderDetailData) {
+        setOrder(orderDetailData);
 
         // Thiết lập giá trị form ban đầu
         setFormData({
-          status: orderDetail.status,
-          paymentStatus: orderDetail.paymentStatus,
-          notes: orderDetail.notes || '',
+          status: orderDetailData.status,
+          paymentStatus: orderDetailData.paymentStatus,
+          notes: orderDetailData.notes || '',
           shippingAddress: {
-            fullName: orderDetail.shippingAddress.fullName || '',
-            phone: orderDetail.shippingAddress.phone || '',
-            addressLine1: orderDetail.shippingAddress.addressLine1 || '',
-            addressLine2: orderDetail.shippingAddress.addressLine2 || '',
-            ward: orderDetail.shippingAddress.ward || '',
-            district: orderDetail.shippingAddress.district || '',
-            province: orderDetail.shippingAddress.province || '',
-            postalCode: orderDetail.shippingAddress.postalCode || '',
+            fullName: orderDetailData.shippingAddress.fullName || '',
+            phone: orderDetailData.shippingAddress.phone || '',
+            addressLine1: orderDetailData.shippingAddress.addressLine1 || '',
+            addressLine2: orderDetailData.shippingAddress.addressLine2 || '',
+            ward: orderDetailData.shippingAddress.ward || '',
+            district: orderDetailData.shippingAddress.district || '',
+            province: orderDetailData.shippingAddress.province || '',
+            postalCode: orderDetailData.shippingAddress.postalCode || '',
           },
         });
 
@@ -123,13 +121,19 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
       } else {
         setError('Không tìm thấy thông tin đơn hàng');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching order details:', error);
-      setError(`Không thể tải chi tiết đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+      setError(`Không thể tải chi tiết đơn hàng: ${(error instanceof Error ? error.message : String(error)) || 'Vui lòng thử lại sau'}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId, fetchOrderDetail]);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchOrderDetails();
+    }
+  }, [orderId, fetchOrderDetails]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -182,7 +186,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         console.log(`[DEBUG] Trạng thái đơn hàng thay đổi từ ${order?.status} thành ${formData.status}`);
 
         // Kiểm tra xem trạng thái có cần lý do không
-        let reason = undefined;
+        const reason = undefined;
         if (formData.status === 'cancelled' || formData.status === 'returned') {
           // Lý do đã được nhập trong modal trước đó, không cần xử lý thêm
           // vì logic này chỉ chạy khi không có modal reason
@@ -197,7 +201,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
       }
 
       // Chuẩn bị dữ liệu để gửi (loại bỏ status nếu đã cập nhật ở trên)
-      const updatedData: any = {
+      const updatedData: OrderUpdateData = {
         notes: formData.notes,
         shippingAddress: {
           fullName: formData.shippingAddress.fullName,
@@ -240,12 +244,13 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         const errorData = await response.json();
         throw new Error(errorData.message || 'Không thể cập nhật đơn hàng');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating order:', error);
-      toast.error(`Có lỗi xảy ra khi cập nhật đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Có lỗi xảy ra khi cập nhật đơn hàng: ${errorMessage || 'Vui lòng thử lại sau'}`, {
         id: `update-order-error-${orderId}`
       });
-      setError(`Có lỗi xảy ra khi cập nhật đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`);
+      setError(`Có lỗi xảy ra khi cập nhật đơn hàng: ${errorMessage || 'Vui lòng thử lại sau'}`);
     } finally {
       setSubmitting(false);
     }
@@ -283,9 +288,10 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
       } else {
         throw new Error('Không thể cập nhật trạng thái đơn hàng');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating order status with reason:', error);
-      toast.error(`Có lỗi xảy ra: ${error.message || 'Vui lòng thử lại sau'}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Có lỗi xảy ra: ${errorMessage || 'Vui lòng thử lại sau'}`);
     } finally {
       setSubmitting(false);
     }
@@ -331,16 +337,18 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
             // Kiểm tra xem đơn hàng đã hủy trước đó chưa
             if (vtpResult && vtpResult.status === 'already_cancelled') {
               console.log(`[DEBUG] Đơn hàng đã được hủy trước đó trên Viettelpost`);
-              toast.success(vtpResult.message || 'Đơn hàng đã được hủy trước đó trên Viettelpost', {
-                id: `cancel-order-vtp-already-cancelled-${orderId}`
-              });
+              const message = vtpResult.message && typeof vtpResult.message === 'string'
+                ? vtpResult.message
+                : 'Đơn hàng đã được hủy trước đó trên Viettelpost';
+              toast.success(message);
             } else {
               toast.success('Đã hủy đơn hàng và cập nhật trạng thái trên Viettelpost thành công!', {
                 id: `cancel-order-vtp-success-${orderId}`
               });
             }
-          } catch (vtpError: any) {
+          } catch (vtpError: unknown) {
             console.error('[DEBUG] Lỗi khi cập nhật trạng thái Viettelpost:', vtpError);
+            const vtpErrorMessage = vtpError instanceof Error ? vtpError.message : String(vtpError);
 
             // Đơn hàng đã được hủy trong hệ thống nội bộ, nên vẫn hiển thị thông báo thành công
             toast.success('Đã hủy đơn hàng trong hệ thống nội bộ thành công!', {
@@ -348,7 +356,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
             });
 
             // Hiển thị thông báo cảnh báo về lỗi Viettelpost
-            toast.error(`Không thể cập nhật trạng thái trên Viettelpost: ${vtpError.message || 'Vui lòng thử lại sau'}`, {
+            toast.error(`Không thể cập nhật trạng thái trên Viettelpost: ${vtpErrorMessage || 'Vui lòng thử lại sau'}`, {
               id: `cancel-order-vtp-error-${orderId}`,
               duration: 5000
             });
@@ -365,9 +373,10 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
         setCancelReason('');
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[DEBUG] Lỗi khi hủy đơn hàng:', error);
-      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${error.message || 'Vui lòng thử lại sau'}`, {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Có lỗi xảy ra khi hủy đơn hàng: ${errorMessage || 'Vui lòng thử lại sau'}`, {
         id: `cancel-order-error-${orderId}`
       });
     } finally {
@@ -682,7 +691,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
                       <div className="flex items-center">
                         {item.image && (
                           <div className="flex-shrink-0 h-10 w-10 mr-3">
-                            <img className="h-10 w-10 rounded-md object-cover" src={item.image} alt={item.name} />
+                            <Image src={item.image} alt={item.name} width={40} height={40} className="rounded-md object-cover" />
                           </div>
                         )}
                         <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiArrowUp, FiArrowDown, FiActivity, FiCalendar, FiDollarSign, FiShoppingBag, FiUsers } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import { useAdminOrder } from '@/contexts';
@@ -14,6 +14,28 @@ interface PeriodStats {
     ordersGrowth: number;
     revenueGrowth: number;
     customerGrowth: number;
+  };
+}
+
+interface MonthlyStatsItem {
+  month: string;
+  revenue: number;
+  orders: number;
+}
+
+interface ChartInstance {
+  destroy(): void;
+}
+
+interface ChartConstructor {
+  new (ctx: CanvasRenderingContext2D, config: Record<string, unknown>): ChartInstance;
+}
+
+interface WindowWithChart extends Window {
+  Chart: ChartConstructor;
+  chartInstances?: {
+    revenue?: ChartInstance;
+    orders?: ChartInstance;
   };
 }
 
@@ -65,7 +87,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
   const [isLoading, setIsLoading] = useState(true);
 
   // Hàm lấy dữ liệu thống kê theo khoảng thời gian
-  const fetchStatsByPeriod = async (period: 'week' | 'month' | 'quarter' | 'year') => {
+  const fetchStatsByPeriod = useCallback(async (period: 'week' | 'month' | 'quarter' | 'year') => {
     setIsLoading(true);
 
     try {
@@ -104,7 +126,7 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       // Lấy dữ liệu từ orderStats.monthlyStats
       if (orderStats.monthlyStats && orderStats.monthlyStats.length > 0) {
         // Tùy chỉnh dữ liệu theo loại thời gian
-        let monthlyData = [...orderStats.monthlyStats];
+        const monthlyData = [...orderStats.monthlyStats];
 
         // Nếu là tuần, chỉ lấy 7 ngày gần nhất
         if (period === 'week') {
@@ -123,10 +145,10 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
         // Nếu là quý, lấy 3 tháng gần nhất
         else if (period === 'quarter') {
           if (monthlyData.length >= 3) {
-            const last3Months = monthlyData.slice(-3);
-            categories = last3Months.map(item => item.month);
-            revenueData = last3Months.map(item => item.revenue / 1000000); // Chuyển sang đơn vị triệu
-            orderData = last3Months.map(item => item.orders);
+            const last3Months = monthlyData.slice(-3) as MonthlyStatsItem[];
+            categories = last3Months.map((item: MonthlyStatsItem) => item.month);
+            revenueData = last3Months.map((item: MonthlyStatsItem) => item.revenue / 1000000); // Chuyển sang đơn vị triệu
+            orderData = last3Months.map((item: MonthlyStatsItem) => item.orders);
           } else {
             categories = ['Tháng 1', 'Tháng 2', 'Tháng 3'];
             revenueData = [265.2, 318.7, 295.4];
@@ -142,9 +164,9 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
         }
         // Mặc định, sử dụng dữ liệu từ orderStats.monthlyStats
         else {
-          categories = monthlyData.map(item => item.month);
-          revenueData = monthlyData.map(item => item.revenue / 1000000); // Chuyển sang đơn vị triệu
-          orderData = monthlyData.map(item => item.orders);
+          categories = monthlyData.map((item: MonthlyStatsItem) => item.month);
+          revenueData = monthlyData.map((item: MonthlyStatsItem) => item.revenue / 1000000); // Chuyển sang đơn vị triệu
+          orderData = monthlyData.map((item: MonthlyStatsItem) => item.orders);
         }
       }
 
@@ -169,17 +191,17 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchOrderStats, orderStats]);
 
   // Fetch dữ liệu khi component mount hoặc khi periodType thay đổi
   useEffect(() => {
     fetchStatsByPeriod(periodType);
-  }, [periodType, fetchOrderStats, orderStats]);
+  }, [periodType, fetchStatsByPeriod]);
 
   // Vẽ biểu đồ khi dữ liệu thay đổi
   useEffect(() => {
     if (!isLoading && chartData.categories.length > 0) {
-      if (typeof window !== 'undefined' && (window as any).Chart) {
+      if (typeof window !== 'undefined' && (window as unknown as WindowWithChart).Chart) {
         // Timeout nhỏ để đảm bảo DOM đã được cập nhật
         setTimeout(() => {
           const revenueChart = document.getElementById('revenueChart');
@@ -189,13 +211,14 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
             // Vẽ biểu đồ doanh thu
             const revenueCtx = (revenueChart as HTMLCanvasElement).getContext('2d');
             // Xóa biểu đồ cũ nếu tồn tại
-            if ((window as any).chartInstances?.revenue) {
-              (window as any).chartInstances.revenue.destroy();
+            const windowWithChart = window as unknown as WindowWithChart;
+            if (windowWithChart?.chartInstances?.revenue) {
+              windowWithChart.chartInstances.revenue.destroy();
             }
 
             if (revenueCtx) {
-              (window as any).chartInstances = (window as any).chartInstances || {};
-              (window as any).chartInstances.revenue = new (window as any).Chart(revenueCtx, {
+              windowWithChart.chartInstances = windowWithChart.chartInstances || {};
+              windowWithChart.chartInstances.revenue = new windowWithChart.Chart(revenueCtx, {
                 type: isTrendsPage ? 'line' : 'bar',
                 data: {
                   labels: chartData.categories,
@@ -228,13 +251,13 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
             // Vẽ biểu đồ đơn hàng
             const ordersCtx = (ordersChart as HTMLCanvasElement).getContext('2d');
             // Xóa biểu đồ cũ nếu tồn tại
-            if ((window as any).chartInstances?.orders) {
-              (window as any).chartInstances.orders.destroy();
+            if (windowWithChart?.chartInstances?.orders) {
+              windowWithChart.chartInstances.orders.destroy();
             }
 
             if (ordersCtx) {
-              (window as any).chartInstances = (window as any).chartInstances || {};
-              (window as any).chartInstances.orders = new (window as any).Chart(ordersCtx, {
+              windowWithChart.chartInstances = windowWithChart.chartInstances || {};
+              windowWithChart.chartInstances.orders = new windowWithChart.Chart(ordersCtx, {
                 type: isTrendsPage ? 'line' : 'bar',
                 data: {
                   labels: chartData.categories,
@@ -276,16 +299,6 @@ export default function OrderStatsAdvanced({ periodType, onPeriodChange }: Order
       currency: 'VND',
       maximumFractionDigits: 0
     }).format(amount);
-  };
-
-  // Tính chiều cao tối đa cho biểu đồ dạng cột
-  const getMaxValue = (data: number[]) => {
-    return Math.max(...data);
-  };
-
-  // Chuyển đổi giá trị thành chiều cao phần trăm cho biểu đồ đơn giản
-  const calculateBarHeight = (value: number, maxValue: number) => {
-    return (value / maxValue) * 100;
   };
 
   return (

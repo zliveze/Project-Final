@@ -39,7 +39,7 @@ const SeoDescriptionTab: React.FC<SeoDescriptionTabProps> = ({
           id="description.short"
           name="description.short"
           rows={3}
-          value={formData.description.short}
+          value={formData.description?.short || ''}
           onChange={handleInputChange}
           required
           disabled={isViewMode}
@@ -48,8 +48,8 @@ const SeoDescriptionTab: React.FC<SeoDescriptionTabProps> = ({
           className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-pink-500 focus:ring focus:ring-pink-200 focus:ring-opacity-50 disabled:bg-gray-50 transition-all"
         ></textarea>
         <div className="flex justify-end mt-2">
-          <span className={`text-xs ${formData.description.short.length > 140 ? 'text-orange-500' : 'text-gray-500'}`}>
-            {formData.description.short.length}/160 ký tự
+          <span className={`text-xs ${(formData.description?.short || '').length > 140 ? 'text-orange-500' : 'text-gray-500'}`}>
+            {(formData.description?.short || '').length}/160 ký tự
           </span>
         </div>
       </div>
@@ -66,7 +66,7 @@ const SeoDescriptionTab: React.FC<SeoDescriptionTabProps> = ({
           id="description.full"
           name="description.full"
           rows={8}
-          value={formData.description.full}
+          value={formData.description?.full || ''}
           onChange={handleInputChange}
           disabled={isViewMode}
           placeholder="Nhập mô tả chi tiết về sản phẩm"
@@ -229,7 +229,7 @@ const SeoDescriptionTab: React.FC<SeoDescriptionTabProps> = ({
               yumin-cosmetics.com/products/{formData.slug || 'product-name'}
             </div>
             <div className="text-sm text-gray-600 line-clamp-2 mt-1">
-              {formData.seo?.metaDescription || formData.description.short || 'Mô tả sản phẩm sẽ hiển thị ở đây...'}
+              {formData.seo?.metaDescription || formData.description?.short || 'Mô tả sản phẩm sẽ hiển thị ở đây...'}
             </div>
           </div>
         </div>

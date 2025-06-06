@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiX, FiCalendar, FiUsers, FiSearch, FiLoader, FiSave, FiTag, FiPercent, FiDollarSign, FiShoppingBag, FiList, FiCheck, FiEdit, FiInfo, FiSettings, FiPackage } from 'react-icons/fi';
+import { FiX, FiCalendar, FiUsers, FiLoader, FiSave, FiTag, FiShoppingBag, FiEdit, FiInfo, FiSettings, FiPackage } from 'react-icons/fi';
 import DatePicker from 'react-datepicker';
 // Remove react-select imports if no longer used directly here
 // import Select, { MultiValue, ActionMeta } from 'react-select';
@@ -82,8 +82,6 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
 
   const {
     brands, categories, products, campaigns,
-    brandsLoading, categoriesLoading, productsLoading, campaignsLoading,
-    brandsError, categoriesError, productsError, campaignsError,
     fetchBrands, fetchCategories, fetchProducts, fetchCampaigns
   } = useVoucherSelections();
 
@@ -212,7 +210,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   const handleUserLevelToggle = (levelValue: string, checked: boolean) => {
     setFormData(prev => {
       const currentLevels = prev.applicableUserGroups?.levels || [];
-      let newLevels = checked ? [...currentLevels, levelValue] : currentLevels.filter(l => l !== levelValue);
+      const newLevels = checked ? [...currentLevels, levelValue] : currentLevels.filter(l => l !== levelValue);
       return {
         ...prev,
         applicableUserGroups: {
@@ -238,7 +236,8 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      const { showSpecificProducts, ...submitData } = formData;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { showSpecificProducts, ...submitData } = formData; // Remove showSpecificProducts from submit data
       onSubmit(submitData);
     } else {
       console.log("Validation Errors:", errors);
@@ -278,7 +277,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({
     if (!formData.applicableCategories?.length) return [];
     return formData.applicableCategories.map(id => {
       // Tìm danh mục trong danh sách categories từ API
-      const category = categories?.find(c => (c._id || c.id) === id);
+      const category = categories?.find(c => c._id === id);
       // Nếu tìm thấy, sử dụng tên thực tế, nếu không thì tìm trong options
       if (category) {
         return { id, name: category.name };

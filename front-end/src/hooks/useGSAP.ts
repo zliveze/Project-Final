@@ -135,7 +135,7 @@ export const animations = {
       yPercent: -50 * speed,
       ease: "none",
       scrollTrigger: {
-        trigger: element,
+        trigger: element as gsap.DOMTarget, // Ensure compatibility
         start: "top bottom",
         end: "bottom top",
         scrub: true
@@ -184,7 +184,7 @@ export const useGSAP = (
   callback: (context: GSAPContext) => void,
   dependencies: React.DependencyList = []
 ) => {
-  const contextRef = useRef<gsap.Context>()
+  const contextRef = useRef<gsap.Context | null>(null) // Initialize with null
 
   useLayoutEffect(() => {
     const context = gsap.context(() => {
@@ -210,12 +210,14 @@ export const useScrollAnimation = (
     if (!trigger.current) return
 
     const element = trigger.current
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { trigger: _optionTrigger, ...restOptions } = options; // Destructure to separate options.trigger
 
     ScrollTrigger.create({
-      trigger: element,
+      trigger: element as gsap.DOMTarget, // Ensure 'element' is the trigger
       start: "top 80%",
       onEnter: () => animation(element),
-      ...options
+      ...restOptions // Spread remaining options
     })
 
     return () => {

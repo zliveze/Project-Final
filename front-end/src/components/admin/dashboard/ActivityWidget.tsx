@@ -5,7 +5,6 @@ import {
   FiAlertTriangle,
   FiBarChart2,
   FiTarget,
-  FiShoppingBag,
   FiBox,
   FiUsers,
   FiExternalLink

@@ -3,6 +3,25 @@ import { toast } from 'react-toastify';
 import { useOrder } from '@/contexts/user/OrderContext';
 import { downloadInvoicePDF } from '@/utils/invoiceGenerator';
 
+// Import InvoiceData interface
+interface InvoiceData {
+  orderNumber: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    total: number;
+  }>;
+  subtotal: number;
+  shippingFee: number;
+  discount: number;
+  total: number;
+}
+
 interface InvoiceDownloaderProps {
   orderId: string;
   buttonText?: string;
@@ -33,9 +52,17 @@ const InvoiceDownloader: React.FC<InvoiceDownloaderProps> = ({
       const invoiceData = await downloadInvoice(orderId);
 
       if (invoiceData) {
-        // Tạo và tải xuống file PDF
-        await downloadInvoicePDF(invoiceData, `invoice_${invoiceData.orderNumber}.pdf`);
-        toast.success('Tải xuống hóa đơn thành công!');
+        // Type assertion để đảm bảo invoiceData có đúng cấu trúc InvoiceData
+        const typedInvoiceData = invoiceData as InvoiceData;
+
+        // Kiểm tra các trường bắt buộc
+        if (typedInvoiceData.orderNumber && typedInvoiceData.customerName) {
+          // Tạo và tải xuống file PDF
+          await downloadInvoicePDF(typedInvoiceData, `invoice_${typedInvoiceData.orderNumber}.pdf`);
+          toast.success('Tải xuống hóa đơn thành công!');
+        } else {
+          toast.error('Dữ liệu hóa đơn không hợp lệ');
+        }
       } else {
         toast.error('Không thể tải hóa đơn');
       }

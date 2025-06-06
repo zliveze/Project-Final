@@ -5,6 +5,18 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Voucher } from '@/contexts/VoucherContext';
 
+interface FilterParams {
+  searchTerm: string;
+  selectedStatus: string;
+  selectedType: string;
+  startDateFilter: Date | null;
+  endDateFilter: Date | null;
+  minOrderValueFilter: number | '';
+  maxOrderValueFilter: number | '';
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
 interface VoucherTableProps {
   voucherData: Voucher[];
   totalItems: number;
@@ -16,7 +28,7 @@ interface VoucherTableProps {
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
   onPageChange: (page: number) => void;
-  onFilterChange: (filters: any) => void;
+  onFilterChange: (filters: FilterParams) => void;
   onItemsPerPageChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 

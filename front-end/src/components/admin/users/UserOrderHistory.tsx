@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FiPackage, FiEye, FiFilter, FiCalendar, FiSearch, FiGrid, FiList, FiClock, FiCreditCard, FiMoreVertical, FiShoppingBag } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
@@ -14,13 +14,11 @@ interface OrderItem {
 interface UserOrderHistoryProps {
   orders: OrderItem[];
   onViewOrder: (orderId: string) => void;
-  userId: string;
 }
 
 const UserOrderHistory: React.FC<UserOrderHistoryProps> = ({
   orders,
   onViewOrder,
-  userId
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateSort, setDateSort] = useState<'asc' | 'desc'>('desc');
@@ -319,4 +317,4 @@ const UserOrderHistory: React.FC<UserOrderHistoryProps> = ({
   );
 };
 
-export default UserOrderHistory; 
+export default UserOrderHistory;

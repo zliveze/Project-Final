@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiX, FiEye, FiEdit2, FiTrash2, FiMapPin, FiPhone, FiCalendar, FiClock, FiInfo, FiHome } from 'react-icons/fi';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { FiX, FiEye, FiEdit2, FiTrash2, FiMapPin, FiPhone, FiCalendar, FiClock, FiHome } from 'react-icons/fi';
 import { useBranches } from '@/contexts/BranchContext';
 import { Branch } from './BranchForm';
 import ViettelPostService from '@/services/ViettelPostService';
@@ -10,7 +8,7 @@ import ViettelPostService from '@/services/ViettelPostService';
 const DEBUG_MODE = false;
 
 // Hàm debug có điều kiện
-const debugLog = (message: string, data?: any) => {
+const debugLog = (message: string, data?: unknown) => {
   if (DEBUG_MODE) {
     console.log(`[BranchViewModal] ${message}`, data || '');
   }
@@ -43,19 +41,8 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
   const [wardName, setWardName] = useState<string>('');
   const [loadingAddressInfo, setLoadingAddressInfo] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setModalVisible(true);
-      loadBranch();
-    } else {
-      setTimeout(() => {
-        setModalVisible(false);
-      }, 300);
-    }
-  }, [isOpen, branchId]);
-
   // Hàm load thông tin tỉnh/thành phố
-  const loadProvinceInfo = async (provinceCode: string) => {
+  const loadProvinceInfo = React.useCallback(async (provinceCode: string) => {
     try {
       const provinces = await ViettelPostService.getProvinces();
       const province = provinces.find(p => p.provinceId === parseInt(provinceCode, 10));
@@ -67,10 +54,10 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
       debugLog('Lỗi khi lấy thông tin tỉnh/thành phố:', error);
     }
     return null;
-  };
+  }, []);
 
   // Hàm load thông tin quận/huyện
-  const loadDistrictInfo = async (provinceId: number, districtCode: string) => {
+  const loadDistrictInfo = React.useCallback(async (provinceId: number, districtCode: string) => {
     try {
       const districts = await ViettelPostService.getDistricts(provinceId);
       const district = districts.find(d => d.districtId === parseInt(districtCode, 10));
@@ -82,10 +69,10 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
       debugLog('Lỗi khi lấy thông tin quận/huyện:', error);
     }
     return null;
-  };
+  }, []);
 
   // Hàm load thông tin phường/xã
-  const loadWardInfo = async (districtId: number, wardCode: string) => {
+  const loadWardInfo = React.useCallback(async (districtId: number, wardCode: string) => {
     try {
       const wards = await ViettelPostService.getWards(districtId);
       const ward = wards.find(w => w.wardId === parseInt(wardCode, 10));
@@ -97,10 +84,10 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
       debugLog('Lỗi khi lấy thông tin phường/xã:', error);
     }
     return null;
-  };
+  }, []);
 
   // Hàm load toàn bộ thông tin địa chỉ
-  const loadAddressInfo = async (provinceCode: string, districtCode: string, wardCode: string) => {
+  const loadAddressInfo = React.useCallback(async (provinceCode: string, districtCode: string, wardCode: string) => {
     setLoadingAddressInfo(true);
     try {
       // Đảm bảo các mã là số
@@ -121,9 +108,9 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
     } finally {
       setLoadingAddressInfo(false);
     }
-  };
+  }, [loadProvinceInfo, loadDistrictInfo, loadWardInfo]);
 
-  const loadBranch = async () => {
+  const loadBranch = React.useCallback(async () => {
     if (!branchId) {
       debugLog('Không thể tải chi nhánh: branchId không hợp lệ');
       setError('ID chi nhánh không hợp lệ');
@@ -153,15 +140,26 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
         setError('Không thể tải thông tin chi nhánh. Vui lòng thử lại sau.');
         // Error đã được xử lý trong Context
       }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Lỗi không xác định';
+    } catch (error: unknown) {
+      const errorMessage = (error instanceof Error ? error.message : String(error)) || 'Lỗi không xác định';
       debugLog(`Lỗi khi tải thông tin chi nhánh: ${errorMessage}`, error);
       setError(`Không thể tải thông tin chi nhánh: ${errorMessage}`);
       // Error đã được xử lý trong Context
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [branchId, fetchBranch, loadAddressInfo, setError, setIsLoading, setBranch]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setModalVisible(true);
+      loadBranch();
+    } else {
+      setTimeout(() => {
+        setModalVisible(false);
+      }, 300);
+    }
+  }, [isOpen, branchId, loadBranch]);
 
   if (!isOpen && !modalVisible) return null;
 
@@ -177,7 +175,7 @@ const BranchViewModal: React.FC<BranchViewModalProps> = ({
         hour: '2-digit',
         minute: '2-digit'
       });
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };

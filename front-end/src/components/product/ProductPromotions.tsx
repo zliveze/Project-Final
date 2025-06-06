@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiCalendar, FiClock, FiChevronRight, FiGift, FiTag, FiPercent } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiGift } from 'react-icons/fi'; // Removed FiChevronRight, FiTag, FiPercent
 
 interface PromotionImage {
   url: string;
@@ -24,12 +24,13 @@ interface PromotionBase {
   discount?: Discount;
 }
 
-interface Event extends PromotionBase {}
-interface Campaign extends PromotionBase {}
+// Removed Event and Campaign interfaces as they are identical to PromotionBase
+// interface Event extends PromotionBase {}
+// interface Campaign extends PromotionBase {}
 
 interface ProductPromotionsProps {
-  events?: Event[];
-  campaigns?: Campaign[];
+  events?: PromotionBase[]; // Use PromotionBase directly
+  campaigns?: PromotionBase[]; // Use PromotionBase directly
 }
 
 const ProductPromotions: React.FC<ProductPromotionsProps> = ({ events = [], campaigns = [] }) => {
@@ -63,7 +64,7 @@ const ProductPromotions: React.FC<ProductPromotionsProps> = ({ events = [], camp
       const start = new Date(startDate);
       const end = new Date(endDate);
       return now >= start && now <= end;
-    } catch (error) {
+    } catch {
       return false; // Xử lý lỗi khi parse date không hợp lệ
     }
   };
@@ -76,7 +77,7 @@ const ProductPromotions: React.FC<ProductPromotionsProps> = ({ events = [], camp
         month: '2-digit',
         year: 'numeric',
       });
-    } catch (error) {
+    } catch {
       return 'Không xác định';
     }
   };
@@ -98,7 +99,7 @@ const ProductPromotions: React.FC<ProductPromotionsProps> = ({ events = [], camp
       } else {
         return `Còn ${diffHours} giờ`;
       }
-    } catch (error) {
+    } catch {
       return 'Không xác định';
     }
   };
@@ -264,4 +265,4 @@ const ProductPromotions: React.FC<ProductPromotionsProps> = ({ events = [], camp
   );
 };
 
-export default ProductPromotions; 
+export default ProductPromotions;

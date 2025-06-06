@@ -1,5 +1,3 @@
-import { Product } from '@/contexts/ProductContext';
-
 // Định nghĩa interface cho thương hiệu (sử dụng trong form)
 export interface BrandItem {
   id: string;
@@ -163,7 +161,7 @@ export interface ProductFormData {
 // Định nghĩa props cho ProductForm component
 export interface ProductFormProps {
   initialData?: Partial<ProductFormData>; // Dữ liệu ban đầu (có thể không đầy đủ)
-  onSubmit: (data: ProductFormData) => Promise<any>; // Hàm xử lý khi submit
+  onSubmit: (data: ProductFormData) => Promise<void>; // Hàm xử lý khi submit
   onCancel: () => void; // Hàm xử lý khi hủy
   isViewMode?: boolean; // Chế độ chỉ xem
 }

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { toast } from 'react-toastify';
+import axios, { AxiosError } from 'axios'; // Import axios and AxiosError
 import { UserApiService } from '../UserApiService'; // Assuming correct path
 import { useAuth } from '../../AuthContext'; // Assuming correct path
 import axiosInstance from '../../../lib/axiosInstance';
 
-// Define API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Define API URL - không sử dụng
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Define the structure of variant options
 export interface VariantOptions {
@@ -14,13 +15,13 @@ export interface VariantOptions {
     shades?: string[];     // Selected shade(s)
     shape?: string;        // Selected shape
     material?: string;     // Selected material
-    [key: string]: any;    // Allow for other custom properties
+    [key: string]: unknown;    // Allow for other custom properties
 }
 
 // Define the structure of a wishlist item (matching backend response)
 export interface WishlistItem {
     productId: string; // Assuming backend returns string IDs after population
-    variantId: string;
+    variantId: string | null; // Allow null to match source type
     name: string;
     slug: string;
     price: number;
@@ -67,25 +68,53 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         setIsLoading(true);
         setError(null);
         try {
-            const items = await UserApiService.getWishlist();
-            // console.log('Wishlist fetched successfully:', items);
+            const fetchedItems: WishlistItem[] | null | undefined = await UserApiService.getWishlist();
+            // console.log('Raw wishlist data from API:', fetchedItems);
 
-            // Ensure variantId is always a string (not null)
-            const processedItems = items.map((item: any) => ({
+            const itemsArray = Array.isArray(fetchedItems) ? fetchedItems : [];
+
+            const processedItems = itemsArray.map((item: WishlistItem) => ({
                 ...item,
-                variantId: item.variantId || ''
+                variantId: item.variantId || '' // Ensure variantId is a string, not null
             }));
 
-            setWishlistItems(processedItems || []); // Ensure it's always an array
-        } catch (err) {
+            setWishlistItems(processedItems);
+            // console.log('Processed wishlist items set:', processedItems);
+        } catch (err: unknown) {
             console.error('Error fetching wishlist:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách yêu thích.';
-            // Avoid showing generic fetch errors if it's just empty (e.g., 404)
-            if (!errorMessage.includes('Không tìm thấy')) {
-                setError(errorMessage);
-                // toast.error(errorMessage); // Maybe too noisy?
+            let errorMessage = 'Không thể tải danh sách yêu thích.';
+
+            if (axios.isAxiosError(err)) {
+                const axiosError = err as AxiosError<{ message?: string }>;
+                // console.error('Axios error details:', axiosError.response?.data, axiosError.message);
+                if (axiosError.response?.status === 404) {
+                    errorMessage = 'Danh sách yêu thích trống hoặc không tìm thấy.';
+                    setWishlistItems([]); // Explicitly set to empty on 404
+                } else {
+                    errorMessage = axiosError.response?.data?.message || axiosError.message || errorMessage;
+                }
+            } else if (err instanceof Error) {
+                // console.error('Generic error details:', err.message);
+                errorMessage = err.message;
             }
-            setWishlistItems([]); // Clear items on error
+
+            // Avoid showing toast for "not found" or empty list scenarios unless it's a different error
+            if (!errorMessage.includes('Không tìm thấy') && !errorMessage.includes('trống')) {
+                setError(errorMessage); // Set error state for other types of errors
+                // toast.error(errorMessage); // Consider if toast is needed for all errors
+            }
+            
+            // Ensure wishlistItems is cleared if an error other than 404 occurs,
+            // or if it wasn't explicitly cleared by a 404.
+            if (axios.isAxiosError(err) && (err as AxiosError).response?.status !== 404) {
+                 setWishlistItems([]);
+            } else if (!(err instanceof Error && err.message.includes('Không tìm thấy'))) {
+                 // If not an Axios 404 and not a generic "not found", clear.
+                 // This logic might need refinement based on how UserApiService.getWishlist() signals "empty" vs "error".
+                 // For now, if any error other than a clear "not found" happens, we clear.
+                 setWishlistItems([]);
+            }
+
         } finally {
             setIsLoading(false);
             // console.log('Wishlist fetch finished.');
