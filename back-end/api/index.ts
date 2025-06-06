@@ -1,85 +1,98 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import { Logger } from '@nestjs/common';
+import * as express from 'express';
+import { Request, Response, NextFunction } from 'express';
+import * as bodyParser from 'body-parser';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import * as session from 'express-session';
 import * as passport from 'passport';
-import * as bodyParser from 'body-parser';
-import * as express from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { ExpressAdapter } from '@nestjs/platform-express';
+import * as cors from 'cors';
 
-let app: any;
+// Tạo Express instance
+const server = express();
 
-async function createNestApp() {
+// Cấu hình body parser cho tất cả các route ngoại trừ webhook
+const stripeWebhookPath = '/api/payments/stripe/webhook';
+server.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.originalUrl === stripeWebhookPath) {
+    next();
+  } else {
+    bodyParser.json({ limit: '50mb' })(req, res, next);
+  }
+});
+
+server.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.originalUrl === stripeWebhookPath) {
+    next();
+  } else {
+    bodyParser.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+  }
+});
+
+// Cấu hình CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://project-final-livid.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+// Cấu hình CORS
+server.use(cors({
+  origin: (origin, callback) => {
+    // Cho phép requests không có origin (mobile apps, postman, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+}));
+
+// Xử lý OPTIONS request
+server.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Cấu hình session
+server.use(
+  session({
+    secret: process.env.JWT_SECRET || 'your_jwt_secret_key_here',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 60000 * 60 * 24, // 24 giờ
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+    },
+  }),
+);
+
+// Khởi tạo passport
+server.use(passport.initialize());
+server.use(passport.session());
+
+// Tạo và cấu hình ứng dụng NestJS
+let app;
+
+async function bootstrap() {
   if (!app) {
-    const logger = new Logger('Vercel');
-
-    // Tạo Express instance cho Vercel
-    const expressApp = express();
-
-    // Tạo NestJS app với ExpressAdapter cho serverless
-    app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), {
-      logger: ['error', 'warn', 'log'], // Giảm log level cho production
-      rawBody: true,
-    });
-
-    // Cấu hình CORS
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'https://project-final-livid.vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    app.enableCors({
-      origin: (origin: string, callback: Function) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        } else {
-          return callback(new Error('Not allowed by CORS'));
-        }
+    app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(server),
+      {
+        logger: ['error', 'warn', 'log'],
+        rawBody: true,
       },
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-    });
-
-    // Cấu hình body parser
-    const stripeWebhookPath = '/api/payments/stripe/webhook';
-    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if (req.originalUrl === stripeWebhookPath) {
-        next();
-      } else {
-        bodyParser.json({ limit: '50mb' })(req, res, next);
-      }
-    });
-
-    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if (req.originalUrl === stripeWebhookPath) {
-        next();
-      } else {
-        bodyParser.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
-      }
-    });
-
-    // Cấu hình session (tối ưu cho serverless)
-    app.use(
-      session({
-        secret: process.env.JWT_SECRET || 'your_jwt_secret_key_here',
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          maxAge: 60000 * 60 * 24,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-        },
-      }),
     );
-
-    // Khởi tạo passport
-    app.use(passport.initialize());
-    app.use(passport.session());
 
     // Cấu hình Swagger
     const config = new DocumentBuilder()
@@ -95,19 +108,18 @@ async function createNestApp() {
     app.setGlobalPrefix('api');
 
     await app.init();
-    logger.log('NestJS app initialized for Vercel');
   }
   
   return app;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+// Xử lý request
+export default async function handler(req: any, res: any) {
   try {
-    const app = await createNestApp();
-    const server = app.getHttpAdapter().getInstance();
-    return server(req, res);
+    await bootstrap();
+    server(req, res);
   } catch (error) {
-    console.error('Error in Vercel handler:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Serverless function error:', error);
+    return res.status(500).send('Internal Server Error');
   }
-}
+} 
