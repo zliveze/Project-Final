@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import * as express from 'express';
-import { Request, Response, NextFunction, RequestHandler } from 'express';
+import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import * as bodyParser from 'body-parser';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import * as session from 'express-session';
