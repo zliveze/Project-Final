@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import * as express from 'express';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import * as bodyParser from 'body-parser';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import * as session from 'express-session';
@@ -14,21 +14,21 @@ const server = express();
 
 // Cấu hình body parser cho tất cả các route ngoại trừ webhook
 const stripeWebhookPath = '/api/payments/stripe/webhook';
-server.use((req: Request, res: Response, next: NextFunction) => {
+server.use(((req: Request, res: Response, next: NextFunction) => {
   if (req.originalUrl === stripeWebhookPath) {
     next();
   } else {
     bodyParser.json({ limit: '50mb' })(req, res, next);
   }
-});
+}) as RequestHandler);
 
-server.use((req: Request, res: Response, next: NextFunction) => {
+server.use(((req: Request, res: Response, next: NextFunction) => {
   if (req.originalUrl === stripeWebhookPath) {
     next();
   } else {
     bodyParser.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
   }
-});
+}) as RequestHandler);
 
 // Cấu hình CORS
 const allowedOrigins = [
@@ -55,12 +55,12 @@ server.use(cors({
 }));
 
 // Xử lý OPTIONS request
-server.use((req: Request, res: Response, next: NextFunction) => {
+server.use(((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
-});
+}) as RequestHandler);
 
 // Cấu hình session
 server.use(
