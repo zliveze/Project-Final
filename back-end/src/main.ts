@@ -18,9 +18,26 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Cấu hình CORS để cho phép front-end truy cập API
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://project-final-livid.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean); // Loại bỏ các giá trị undefined
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Cho phép requests không có origin (mobile apps, postman, etc.)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   });
 
   // Cấu hình body parser cho tất cả các route ngoại trừ webhook
@@ -121,7 +138,7 @@ async function bootstrap() {
   logger.log(`API endpoint: ${serverUrl}/api`);
   logger.log(`Health check: ${serverUrl}/api/health`);
   logger.log(`Swagger API documentation: ${serverUrl}/api/docs`);
-  logger.log(`CORS is enabled for origin: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  logger.log(`CORS is enabled for origins: ${allowedOrigins.join(', ')}`);
   logger.log(`MongoDB connection: ${process.env.MONGODB_URI ? 'Configured' : 'Not configured'}`);
   logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 }
