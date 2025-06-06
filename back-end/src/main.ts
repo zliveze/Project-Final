@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
+import { Logger, LogLevel } from '@nestjs/common';
 import * as session from 'express-session';
 import * as passport from 'passport';
 import * as bodyParser from 'body-parser';
@@ -10,9 +10,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  // Bật lại tất cả các level log và kích hoạt rawBody
+  // Cấu hình log level dựa trên environment
+  const logLevels: LogLevel[] = process.env.NODE_ENV === 'production'
+    ? ['error', 'warn', 'log']
+    : ['error', 'warn', 'log', 'debug', 'verbose'];
+
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'], // Hiển thị tất cả các log
+    logger: logLevels,
     rawBody: true, // Kích hoạt rawBody cho tất cả requests
   });
   const logger = new Logger('Bootstrap');
@@ -25,7 +29,7 @@ async function bootstrap() {
   ].filter(Boolean); // Loại bỏ các giá trị undefined
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string, callback: (error: Error | null, allow?: boolean) => void) => {
       // Cho phép requests không có origin (mobile apps, postman, etc.)
       if (!origin) return callback(null, true);
 
@@ -71,7 +75,7 @@ async function bootstrap() {
       cookie: {
         maxAge: 60000 * 60 * 24, // 24 giờ
         httpOnly: true,
-        secure: false, // Sử dụng true trong production với HTTPS
+        secure: process.env.NODE_ENV === 'production', // Tự động true trong production
       },
     }),
   );
