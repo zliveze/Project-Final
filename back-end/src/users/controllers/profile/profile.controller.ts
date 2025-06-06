@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards, Req, Get, Patch, Param, Delete } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard'; // Import JwtAuthGuard
+import JwtAuthGuard from '../../../auth/guards/jwt-auth.guard'; // Sửa lại import để sử dụng default export
 import { ProfileService } from '../../services/profile.service'; // Corrected path
 import { WishlistService } from '../../services/wishlist.service';
 import { AddressDto } from '../../dto/address.dto'; // Corrected path

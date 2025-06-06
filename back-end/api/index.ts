@@ -85,29 +85,35 @@ let app;
 
 async function bootstrap() {
   if (!app) {
-    app = await NestFactory.create(
-      AppModule,
-      new ExpressAdapter(server),
-      {
-        logger: ['error', 'warn', 'log'],
-        rawBody: true,
-      },
-    );
+    try {
+      app = await NestFactory.create(
+        AppModule,
+        new ExpressAdapter(server),
+        {
+          logger: ['error', 'warn', 'log'],
+          rawBody: true,
+        },
+      );
 
-    // Cấu hình Swagger
-    const config = new DocumentBuilder()
-      .setTitle('Yumin API')
-      .setDescription('API documentation for Yumin Cosmetic Store')
-      .setVersion('1.0')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+      // Cấu hình Swagger
+      const config = new DocumentBuilder()
+        .setTitle('Yumin API')
+        .setDescription('API documentation for Yumin Cosmetic Store')
+        .setVersion('1.0')
+        .addBearerAuth()
+        .build();
+      const document = SwaggerModule.createDocument(app, config);
+      SwaggerModule.setup('api/docs', app, document);
 
-    // Đặt global prefix
-    app.setGlobalPrefix('api');
+      // Đặt global prefix
+      app.setGlobalPrefix('api');
 
-    await app.init();
+      await app.init();
+      console.log('NestJS application initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize NestJS application:', error);
+      throw error;
+    }
   }
   
   return app;
@@ -120,6 +126,6 @@ export default async function handler(req: any, res: any) {
     server(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
-    return res.status(500).send('Internal Server Error');
+    return res.status(500).send(`Internal Server Error: ${error.message}\nStack: ${error.stack}`);
   }
 } 

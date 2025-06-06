@@ -23,4 +23,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // Nếu không phải public, tiếp tục với xác thực JWT
     return super.canActivate(context);
   }
-} 
+}
+
+// Export mặc định để đảm bảo module có thể được import bởi các file khác
+export default JwtAuthGuard; 
