@@ -21,6 +21,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "includeFiles": ["src/**/*"]
+  }
 }
