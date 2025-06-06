@@ -6,7 +6,7 @@ import { useAuth } from '../../AuthContext'; // Assuming correct path
 import axiosInstance from '../../../lib/axiosInstance';
 
 // Define API URL - không sử dụng
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 // Define the structure of variant options
 export interface VariantOptions {

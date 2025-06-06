@@ -54,7 +54,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     const loadExistingReview = async () => {
       if (reviewId) {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api'}/reviews/${reviewId}`);
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api'}/reviews/${reviewId}`);
           if (response.ok) {
             const reviewData = await response.json();
             setRating(reviewData.rating || 5);

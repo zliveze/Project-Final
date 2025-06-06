@@ -56,7 +56,7 @@ export interface AdminProduct {
 }
 
 // API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 // Không cần thêm /api nếu đã có trong BASE_URL
 const API_URL = BASE_URL;
 const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;

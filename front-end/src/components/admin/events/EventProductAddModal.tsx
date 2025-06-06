@@ -10,7 +10,7 @@ import useProductPromotionCheck from '@/hooks/useProductPromotionCheck';
 import axios from 'axios';
 
 // API configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 // Định nghĩa interface cho biến thể
 interface Variant {

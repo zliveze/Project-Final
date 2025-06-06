@@ -61,7 +61,7 @@ export const useUserVoucher = (): UseUserVoucherResult => {
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherApplyResult | null>(null);
   const { isAuthenticated, user } = useAuth();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
   // Hàm lấy token từ localStorage
   const getAuthHeaders = useCallback(() => {

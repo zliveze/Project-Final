@@ -21,7 +21,7 @@ interface ApiError {
 }
 
 // API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 const API_URL = BASE_URL;
 const ADMIN_STATS_API = `${API_URL}/admin/products/statistics`;
 

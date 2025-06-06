@@ -72,7 +72,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     const token = localStorage.getItem('adminToken');
 
     return axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api',
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : ''
@@ -220,7 +220,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   useEffect(() => {
     if (accessToken) {
       // URL của WebSocket server, thường là URL gốc của backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
       const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
 
       console.log('AdminUserReviewContext: Connecting to WebSocket at', wsUrl);

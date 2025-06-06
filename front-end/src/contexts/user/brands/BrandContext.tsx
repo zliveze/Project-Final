@@ -37,7 +37,7 @@ export const useBrands = () => {
 };
 
 // Cấu hình API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 const BRAND_API = {
   ALL: `${API_URL}/brands`,
   ACTIVE: `${API_URL}/brands/active`,

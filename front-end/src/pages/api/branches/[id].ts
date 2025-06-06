@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // URL to the backend NestJS API
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api'}/branches/${id}`;
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api'}/branches/${id}`;
     
     // Forward request to backend
     const response = await fetch(apiUrl, {

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_API_URL: 'http://backendyumin.vercel.app/api', // URL của backend API
+    NEXT_PUBLIC_API_URL: 'https://backendyumin.vercel.app/api', // URL của backend API
   },
   images: {
     formats: ['image/avif', 'image/webp'],

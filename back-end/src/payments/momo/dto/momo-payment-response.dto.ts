@@ -45,7 +45,7 @@ export class MomoPaymentResponseDto {
 
   @ApiProperty({
     description: 'URL nhận thông báo từ MoMo',
-    example: 'http://backendyumin.vercel.app/api/payments/momo/ipn',
+    example: 'https://backendyumin.vercel.app/api/payments/momo/ipn',
   })
   ipnUrl: string;
 

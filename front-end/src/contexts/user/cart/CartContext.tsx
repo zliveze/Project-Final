@@ -6,7 +6,7 @@ import { useUserVoucher, VoucherApplyResult } from '@/hooks/useUserVoucher';
 import axios from '@/lib/axios';
 
 // Define API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 // Interface cho chi tiết Variant nhúng trong Product (từ product.schema.ts)
 // Cần khớp với cấu trúc ProductVariant trong product.schema.ts và dữ liệu populate

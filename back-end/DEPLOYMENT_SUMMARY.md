@@ -40,7 +40,7 @@ npm install @vercel/node
 Sau khi deploy thành công, cập nhật URL API trong frontend:
 ```javascript
 // Thay đổi từ:
-const API_URL = 'http://backendyumin.vercel.app/api'
+const API_URL = 'https://backendyumin.vercel.app/api'
 // Thành:
 const API_URL = 'https://your-backend.vercel.app/api'
 ```

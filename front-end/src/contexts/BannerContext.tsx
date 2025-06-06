@@ -84,7 +84,7 @@ export const useBanner = () => {
 };
 
 // Cấu hình API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 const BANNER_API = {
   ADMIN: `${API_URL}/admin/banners`,
   PUBLIC: `${API_URL}/banners`

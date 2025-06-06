@@ -4,7 +4,7 @@ import { FiGift, FiExternalLink, FiAlertCircle, FiUsers } from 'react-icons/fi';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backendyumin.vercel.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 interface RawVoucherData {
   _id: string;
