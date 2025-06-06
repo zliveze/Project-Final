@@ -3,7 +3,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile, StrategyOptions } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import * as passport from 'passport';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -27,23 +26,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       scope: ['email', 'profile'],
     };
     super(options);
-    
-    // Thêm xử lý serialize và deserialize user
-    this.initializeSerializer();
-  }
-
-  private initializeSerializer(): void {
-    // Serialize user để lưu vào session
-    passport.serializeUser((user: any, done) => {
-      this.logger.log(`Serializing user: ${user._id}`);
-      done(null, user);
-    });
-
-    // Deserialize user để lấy từ session
-    passport.deserializeUser((obj: any, done) => {
-      this.logger.log(`Deserializing user: ${obj._id}`);
-      done(null, obj);
-    });
   }
 
   async validate(

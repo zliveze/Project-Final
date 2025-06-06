@@ -83,6 +83,17 @@ async function bootstrap() {
   // Khởi tạo passport
   app.use(passport.initialize());
   app.use(passport.session());
+  
+  // Cấu hình serialize và deserialize user cho passport session
+  passport.serializeUser((user: any, done) => {
+    logger.log(`Serializing user: ${user._id || user.id}`);
+    done(null, user);
+  });
+
+  passport.deserializeUser((obj: any, done) => {
+    logger.log(`Deserializing user: ${obj._id || obj.id}`);
+    done(null, obj);
+  });
 
   // Cấu hình Swagger
   const config = new DocumentBuilder()
