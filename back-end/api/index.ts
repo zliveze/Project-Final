@@ -123,7 +123,9 @@ async function bootstrap() {
 export default async function handler(req: any, res: any) {
   try {
     await bootstrap();
-    server(req, res);
+    // Thay vì gọi server như một hàm, chúng ta cần chuyển tiếp request đến app
+    // server(req, res); <- Đây là dòng gây lỗi
+    app.getHttpAdapter().getInstance()(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
     return res.status(500).send(`Internal Server Error: ${error.message}\nStack: ${error.stack}`);
