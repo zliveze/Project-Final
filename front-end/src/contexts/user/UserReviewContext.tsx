@@ -94,9 +94,13 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => {
     if (isAuthenticated && user?._id) {
       // URL của WebSocket server, thường là URL gốc của backend API
-      const WS_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
-      const newSocket = io(WS_URL, {
+      // Ensure WS_URL is the base URL for WebSocket connection, path will be handled by socket.io client
+      const backendBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api').replace('/api', '');
+      const WS_URL_FOR_SOCKET = backendBaseUrl || 'https://backendyumin.vercel.app';
+
+      const newSocket = io(WS_URL_FOR_SOCKET, {
         transports: ['websocket'], // Ưu tiên WebSocket
+        path: '/socket.io/', // Explicitly set the default path
         // query: { userId: user._id } // Có thể gửi userId qua query nếu backend hỗ trợ auto-join room
       });
       setSocket(newSocket);
