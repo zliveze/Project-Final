@@ -124,7 +124,7 @@ function AdminProducts({
   const [selectedBranchForExport, setSelectedBranchForExport] = useState<string>('');
 
   // Sử dụng hook useImportProgress để theo dõi tiến trình import
-  const { progress, resetProgress } = useImportProgress();
+  const { task, isLoading: isImportLoading, error: importError, startPolling, resetProgress } = useImportProgress();
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [importCompletedHandled, setImportCompletedHandled] = useState(false); // State mới để theo dõi hoàn thành
@@ -156,41 +156,23 @@ function AdminProducts({
 
   // Theo dõi trạng thái tiến trình để tự động đóng modal và làm mới dữ liệu
   useEffect(() => {
-    // Chỉ log khi cần thiết
-    if ((progress?.status === 'completed') ||
-        (progress?.status === 'error') ||
-        (progress?.progress && progress.progress % 20 === 0)) { // Chỉ log mỗi 20%
-      debugLog('Tiến trình thay đổi:', progress);
-    }
+    debugLog('Task state changed:', task);
 
-    // Thêm nút đóng thủ công cho trường hợp khẩn cấp
-    if (showProgressModal && !progress) {
-      // Sau 30 giây nếu không có tiến trình, hiển thị nút đóng thủ công
-      const timeoutId = setTimeout(() => {
-        debugLog('Hiển thị nút đóng thủ công sau 30 giây');
-        // Có thể thêm một state để hiển thị nút đóng thủ công
-        // hoặc tự động đóng modal
-        setShowProgressModal(false);
-      }, 30000);
-
-      return () => clearTimeout(timeoutId);
-    }
-
-    // Chỉ chạy logic hoàn thành MỘT LẦN
-    if (progress?.status === 'completed' && progress.progress === 100 && !importCompletedHandled) {
-      debugLog('Nhận trạng thái hoàn thành LẦN ĐẦU, sẽ làm mới dữ liệu và hiển thị tổng kết');
+    if (task?.status === 'completed' && !importCompletedHandled) {
+      debugLog('Nhận trạng thái hoàn thành, sẽ làm mới dữ liệu và hiển thị tổng kết');
       fetchProducts(); // Làm mới danh sách sản phẩm
       setShowProgressModal(false); // Đóng modal tiến trình
 
-      // Hiển thị modal tổng kết nếu có thông tin summary
-      if (progress.summary) {
+      if (task.summary) {
         setShowSummaryModal(true);
       }
-
       setImportCompletedHandled(true); // Đánh dấu đã xử lý
+    } else if (task?.status === 'failed') {
+      setShowProgressModal(false);
+      toast.error(task.message || 'Import thất bại với lỗi không xác định.');
+      setImportCompletedHandled(true);
     }
-    // Không cần else ở đây, chỉ cần chạy khi hoàn thành lần đầu
-  }, [progress, showProgressModal, importCompletedHandled, fetchProducts, debugLog]); // Thêm debugLog dependency
+  }, [task, importCompletedHandled, fetchProducts, debugLog]);
 
   // State cho các modal product
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -584,66 +566,19 @@ function AdminProducts({
 
       const result = await response.json();
 
-      // Hiển thị lỗi nếu có
-      if (result.errors && result.errors.length > 0) {
-        setTimeout(() => {
-          toast.error(
-            <div>
-              <p className="font-bold mb-2">Có {result.errors.length} lỗi xảy ra:</p>
-              <ul className="list-disc pl-4 text-sm max-h-40 overflow-y-auto">
-                {result.errors.slice(0, 5).map((error: string, index: number) => (
-                  <li key={index}>{error}</li>
-                ))}
-                {result.errors.length > 5 && (
-                  <li>...và {result.errors.length - 5} lỗi khác</li>
-                )}
-              </ul>
-            </div>,
-            { duration: 10000 }
-          );
-        }, 1000);
-      }
-
-      // Lưu tên chi nhánh đã chọn để hiển thị trong thông báo
-      const selectedBranchName = branches.find(b => b._id === selectedBranch)?.name || 'Chi nhánh không xác định';
-
-      // Hiển thị thông báo thành công với thông tin chi tiết
-      const successMessage = (
-        <div className="flex flex-col">
-          <span>Import dữ liệu thành công!</span>
-          <span className="text-sm mt-1">Chi nhánh: <span className="font-medium">{selectedBranchName}</span></span>
-          {result.categoriesCreated > 0 && (
-            <span className="text-sm mt-1 text-green-600">
-              ✓ Đã tạo {result.categoriesCreated} danh mục mới
-            </span>
-          )}
-        </div>
-      );
-
-      toast.success(successMessage, { duration: 5000 });
-
-      // Refresh categories nếu có categories mới được tạo
-      if (result.categoriesCreated > 0) {
-        try {
-          await refreshCategories();
-          debugLog(`Đã refresh danh sách categories sau khi tạo ${result.categoriesCreated} danh mục mới`);
-        } catch (error) {
-          console.error('Lỗi khi refresh categories:', error);
+      if (result.taskId) {
+        debugLog(`API đã trả về taskId: ${result.taskId}, bắt đầu polling.`);
+        startPolling(result.taskId);
+        // Đóng modal import và reset form ngay lập tức
+        setShowImportModal(false);
+        setSelectedFile(null);
+        setSelectedBranch('');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
         }
-      }
-
-      // Đóng modal và reset form
-      setShowImportModal(false);
-      setSelectedFile(null);
-      setSelectedBranch('');
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-
-      // Làm mới danh sách sản phẩm khi tiến trình hoàn tất
-      if (progress?.status === 'completed') {
-        fetchProducts();
+      } else {
+        // Xử lý trường hợp API không trả về taskId
+        throw new Error('API không trả về Task ID để theo dõi.');
       }
     } catch (error: unknown) {
       // Xử lý lỗi
@@ -1769,10 +1704,10 @@ function AdminProducts({
       <ImportProgressModal
         isOpen={showProgressModal}
         onClose={() => {
-          console.log('ProductsPage: Đóng modal tiến trình (onClose)');
           setShowProgressModal(false);
+          resetProgress(); // Dừng polling và reset khi người dùng đóng modal
         }}
-        progress={progress}
+        task={task}
         selectedBranchName={branches.find(b => b._id === selectedBranch)?.name}
       />
 
@@ -1781,16 +1716,17 @@ function AdminProducts({
         isOpen={showSummaryModal}
         onClose={() => {
           setShowSummaryModal(false);
+          resetProgress();
         }}
-        summary={progress?.summary ? {
+        summary={task?.summary ? {
           success: true,
-          created: progress.summary.created || 0,
-          updated: progress.summary.updated || 0,
-          errors: progress.summary.errors || [],
-          totalProducts: progress.summary.totalProducts || 0,
-          statusChanges: progress.summary.statusChanges ? {
-            toOutOfStock: progress.summary.statusChanges.toOutOfStock || 0,
-            toActive: progress.summary.statusChanges.toActive || 0
+          created: task.summary.created || 0,
+          updated: task.summary.updated || 0,
+          errors: task.summary.errors || [],
+          totalProducts: task.summary.totalProducts || 0,
+          statusChanges: task.summary.statusChanges ? {
+            toOutOfStock: task.summary.statusChanges.toOutOfStock || 0,
+            toActive: task.summary.statusChanges.toActive || 0
           } : undefined
         } : null}
       />

@@ -14,9 +14,9 @@ import { Branch, BranchSchema } from '../branches/schemas/branch.schema'; // Imp
 import { Order, OrderSchema } from '../orders/schemas/order.schema'; // Import Order schema
 import { CloudinaryModule } from '../cloudinary';
 import { EventsModule } from '../events/events.module'; // Import EventsModule
-import { WebsocketModule } from '../websocket/websocket.module'; // Import WebsocketModule
 import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
 import { RecommendationsModule } from '../recommendations/recommendations.module'; // Import RecommendationsModule
+import { TasksModule } from '../tasks/tasks.module'; // Import TasksModule
 
 @Module({
   imports: [
@@ -30,9 +30,9 @@ import { RecommendationsModule } from '../recommendations/recommendations.module
     ]),
     CloudinaryModule,
     EventsModule, // Add EventsModule here
-    WebsocketModule, // Add WebsocketModule here
     CampaignsModule, // Add CampaignsModule here
     forwardRef(() => RecommendationsModule), // Add RecommendationsModule with circular dependency protection
+    TasksModule, // Add TasksModule here
     MulterModule.register({
       storage: memoryStorage(),
       limits: {

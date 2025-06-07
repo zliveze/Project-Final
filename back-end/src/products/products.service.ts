@@ -17,8 +17,8 @@ import {
 } from './dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { EventsService } from '../events/events.service'; // Import EventsService
-import { WebsocketService } from '../websocket/websocket.service'; // Import WebsocketService
 import { CampaignsService } from '../campaigns/campaigns.service'; // Import CampaignsService
+import { TasksService } from '../tasks/tasks.service'; // Import TasksService
 import { Event } from '../events/entities/event.entity'; // Import Event entity
 import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
 import * as XLSX from 'xlsx';
@@ -37,8 +37,8 @@ export class ProductsService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>, // Inject OrderModel
     private readonly cloudinaryService: CloudinaryService,
     private readonly eventsService: EventsService,
-    private readonly websocketService: WebsocketService,
-    private readonly campaignsService: CampaignsService
+    private readonly campaignsService: CampaignsService,
+    private readonly tasksService: TasksService
   ) {
     // Kiểm tra xem collection có text index hay không
     this.checkTextIndex();
@@ -3271,9 +3271,25 @@ export class ProductsService {
     }
   }
 
-  async importProductsFromExcel(file: Express.Multer.File, branchId: string, userId?: string): Promise<{ success: boolean; message: string; created: number; updated: number; errors: string[]; statusChanges?: { toOutOfStock: number; toActive: number } }> {
+  async importProductsFromExcel(file: Express.Multer.File, branchId: string, userId: string): Promise<{ taskId: string }> {
+    const task = this.tasksService.createImportTask(userId);
+    this.logger.log(`Starting product import task: ${task.id} for user ${userId}`);
+
+    // Không await ở đây để chạy tác vụ trong nền
+    this.processImportFile(file, branchId, task.id, userId).catch(err => {
+      this.logger.error(`Lỗi nghiêm trọng trong quá trình import tác vụ ${task.id}: ${err.message}`, err.stack);
+      this.tasksService.updateImportTask(task.id, {
+        status: 'failed',
+        message: `Lỗi hệ thống: ${err.message}`,
+      });
+    });
+
+    return { taskId: task.id };
+  }
+
+  private async processImportFile(file: Express.Multer.File, branchId: string, taskId: string, userId: string): Promise<void> {
     try {
-      this.logger.log(`Bắt đầu import sản phẩm từ file Excel: ${file.originalname}`);
+      this.logger.log(`[Task:${taskId}] Bắt đầu import sản phẩm từ file Excel cho người dùng ${userId}: ${file.originalname}`);
 
       if (!file || (!file.buffer && !file.path)) {
         throw new BadRequestException('File Excel trống hoặc không hợp lệ');
@@ -3289,9 +3305,7 @@ export class ProductsService {
         throw new BadRequestException('ID chi nhánh không hợp lệ. Vui lòng chọn chi nhánh khác.');
       }
 
-      if (userId) {
-        this.emitImportProgress(userId, 0, 'reading', 'Bắt đầu đọc file Excel...');
-      }
+      this.emitImportProgress(taskId, userId, 0, 'reading', 'Bắt đầu đọc file Excel...');
 
       let workbook;
       try {
@@ -3356,9 +3370,7 @@ export class ProductsService {
         throw new BadRequestException('File Excel không có dữ liệu sản phẩm');
       }
 
-      if (userId) {
-        this.emitImportProgress(userId, 10, 'parsing', 'Đang phân tích dữ liệu Excel...');
-      }
+      this.emitImportProgress(taskId, userId, 10, 'parsing', 'Đang phân tích dữ liệu Excel...');
 
       // Log thông tin để debug
       this.logger.log(`File Excel có ${rawData.length} dòng dữ liệu`);
@@ -3367,12 +3379,10 @@ export class ProductsService {
 
       this.logger.log(`Đọc được ${productRows.length} sản phẩm từ file Excel`);
 
-      if (userId) {
-        this.emitImportProgress(userId, 15, 'parsing', 'Đang chuẩn bị dữ liệu và tối ưu hóa...');
-      }
+      this.emitImportProgress(taskId, userId, 15, 'parsing', 'Đang chuẩn bị dữ liệu và tối ưu hóa...');
 
       // 🚀 TỐI ƯU HÓA: Pre-load và cache dữ liệu
-      const { brandCache, categoryCache, existingProducts, existingSlugs } = await this.preloadDataForImport(productRows, userId);
+      const { brandCache, categoryCache, existingProducts, existingSlugs } = await this.preloadDataForImport(productRows, taskId);
 
       // Kết quả xử lý
       const result = {
@@ -3412,15 +3422,13 @@ export class ProductsService {
           // Gửi progress update thông minh:
           // - Luôn gửi cho sản phẩm đầu tiên và cuối cùng
           // - Gửi mỗi 1% hoặc mỗi 10 sản phẩm (tùy theo số lượng ít hơn)
-          // - Đảm bảo không gửi quá nhiều để tránh spam WebSocket
-          const shouldSendProgress = userId && (
+          const shouldSendProgress =
             i === 0 || // Sản phẩm đầu tiên
             i === totalProducts - 1 || // Sản phẩm cuối cùng
-            (i + 1) % Math.max(1, Math.min(10, Math.floor(totalProducts / 100))) === 0 // Mỗi 1% hoặc mỗi 10 sản phẩm
-          );
+            (i + 1) % Math.max(1, Math.min(10, Math.floor(totalProducts / 100))) === 0; // Mỗi 1% hoặc mỗi 10 sản phẩm
 
           if (shouldSendProgress) {
-            this.emitImportProgress(userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
+            this.emitImportProgress(taskId, userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
           }
 
           // Kiểm tra dữ liệu tối thiểu cần có: Mã hàng (Cột C - index 2) và Tên hàng (Cột E - index 4)
@@ -3611,34 +3619,37 @@ export class ProductsService {
       // Tạo thông báo tổng kết chi tiết hơn
       const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
 
-      if (userId) {
-        this.emitImportProgress(userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
-      }
+      this.emitImportProgress(taskId, userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
 
       this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
       this.logger.log(`Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`);
 
-      if (userId) {
-        // Gửi thông báo tổng kết chi tiết với dữ liệu summary
-        const summaryData = {
-          created: result.created,
-          updated: result.updated,
-          categoriesCreated: result.categoriesCreated,
-          errors: result.errors,
-          totalProducts: totalProducts,
-          statusChanges: result.statusChanges
-        };
+      // Gửi thông báo tổng kết chi tiết với dữ liệu summary
+      const summaryData = {
+        created: result.created,
+        updated: result.updated,
+        categoriesCreated: result.categoriesCreated,
+        errors: result.errors,
+        totalProducts: totalProducts,
+        statusChanges: result.statusChanges
+      };
 
-        this.emitImportProgress(userId, 100, 'completed', summaryMessage, summaryData);
-        setTimeout(() => {
-          this.emitImportProgress(userId, 100, 'completed', summaryMessage, summaryData);
-        }, 1000);
-      }
+      this.emitImportProgress(taskId, userId, 100, 'completed', summaryMessage, summaryData);
 
-      return result;
+      // Không cần setTimeout ở đây nữa vì client sẽ poll để lấy trạng thái cuối cùng
+      // setTimeout(() => {
+      //   this.emitImportProgress(taskId, userId, 100, 'completed', summaryMessage, summaryData);
+      // }, 1000);
+
+      return; // Thay đổi: không trả về result nữa vì hàm này chạy nền
     } catch (error) {
-      this.logger.error(`Lỗi khi import sản phẩm từ Excel:`, error.stack);
-      throw new BadRequestException(`Lỗi khi import sản phẩm: ${error.message}`);
+      this.logger.error(`[Task:${taskId}] Lỗi khi import sản phẩm từ Excel:`, error.stack);
+      // Cập nhật trạng thái lỗi cho tác vụ
+      this.tasksService.updateImportTask(taskId, {
+        status: 'failed',
+        progress: 100,
+        message: `Lỗi nghiêm trọng: ${error.message}`,
+      });
     }
   }
 
@@ -3657,8 +3668,6 @@ export class ProductsService {
         this.logger.warn(`Chuỗi danh mục rỗng tại dòng ${rowNumber}`);
         return { finalCategoryId: null, newCategoriesCount: 0 };
       }
-
-      this.logger.log(`Xử lý danh mục phân cấp: ${categoryLevels.join(' >> ')} (dòng ${rowNumber})`);
 
       let parentId: Types.ObjectId | null = null;
       let currentCategoryId: Types.ObjectId | null = null;
@@ -3939,8 +3948,8 @@ export class ProductsService {
   /**
    * 🚀 TỐI ƯU HÓA: Pre-load dữ liệu để giảm database queries trong vòng lặp
    */
-  private async preloadDataForImport(productRows: any[], userId?: string) {
-    this.logger.log('🚀 Bắt đầu pre-load dữ liệu để tối ưu hóa import...');
+  private async preloadDataForImport(productRows: any[], taskId: string) {
+    this.logger.log(`[Task:${taskId}] 🚀 Bắt đầu pre-load dữ liệu để tối ưu hóa import...`);
 
     // Extract unique brand names và category names từ Excel
     const uniqueBrandNames = new Set<string>();
@@ -3957,7 +3966,7 @@ export class ProductsService {
       if (sku) skusToCheck.add(sku);
     });
 
-    this.logger.log(`Pre-loading: ${uniqueBrandNames.size} brands, ${uniqueCategoryPaths.size} categories, ${skusToCheck.size} SKUs`);
+    this.logger.log(`[Task:${taskId}] Pre-loading: ${uniqueBrandNames.size} brands, ${uniqueCategoryPaths.size} categories, ${skusToCheck.size} SKUs`);
 
     // 1. Pre-load tất cả brands cần thiết
     const brandCache = new Map<string, any>();
@@ -3969,7 +3978,7 @@ export class ProductsService {
       existingBrands.forEach(brand => {
         brandCache.set(brand.name, brand);
       });
-      this.logger.log(`Cached ${existingBrands.length}/${uniqueBrandNames.size} existing brands`);
+      this.logger.log(`[Task:${taskId}] Cached ${existingBrands.length}/${uniqueBrandNames.size} existing brands`);
     }
 
     // 2. Pre-load existing products by SKU
@@ -3982,7 +3991,7 @@ export class ProductsService {
       products.forEach(product => {
         existingProducts.set(product.sku, product);
       });
-      this.logger.log(`Found ${products.length}/${skusToCheck.size} existing products`);
+      this.logger.log(`[Task:${taskId}] Found ${products.length}/${skusToCheck.size} existing products`);
     }
 
     // 3. Pre-load existing slugs để tránh duplicate
@@ -3991,12 +4000,12 @@ export class ProductsService {
     slugsResult.forEach(product => {
       if (product.slug) existingSlugs.add(product.slug);
     });
-    this.logger.log(`Cached ${existingSlugs.size} existing slugs`);
+    this.logger.log(`[Task:${taskId}] Cached ${existingSlugs.size} existing slugs`);
 
     // 4. Category cache sẽ được xây dựng động trong quá trình xử lý
     const categoryCache = new Map<string, any>();
 
-    this.logger.log('✅ Hoàn thành pre-load dữ liệu');
+    this.logger.log(`[Task:${taskId}] ✅ Hoàn thành pre-load dữ liệu`);
 
     return {
       brandCache,
@@ -4006,13 +4015,18 @@ export class ProductsService {
     };
   }
 
-  private emitImportProgress(userId: string, progress: number, status: string, message: string, summary?: any) {
-    if (!userId) return;
+  private emitImportProgress(taskId: string, userId: string, progress: number, status: 'reading' | 'parsing' | 'processing' | 'finalizing' | 'completed' | 'failed', message: string, summary?: any) {
+    if (!taskId || !userId) return;
 
     try {
-      this.websocketService.emitImportProgress(userId, progress, status, message, summary);
+      this.tasksService.updateImportTask(taskId, {
+        progress,
+        status: status === 'completed' ? 'completed' : (status === 'failed' ? 'failed' : 'processing'),
+        message,
+        summary,
+      });
     } catch (error) {
-      this.logger.error(`Lỗi khi gửi cập nhật tiến độ: ${error.message}`);
+      this.logger.error(`[Task:${taskId}] Lỗi khi cập nhật tiến độ tác vụ: ${error.message}`);
     }
   }
 

@@ -22,12 +22,12 @@ import { CartsModule } from './carts/carts.module'; // Import CartsModule
 import { OrdersModule } from './orders/orders.module'; // Import OrdersModule
 import { PaymentsModule } from './payments/payments.module'; // Import PaymentsModule
 import { CommonModule } from './common/common.module';
-import { WebsocketModule } from './websocket/websocket.module'; // Import WebsocketModule
 import { SharedModule } from './shared/shared.module'; // Import SharedModule
 import { RecommendationsModule } from './recommendations/recommendations.module'; // Import RecommendationsModule
 import { ChatbotModule } from './chatbot/chatbot.module'; // Import ChatbotModule
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UserActivityInterceptor } from './recommendations/interceptors/user-activity.interceptor';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -60,10 +60,10 @@ import { UserActivityInterceptor } from './recommendations/interceptors/user-act
     OrdersModule, // Add OrdersModule here
     PaymentsModule, // Add PaymentsModule here
     CommonModule,
-    WebsocketModule, // Add WebsocketModule here
     SharedModule, // Add SharedModule here
     RecommendationsModule, // Add RecommendationsModule here
     ChatbotModule, // Add ChatbotModule here
+    TasksModule, // Add TasksModule for background task management
   ],
   controllers: [AppController],
   providers: [

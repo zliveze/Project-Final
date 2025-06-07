@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { adminRequest } from '@/utils/request';
 
-interface ImportProgress {
+// Interface cho dữ liệu tiến trình trả về từ API
+export interface ImportTask {
+  id: string;
+  userId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
-  status: 'reading' | 'parsing' | 'processing' | 'finalizing' | 'completed' | 'error';
   message: string;
-  // Thêm các trường cho thông tin tổng kết
   summary?: {
     created?: number;
     updated?: number;
@@ -17,182 +19,103 @@ interface ImportProgress {
       toActive?: number;
     };
   };
-}
-
-// Define types to replace 'any'
-interface ImportProgressData {
-  progress: number;
-  status: string;
-  message?: string;
-  [key: string]: unknown;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Cờ để bật/tắt log debug
-const DEBUG_MODE = false;
+const DEBUG_MODE = process.env.NODE_ENV === 'development';
 
 export const useImportProgress = () => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [progress, setProgress] = useState<ImportProgress | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const { admin } = useAdminAuth(); // Thay user thành admin
+  const [task, setTask] = useState<ImportTask | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { admin, token } = useAdminAuth();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug logger - chỉ log khi DEBUG_MODE = true
+  // Debug logger
   const debugLog = useCallback((...args: unknown[]) => {
     if (DEBUG_MODE) {
-      console.log(...args);
+      console.log('[useImportProgress]', ...args);
     }
   }, []);
 
-  // Khởi tạo kết nối socket
-  useEffect(() => {
-    // Lấy base URL từ NEXT_PUBLIC_API_URL hoặc sử dụng mặc định
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
-
-    // Tạo URL cho WebSocket, đảm bảo không có path ở cuối
-    const wsUrl = apiUrl.replace(/\/api$/, '');
-
-    debugLog('Connecting to WebSocket at:', wsUrl);
-
-    // Tạo cấu hình socket
-    const socketOptions = {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    };
-
-    debugLog('Socket options:', socketOptions);
-
-    // Tạo kết nối socket
-    const socketIo = io(wsUrl, socketOptions);
-
-    socketIo.on('connect', () => {
-      debugLog('WebSocket connected, socket id:', socketIo.id);
-      setIsConnected(true);
-    });
-
-    socketIo.on('disconnect', () => {
-      debugLog('WebSocket disconnected');
-      setIsConnected(false);
-    });
-
-    socketIo.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
-      setIsConnected(false);
-    });
-
-    socketIo.on('error', (error) => {
-      console.error('Socket error:', error);
-    });
-
-    // Thêm sự kiện debug với mức log thấp hơn
-    if (DEBUG_MODE) {
-      socketIo.onAny((event, ...args) => {
-        debugLog(`Socket event: ${event}`, args);
-      });
+  // Hàm để dừng polling
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      debugLog('Polling stopped.');
     }
-
-    setSocket(socketIo);
-
-    return () => {
-      socketIo.disconnect();
-    };
   }, [debugLog]);
 
-  // Đăng ký lắng nghe sự kiện tiến trình import
-  useEffect(() => {
-    if (!socket || !admin?._id) return; // Thay user?.id thành admin?._id
-
-    const eventName = `import-progress-${admin._id}`; // Thay user.id thành admin._id
-
-    const handleProgress = (data: unknown) => {
-      // Giảm bớt log chi tiết, chỉ log khi debug
-      debugLog(`Received progress update - RAW DATA:`, data);
-
-      // Type guard và xử lý dữ liệu
-      let progressData: ImportProgressData;
-
-      // Nếu dữ liệu là mảng, lấy phần tử đầu tiên
-      if (Array.isArray(data) && data.length > 0) {
-        debugLog('Data is an array, using first element');
-        progressData = data[0] as ImportProgressData;
-      } else {
-        progressData = data as ImportProgressData;
+  // Hàm để bắt đầu polling
+  const startPolling = useCallback(
+    (taskId: string) => {
+      if (!taskId || !token) {
+        setError('Task ID hoặc token không hợp lệ.');
+        return;
       }
 
-      // Đảm bảo dữ liệu có định dạng đúng
-      if (progressData && typeof progressData === 'object' && 'progress' in progressData && 'status' in progressData) {
-        const finalProgressData: ImportProgress = {
-          progress: Number(progressData.progress),
-          status: progressData.status as ImportProgress['status'],
-          message: progressData.message || ''
-        };
+      // Dừng polling cũ nếu có
+      stopPolling();
+      setTask(null); // Reset trạng thái cũ
+      setIsLoading(true);
+      setError(null);
 
-        // Xử lý thông tin tổng kết từ message khi hoàn thành
-        if (progressData.status === 'completed' && progressData.message) {
-          try {
-            // Phân tích thông báo để lấy thông tin tổng kết
-            const message = progressData.message || '';
-            const createdMatch = message.match(/(\d+) sản phẩm mới/);
-            const updatedMatch = message.match(/(\d+) cập nhật/);
-            const errorsMatch = message.match(/(\d+) lỗi/);
-            const totalMatch = message.match(/tổng số (\d+) sản phẩm/);
-            const toOutOfStockMatch = message.match(/(\d+) sản phẩm hết hàng/);
-            const toActiveMatch = message.match(/(\d+) sản phẩm còn hàng/);
+      debugLog(`Bắt đầu polling cho taskId: ${taskId}`);
 
-            finalProgressData.summary = {
-              created: createdMatch ? parseInt(createdMatch[1]) : 0,
-              updated: updatedMatch ? parseInt(updatedMatch[1]) : 0,
-              errors: [],
-              totalProducts: totalMatch ? parseInt(totalMatch[1]) : 0,
-              statusChanges: {
-                toOutOfStock: toOutOfStockMatch ? parseInt(toOutOfStockMatch[1]) : 0,
-                toActive: toActiveMatch ? parseInt(toActiveMatch[1]) : 0
-              }
-            };
+      const poll = async () => {
+        try {
+          debugLog(`Polling... taskId: ${taskId}`);
+          const response = await adminRequest.get<ImportTask>(`/tasks/import/${taskId}`);
+          const updatedTask = response.data;
 
-            // Thêm số lượng lỗi vào summary
-            if (errorsMatch) {
-              finalProgressData.summary.errors = new Array(parseInt(errorsMatch[1])).fill('Lỗi không xác định');
-            }
+          debugLog('Nhận được dữ liệu tác vụ:', updatedTask);
+          setTask(updatedTask);
 
-            debugLog('Extracted summary data:', finalProgressData.summary);
-          } catch (error) {
-            console.error('Error parsing summary data:', error);
+          // Dừng polling nếu tác vụ hoàn thành hoặc thất bại
+          if (updatedTask.status === 'completed' || updatedTask.status === 'failed') {
+            debugLog(`Tác vụ ${updatedTask.status}, dừng polling.`);
+            setIsLoading(false);
+            stopPolling();
           }
+        } catch (err: any) {
+          console.error('Lỗi khi polling tác vụ:', err);
+          setError(err.response?.data?.message || 'Không thể lấy trạng thái tác vụ.');
+          setIsLoading(false);
+          stopPolling();
         }
+      };
 
-        // Chỉ log khi tiến trình thay đổi đáng kể hoặc có trạng thái đặc biệt
-        if (DEBUG_MODE ||
-            finalProgressData.status === 'completed' ||
-            finalProgressData.status === 'error' ||
-            finalProgressData.progress % 20 === 0) { // Chỉ log mỗi 20% tiến độ
-          debugLog('Cập nhật tiến trình:', finalProgressData);
-        }
+      // Gọi lần đầu ngay lập tức
+      poll();
+      // Sau đó bắt đầu polling định kỳ
+      intervalRef.current = setInterval(poll, 2000); // Poll mỗi 2 giây
+    },
+    [token, stopPolling, debugLog],
+  );
 
-        // Cập nhật trạng thái
-        setProgress(finalProgressData);
-      } else {
-        console.error('Nhận được dữ liệu không hợp lệ:', progressData);
-      }
-    };
-
-    // Đăng ký lắng nghe sự kiện
-    debugLog(`Đăng ký lắng nghe sự kiện: ${eventName}`);
-    socket.on(eventName, handleProgress);
-
+  // Dọn dẹp khi component unmount
+  useEffect(() => {
     return () => {
-      debugLog(`Hủy đăng ký lắng nghe sự kiện: ${eventName}`);
-      socket.off(eventName, handleProgress);
+      stopPolling();
     };
-  }, [socket, admin?._id, debugLog]);
+  }, [stopPolling]);
 
-  // Reset tiến trình
+  // Hàm để reset trạng thái
   const resetProgress = useCallback(() => {
-    setProgress(null);
-  }, []);
+    stopPolling();
+    setTask(null);
+    setIsLoading(false);
+    setError(null);
+  }, [stopPolling]);
 
-  return { progress, isConnected, resetProgress };
+  return {
+    task,
+    isLoading,
+    error,
+    startPolling,
+    resetProgress,
+  };
 };

@@ -6,7 +6,6 @@ import { Review, ReviewSchema } from './schemas/review.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
-import { WebsocketModule } from '../websocket/websocket.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { extname } from 'path';
@@ -29,7 +28,6 @@ import * as fs from 'fs';
       { name: 'Product', schema: ProductSchema },
     ]),
     CloudinaryModule,
-    WebsocketModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: {
