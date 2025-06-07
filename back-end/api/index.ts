@@ -35,7 +35,7 @@ server.use(((req: Request, res: Response, next: NextFunction) => {
 
 // Cấu hình CORS
 const allowedOrigins = [
-  'http://localhost:3000',
+  'https://project-final-livid.vercel.app',
   'https://project-final-livid.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);

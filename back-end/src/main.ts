@@ -23,7 +23,7 @@ async function bootstrap() {
 
   // Cấu hình CORS để cho phép front-end truy cập API
   const allowedOrigins = [
-    'http://localhost:3000',
+    'https://project-final-livid.vercel.app',
     'https://project-final-livid.vercel.app',
     process.env.FRONTEND_URL
   ].filter(Boolean); // Loại bỏ các giá trị undefined

@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // URL này sẽ được tự động chuyển đến backend NestJS qua cấu hình rewrites trong next.config.ts
-    const userStatsUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/admin/users/stats`;
+    const userStatsUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://project-final-livid.vercel.app'}/api/admin/users/stats`;
     
     // Chuyển tiếp Authorization header nếu có
     const headers: HeadersInit = {

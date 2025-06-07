@@ -11,7 +11,7 @@ export class MailService {
     private mailerService: MailerService,
     private configService: ConfigService,
   ) {
-    this.frontendUrl = this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
+    this.frontendUrl = this.configService.get<string>('CLIENT_URL') || 'https://project-final-livid.vercel.app';
     this.logger.log(`Mail service initialized with frontend URL: ${this.frontendUrl}`);
     this.logger.log(`Email config: ${this.configService.get<string>('EMAIL_USER')}`);
   }

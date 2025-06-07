@@ -217,47 +217,71 @@ export class AuthService {
   }
 
   async registerWithGoogle(googleData: any): Promise<any> {
+    this.logger.log(`Registering with Google, data: ${JSON.stringify(googleData)}`);
     const { email, name, googleId, picture } = googleData;
-    
+
     if (!email) {
+      this.logger.error('Google Auth: Email is required.');
       throw new Error('Email is required for Google authentication');
     }
-    
+
     let user = await this.usersService.findByEmail(email);
-    
+    this.logger.log(`User found by email (${email}): ${user ? JSON.stringify(user) : 'null'}`);
+
     if (!user) {
-      // Tạo user mới nếu chưa tồn tại
-      // Tạo một mật khẩu ngẫu nhiên vì Mongoose schema có thể yêu cầu password
+      this.logger.log(`Creating new user for email: ${email}`);
       const randomPassword = Math.random().toString(36).slice(-10);
-      
-      user = await this.usersService.create({
-        email,
-        name,
-        googleId,
-        isVerified: true, // Google đã xác minh email
-        role: 'user',
-        avatar: picture, // Sử dụng avatar từ Google
-        password: randomPassword, // Đặt mật khẩu ngẫu nhiên
-        phone: '', // Thêm trường phone trống
-      });
+      try {
+        user = await this.usersService.create({
+          email,
+          name,
+          googleId,
+          isVerified: true, // Google đã xác minh email
+          role: 'user',
+          avatar: picture, // Sử dụng avatar từ Google
+          password: randomPassword, // Đặt mật khẩu ngẫu nhiên
+          phone: '', // Thêm trường phone trống
+        });
+        this.logger.log(`New user created: ${JSON.stringify(user)}`);
+      } catch (creationError: any) {
+        this.logger.error(`Error creating user: ${creationError.message}`, creationError.stack);
+        throw creationError;
+      }
     } else if ((!user.googleId || user.googleId !== googleId) && user._id) {
-      // Cập nhật googleId nếu user đã tồn tại nhưng chưa liên kết với Google
-      // hoặc liên kết với tài khoản Google khác
-      user = await this.usersService.update(user._id.toString(), { 
-        googleId,
-        avatar: picture || user.avatar,
-      });
+      this.logger.log(`Updating existing user ${user._id} with googleId: ${googleId}`);
+      try {
+        // Ensure user._id is a string for the update method
+        user = await this.usersService.update(user._id.toString(), {
+          googleId,
+          avatar: picture || user.avatar,
+        });
+        this.logger.log(`User updated: ${JSON.stringify(user)}`);
+      } catch (updateError: any) {
+        this.logger.error(`Error updating user: ${updateError.message}`, updateError.stack);
+        throw updateError;
+      }
     }
 
-    // Login user
-    const authResult = this.login({
-      _id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    });
-
-    return authResult;
+    this.logger.log(`Proceeding to login user: ${JSON.stringify({ _id: user?._id, email: user?.email, name: user?.name, role: user?.role, isVerified: user?.isVerified })}`);
+    try {
+      // Đảm bảo user object và user._id tồn tại trước khi gọi login
+      if (!user || !user._id) {
+        this.logger.error('User object or user._id is missing before login attempt.');
+        throw new Error('User data is incomplete for login.');
+      }
+      const authResult = await this.login({ // Added await here as login is async
+        _id: user._id.toString(), // Đảm bảo _id là string
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        isVerified: user.isVerified, // Thêm isVerified vào payload login
+      });
+      this.logger.log(`Login successful for Google user, result: ${JSON.stringify(authResult)}`);
+      return authResult;
+    } catch (loginError: any) {
+      this.logger.error(`Error during login for Google user: ${loginError.message}`, loginError.stack);
+      throw loginError;
+    }
   }
 
   async resendVerification(email: string): Promise<void> {
@@ -299,4 +323,4 @@ export class AuthService {
       // Không throw lỗi ra ngoài để không tiết lộ thông tin user
     }
   }
-} 
+}

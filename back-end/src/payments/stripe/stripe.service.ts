@@ -39,7 +39,7 @@ export class StripeService {
     try {
       this.logger.log(`Creating Stripe checkout session`);
       const { amount, currency, orderId, description, metadata, orderData, returnUrl } = createStripePaymentDto;
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://project-final-livid.vercel.app';
 
       // Kiểm tra xem có phải đơn hàng tạm thời không (bắt đầu bằng YM hoặc là 'new')
       const isTemporaryOrder = orderId && (orderId.startsWith('YM') || orderId === 'new');

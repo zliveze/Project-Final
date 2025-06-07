@@ -306,7 +306,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Log khởi tạo và cấu hình
   useEffect(() => {
     safeLog('AdminUserContext initialized');
-    safeLog('API URL', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
+    safeLog('API URL', process.env.NEXT_PUBLIC_API_URL || 'https://project-final-livid.vercel.app');
   }, [accessToken]);
 
 

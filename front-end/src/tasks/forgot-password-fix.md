@@ -46,7 +46,7 @@ Chức năng quên mật khẩu không hoạt động, không gửi được ema
 - Theo dõi Network tab trong DevTools
 
 ## Kiểm tra chức năng
-1. Truy cập http://localhost:3000/auth/forgot-password
+1. Truy cập https://project-final-livid.vercel.app/auth/forgot-password
 2. Nhập email để yêu cầu đặt lại mật khẩu
 3. Kiểm tra logs backend và frontend
 4. Kiểm tra hộp thư đến, thư rác của email đã nhập

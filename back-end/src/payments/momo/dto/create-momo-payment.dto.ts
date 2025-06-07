@@ -23,7 +23,7 @@ export class CreateMomoPaymentDto {
 
   @ApiProperty({
     description: 'URL chuyển hướng sau khi thanh toán',
-    example: 'http://localhost:3000/payments/success',
+    example: 'https://project-final-livid.vercel.app/payments/success',
   })
   @IsNotEmpty()
   @IsString()

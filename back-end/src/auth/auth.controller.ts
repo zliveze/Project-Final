@@ -23,7 +23,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService
   ) {
-    this.clientUrl = this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
+    this.clientUrl = this.configService.get<string>('CLIENT_URL') || 'https://project-final-livid.vercel.app';
   }
 
   @Post('register')
@@ -116,7 +116,7 @@ export class AuthController {
     }
 
     // Lấy redirect_uri từ session nếu có
-    let redirectUrl = 'http://localhost:3000/auth/google-callback'; // Mặc định
+    let redirectUrl = 'https://project-final-livid.vercel.app/auth/google-callback'; // Mặc định
 
     if (req.session && (req.session as any).redirectUri) {
       redirectUrl = (req.session as any).redirectUri;
