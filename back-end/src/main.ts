@@ -91,16 +91,8 @@ async function bootstrap() {
   app.use(passport.initialize());
   app.use(passport.session());
   
-  // Cấu hình serialize và deserialize user cho passport session
-  passport.serializeUser((user: any, done) => {
-    logger.log(`Serializing user: ${user._id || user.id}`);
-    done(null, user);
-  });
-
-  passport.deserializeUser((obj: any, done) => {
-    logger.log(`Deserializing user: ${obj._id || obj.id}`);
-    done(null, obj);
-  });
+  // SessionSerializer (được cung cấp trong AuthModule) sẽ tự động được Passport sử dụng
+  // vì nó kế thừa từ PassportSerializer. Không cần cấu hình serialize/deserialize ở đây nữa.
 
   // Cấu hình Swagger
   const config = new DocumentBuilder()

@@ -13,6 +13,7 @@ import { JwtAdminStrategy } from './strategies/jwt-admin.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { MailModule } from '../common/mail/mail.module';
+import { SessionSerializer } from './session.serializer'; // Thêm import
 
 @Module({
   imports: [
@@ -30,7 +31,15 @@ import { MailModule } from '../common/mail/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, JwtAdminStrategy, JwtRefreshStrategy, GoogleStrategy],
+  providers: [
+    AuthService, 
+    LocalStrategy, 
+    JwtStrategy, 
+    JwtAdminStrategy, 
+    JwtRefreshStrategy, 
+    GoogleStrategy,
+    SessionSerializer, // Thêm SessionSerializer vào providers
+  ],
   exports: [AuthService],
 })
-export class AuthModule {} 
+export class AuthModule {}
