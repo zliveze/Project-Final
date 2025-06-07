@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, InternalServerErrorException, HttpException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile, StrategyOptions } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
@@ -32,33 +32,40 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     accessToken: string,
     refreshToken: string,
     profile: Profile,
-    done: (err: Error | null, user: any, info?: any) => void,
+    done: (err: Error | null, user?: any, info?: any) => void,
   ): Promise<void> {
+    this.logger.log(`[GoogleStrategy] Validate method reached. Profile Display Name: ${profile.displayName}, Email: ${profile.emails ? profile.emails[0]?.value : 'N/A'}`);
     try {
-      this.logger.log(`Validating Google profile for: ${profile.displayName}`);
-      
       const { name, emails, photos } = profile;
-      
-      if (!emails || emails.length === 0) {
-        return done(new Error('Google profile missing email'), undefined);
+
+      if (!emails || emails.length === 0 || !emails[0].value) {
+        this.logger.error('[GoogleStrategy] Google profile missing email.');
+        return done(new UnauthorizedException('Google profile missing email'));
       }
-      
-      const user = {
+
+      const userPayload = {
         email: emails[0].value,
-        name: name?.givenName && name?.familyName 
+        name: name?.givenName && name?.familyName
           ? `${name.givenName} ${name.familyName}`
           : profile.displayName || 'Google User',
         picture: photos && photos.length > 0 ? photos[0].value : undefined,
         googleId: profile.id,
-        accessToken,
+        // accessToken, // Không nên lưu accessToken của Google vào user object lâu dài
       };
 
-      // Sử dụng service để đăng ký/đăng nhập người dùng
-      const result = await this.authService.registerWithGoogle(user);
-      done(null, result);
-    } catch (error) {
-      this.logger.error(`Error in Google validation: ${error.message}`);
-      done(error as Error, undefined);
+      this.logger.log(`[GoogleStrategy] User payload to be processed: ${JSON.stringify(userPayload)}`);
+      const result = await this.authService.registerWithGoogle(userPayload);
+      this.logger.log(`[GoogleStrategy] AuthService.registerWithGoogle successful. Result: ${JSON.stringify(result)}`);
+      // `result` từ `authService.registerWithGoogle` nên là { accessToken, refreshToken, user }
+      done(null, result); 
+    } catch (error: any) {
+      this.logger.error(`[GoogleStrategy] Error in Google validation: ${error.message}`, error.stack);
+      if (error instanceof HttpException) {
+        done(error);
+      } else {
+        // Tạo một lỗi chung hơn nếu không phải là HttpException đã biết
+        done(new InternalServerErrorException(error.message || 'Error processing Google authentication via strategy'));
+      }
     }
   }
-} 
+}

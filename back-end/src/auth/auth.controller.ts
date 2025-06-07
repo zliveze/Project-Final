@@ -101,38 +101,59 @@ export class AuthController {
   }
 
   // Callback URL sau khi xác thực Google
-  @Get('callback/google') // Đổi route thành 'callback/google' để khớp với URL trong Google OAuth
+  @Get('callback/google')
   @UseGuards(GoogleAuthGuard)
-  googleCallback(@Req() req: RequestWithUser, @Res() res: Response) { // Giữ lại @Res để có thể tùy chỉnh response
-    this.logger.log('Google callback received');
-    this.logger.debug(`User from Google Strategy: ${JSON.stringify(req.user)}`);
+  async googleCallback(@Req() req: RequestWithUser, @Res() res: Response) {
+    this.logger.log('[AuthController] Google callback reached.');
+    try {
+      this.logger.debug(`[AuthController] User from Google Strategy (req.user): ${JSON.stringify(req.user)}`);
 
-    // GoogleAuthGuard đã chạy GoogleStrategy#validate,
-    // AuthService#registerWithGoogle đã được gọi và trả về user/tokens trong req.user
-    if (!req.user || !req.user.accessToken || !req.user.user) {
-        this.logger.error('Google callback failed: Invalid user data received from strategy.');
-        // Trả về lỗi cho frontend
-        return res.status(500).json({ message: 'Lỗi xử lý xác thực Google.' });
+      // Kiểm tra kỹ hơn dữ liệu từ req.user
+      // GoogleStrategy#validate sẽ gọi done(null, result)
+      // result từ authService.registerWithGoogle là { accessToken, refreshToken, user }
+      if (!req.user || !req.user.accessToken || !req.user.user || !req.user.user._id) {
+        this.logger.error('[AuthController] Google callback failed: Invalid user data received from strategy or missing user._id.');
+        this.logger.debug(`[AuthController] Received req.user: ${JSON.stringify(req.user)}`);
+        // Không redirect mà trả lỗi trực tiếp để frontend có thể xử lý
+        return res.status(500).json({ message: 'Lỗi xử lý xác thực Google: Dữ liệu người dùng không hợp lệ.' });
+      }
+
+      // Lấy redirect_uri từ session nếu có
+      // CẢNH BÁO: Session trên Vercel có thể không đáng tin cậy với MemoryStore.
+      // Cân nhắc sử dụng state parameter hoặc một cơ chế khác để truyền redirect URI.
+      let redirectUrlFromSession: string | undefined;
+      if (req.session && (req.session as any).redirectUri) {
+        redirectUrlFromSession = (req.session as any).redirectUri;
+        this.logger.log(`[AuthController] Using redirect URI from session: ${redirectUrlFromSession}`);
+        // Xóa redirect_uri khỏi session sau khi sử dụng
+        delete (req.session as any).redirectUri;
+      } else {
+        this.logger.log('[AuthController] No redirect URI found in session.');
+      }
+      
+      // Sử dụng clientUrl từ configService làm URL redirect mặc định nếu không có từ session
+      // Hoặc nếu redirectUrlFromSession không hợp lệ (ví dụ: không phải là URL được cho phép)
+      // Điều này cần một logic kiểm tra URL an toàn hơn trong thực tế.
+      const defaultRedirectBaseUrl = this.configService.get<string>('CLIENT_URL_GOOGLE_CALLBACK') || `${this.clientUrl}/auth/google-callback`;
+      const redirectBaseUrl = redirectUrlFromSession || defaultRedirectBaseUrl;
+
+      this.logger.log(`[AuthController] Base redirect URL determined: ${redirectBaseUrl}`);
+
+      const { accessToken, refreshToken, user } = req.user;
+      const finalRedirectUrl = `${redirectBaseUrl}?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
+
+      this.logger.log(`[AuthController] Redirecting to: ${finalRedirectUrl}`);
+      return res.redirect(finalRedirectUrl);
+
+    } catch (error: any) {
+      this.logger.error(`[AuthController] Error in googleCallback: ${error.message}`, error.stack);
+      // Trả lỗi chung cho client
+      // Có thể tùy chỉnh response lỗi dựa trên loại lỗi
+      if (error.response && error.status) {
+         return res.status(error.status).json(error.response);
+      }
+      return res.status(500).json({ message: 'Lỗi máy chủ nội bộ khi xử lý callback Google.' });
     }
-
-    // Lấy redirect_uri từ session nếu có
-    let redirectUrl = 'https://project-final-livid.vercel.app/auth/google-callback'; // Mặc định
-
-    if (req.session && (req.session as any).redirectUri) {
-      redirectUrl = (req.session as any).redirectUri;
-      this.logger.log(`Using redirect URI from session: ${redirectUrl}`);
-      // Xóa redirect_uri khỏi session sau khi sử dụng
-      delete (req.session as any).redirectUri;
-    } else {
-      this.logger.log('No redirect URI found in session, using default');
-    }
-
-    // Thêm các tham số vào URL redirect
-    const { accessToken, refreshToken, user } = req.user;
-    const finalRedirectUrl = `${redirectUrl}?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${encodeURIComponent(JSON.stringify(user))}`;
-
-    this.logger.log(`Redirecting to: ${finalRedirectUrl}`);
-    return res.redirect(finalRedirectUrl);
   }
 
   // Phương thức thay thế khi không sử dụng OAuth trực tiếp (giữ nguyên)
