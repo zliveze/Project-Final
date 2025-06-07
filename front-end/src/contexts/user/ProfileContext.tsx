@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { User, WishlistItem, Order, Notification, Review, Address, TabType, OrderStatusType } from '../../components/profile/types';
-import { mockUser, mockWishlistItems, mockOrders, mockNotifications, mockReviews } from '../../mock/profileData';
+// Removed mock data imports
 import { UserApiService } from './UserApiService';
 import { useAuth } from '../AuthContext';
 import { useOrder } from './OrderContext';
@@ -71,7 +71,21 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   } = useOrder();
 
   // States
-  const [user, setUser] = useState<User>(mockUser);
+  const [user, setUser] = useState<User>({
+    _id: '',
+    name: '',
+    email: '',
+    phone: '',
+    addresses: [],
+    role: '', // Added missing 'role'
+    wishlist: [], // Added missing 'wishlist'
+    createdAt: '',
+    // Optional fields initialized
+    customerLevel: undefined,
+    totalOrders: undefined,
+    monthlyOrders: undefined,
+    updatedAt: undefined,
+  });
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -166,17 +180,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setError(errorMessage);
       toast.error(errorMessage);
 
-      // Fallback to mock data in development environment
-      if (process.env.NODE_ENV === 'development') {
-        setUser(mockUser); // Ensure mockUser is set if profile fetch failed
-        setWishlistItems(mockWishlistItems);
-        setOrders(mockOrders);
-        setNotifications(mockNotifications);
-        setReviews(mockReviews);
-        console.log('Sử dụng dữ liệu mẫu trong môi trường phát triển do lỗi tổng thể');
-      }
       // In production, errors are logged and toasted. Session expiry returns earlier.
       // Other critical errors (like profile fetch failure) will land here.
+      // Removed fallback to mock data
     } finally {
       setIsLoading(false);
     }

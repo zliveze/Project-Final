@@ -25,6 +25,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'https://project-final-livid.vercel.app',
     'https://project-final-livid.vercel.app',
+    'http://localhost:3000',
     process.env.FRONTEND_URL
   ].filter(Boolean); // Loại bỏ các giá trị undefined
 
