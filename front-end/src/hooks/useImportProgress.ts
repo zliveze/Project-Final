@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { adminRequest } from '@/utils/request';
+import adminRequest from '@/lib/axiosInstance';
 
 // Interface cho dữ liệu tiến trình trả về từ API
 export interface ImportTask {
@@ -30,7 +30,7 @@ export const useImportProgress = () => {
   const [task, setTask] = useState<ImportTask | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { admin, token } = useAdminAuth();
+  const { accessToken: token } = useAdminAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debug logger
@@ -80,9 +80,12 @@ export const useImportProgress = () => {
             setIsLoading(false);
             stopPolling();
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Lỗi khi polling tác vụ:', err);
-          setError(err.response?.data?.message || 'Không thể lấy trạng thái tác vụ.');
+          const errorMessage = (
+            err as { response?: { data?: { message: string } } }
+          )?.response?.data?.message;
+          setError(errorMessage || 'Không thể lấy trạng thái tác vụ.');
           setIsLoading(false);
           stopPolling();
         }

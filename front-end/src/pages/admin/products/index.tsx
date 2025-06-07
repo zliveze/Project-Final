@@ -124,7 +124,7 @@ function AdminProducts({
   const [selectedBranchForExport, setSelectedBranchForExport] = useState<string>('');
 
   // Sử dụng hook useImportProgress để theo dõi tiến trình import
-  const { task, isLoading: isImportLoading, error: importError, startPolling, resetProgress } = useImportProgress();
+  const { task, startPolling, resetProgress } = useImportProgress();
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [importCompletedHandled, setImportCompletedHandled] = useState(false); // State mới để theo dõi hoàn thành
@@ -188,7 +188,7 @@ function AdminProducts({
   // brandsLoading - removed as it's not used
 
   // Lấy dữ liệu danh mục từ CategoryContext
-  const { refreshCategories } = useCategory();
+  useCategory();
 
   // Chuyển đổi định dạng brands từ API để phù hợp với component
   const brands = apiBrands.map(brand => ({
