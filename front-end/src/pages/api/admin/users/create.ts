@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
 // Với cấu hình rewrites trong next.config.ts, request POST đến /api/admin/users/create 
-// sẽ được chuyển tiếp trực tiếp đến backend endpoint http://localhost:3001/admin/users/create
+// sẽ được chuyển tiếp trực tiếp đến backend endpoint https://backendyumin.vercel.app/admin/users/create
 // Tuy nhiên, chúng ta vẫn giữ file này để xử lý các trường hợp đặc biệt hoặc log nếu cần
 
 export default async function handler(

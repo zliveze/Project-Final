@@ -85,7 +85,7 @@ export const UserPaymentProvider: React.FC<{ children: ReactNode }> = ({ childre
     const token = localStorage.getItem('accessToken') || Cookies.get('accessToken');
 
     return axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : ''

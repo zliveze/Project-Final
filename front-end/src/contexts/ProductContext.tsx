@@ -113,7 +113,7 @@ export interface Product {
 }
 
 // API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
 
 // Interface cho Product Flags

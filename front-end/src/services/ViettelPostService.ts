@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 const SHIPPING_API_URL = `${API_URL}/shipping`; // Assuming backend routes are under /shipping
 
 // Create axios instance with default config

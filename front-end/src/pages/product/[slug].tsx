@@ -671,7 +671,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const token = cookies.token || '';
   const API_URL = process.env.NEXT_PUBLIC_API_URL?.endsWith('/api')
     ? process.env.NEXT_PUBLIC_API_URL
-    : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api`;
+    : `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/api`;
 
   try {
     // Lấy thông tin sản phẩm từ API

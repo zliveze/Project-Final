@@ -25,7 +25,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const useAuth = () => useContext(AuthContext);
 
 // Base API URL từ biến môi trường
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 // Hàm lưu token vào cả localStorage và cookie
 const saveToken = (name: string, value: string, expires?: number) => {

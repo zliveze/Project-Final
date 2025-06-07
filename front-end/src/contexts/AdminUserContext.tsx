@@ -271,7 +271,7 @@ export const AdminUserProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
 
       // Thay đổi URL từ '/api/admin/users/stats' thành URL trực tiếp đến backend
-      const response = await api().get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/users/stats`);
+      const response = await api().get(`${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/admin/users/stats`);
       safeLog('Stats API Response status', response.status);
 
       const { data } = response;

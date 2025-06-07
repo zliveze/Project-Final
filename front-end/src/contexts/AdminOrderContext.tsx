@@ -184,7 +184,7 @@ export const AdminOrderProvider: React.FC<{ children: ReactNode }> = ({ children
     const isLoginPage = typeof window !== 'undefined' && window.location.pathname.includes('/admin/auth/login');
 
     return axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token && !isLoginPage ? `Bearer ${token}` : ''

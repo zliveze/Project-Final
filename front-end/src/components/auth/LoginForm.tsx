@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 // import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 
 // Lấy API_URL từ biến môi trường cho mục đích debug
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
 const LoginForm = () => {
   const router = useRouter();

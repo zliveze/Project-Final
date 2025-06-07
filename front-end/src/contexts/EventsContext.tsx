@@ -5,7 +5,7 @@ import { useAdminAuth } from './AdminAuthContext';
 import { toast } from 'react-hot-toast';
 
 // Cấu hình API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
 // Interface cho error response
 interface ApiError {

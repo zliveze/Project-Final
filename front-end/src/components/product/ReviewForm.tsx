@@ -106,7 +106,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     };
 
     // Đăng ký lắng nghe sự kiện từ socket
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app');
     socket.on('client-review-status-changed', handleReviewStatusChange);
 
     // Cleanup function

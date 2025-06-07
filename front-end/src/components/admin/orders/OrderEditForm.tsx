@@ -226,7 +226,7 @@ export default function OrderEditForm({ orderId, onCancel, onSuccess }: OrderEdi
       }
 
       // Gọi API để cập nhật các thông tin khác của đơn hàng
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/admin/orders/${orderId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/admin/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

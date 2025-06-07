@@ -101,7 +101,7 @@ export const useCategory = () => {
 };
 
 // Cấu hình API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 const CATEGORY_API = {
   ADMIN: `${API_URL}/admin/categories`,
   PUBLIC: `${API_URL}/categories`

@@ -57,7 +57,7 @@ export const VoucherProductSearchProvider: React.FC<{ children: React.ReactNode 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
   const searchProducts = useCallback(async (params: SearchParams) => {
     try {

@@ -150,7 +150,7 @@ export const VoucherProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [error, setError] = useState<string | null>(null);
 
   // API base URL
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
 
   // Cấu hình Axios với token xác thực
   const getAuthHeaders = useCallback(() => {

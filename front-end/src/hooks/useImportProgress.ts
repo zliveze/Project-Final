@@ -46,7 +46,7 @@ export const useImportProgress = () => {
   // Khởi tạo kết nối socket
   useEffect(() => {
     // Lấy base URL từ NEXT_PUBLIC_API_URL hoặc sử dụng mặc định
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
     // Tạo URL cho WebSocket, đảm bảo không có path ở cuối
     const wsUrl = apiUrl.replace(/\/api$/, '');

@@ -9,7 +9,7 @@ import Link from 'next/link';
 // import { motion } from 'framer-motion'; // Không sử dụng animation phức tạp
 import { FaCheckCircle, FaTimes } from 'react-icons/fa';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
 const VerifyEmailPage: NextPage = () => {
   const router = useRouter();

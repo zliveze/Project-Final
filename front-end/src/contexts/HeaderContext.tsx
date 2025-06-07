@@ -141,7 +141,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('Performing search for term:', term);
 
       // Gọi API tìm kiếm sản phẩm
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
       const searchUrl = `${API_URL}/products/light?search=${encodeURIComponent(term.trim())}&limit=6`;
 
       console.log('Calling API:', searchUrl);

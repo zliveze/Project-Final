@@ -48,7 +48,7 @@ export default function TopProducts() {
   // API configuration
   const getApiConfig = useCallback(() => {
     const token = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
     return {
       baseURL,

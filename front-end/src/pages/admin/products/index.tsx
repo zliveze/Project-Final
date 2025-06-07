@@ -1872,7 +1872,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   // Construct API URL for initial fetch
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
   // Ensure API_URL does not duplicate /api if BASE_URL already ends with it
   const API_URL = BASE_URL.replace(/\/api$/, '') + '/api';
   const ADMIN_PRODUCTS_API = `${API_URL}/admin/products/list`;

@@ -7,7 +7,7 @@ import { BrandWithLogo } from '@/components/product/ProductInfo';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.endsWith('/api')
   ? process.env.NEXT_PUBLIC_API_URL
-  : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api`;
+  : `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/api`;
 
 // Define proper types to replace 'any'
 interface VariantOptions {

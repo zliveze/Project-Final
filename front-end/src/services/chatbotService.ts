@@ -81,7 +81,7 @@ interface SearchProductResult {
 }
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
 
 // API Endpoints - Fixed to match backend (baseURL chưa có /api)
 const ENDPOINTS = {

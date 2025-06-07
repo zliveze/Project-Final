@@ -25,7 +25,7 @@ export default async function handler(
 
   try {
     // URL này sẽ được tự động chuyển đến backend NestJS
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/reviews/${id}/unlike`;
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/reviews/${id}/unlike`;
     
     // Chuyển tiếp Authorization header
     const headers: HeadersInit = {

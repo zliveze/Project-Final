@@ -41,7 +41,7 @@ export class MomoService {
     this.secretKey = this.configService.get('MOMO_SECRET_KEY') || '';
     this.apiEndpoint = this.configService.get('MOMO_API_ENDPOINT', 'https://test-payment.momo.vn/v2/gateway/api');
 
-    const baseUrl = this.configService.get('APP_URL', 'http://localhost:3001');
+    const baseUrl = this.configService.get('APP_URL', 'https://backendyumin.vercel.app');
     this.ipnUrl = this.configService.get('MOMO_IPN_URL', `${baseUrl}/api/payments/momo/ipn`);
     this.redirectUrl = this.configService.get('MOMO_REDIRECT_URL', `${baseUrl}/payments/success`);
 

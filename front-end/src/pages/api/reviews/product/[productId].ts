@@ -25,7 +25,7 @@ export default async function handler(
     if (status) queryParams.append('status', status.toString());
     
     // URL này sẽ được tự động chuyển đến backend NestJS qua cấu hình rewrites trong next.config.ts
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/reviews/product/${productId}?${queryParams.toString()}`;
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/reviews/product/${productId}?${queryParams.toString()}`;
     
     // Chuyển tiếp Authorization header nếu có
     const headers: HeadersInit = {

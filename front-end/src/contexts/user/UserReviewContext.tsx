@@ -94,7 +94,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => {
     if (isAuthenticated && user?._id) {
       // URL của WebSocket server, thường là URL gốc của backend API
-      const WS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const WS_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
       const newSocket = io(WS_URL, {
         transports: ['websocket'], // Ưu tiên WebSocket
         // query: { userId: user._id } // Có thể gửi userId qua query nếu backend hỗ trợ auto-join room
@@ -207,7 +207,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
     const token = localStorage.getItem('accessToken');
     const apiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
       ? process.env.NEXT_PUBLIC_API_URL
-      : 'http://localhost:3001/api';
+      : 'https://backendyumin.vercel.app/api';
 
     return axios.create({
       baseURL: apiUrl,
@@ -400,7 +400,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       setLoading(true);
 
       // Gọi trực tiếp đến backend thay vì qua Next.js API routes
-      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews`;
+      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api'}/reviews`;
 
       // Sử dụng axios để có thể theo dõi tiến trình upload
       const response = await axios.post(backendUrl, reviewData, {
@@ -445,7 +445,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
 
       if (isFormData) {
         // Nếu là FormData, sử dụng axios với cấu hình upload và progress
-        const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`;
+        const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api'}/reviews/${reviewId}`;
 
         response = await axios.patch(backendUrl, reviewData, {
           headers: {
@@ -497,7 +497,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
       setLoading(true);
 
       // Gọi trực tiếp đến backend API
-      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/${reviewId}`;
+      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api'}/reviews/${reviewId}`;
       const response = await axios.delete(backendUrl, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
