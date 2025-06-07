@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 
 // Định nghĩa kiểu dữ liệu cho hình ảnh đánh giá
@@ -86,125 +85,7 @@ export const UserReviewProvider: React.FC<{ children: ReactNode }> = ({ children
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const [socket, setSocket] = useState<Socket | null>(null);
-
   const { isAuthenticated, user } = useAuth();
-
-  // Khởi tạo và quản lý WebSocket connection
-  useEffect(() => {
-    if (isAuthenticated && user?._id) {
-      // URL của WebSocket server, thường là URL gốc của backend API
-      // Ensure WS_URL is the base URL for WebSocket connection, path will be handled by socket.io client
-      const backendBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api').replace('/api', '');
-      const WS_URL_FOR_SOCKET = backendBaseUrl || 'https://backendyumin.vercel.app';
-
-      const newSocket = io(WS_URL_FOR_SOCKET, {
-        transports: ['websocket'], // Ưu tiên WebSocket
-        path: '/socket.io/', // Explicitly set the default path
-        // query: { userId: user._id } // Có thể gửi userId qua query nếu backend hỗ trợ auto-join room
-      });
-      setSocket(newSocket);
-
-      newSocket.on('connect', () => {
-        console.log('UserReviewContext: WebSocket connected', newSocket.id);
-        // Gửi sự kiện để tham gia vào phòng (room) của user cụ thể
-        newSocket.emit('joinUserRoom', { userId: user._id });
-      });
-
-      // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ server
-      newSocket.on('reviewStatusUpdated', (updatedReviewFromServer: Review) => {
-        console.log('UserReviewContext: Received reviewStatusUpdated event:', updatedReviewFromServer);
-
-        // Xác định loại thông báo dựa trên trạng thái mới
-        let toastMessage = `Trạng thái đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được cập nhật.`;
-        let toastType: 'success' | 'error' | 'default' = 'default';
-
-        if (updatedReviewFromServer.status === 'approved') {
-          toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã được phê duyệt.`;
-          toastType = 'success';
-        } else if (updatedReviewFromServer.status === 'rejected') {
-          toastMessage = `Đánh giá của bạn cho sản phẩm "${updatedReviewFromServer.productName || 'Sản phẩm'}" đã bị từ chối.`;
-          toastType = 'error';
-        }
-
-        // Hiển thị thông báo phù hợp với trạng thái
-        if (toastType === 'success') {
-          toast.success(toastMessage);
-        } else if (toastType === 'error') {
-          toast.error(toastMessage);
-        } else {
-          toast(toastMessage);
-        }
-
-        // Cập nhật danh sách đánh giá
-        setReviews(prevReviews => {
-          // Cập nhật đánh giá trong danh sách, bao gồm cả đánh giá bị từ chối
-          return prevReviews.map(currentClientReview => {
-            if (currentClientReview._id === updatedReviewFromServer._id) {
-              // Cập nhật đánh giá với dữ liệu từ server,
-              // nhưng giữ lại trạng thái 'isLiked' từ client nếu server không cung cấp
-              return {
-                ...currentClientReview, // Bắt đầu với trạng thái client hiện tại
-                ...updatedReviewFromServer, // Ghi đè với cập nhật từ server
-                isLiked: updatedReviewFromServer.isLiked !== undefined
-                  ? updatedReviewFromServer.isLiked
-                  : currentClientReview.isLiked,
-              };
-            }
-            return currentClientReview;
-          });
-        });
-
-        // Thông báo cho các component khác về sự thay đổi trạng thái đánh giá
-        // Điều này giúp các component như ReviewForm có thể cập nhật UI của chúng
-        if (socket) {
-          socket.emit('client-review-status-changed', {
-            reviewId: updatedReviewFromServer._id,
-            status: updatedReviewFromServer.status
-          });
-        }
-      });
-
-      // Lắng nghe sự kiện đánh giá bị xóa (ví dụ: do admin xóa)
-      newSocket.on('reviewDeleted', (data: { reviewId: string }) => {
-        console.log('UserReviewContext: Received reviewDeleted event:', data);
-        if (data.reviewId) {
-          setReviews(prevReviews => prevReviews.filter(review => review._id !== data.reviewId));
-          toast('Một đánh giá đã được quản trị viên xóa.', {
-            duration: 4000,
-            icon: 'ℹ️'
-          });
-        }
-      });
-
-      newSocket.on('disconnect', (reason) => {
-        console.log('UserReviewContext: WebSocket disconnected', reason);
-      });
-
-      newSocket.on('connect_error', (err: Error & { data?: unknown }) => {
-        console.error('UserReviewContext: WebSocket connection error:', err.message, err.data);
-      });
-
-      // Cleanup khi component unmount hoặc user thay đổi
-      return () => {
-        console.log('UserReviewContext: Cleaning up WebSocket connection');
-        newSocket.off('connect');
-        newSocket.off('reviewStatusUpdated');
-        newSocket.off('reviewDeleted');
-        newSocket.off('disconnect');
-        newSocket.off('connect_error');
-        newSocket.close();
-        setSocket(null);
-      };
-    } else {
-      // Nếu không authenticated, đóng socket nếu đang mở
-      if (socket) {
-        socket.close();
-        setSocket(null);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?._id]); // Chỉ chạy lại khi trạng thái đăng nhập hoặc user thay đổi
 
   // Tạo instance axios với cấu hình chung
   const api = useCallback(() => {

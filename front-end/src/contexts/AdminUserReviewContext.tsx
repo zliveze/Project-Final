@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { io, Socket } from 'socket.io-client';
 import { useAdminAuth } from './AdminAuthContext';
 
 // Định nghĩa kiểu dữ liệu cho hình ảnh đánh giá
@@ -63,7 +62,6 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [, setSocket] = useState<Socket | null>(null);
   const [newReviewsCount, setNewReviewsCount] = useState<number>(0);
   const [currentlyViewedUserForReviewsId, setCurrentlyViewedUserForReviewsId] = useState<string | null>(null);
 
@@ -197,10 +195,9 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   }, [getReviewStats]);
 
-  // Khởi tạo và cập nhật số lượng đánh giá đang chờ duyệt khi component mount
+  // Khởi tạo và cập nhật số lượng đánh giá đang chờ duyệt khi component mount và sử dụng polling
   useEffect(() => {
     if (accessToken) {
-      // Cập nhật số lượng đánh giá đang chờ duyệt khi component mount
       const fetchPendingCount = async () => {
         try {
           const stats = await getReviewStats();
@@ -212,158 +209,15 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         }
       };
 
-      fetchPendingCount();
-    }
-  }, [accessToken, getReviewStats]);
+      fetchPendingCount(); // Lấy lần đầu
 
-  // Khởi tạo WebSocket connection
-  useEffect(() => {
-    if (accessToken) {
-      // URL của WebSocket server, thường là URL gốc của backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
-      const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
-
-      console.log('AdminUserReviewContext: Connecting to WebSocket at', wsUrl);
-
-      const newSocket = io(wsUrl, {
-        transports: ['websocket', 'polling'],
-        query: {
-          role: 'admin'
-        }
-      });
-
-      setSocket(newSocket);
-
-      newSocket.on('connect', () => {
-        console.log('AdminUserReviewContext: WebSocket connected', newSocket.id);
-        // Tham gia vào phòng admin
-        newSocket.emit('joinUserRoom', { userId: 'admin-room' });
-      });
-
-      // Lắng nghe sự kiện có đánh giá mới được tạo
-      newSocket.on('newReviewCreated', (data: Record<string, unknown>) => {
-        console.log('AdminUserReviewContext: Received newReviewCreated event', data);
-
-        // Tăng số lượng đánh giá mới
-        setNewReviewsCount(prev => prev + 1);
-
-        // Hiển thị thông báo
-        toast.success('Có đánh giá mới cần phê duyệt!', {
-          position: "bottom-right",
-          duration: 5000
-        });
-
-        // Cập nhật danh sách đánh giá nếu đang ở trang đánh giá
-        // Luôn fetch trang đầu tiên của các đánh giá đang chờ để đảm bảo review mới nhất được hiển thị
-        fetchReviews(1, undefined, 'pending');
-
-        // Nếu đánh giá mới thuộc về người dùng đang được xem, làm mới danh sách đánh giá của họ
-        if (data.userId && typeof data.userId === 'string' && data.userId === currentlyViewedUserForReviewsId) {
-          fetchUserReviews(data.userId);
-        }
-      });
-
-      // Lắng nghe sự kiện cập nhật trạng thái đánh giá
-      newSocket.on('reviewStatusUpdated', (data: Record<string, unknown>) => {
-        console.log('AdminUserReviewContext: Received reviewStatusUpdated event', data);
-        if (data.status && typeof data.status === 'string' &&
-            ['pending', 'approved', 'rejected'].includes(data.status) &&
-            data.reviewId && typeof data.reviewId === 'string') {
-          let affectedUserId: string | undefined = undefined;
-
-          // Cập nhật trạng thái đánh giá trong danh sách reviews chung
-          setReviews(prevReviews => {
-            const updatedReviews = prevReviews.map(review => {
-              if (review.reviewId === data.reviewId) {
-                affectedUserId = review.userId; // Lấy userId từ review bị ảnh hưởng
-                return { ...review, status: data.status as 'pending' | 'approved' | 'rejected' };
-              }
-              return review;
-            });
-            return updatedReviews;
-          });
-
-          // Cập nhật trạng thái đánh giá trong danh sách userReviews (nếu user đó đang được xem)
-          setUserReviews(prevUserReviews => {
-            const updatedUserReviews = prevUserReviews.map(review => {
-              if (review.reviewId === data.reviewId) {
-                affectedUserId = review.userId; // Đảm bảo affectedUserId được set
-                return { ...review, status: data.status as 'pending' | 'approved' | 'rejected' };
-              }
-              return review;
-            });
-            // Chỉ cập nhật nếu reviewId có trong danh sách userReviews hiện tại
-            if (prevUserReviews.some(r => r.reviewId === data.reviewId)) {
-              return updatedUserReviews;
-            }
-            return prevUserReviews;
-          });
-
-          // Fetch lại danh sách chung để cập nhật phân trang và bộ lọc
-          fetchReviews(currentPage, undefined, reviews.find(r => r.reviewId === data.reviewId)?.status || undefined);
-
-
-          // Nếu review được cập nhật thuộc về user đang xem, fetch lại review của user đó
-          if (affectedUserId && affectedUserId === currentlyViewedUserForReviewsId) {
-            fetchUserReviews(affectedUserId);
-          }
-        }
-      });
-
-      // Lắng nghe sự kiện xóa đánh giá
-      newSocket.on('reviewDeleted', (data: Record<string, unknown>) => {
-        console.log('AdminUserReviewContext: Received reviewDeleted event', data);
-        if (data.reviewId && typeof data.reviewId === 'string') {
-          let deletedReviewUserId: string | undefined = undefined;
-
-          // Tìm userId của review sắp bị xóa từ danh sách reviews hiện tại
-          const reviewToDelete = reviews.find(review => review.reviewId === data.reviewId);
-          if (reviewToDelete) {
-            deletedReviewUserId = reviewToDelete.userId;
-          }
-
-          // Cập nhật danh sách reviews chung
-          setReviews(prevReviews =>
-            prevReviews.filter(review => review.reviewId !== data.reviewId)
-          );
-
-          // Cập nhật danh sách userReviews (nếu user đó đang được xem)
-          setUserReviews(prevUserReviews =>
-            prevUserReviews.filter(review => review.reviewId !== data.reviewId)
-          );
-
-          // Fetch lại danh sách chung để cập nhật phân trang
-          fetchReviews(currentPage);
-
-          // Nếu review bị xóa thuộc về user đang xem, fetch lại review của user đó
-          if (deletedReviewUserId && deletedReviewUserId === currentlyViewedUserForReviewsId) {
-            fetchUserReviews(deletedReviewUserId);
-          }
-        }
-      });
-
-      newSocket.on('disconnect', () => {
-        console.log('AdminUserReviewContext: WebSocket disconnected');
-      });
-
-      newSocket.on('connect_error', (error) => {
-        console.error('AdminUserReviewContext: WebSocket connection error', error);
-      });
+      // Thiết lập polling để cập nhật 30 giây một lần
+      const intervalId = setInterval(fetchPendingCount, 30000); // 30 giây
 
       // Cleanup khi component unmount
-      return () => {
-        console.log('AdminUserReviewContext: Cleaning up WebSocket connection');
-        newSocket.off('newReviewCreated');
-        newSocket.off('reviewStatusUpdated');
-        newSocket.off('reviewDeleted');
-        newSocket.off('connect');
-        newSocket.off('disconnect');
-        newSocket.off('connect_error');
-        newSocket.close();
-        setSocket(null);
-      };
+      return () => clearInterval(intervalId);
     }
-  }, [accessToken, api, fetchUserReviews, currentlyViewedUserForReviewsId, fetchReviews, currentPage, reviews]);
+  }, [accessToken, getReviewStats]);
 
   // Phê duyệt đánh giá
   const approveReview = useCallback(async (reviewId: string): Promise<boolean> => {
