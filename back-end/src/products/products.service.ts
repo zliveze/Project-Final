@@ -3418,7 +3418,7 @@ export class ProductsService {
 
       // 🔥 BATCH PROCESSING: Xử lý theo lô để tối ưu cho file lớn
       const BATCH_SIZE = totalProducts > 1000 ? 100 : 50; // Batch lớn hơn cho file lớn
-      const batches = [];
+      const batches: any[][] = [];
       for (let i = 0; i < totalProducts; i += BATCH_SIZE) {
         batches.push(productRows.slice(i, i + BATCH_SIZE));
       }
@@ -3453,10 +3453,9 @@ export class ProductsService {
           await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay cho file lớn
         }
 
-        for (let i = 0; i < batch.length; i++) {
-          const row = batch[i];
-          const globalIndex = batchStartIndex + i;
-        const row = productRows[i];
+        for (let batchItemIndex = 0; batchItemIndex < batch.length; batchItemIndex++) {
+          const row = batch[batchItemIndex];
+          const globalIndex = batchStartIndex + batchItemIndex;
 
         try {
           // Log dữ liệu dòng để debug khi cần thiết
@@ -3470,7 +3469,7 @@ export class ProductsService {
           // - Luôn gửi cho sản phẩm đầu tiên và cuối cùng của mỗi batch
           // - Gửi mỗi batch hoặc mỗi 1% (tùy theo số lượng ít hơn)
           const shouldSendProgress =
-            i === 0 || // Sản phẩm đầu tiên của batch
+            batchItemIndex === 0 || // Sản phẩm đầu tiên của batch
             globalIndex === totalProducts - 1 || // Sản phẩm cuối cùng
             (globalIndex + 1) % Math.max(BATCH_SIZE, Math.floor(totalProducts / 50)) === 0; // Mỗi batch hoặc mỗi 2%
 
