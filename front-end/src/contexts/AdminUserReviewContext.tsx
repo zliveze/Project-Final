@@ -63,7 +63,7 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [totalPages, setTotalPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [newReviewsCount, setNewReviewsCount] = useState<number>(0);
-  const [currentlyViewedUserForReviewsId, setCurrentlyViewedUserForReviewsId] = useState<string | null>(null);
+  const [, setCurrentlyViewedUserForReviewsId] = useState<string | null>(null);
 
   // Cấu hình Axios với Auth token
   const api = useCallback(() => {
