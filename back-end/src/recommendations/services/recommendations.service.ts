@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserActivityService } from './user-activity.service';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Product } from '../../products/schemas/product.schema';
 
 @Injectable()
@@ -165,153 +165,172 @@ export class RecommendationsService {
    * Lấy sản phẩm tương tự dựa trên sản phẩm đang xem
    */
   async getSimilarProducts(productId: string, limit = 8): Promise<Product[]> {
-    // 1. Lấy thông tin sản phẩm hiện tại
-    const currentProduct = await this.productModel.findById(productId).exec();
-    if (!currentProduct) {
+    try {
+      // Validate productId format
+      if (!productId || typeof productId !== 'string') {
+        console.error('[ERROR] Invalid productId:', productId);
+        return [];
+      }
+
+      // Validate ObjectId format
+      if (!Types.ObjectId.isValid(productId)) {
+        console.error('[ERROR] Invalid ObjectId format:', productId);
+        return [];
+      }
+
+      // 1. Lấy thông tin sản phẩm hiện tại
+      const currentProduct = await this.productModel.findById(productId).exec();
+      if (!currentProduct) {
+        console.warn('[WARN] Product not found:', productId);
+        return [];
+      }
+      console.log('[DEBUG] Current Product ID:', productId, 'Name:', currentProduct.name);
+      // console.log('[DEBUG] Current Product Data:', JSON.stringify(currentProduct)); // Có thể quá dài
+
+      // 2. Tạo điều kiện tìm kiếm dựa trên đặc điểm của sản phẩm
+      const searchConditions: any[] = [];
+      const nameKeywords = currentProduct.name.split(' ').filter(kw => kw.length > 2); // Lấy từ khóa từ tên sản phẩm, bỏ qua từ ngắn
+
+      // 2.0. Ưu tiên tìm sản phẩm có tên tương tự
+      if (nameKeywords.length > 0) {
+        const nameRegexes = nameKeywords.map(kw => new RegExp(kw, 'i'));
+        // Tìm sản phẩm chứa ÍT NHẤT MỘT trong các từ khóa tên
+        // Hoặc có thể yêu cầu chứa TẤT CẢ các từ khóa quan trọng (phức tạp hơn)
+        searchConditions.push({ name: { $in: nameRegexes } });
+      }
+
+      // 2.1. Tìm sản phẩm cùng danh mục
+      if (currentProduct.categoryIds && currentProduct.categoryIds.length > 0) {
+        searchConditions.push({
+          categoryIds: { $in: currentProduct.categoryIds },
+        });
+      }
+
+      // 2.2. Tìm sản phẩm cùng thương hiệu
+      if (currentProduct.brandId) {
+        searchConditions.push({
+          brandId: currentProduct.brandId,
+        });
+      }
+
+      // 2.3. Tìm sản phẩm có cùng tags
+      if (currentProduct.tags && currentProduct.tags.length > 0) {
+        searchConditions.push({
+          tags: { $in: currentProduct.tags },
+        });
+      }
+
+      // 2.4. Tìm sản phẩm có cùng loại da phù hợp
+      if (
+        currentProduct.cosmetic_info &&
+        currentProduct.cosmetic_info.skinType &&
+        currentProduct.cosmetic_info.skinType.length > 0
+      ) {
+        searchConditions.push({
+          'cosmetic_info.skinType': {
+            $in: currentProduct.cosmetic_info.skinType,
+          },
+        });
+      }
+
+      // 2.5. Tìm sản phẩm giải quyết cùng vấn đề da
+      if (
+        currentProduct.cosmetic_info &&
+        currentProduct.cosmetic_info.concerns &&
+        currentProduct.cosmetic_info.concerns.length > 0
+      ) {
+        searchConditions.push({
+          'cosmetic_info.concerns': {
+            $in: currentProduct.cosmetic_info.concerns,
+          },
+        });
+      }
+
+      // 3. Tìm kiếm sản phẩm tương tự, loại bỏ sản phẩm hiện tại
+      let similarProducts: Product[] = [];
+
+      if (searchConditions.length > 0) {
+        console.log(`[DEBUG] Product ID: ${productId} - Search Conditions for $or:`, JSON.stringify(searchConditions));
+        similarProducts = await this.productModel
+          .find({
+            _id: { $ne: productId },
+            $or: searchConditions,
+            status: 'active',
+          })
+          .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1 }) // Thêm isBestSeller vào sort
+          .limit(limit)
+          .exec();
+        console.log(`[DEBUG] Product ID: ${productId} - Initial similar products found: ${similarProducts.length} - Names:`, JSON.stringify(similarProducts.map(p => p.name)));
+      } else {
+        console.log(`[DEBUG] Product ID: ${productId} - No initial search conditions, proceeding to fallback.`);
+      }
+
+      // 4. Bổ sung kết quả nếu không đủ số lượng hoặc nếu không có điều kiện tìm kiếm ban đầu
+      if (similarProducts.length < limit) {
+        const existingIds = new Set([
+          productId,
+          ...similarProducts.map((p) => (p as any)._id?.toString()),
+        ]);
+
+        const fallbackQueryBase: any = {
+          _id: { $nin: Array.from(existingIds) },
+          status: 'active',
+        };
+
+        // 1. Ưu tiên bổ sung từ cùng danh mục (nếu có)
+        if (currentProduct.categoryIds && currentProduct.categoryIds.length > 0 && similarProducts.length < limit) {
+          const categoryFallback = await this.productModel
+            .find({ ...fallbackQueryBase, categoryIds: { $in: currentProduct.categoryIds } })
+            .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1, createdAt: -1 })
+            .limit(limit - similarProducts.length)
+            .exec();
+          categoryFallback.forEach(p => {
+            if (!existingIds.has((p as any)._id.toString())) {
+              similarProducts.push(p);
+              existingIds.add((p as any)._id.toString());
+            }
+          });
+        }
+
+        // 2. Nếu vẫn thiếu, thử bổ sung từ cùng thương hiệu (nếu có)
+        if (currentProduct.brandId && similarProducts.length < limit) {
+          const brandFallback = await this.productModel
+            .find({ ...fallbackQueryBase, brandId: currentProduct.brandId, _id: { $nin: Array.from(existingIds) } })
+            .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1, createdAt: -1 })
+            .limit(limit - similarProducts.length)
+            .exec();
+          brandFallback.forEach(p => {
+            if (!existingIds.has((p as any)._id.toString())) {
+              similarProducts.push(p);
+              existingIds.add((p as any)._id.toString());
+            }
+          });
+        }
+
+        // 3. Nếu vẫn thiếu, lấy sản phẩm bán chạy/mới nhất chung (đã loại trừ các ID đã có)
+        if (similarProducts.length < limit) {
+          const generalFallback = await this.productModel
+            .find({ ...fallbackQueryBase, _id: { $nin: Array.from(existingIds) } })
+            .sort({ 'flags.isBestSeller': -1, 'reviews.averageRating': -1, createdAt: -1 })
+            .limit(limit - similarProducts.length)
+            .exec();
+          generalFallback.forEach(p => {
+            if (!existingIds.has((p as any)._id.toString())) {
+              similarProducts.push(p);
+              // existingIds.add((p as any)._id.toString()); // Không cần add nữa vì đây là bước cuối cùng
+            }
+          });
+        }
+      }
+      // Loại bỏ trùng lặp cuối cùng (nếu có từ các bước push) và giới hạn số lượng
+      const uniqueResults = Array.from(new Map(similarProducts.map(p => [(p as any)._id.toString(), p])).values());
+      console.log(`[DEBUG] Product ID: ${productId} - Final unique similar products count: ${uniqueResults.length} - Names:`, JSON.stringify(uniqueResults.map(p => p.name)));
+      return uniqueResults.slice(0, limit);
+    } catch (error) {
+      console.error('[ERROR] Error in getSimilarProducts:', error);
+      // Return empty array instead of throwing error to prevent 500 responses
       return [];
     }
-    console.log('[DEBUG] Current Product ID:', productId, 'Name:', currentProduct.name);
-    // console.log('[DEBUG] Current Product Data:', JSON.stringify(currentProduct)); // Có thể quá dài
-
-    // 2. Tạo điều kiện tìm kiếm dựa trên đặc điểm của sản phẩm
-    const searchConditions: any[] = [];
-    const nameKeywords = currentProduct.name.split(' ').filter(kw => kw.length > 2); // Lấy từ khóa từ tên sản phẩm, bỏ qua từ ngắn
-
-    // 2.0. Ưu tiên tìm sản phẩm có tên tương tự
-    if (nameKeywords.length > 0) {
-      const nameRegexes = nameKeywords.map(kw => new RegExp(kw, 'i'));
-      // Tìm sản phẩm chứa ÍT NHẤT MỘT trong các từ khóa tên
-      // Hoặc có thể yêu cầu chứa TẤT CẢ các từ khóa quan trọng (phức tạp hơn)
-      searchConditions.push({ name: { $in: nameRegexes } });
-    }
-
-    // 2.1. Tìm sản phẩm cùng danh mục
-    if (currentProduct.categoryIds && currentProduct.categoryIds.length > 0) {
-      searchConditions.push({
-        categoryIds: { $in: currentProduct.categoryIds },
-      });
-    }
-
-    // 2.2. Tìm sản phẩm cùng thương hiệu
-    if (currentProduct.brandId) {
-      searchConditions.push({
-        brandId: currentProduct.brandId,
-      });
-    }
-
-    // 2.3. Tìm sản phẩm có cùng tags
-    if (currentProduct.tags && currentProduct.tags.length > 0) {
-      searchConditions.push({
-        tags: { $in: currentProduct.tags },
-      });
-    }
-
-    // 2.4. Tìm sản phẩm có cùng loại da phù hợp
-    if (
-      currentProduct.cosmetic_info &&
-      currentProduct.cosmetic_info.skinType &&
-      currentProduct.cosmetic_info.skinType.length > 0
-    ) {
-      searchConditions.push({
-        'cosmetic_info.skinType': {
-          $in: currentProduct.cosmetic_info.skinType,
-        },
-      });
-    }
-
-    // 2.5. Tìm sản phẩm giải quyết cùng vấn đề da
-    if (
-      currentProduct.cosmetic_info &&
-      currentProduct.cosmetic_info.concerns &&
-      currentProduct.cosmetic_info.concerns.length > 0
-    ) {
-      searchConditions.push({
-        'cosmetic_info.concerns': {
-          $in: currentProduct.cosmetic_info.concerns,
-        },
-      });
-    }
-
-    // 3. Tìm kiếm sản phẩm tương tự, loại bỏ sản phẩm hiện tại
-    let similarProducts: Product[] = [];
-
-    if (searchConditions.length > 0) {
-      console.log(`[DEBUG] Product ID: ${productId} - Search Conditions for $or:`, JSON.stringify(searchConditions));
-      similarProducts = await this.productModel
-        .find({
-          _id: { $ne: productId },
-          $or: searchConditions,
-          status: 'active',
-        })
-        .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1 }) // Thêm isBestSeller vào sort
-        .limit(limit)
-        .exec();
-      console.log(`[DEBUG] Product ID: ${productId} - Initial similar products found: ${similarProducts.length} - Names:`, JSON.stringify(similarProducts.map(p => p.name)));
-    } else {
-      console.log(`[DEBUG] Product ID: ${productId} - No initial search conditions, proceeding to fallback.`);
-    }
-
-    // 4. Bổ sung kết quả nếu không đủ số lượng hoặc nếu không có điều kiện tìm kiếm ban đầu
-    if (similarProducts.length < limit) {
-      const existingIds = new Set([
-        productId,
-        ...similarProducts.map((p) => (p as any)._id?.toString()),
-      ]);
-
-      const fallbackQueryBase: any = {
-        _id: { $nin: Array.from(existingIds) },
-        status: 'active',
-      };
-
-      // 1. Ưu tiên bổ sung từ cùng danh mục (nếu có)
-      if (currentProduct.categoryIds && currentProduct.categoryIds.length > 0 && similarProducts.length < limit) {
-        const categoryFallback = await this.productModel
-          .find({ ...fallbackQueryBase, categoryIds: { $in: currentProduct.categoryIds } })
-          .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1, createdAt: -1 })
-          .limit(limit - similarProducts.length)
-          .exec();
-        categoryFallback.forEach(p => {
-          if (!existingIds.has((p as any)._id.toString())) {
-            similarProducts.push(p);
-            existingIds.add((p as any)._id.toString());
-          }
-        });
-      }
-
-      // 2. Nếu vẫn thiếu, thử bổ sung từ cùng thương hiệu (nếu có)
-      if (currentProduct.brandId && similarProducts.length < limit) {
-        const brandFallback = await this.productModel
-          .find({ ...fallbackQueryBase, brandId: currentProduct.brandId, _id: { $nin: Array.from(existingIds) } })
-          .sort({ 'reviews.averageRating': -1, 'flags.isBestSeller': -1, createdAt: -1 })
-          .limit(limit - similarProducts.length)
-          .exec();
-        brandFallback.forEach(p => {
-          if (!existingIds.has((p as any)._id.toString())) {
-            similarProducts.push(p);
-            existingIds.add((p as any)._id.toString());
-          }
-        });
-      }
-      
-      // 3. Nếu vẫn thiếu, lấy sản phẩm bán chạy/mới nhất chung (đã loại trừ các ID đã có)
-      if (similarProducts.length < limit) {
-        const generalFallback = await this.productModel
-          .find({ ...fallbackQueryBase, _id: { $nin: Array.from(existingIds) } })
-          .sort({ 'flags.isBestSeller': -1, 'reviews.averageRating': -1, createdAt: -1 })
-          .limit(limit - similarProducts.length)
-          .exec();
-        generalFallback.forEach(p => {
-          if (!existingIds.has((p as any)._id.toString())) {
-            similarProducts.push(p);
-            // existingIds.add((p as any)._id.toString()); // Không cần add nữa vì đây là bước cuối cùng
-          }
-        });
-      }
-    }
-    // Loại bỏ trùng lặp cuối cùng (nếu có từ các bước push) và giới hạn số lượng
-    const uniqueResults = Array.from(new Map(similarProducts.map(p => [(p as any)._id.toString(), p])).values());
-    console.log(`[DEBUG] Product ID: ${productId} - Final unique similar products count: ${uniqueResults.length} - Names:`, JSON.stringify(uniqueResults.map(p => p.name)));
-    return uniqueResults.slice(0, limit);
   }
 
   /**

@@ -105,14 +105,30 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
   const fetchSimilarProducts = useCallback(async (productId: string, limit = 20) => {
     setLoadingSimilar(true);
     try {
+      // Validate productId before making request
+      if (!productId || typeof productId !== 'string') {
+        console.warn('Invalid productId provided to fetchSimilarProducts:', productId);
+        setSimilarProducts([]);
+        return;
+      }
+
       // Sử dụng products controller endpoint thay vì recommendations
       const response = await axios.get<RecommendationResponse>(
         `/products/similar/${productId}?limit=${limit}`
       );
-      setSimilarProducts(response.data.products);
+
+      if (response.data && Array.isArray(response.data.products)) {
+        setSimilarProducts(response.data.products);
+      } else {
+        console.warn('Invalid response format for similar products:', response.data);
+        setSimilarProducts([]);
+      }
     } catch (error) {
       console.error('Lỗi khi lấy sản phẩm tương tự:', error);
       setSimilarProducts([]);
+
+      // Don't show error toast for similar products as it's not critical
+      // User can still browse other products
     } finally {
       setLoadingSimilar(false);
     }

@@ -163,40 +163,70 @@ export class ProductsController {
     @Query('limit') limit?: number,
     @Request() req?,
   ): Promise<LightProductResponseDto> {
-    this.logger.log(`Request received for similar products to: ${productId}`);
+    try {
+      this.logger.log(`Request received for similar products to: ${productId}`);
 
-    // Ghi lại hoạt động click vào sản phẩm nếu người dùng đã đăng nhập
-    if (req?.user?.userId) {
-      this.userActivityService.logProductClick(req.user.userId, productId);
+      // Validate productId
+      if (!productId || typeof productId !== 'string') {
+        this.logger.warn(`Invalid productId provided: ${productId}`);
+        return {
+          products: [],
+          total: 0,
+          page: 1,
+          limit: limit || 20,
+          totalPages: 0
+        };
+      }
+
+      // Ghi lại hoạt động click vào sản phẩm nếu người dùng đã đăng nhập
+      if (req?.user?.userId) {
+        try {
+          this.userActivityService.logProductClick(req.user.userId, productId);
+        } catch (error) {
+          // Log error but don't fail the request
+          this.logger.warn(`Failed to log product click: ${error.message}`);
+        }
+      }
+
+      const products = await this.recommendationsService.getSimilarProducts(
+        productId,
+        limit || 20,
+      );
+
+      // Format the response to match LightProductResponseDto
+      const formattedProducts = products.map(p => ({
+        _id: (p as any)._id?.toString(),
+        name: p.name,
+        slug: p.slug,
+        sku: p.sku,
+        price: p.price,
+        currentPrice: p.currentPrice || p.price,
+        imageUrl: p.images?.find(img => img.isPrimary)?.url || (p.images?.[0]?.url || ''),
+        brandId: p.brandId?.toString(),
+        flags: p.flags,
+        status: p.status,
+        reviews: p.reviews
+      }));
+
+      return {
+        products: formattedProducts as LightProductDto[],
+        total: formattedProducts.length,
+        page: 1,
+        limit: limit || 20,
+        totalPages: 1
+      };
+    } catch (error) {
+      this.logger.error(`Error getting similar products for ${productId}: ${error.message}`, error.stack);
+
+      // Return empty result instead of throwing error
+      return {
+        products: [],
+        total: 0,
+        page: 1,
+        limit: limit || 20,
+        totalPages: 0
+      };
     }
-
-    const products = await this.recommendationsService.getSimilarProducts(
-      productId,
-      limit || 20,
-    );
-
-    // Format the response to match LightProductResponseDto
-    const formattedProducts = products.map(p => ({
-      _id: (p as any)._id?.toString(),
-      name: p.name,
-      slug: p.slug,
-      sku: p.sku,
-      price: p.price,
-      currentPrice: p.currentPrice || p.price,
-      imageUrl: p.images?.find(img => img.isPrimary)?.url || (p.images?.[0]?.url || ''),
-      brandId: p.brandId?.toString(),
-      flags: p.flags,
-      status: p.status,
-      reviews: p.reviews
-    }));
-
-    return {
-      products: formattedProducts as LightProductDto[],
-      total: formattedProducts.length,
-      page: 1,
-      limit: limit || 20,
-      totalPages: 1
-    };
   }
 
   @Get('slug/:slug')

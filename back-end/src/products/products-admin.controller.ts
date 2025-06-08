@@ -375,7 +375,7 @@ export class ProductsAdminController {
 
       // Create image object
       const imageObj = {
-        url: result.url,
+        url: result.secureUrl,
         alt: image.originalname || 'Product image',
         publicId: result.publicId,
         isPrimary: isPrimary === true || isPrimary === 'true',

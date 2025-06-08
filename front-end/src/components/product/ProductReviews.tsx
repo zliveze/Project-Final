@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
 // FiClock removed as it's unused
 import { FiThumbsUp, FiChevronDown, FiChevronUp, FiUser, FiLoader, FiEdit, FiTrash2, FiX, FiArrowLeft, FiArrowRight } from 'react-icons/fi';
-import { io } from 'socket.io-client';
+
 import ReviewForm from './ReviewForm';
 import { useUserReview, Review as ReviewType, ReviewReply } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -187,143 +186,16 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({
     }
   }, [isAuthenticated]);
 
-  // Khởi tạo WebSocket connection để lắng nghe cập nhật đánh giá
+  // Tự động refresh đánh giá mỗi 30 giây để cập nhật trạng thái
   useEffect(() => {
     if (productId) {
-      // URL của WebSocket server, thường là URL gốc của backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
-      const wsUrl = apiUrl.replace(/\/api$/, ''); // Loại bỏ '/api' ở cuối URL nếu có
+      const interval = setInterval(() => {
+        fetchProductReviews(productId, 'approved');
+      }, 30000); // 30 giây
 
-      console.log('ProductReviews: Connecting to WebSocket at', wsUrl);
-
-      const newSocket = io(wsUrl, {
-        transports: ['websocket', 'polling']
-      });
-
-      // Define types for socket data
-      interface ReviewSocketUpdateData {
-        status?: string;
-        reviewId?: string;
-      }
-      interface ReviewSocketDeleteData {
-        reviewId?: string;
-      }
-
-      newSocket.on('connect', () => {
-        console.log('ProductReviews: WebSocket connected', newSocket.id);
-
-        // Lắng nghe sự kiện cập nhật đánh giá cho sản phẩm cụ thể này
-        newSocket.on(`product-${productId}-review-updated`, (data: ReviewSocketUpdateData) => {
-          console.log(`ProductReviews: Received product-${productId}-review-updated event`, data);
-
-          if (data.status && data.reviewId) {
-            // Cập nhật trạng thái đánh giá trong danh sách
-            if (data.status === 'approved') {
-              // Nếu đánh giá được phê duyệt, cập nhật danh sách đánh giá đã phê duyệt
-              fetchProductReviews(productId, 'approved');
-
-              // Hiển thị thông báo
-              toast.success('Một đánh giá mới đã được phê duyệt!', {
-                position: "bottom-right",
-                duration: 3000
-              });
-            } else if (data.status === 'rejected') {
-              // Nếu đánh giá bị từ chối, cập nhật danh sách đánh giá pending của người dùng hiện tại
-              if (currentUserId) {
-                setUserPendingReviews(prevPendingReviews =>
-                  prevPendingReviews.filter(review => review._id !== data.reviewId)
-                );
-
-                // Hiển thị thông báo nếu đánh giá bị từ chối thuộc về người dùng hiện tại
-                const rejectedReview = userPendingReviews.find(review => review._id === data.reviewId);
-                if (rejectedReview && rejectedReview.user?._id === currentUserId) {
-                  toast.error('Đánh giá của bạn đã bị từ chối.', {
-                    position: "bottom-right",
-                    duration: 3000
-                  });
-                }
-              }
-            }
-          }
-        });
-
-        // Lắng nghe sự kiện xóa đánh giá cho sản phẩm cụ thể này
-        newSocket.on(`product-${productId}-review-deleted`, (data: ReviewSocketDeleteData) => {
-          console.log(`ProductReviews: Received product-${productId}-review-deleted event`, data);
-
-          if (data.reviewId) {
-            // Cập nhật danh sách đánh giá
-            fetchProductReviews(productId, 'approved');
-
-            // Cập nhật danh sách đánh giá pending của người dùng hiện tại
-            if (currentUserId) {
-              setUserPendingReviews(prevPendingReviews =>
-                prevPendingReviews.filter(review => review._id !== data.reviewId)
-              );
-            }
-          }
-        });
-
-        // Lắng nghe sự kiện client-review-status-changed từ UserReviewContext
-        newSocket.on('client-review-status-changed', (data: ReviewSocketUpdateData) => {
-          console.log(`ProductReviews: Received client-review-status-changed event`, data);
-
-          if (data.reviewId && data.status) {
-            // Cập nhật trạng thái đánh giá trong danh sách userPendingReviews
-            if (currentUserId) {
-              setUserPendingReviews(prevPendingReviews => {
-                return prevPendingReviews.map(review => {
-                  if (review._id === data.reviewId) {
-                    // Cập nhật trạng thái đánh giá, nhưng giữ lại đánh giá trong danh sách
-                    const newStatus = (data.status === 'pending' || data.status === 'approved' || data.status === 'rejected') 
-                                      ? data.status 
-                                      : review.status; // Giữ lại status cũ nếu data.status không hợp lệ
-                    return { ...review, status: newStatus };
-                  }
-                  return review;
-                });
-              });
-
-              // Hiển thị thông báo phù hợp
-              if (data.status === 'rejected') {
-                toast.error('Đánh giá của bạn đã bị từ chối. Bạn có thể chỉnh sửa và gửi lại.', {
-                  position: "bottom-right",
-                  duration: 5000
-                });
-              } else if (data.status === 'approved') {
-                toast.success('Đánh giá của bạn đã được phê duyệt!', {
-                  position: "bottom-right",
-                  duration: 3000
-                });
-              }
-            }
-          }
-        });
-      });
-
-      newSocket.on('disconnect', () => {
-        console.log('ProductReviews: WebSocket disconnected');
-      });
-
-      newSocket.on('connect_error', (error) => {
-        console.error('ProductReviews: WebSocket connection error', error);
-      });
-
-      // Cleanup khi component unmount hoặc productId thay đổi
-      return () => {
-        console.log('ProductReviews: Cleaning up WebSocket connection');
-        if (newSocket) {
-          newSocket.off(`product-${productId}-review-updated`);
-          newSocket.off(`product-${productId}-review-deleted`);
-          newSocket.off('client-review-status-changed');
-          newSocket.off('connect');
-          newSocket.off('disconnect');
-          newSocket.off('connect_error');
-          newSocket.close();
-        }
-      };
+      return () => clearInterval(interval);
     }
-  }, [productId, fetchProductReviews, currentUserId, userPendingReviews]); // Added currentUserId and userPendingReviews to dependencies
+  }, [productId, fetchProductReviews]);
 
   const эффективныйApiUrl = process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.includes('localhost:3001')
                         ? process.env.NEXT_PUBLIC_API_URL

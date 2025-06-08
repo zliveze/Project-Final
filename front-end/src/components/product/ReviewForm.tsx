@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FiUpload, FiX, FiAlertCircle, FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import { io } from 'socket.io-client';
+
 import { useUserReview } from '@/contexts/user/UserReviewContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -19,13 +19,6 @@ interface ExistingImage {
   publicId?: string;
   // Add other properties if known, e.g., public_id, etc.
   [key: string]: unknown; // Allows for other properties not strictly defined
-}
-
-interface ReviewStatusChangeData {
-  reviewId: string;
-  status: 'pending' | 'approved' | 'rejected';
-  // Add other properties if known
-  [key: string]: unknown;
 }
 
 const ReviewForm: React.FC<ReviewFormProps> = ({
@@ -82,38 +75,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({
     loadExistingReview();
   }, [reviewId]);
 
-  // Lắng nghe sự kiện cập nhật trạng thái đánh giá từ WebSocket
+  // Tự động kiểm tra trạng thái đánh giá mỗi 30 giây
   useEffect(() => {
-    // Tạo hàm xử lý sự kiện client-review-status-changed
-    const handleReviewStatusChange = (data: ReviewStatusChangeData) => {
-      console.log('ReviewForm: Received client-review-status-changed event:', data);
-      if (data && data.reviewId === reviewId) {
-        setReviewStatus(data.status);
+    if (reviewId) {
+      const interval = setInterval(() => {
+        // Có thể thêm logic kiểm tra trạng thái đánh giá ở đây nếu cần
+        console.log('Checking review status for reviewId:', reviewId);
+      }, 30000); // 30 giây
 
-        // Hiển thị thông báo
-        if (data.status === 'approved') {
-          toast.success('Đánh giá của bạn đã được phê duyệt!', {
-            position: "bottom-right",
-            autoClose: 5000,
-          });
-        } else if (data.status === 'rejected') {
-          toast.error('Đánh giá của bạn đã bị từ chối.', {
-            position: "bottom-right",
-            autoClose: 5000,
-          });
-        }
-      }
-    };
-
-    // Đăng ký lắng nghe sự kiện từ socket
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app');
-    socket.on('client-review-status-changed', handleReviewStatusChange);
-
-    // Cleanup function
-    return () => {
-      socket.off('client-review-status-changed', handleReviewStatusChange);
-      socket.disconnect();
-    };
+      return () => clearInterval(interval);
+    }
   }, [reviewId]);
 
   // Xử lý khi chọn ảnh

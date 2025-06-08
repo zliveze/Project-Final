@@ -622,28 +622,15 @@ const ProductPage: React.FC<ProductPageProps> = ({
         </div>
 
         {/* Sản phẩm gợi ý */}
-        <div className="mb-10">
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-6 py-4">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                <svg className="w-5 h-5 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Sản phẩm tương tự
-              </h2>
-            </div>
-            <div className="p-6">
-              <RecommendedProducts
-                type="similar"
-                productId={product._id}
-                title="Sản phẩm tương tự"
-                seeMoreLink="/shop"
-                seeMoreText="Xem thêm sản phẩm"
-                limit={8}
-              />
-            </div>
-          </div>
-        </div>
+        <RecommendedProducts
+          type="similar"
+          productId={product._id}
+          title="Sản phẩm tương tự"
+          seeMoreLink="/shop"
+          seeMoreText="Xem thêm sản phẩm"
+          limit={8}
+          hideIfEmpty={true}
+        />
       </main>
 
       {/* Toast Container is now in DefaultLayout */}
