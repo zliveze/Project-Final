@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import adminRequest from '@/lib/axiosInstance';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 
 // Interface cho dữ liệu tiến trình trả về từ API
 export interface ImportTask {
@@ -33,6 +34,30 @@ export const useImportProgress = () => {
   const { accessToken: token } = useAdminAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sử dụng axios global đã có interceptor từ AdminAuthContext
+  const makeAdminRequest = useCallback(async (url: string) => {
+    // Kiểm tra nếu đã đăng xuất
+    if (sessionStorage.getItem('adminLoggedOut') === 'true') {
+      console.log('Admin đã đăng xuất, không thực hiện yêu cầu API');
+      throw new Error('Admin đã đăng xuất');
+    }
+
+    // Lấy admin token từ localStorage hoặc cookie
+    const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+
+    if (!adminToken) {
+      throw new Error('Không tìm thấy token admin');
+    }
+
+    // Sử dụng axios global với interceptor đã được cấu hình trong AdminAuthContext
+    return await axios.get<ImportTask>(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`,
+      },
+    });
+  }, []);
+
   // Debug logger
   const debugLog = useCallback((...args: unknown[]) => {
     if (DEBUG_MODE) {
@@ -52,8 +77,15 @@ export const useImportProgress = () => {
   // Hàm để bắt đầu polling
   const startPolling = useCallback(
     (taskId: string) => {
-      if (!taskId || !token) {
-        setError('Task ID hoặc token không hợp lệ.');
+      if (!taskId) {
+        setError('Task ID không hợp lệ.');
+        return;
+      }
+
+      // Kiểm tra admin token
+      const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+      if (!adminToken) {
+        setError('Không tìm thấy token admin. Vui lòng đăng nhập lại.');
         return;
       }
 
@@ -68,7 +100,7 @@ export const useImportProgress = () => {
       const poll = async () => {
         try {
           debugLog(`Polling... taskId: ${taskId}`);
-          const response = await adminRequest.get<ImportTask>(`/tasks/import/${taskId}`);
+          const response = await makeAdminRequest(`/tasks/import/${taskId}`);
           const updatedTask = response.data;
 
           debugLog('Nhận được dữ liệu tác vụ:', updatedTask);
@@ -96,7 +128,7 @@ export const useImportProgress = () => {
       // Sau đó bắt đầu polling định kỳ
       intervalRef.current = setInterval(poll, 2000); // Poll mỗi 2 giây
     },
-    [token, stopPolling, debugLog],
+    [stopPolling, debugLog, makeAdminRequest],
   );
 
   // Dọn dẹp khi component unmount
