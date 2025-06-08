@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
 // Hàm xóa admin token và user data
@@ -52,7 +52,7 @@ adminAxios.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
     
     // Kiểm tra nếu lỗi là do response và có mã trạng thái 401
     if (error.response && error.response.status === 401 && !originalRequest._retry) {

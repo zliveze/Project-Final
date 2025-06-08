@@ -31,7 +31,7 @@ export const useImportProgress = () => {
   const [task, setTask] = useState<ImportTask | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { accessToken: token } = useAdminAuth();
+  const { accessToken } = useAdminAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sử dụng axios global đã có interceptor từ AdminAuthContext
