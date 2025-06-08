@@ -3288,6 +3288,10 @@ export class ProductsService {
   }
 
   private async processImportFile(file: Express.Multer.File, branchId: string, taskId: string, userId: string): Promise<void> {
+    // 🔥 TIMEOUT PROTECTION: Đặt timeout cho toàn bộ quá trình import
+    const importStartTime = Date.now();
+    const MAX_IMPORT_TIME = 15 * 60 * 1000; // 15 phút cho file lớn
+
     try {
       this.logger.log(`[Task:${taskId}] Bắt đầu import sản phẩm từ file Excel cho người dùng ${userId}: ${file.originalname}`);
 
@@ -3381,8 +3385,16 @@ export class ProductsService {
 
       this.emitImportProgress(taskId, userId, 15, 'parsing', 'Đang chuẩn bị dữ liệu và tối ưu hóa...');
 
-      // 🚀 TỐI ƯU HÓA: Pre-load và cache dữ liệu
-      const { brandCache, categoryCache, existingProducts, existingSlugs } = await this.preloadDataForImport(productRows, taskId);
+      // 🚀 TỐI ƯU HÓA: Pre-load và cache dữ liệu với progress tracking
+      this.logger.log(`[Task:${taskId}] Bắt đầu preload dữ liệu cho ${productRows.length} sản phẩm`);
+      this.emitImportProgress(taskId, userId, 18, 'parsing', 'Đang tải dữ liệu thương hiệu và sản phẩm hiện có...');
+
+      const preloadStartTime = Date.now();
+      const { brandCache, categoryCache, existingProducts, existingSlugs } = await this.preloadDataForImport(productRows, taskId, userId);
+      const preloadDuration = Date.now() - preloadStartTime;
+
+      this.logger.log(`[Task:${taskId}] Preload hoàn thành trong ${preloadDuration}ms`);
+      this.emitImportProgress(taskId, userId, 25, 'parsing', 'Hoàn thành tối ưu hóa dữ liệu, bắt đầu xử lý sản phẩm...');
 
       // Kết quả xử lý
       const result = {
@@ -3400,40 +3412,75 @@ export class ProductsService {
 
       // 🚀 TỐI ƯU HÓA: Xử lý batch để giảm database operations
       const totalProducts = productRows.length;
-      const startProgress = 20;
-      const endProgress = 95;
+      const startProgress = 30; // Tăng từ 20% lên 30% vì preload đã hoàn thành ở 25%
+      const endProgress = 90;   // Giảm từ 95% xuống 90% để có thời gian finalize
       const progressRange = endProgress - startProgress;
+
+      // 🔥 BATCH PROCESSING: Xử lý theo lô để tối ưu cho file lớn
+      const BATCH_SIZE = totalProducts > 1000 ? 100 : 50; // Batch lớn hơn cho file lớn
+      const batches = [];
+      for (let i = 0; i < totalProducts; i += BATCH_SIZE) {
+        batches.push(productRows.slice(i, i + BATCH_SIZE));
+      }
+
+      this.logger.log(`[Task:${taskId}] Chia ${totalProducts} sản phẩm thành ${batches.length} batch (${BATCH_SIZE} sản phẩm/batch)`);
+
+      // 🔥 MEMORY MONITORING: Log memory usage cho file lớn
+      if (totalProducts > 5000) {
+        const memUsage = process.memoryUsage();
+        this.logger.log(`[Task:${taskId}] Memory usage: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB heap, ${Math.round(memUsage.rss / 1024 / 1024)}MB RSS`);
+      }
 
       // Batch arrays để bulk operations
       const newProductsToCreate: any[] = [];
       const productsToUpdate: any[] = [];
 
-      for (let i = 0; i < totalProducts; i++) {
+      // Xử lý từng batch
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        const batchStartIndex = batchIndex * BATCH_SIZE;
+
+        this.logger.log(`[Task:${taskId}] Xử lý batch ${batchIndex + 1}/${batches.length} (${batch.length} sản phẩm)`);
+
+        // 🔥 TIMEOUT CHECK: Kiểm tra timeout giữa các batch
+        const currentTime = Date.now();
+        if (currentTime - importStartTime > MAX_IMPORT_TIME) {
+          throw new Error(`Import timeout sau ${Math.round((currentTime - importStartTime) / 1000)}s. File quá lớn, vui lòng chia nhỏ file.`);
+        }
+
+        // 🔥 MEMORY MANAGEMENT: Thêm delay giữa các batch để tránh memory overflow
+        if (batchIndex > 0 && totalProducts > 5000) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay cho file lớn
+        }
+
+        for (let i = 0; i < batch.length; i++) {
+          const row = batch[i];
+          const globalIndex = batchStartIndex + i;
         const row = productRows[i];
 
         try {
           // Log dữ liệu dòng để debug khi cần thiết
-          if (i < 5 || i === totalProducts - 1) {
-            this.logger.log(`Dòng ${i + 2}: ${JSON.stringify(row)}`);
+          if (globalIndex < 5 || globalIndex === totalProducts - 1) {
+            this.logger.log(`Dòng ${globalIndex + 2}: ${JSON.stringify(row)}`);
           }
 
-          const currentProgress = Math.floor(startProgress + ((i + 1) / totalProducts) * progressRange);
+          const currentProgress = Math.floor(startProgress + ((globalIndex + 1) / totalProducts) * progressRange);
 
-          // Gửi progress update thông minh:
-          // - Luôn gửi cho sản phẩm đầu tiên và cuối cùng
-          // - Gửi mỗi 1% hoặc mỗi 10 sản phẩm (tùy theo số lượng ít hơn)
+          // Gửi progress update thông minh cho batch processing:
+          // - Luôn gửi cho sản phẩm đầu tiên và cuối cùng của mỗi batch
+          // - Gửi mỗi batch hoặc mỗi 1% (tùy theo số lượng ít hơn)
           const shouldSendProgress =
-            i === 0 || // Sản phẩm đầu tiên
-            i === totalProducts - 1 || // Sản phẩm cuối cùng
-            (i + 1) % Math.max(1, Math.min(10, Math.floor(totalProducts / 100))) === 0; // Mỗi 1% hoặc mỗi 10 sản phẩm
+            i === 0 || // Sản phẩm đầu tiên của batch
+            globalIndex === totalProducts - 1 || // Sản phẩm cuối cùng
+            (globalIndex + 1) % Math.max(BATCH_SIZE, Math.floor(totalProducts / 50)) === 0; // Mỗi batch hoặc mỗi 2%
 
           if (shouldSendProgress) {
-            this.emitImportProgress(taskId, userId, currentProgress, 'processing', `Đã xử lý ${i + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật)`);
+            this.emitImportProgress(taskId, userId, currentProgress, 'processing', `Đã xử lý ${globalIndex + 1}/${totalProducts} sản phẩm (${result.created} mới, ${result.updated} cập nhật) - Batch ${batchIndex + 1}/${batches.length}`);
           }
 
           // Kiểm tra dữ liệu tối thiểu cần có: Mã hàng (Cột C - index 2) và Tên hàng (Cột E - index 4)
           if (!row[2] || !row[4]) {
-            result.errors.push(`Sản phẩm dòng ${i + 2}: Thiếu Mã hàng hoặc Tên hàng.`);
+            result.errors.push(`Sản phẩm dòng ${globalIndex + 2}: Thiếu Mã hàng hoặc Tên hàng.`);
             continue;
           }
 
@@ -3458,12 +3505,12 @@ export class ProductsService {
           // Tạo slug từ tên sản phẩm
           let slug = this.generateSlug(name);
           if (!slug && sku) { // Nếu slug rỗng và có SKU, tạo slug từ SKU
-            this.logger.warn(`Tên sản phẩm "${name}" (dòng ${i + 2}) không tạo được slug, thử tạo từ SKU: ${sku}`);
+            this.logger.warn(`Tên sản phẩm "${name}" (dòng ${globalIndex + 2}) không tạo được slug, thử tạo từ SKU: ${sku}`);
             slug = this.generateSlug(sku);
           }
 
           if (!slug) { // Nếu vẫn không có slug (cả name và sku đều không tạo được slug)
-            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${sku}): Không thể tạo slug từ tên hoặc SKU.`);
+            result.errors.push(`Sản phẩm dòng ${globalIndex + 2} (SKU: ${sku}): Không thể tạo slug từ tên hoặc SKU.`);
             continue;
           }
 
@@ -3489,7 +3536,7 @@ export class ProductsService {
           if (brandName) {
             let brandDocument = brandCache.get(brandName);
             if (!brandDocument) {
-              this.logger.log(`Thương hiệu "${brandName}" (từ Excel dòng ${i + 2}) chưa tồn tại, tạo mới.`);
+              this.logger.log(`Thương hiệu "${brandName}" (từ Excel dòng ${globalIndex + 2}) chưa tồn tại, tạo mới.`);
               brandDocument = new this.brandModel({
                 name: brandName,
                 slug: this.generateSlug(brandName),
@@ -3503,23 +3550,23 @@ export class ProductsService {
             if (brandDocument && brandDocument._id) {
               productDto.brandId = brandDocument._id;
             } else {
-              this.logger.warn(`Không thể lấy/tạo ID cho thương hiệu "${brandName}" (dòng ${i + 2})`);
+              this.logger.warn(`Không thể lấy/tạo ID cho thương hiệu "${brandName}" (dòng ${globalIndex + 2})`);
             }
           }
 
           // Xử lý Nhóm hàng (Category) với hỗ trợ cấp độ phân cấp
           if (categoryName) {
             try {
-              const categoryResult = await this.processHierarchicalCategory(categoryName, i + 2);
+              const categoryResult = await this.processHierarchicalCategory(categoryName, globalIndex + 2);
               if (categoryResult.finalCategoryId) {
                 productDto.categoryIds = [categoryResult.finalCategoryId]; // Gán vào mảng
                 result.categoriesCreated += categoryResult.newCategoriesCount; // Cộng dồn số categories mới tạo
               } else {
-                this.logger.warn(`Không thể lấy/tạo ID cho danh mục "${categoryName}" (dòng ${i + 2})`);
+                this.logger.warn(`Không thể lấy/tạo ID cho danh mục "${categoryName}" (dòng ${globalIndex + 2})`);
               }
             } catch (error) {
-              this.logger.error(`Lỗi khi xử lý danh mục phân cấp "${categoryName}" (dòng ${i + 2}): ${error.message}`);
-              result.errors.push(`Dòng ${i + 2}: Lỗi xử lý danh mục "${categoryName}": ${error.message}`);
+              this.logger.error(`Lỗi khi xử lý danh mục phân cấp "${categoryName}" (dòng ${globalIndex + 2}): ${error.message}`);
+              result.errors.push(`Dòng ${globalIndex + 2}: Lỗi xử lý danh mục "${categoryName}": ${error.message}`);
             }
           }
 
@@ -3578,7 +3625,15 @@ export class ProductsService {
               else result.statusChanges.toActive++;
             }
 
-            await this.productModel.updateOne({ sku }, { $set: updateFields });
+            // 🔥 BULK OPERATION: Thêm vào batch update thay vì update ngay lập tức
+            if (totalProducts > 1000) {
+              productsToUpdate.push({
+                filter: { sku },
+                update: { $set: updateFields }
+              });
+            } else {
+              await this.productModel.updateOne({ sku }, { $set: updateFields });
+            }
             result.updated++;
           } else {
             this.logger.log(`Tạo sản phẩm mới với SKU: ${sku}`);
@@ -3593,25 +3648,84 @@ export class ProductsService {
             // Thêm slug mới vào cache
             existingSlugs.add(uniqueSlug);
 
-            const newProductInstance = new this.productModel(productDto);
-            await newProductInstance.save();
+            // 🔥 BULK OPERATION: Thêm vào batch create thay vì save ngay lập tức
+            if (totalProducts > 1000) {
+              newProductsToCreate.push(productDto);
+            } else {
+              const newProductInstance = new this.productModel(productDto);
+              await newProductInstance.save();
+            }
             result.created++;
           }
         } catch (error: any) {
           const currentSkuForRow = String(row[2] || 'N/A').trim();
-          this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`, error.stack);
+          this.logger.error(`Lỗi khi xử lý sản phẩm dòng ${globalIndex + 2} (SKU: ${currentSkuForRow}): ${error.message}`, error.stack);
           // Cung cấp thông báo lỗi chi tiết hơn
           if (error.code === 11000) { // Lỗi duplicate key
              const field = Object.keys(error.keyValue)[0];
-             result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): Lỗi trùng lặp giá trị cho trường '${field}'. Giá trị '${error.keyValue[field]}' đã tồn tại.`);
+             result.errors.push(`Sản phẩm dòng ${globalIndex + 2} (SKU: ${currentSkuForRow}): Lỗi trùng lặp giá trị cho trường '${field}'. Giá trị '${error.keyValue[field]}' đã tồn tại.`);
           } else if (error.name === 'ValidationError') {
             let validationErrors = '';
             for (const field in error.errors) {
               validationErrors += `${field}: ${error.errors[field].message}; `;
             }
-            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): Lỗi xác thực - ${validationErrors}`);
+            result.errors.push(`Sản phẩm dòng ${globalIndex + 2} (SKU: ${currentSkuForRow}): Lỗi xác thực - ${validationErrors}`);
           } else {
-            result.errors.push(`Sản phẩm dòng ${i + 2} (SKU: ${currentSkuForRow}): ${error.message}`);
+            result.errors.push(`Sản phẩm dòng ${globalIndex + 2} (SKU: ${currentSkuForRow}): ${error.message}`);
+          }
+        }
+        }
+
+        // 🔥 BATCH COMPLETION: Log tiến trình sau mỗi batch
+        this.logger.log(`[Task:${taskId}] Hoàn thành batch ${batchIndex + 1}/${batches.length}: ${result.created} tạo mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+      }
+
+      // 🔥 BULK OPERATIONS: Thực hiện bulk operations cho file lớn
+      if (totalProducts > 1000) {
+        this.emitImportProgress(taskId, userId, 85, 'finalizing', 'Đang thực hiện bulk operations...');
+
+        // Bulk create new products
+        if (newProductsToCreate.length > 0) {
+          this.logger.log(`[Task:${taskId}] Bulk creating ${newProductsToCreate.length} new products`);
+          try {
+            await this.productModel.insertMany(newProductsToCreate, { ordered: false });
+            this.logger.log(`[Task:${taskId}] Successfully bulk created ${newProductsToCreate.length} products`);
+          } catch (error) {
+            this.logger.error(`[Task:${taskId}] Bulk create error: ${error.message}`);
+            // Fallback to individual saves
+            for (const productDto of newProductsToCreate) {
+              try {
+                const newProductInstance = new this.productModel(productDto);
+                await newProductInstance.save();
+              } catch (saveError) {
+                result.errors.push(`Lỗi tạo sản phẩm SKU ${productDto.sku}: ${saveError.message}`);
+              }
+            }
+          }
+        }
+
+        // Bulk update existing products
+        if (productsToUpdate.length > 0) {
+          this.logger.log(`[Task:${taskId}] Bulk updating ${productsToUpdate.length} existing products`);
+          try {
+            const bulkOps = productsToUpdate.map(item => ({
+              updateOne: {
+                filter: item.filter,
+                update: item.update
+              }
+            }));
+            await this.productModel.bulkWrite(bulkOps, { ordered: false });
+            this.logger.log(`[Task:${taskId}] Successfully bulk updated ${productsToUpdate.length} products`);
+          } catch (error) {
+            this.logger.error(`[Task:${taskId}] Bulk update error: ${error.message}`);
+            // Fallback to individual updates
+            for (const item of productsToUpdate) {
+              try {
+                await this.productModel.updateOne(item.filter, item.update);
+              } catch (updateError) {
+                result.errors.push(`Lỗi cập nhật sản phẩm: ${updateError.message}`);
+              }
+            }
           }
         }
       }
@@ -3948,71 +4062,121 @@ export class ProductsService {
   /**
    * 🚀 TỐI ƯU HÓA: Pre-load dữ liệu để giảm database queries trong vòng lặp
    */
-  private async preloadDataForImport(productRows: any[], taskId: string) {
+  private async preloadDataForImport(productRows: any[], taskId: string, userId?: string) {
     this.logger.log(`[Task:${taskId}] 🚀 Bắt đầu pre-load dữ liệu để tối ưu hóa import...`);
 
-    // Extract unique brand names và category names từ Excel
-    const uniqueBrandNames = new Set<string>();
-    const uniqueCategoryPaths = new Set<string>();
-    const skusToCheck = new Set<string>();
+    try {
+      // Extract unique brand names và category names từ Excel
+      const uniqueBrandNames = new Set<string>();
+      const uniqueCategoryPaths = new Set<string>();
+      const skusToCheck = new Set<string>();
+      const productNamesToCheck = new Set<string>(); // Để tạo slugs
 
-    productRows.forEach((row, index) => {
-      const brandName = String(row[5] || '').trim();
-      const categoryName = String(row[1] || '').trim();
-      const sku = String(row[2] || '').trim();
+      productRows.forEach((row, index) => {
+        const brandName = String(row[5] || '').trim();
+        const categoryName = String(row[1] || '').trim();
+        const sku = String(row[2] || '').trim();
+        const productName = String(row[4] || '').trim(); // Tên sản phẩm để tạo slug
 
-      if (brandName) uniqueBrandNames.add(brandName);
-      if (categoryName) uniqueCategoryPaths.add(categoryName);
-      if (sku) skusToCheck.add(sku);
-    });
-
-    this.logger.log(`[Task:${taskId}] Pre-loading: ${uniqueBrandNames.size} brands, ${uniqueCategoryPaths.size} categories, ${skusToCheck.size} SKUs`);
-
-    // 1. Pre-load tất cả brands cần thiết
-    const brandCache = new Map<string, any>();
-    if (uniqueBrandNames.size > 0) {
-      const existingBrands = await this.brandModel.find({
-        name: { $in: Array.from(uniqueBrandNames) }
-      }).lean();
-
-      existingBrands.forEach(brand => {
-        brandCache.set(brand.name, brand);
+        if (brandName) uniqueBrandNames.add(brandName);
+        if (categoryName) uniqueCategoryPaths.add(categoryName);
+        if (sku) skusToCheck.add(sku);
+        if (productName) productNamesToCheck.add(productName);
       });
-      this.logger.log(`[Task:${taskId}] Cached ${existingBrands.length}/${uniqueBrandNames.size} existing brands`);
+
+      this.logger.log(`[Task:${taskId}] Pre-loading: ${uniqueBrandNames.size} brands, ${uniqueCategoryPaths.size} categories, ${skusToCheck.size} SKUs, ${productNamesToCheck.size} product names`);
+
+      // 1. Pre-load tất cả brands cần thiết
+      const brandCache = new Map<string, any>();
+      if (uniqueBrandNames.size > 0) {
+        this.logger.log(`[Task:${taskId}] Loading brands...`);
+        if (userId) this.emitImportProgress(taskId, userId, 19, 'parsing', 'Đang tải thông tin thương hiệu...');
+
+        const existingBrands = await Promise.race([
+          this.brandModel.find({
+            name: { $in: Array.from(uniqueBrandNames) }
+          }).lean(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Brand query timeout')), 10000))
+        ]) as any[];
+
+        existingBrands.forEach(brand => {
+          brandCache.set(brand.name, brand);
+        });
+        this.logger.log(`[Task:${taskId}] Cached ${existingBrands.length}/${uniqueBrandNames.size} existing brands`);
+      }
+
+      // 2. Pre-load existing products by SKU
+      const existingProducts = new Map<string, any>();
+      if (skusToCheck.size > 0) {
+        this.logger.log(`[Task:${taskId}] Loading existing products by SKU...`);
+        if (userId) this.emitImportProgress(taskId, userId, 21, 'parsing', 'Đang kiểm tra sản phẩm hiện có...');
+
+        const products = await Promise.race([
+          this.productModel.find({
+            sku: { $in: Array.from(skusToCheck) }
+          }).lean(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Product query timeout')), 15000))
+        ]) as any[];
+
+        products.forEach(product => {
+          existingProducts.set(product.sku, product);
+        });
+        this.logger.log(`[Task:${taskId}] Found ${products.length}/${skusToCheck.size} existing products`);
+      }
+
+      // 3. 🔧 TỐI ƯU HÓA: Chỉ pre-load slugs cần thiết thay vì tất cả
+      const existingSlugs = new Set<string>();
+      if (productNamesToCheck.size > 0) {
+        this.logger.log(`[Task:${taskId}] Generating and checking potential slugs...`);
+        if (userId) this.emitImportProgress(taskId, userId, 23, 'parsing', 'Đang kiểm tra slug sản phẩm...');
+
+        // Tạo danh sách các slug có thể từ tên sản phẩm
+        const potentialSlugs = Array.from(productNamesToCheck).map(name => this.generateSlug(name));
+
+        if (potentialSlugs.length > 0) {
+          // Chỉ query các slugs có thể trùng lặp
+          const existingSlugDocs = await Promise.race([
+            this.productModel.find({
+              slug: { $in: potentialSlugs }
+            }, { slug: 1 }).lean(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Slug query timeout')), 10000))
+          ]) as any[];
+
+          existingSlugDocs.forEach(product => {
+            if (product.slug) existingSlugs.add(product.slug);
+          });
+          this.logger.log(`[Task:${taskId}] Found ${existingSlugs.size} existing slugs from ${potentialSlugs.length} potential slugs`);
+        }
+      }
+
+      // 4. Category cache sẽ được xây dựng động trong quá trình xử lý
+      const categoryCache = new Map<string, any>();
+
+      this.logger.log(`[Task:${taskId}] ✅ Hoàn thành pre-load dữ liệu`);
+
+      return {
+        brandCache,
+        categoryCache,
+        existingProducts,
+        existingSlugs
+      };
+    } catch (error) {
+      this.logger.error(`[Task:${taskId}] ❌ Lỗi khi pre-load dữ liệu: ${error.message}`, error.stack);
+
+      // Emit progress để thông báo lỗi nhưng vẫn tiếp tục
+      if (userId) {
+        this.emitImportProgress(taskId, userId, 25, 'parsing', 'Lỗi tối ưu hóa, chuyển sang chế độ xử lý thông thường...');
+      }
+
+      // Trả về cache rỗng để tiếp tục import (sẽ chậm hơn nhưng vẫn hoạt động)
+      this.logger.warn(`[Task:${taskId}] ⚠️ Sử dụng cache rỗng, import sẽ chậm hơn nhưng vẫn tiếp tục`);
+      return {
+        brandCache: new Map<string, any>(),
+        categoryCache: new Map<string, any>(),
+        existingProducts: new Map<string, any>(),
+        existingSlugs: new Set<string>()
+      };
     }
-
-    // 2. Pre-load existing products by SKU
-    const existingProducts = new Map<string, any>();
-    if (skusToCheck.size > 0) {
-      const products = await this.productModel.find({
-        sku: { $in: Array.from(skusToCheck) }
-      }).lean();
-
-      products.forEach(product => {
-        existingProducts.set(product.sku, product);
-      });
-      this.logger.log(`[Task:${taskId}] Found ${products.length}/${skusToCheck.size} existing products`);
-    }
-
-    // 3. Pre-load existing slugs để tránh duplicate
-    const existingSlugs = new Set<string>();
-    const slugsResult = await this.productModel.find({}, { slug: 1 }).lean();
-    slugsResult.forEach(product => {
-      if (product.slug) existingSlugs.add(product.slug);
-    });
-    this.logger.log(`[Task:${taskId}] Cached ${existingSlugs.size} existing slugs`);
-
-    // 4. Category cache sẽ được xây dựng động trong quá trình xử lý
-    const categoryCache = new Map<string, any>();
-
-    this.logger.log(`[Task:${taskId}] ✅ Hoàn thành pre-load dữ liệu`);
-
-    return {
-      brandCache,
-      categoryCache,
-      existingProducts,
-      existingSlugs
-    };
   }
 
   private emitImportProgress(taskId: string, userId: string, progress: number, status: 'reading' | 'parsing' | 'processing' | 'finalizing' | 'completed' | 'failed', message: string, summary?: any) {
