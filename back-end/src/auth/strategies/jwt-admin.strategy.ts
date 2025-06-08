@@ -40,4 +40,4 @@ export class JwtAdminStrategy extends PassportStrategy(Strategy, 'jwt-admin') {
       role: payload.role,
     };
   }
-} 
+}

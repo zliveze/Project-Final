@@ -1,7 +1,7 @@
 import { Controller, Get, Param, NotFoundException, UseGuards } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAdminAuthGuard } from '../auth/guards/jwt-admin-auth.guard'; // Thay đổi guard
 
 @ApiTags('Tasks')
 @Controller('tasks')
@@ -9,7 +9,7 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get('import/:taskId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAdminAuthGuard) // Sử dụng guard của admin
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get import task status' })
   @ApiResponse({ status: 200, description: 'Task status retrieved successfully.' })

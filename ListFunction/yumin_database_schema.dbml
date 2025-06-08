@@ -1,0 +1,211 @@
+// =====================================================
+// YUMIN E-COMMERCE DATABASE SCHEMA (with Embedded Functions)
+// NOTE: This version is for dbdiagram.io and includes related backend functions in the notes.
+// =====================================================
+
+Table Users {
+  Id UNIQUEIDENTIFIER [pk]
+  Name NVARCHAR(255) [not null]
+  Email NVARCHAR(255) [not null, unique]
+  Phone NVARCHAR(20)
+  Role NVARCHAR(20) [default: 'user']
+  note: '''
+    **Related Functions (UsersService):**
+    - create(dto)
+    - findAll()
+    - findOne(id)
+    - findByEmail(email)
+    - update(id, dto)
+    - addAddress(userId, dto)
+    - updateAddress(userId, id, dto)
+    - removeAddress(userId, id)
+    - addToWishlist(userId, productId)
+    - removeFromWishlist(userId, productId)
+    
+    **Related Functions (AuthController):**
+    - login()
+    - register()
+    - getProfile()
+  '''
+}
+
+Table Addresses {
+  Id UNIQUEIDENTIFIER [pk]
+  UserId UNIQUEIDENTIFIER [not null]
+  AddressLine NVARCHAR(500) [not null]
+  IsDefault BIT [default: 0]
+}
+
+Table Brands {
+  Id UNIQUEIDENTIFIER [pk]
+  Name NVARCHAR(255) [not null, unique]
+  LogoUrl NVARCHAR(500) [not null]
+  note: '''
+    **Related Functions (BrandsService):**
+    - create()
+    - findAll()
+    - findOne()
+    - update()
+    - remove()
+  '''
+}
+
+Table Categories {
+  Id UNIQUEIDENTIFIER [pk]
+  Name NVARCHAR(255) [not null]
+  Slug NVARCHAR(255) [not null, unique]
+  ParentId UNIQUEIDENTIFIER
+  note: '''
+    **Related Functions (CategoriesService):**
+    - create()
+    - findAll()
+    - findOne()
+    - update()
+    - remove()
+  '''
+}
+
+Table Products {
+  Id UNIQUEIDENTIFIER [pk]
+  Name NVARCHAR(500) [not null]
+  Price DECIMAL(18,2) [not null]
+  BrandId UNIQUEIDENTIFIER [not null]
+  note: '''
+    **Related Functions (ProductsService):**
+    - create(dto)
+    - findAll(query)
+    - findOne(id)
+    - findBySlug(slug)
+    - update(id, dto)
+    - remove(id)
+    - updateInventory()
+    - addVariant()
+    - importProductsFromExcel()
+  '''
+}
+
+Table ProductCategories {
+  ProductId UNIQUEIDENTIFIER [not null]
+  CategoryId UNIQUEIDENTIFIER [not null]
+  indexes { (ProductId, CategoryId) [pk] }
+}
+
+Table ProductInventory {
+  Id UNIQUEIDENTIFIER [pk]
+  ProductId UNIQUEIDENTIFIER [not null]
+  BranchId UNIQUEIDENTIFIER [not null]
+  Quantity INT [not null, default: 0]
+}
+
+Table Carts {
+  Id UNIQUEIDENTIFIER [pk]
+  UserId UNIQUEIDENTIFIER [not null, unique]
+  note: '''
+    **Related Functions (CartsService):**
+    - getCartForUser(userId)
+    - addItemToCart(userId, dto)
+    - removeItemFromCart(userId, itemId)
+    - clearCart(userId)
+  '''
+}
+
+Table CartItems {
+  Id UNIQUEIDENTIFIER [pk]
+  CartId UNIQUEIDENTIFIER [not null]
+  ProductId UNIQUEIDENTIFIER [not null]
+  Quantity INT [not null, default: 1]
+}
+
+Table Orders {
+  Id UNIQUEIDENTIFIER [pk]
+  UserId UNIQUEIDENTIFIER [not null]
+  OrderNumber NVARCHAR(50) [not null, unique]
+  TotalPrice DECIMAL(18,2) [not null]
+  Status NVARCHAR(20) [default: 'pending']
+  note: '''
+    **Related Functions (OrdersService):**
+    - create(dto, userId)
+    - findAll(query)
+    - findUserOrders(userId, query)
+    - findOne(id)
+    - updateStatus(id, status)
+    - cancelOrder(id)
+  '''
+}
+
+Table OrderItems {
+  Id UNIQUEIDENTIFIER [pk]
+  OrderId UNIQUEIDENTIFIER [not null]
+  ProductId UNIQUEIDENTIFIER [not null]
+  Quantity INT [not null]
+  Price DECIMAL(18,2) [not null]
+}
+
+Table Vouchers {
+  Id UNIQUEIDENTIFIER [pk]
+  Code NVARCHAR(50) [not null, unique]
+  DiscountType NVARCHAR(20) [not null]
+  note: '''
+    **Related Functions (VouchersService):**
+    - create()
+    - findAll()
+    - applyVoucher(code)
+    - remove()
+  '''
+}
+
+Table Reviews {
+  Id UNIQUEIDENTIFIER [pk]
+  UserId UNIQUEIDENTIFIER [not null]
+  ProductId UNIQUEIDENTIFIER [not null]
+  Rating INT [not null]
+  Content NVARCHAR(MAX) [not null]
+  note: '''
+    **Related Functions (ReviewsService):**
+    - create(dto)
+    - getReviewsForProduct(productId)
+    - update(id, dto)
+    - remove(id)
+  '''
+}
+
+Table Banners {
+  Id UNIQUEIDENTIFIER [pk]
+  Title NVARCHAR(500) [not null]
+  Href NVARCHAR(500)
+  note: '''
+    **Related Functions (BannersService):**
+    - create()
+    - findAll()
+    - update()
+    - remove()
+  '''
+}
+
+Table Payments {
+  Id UNIQUEIDENTIFIER [pk]
+  OrderId UNIQUEIDENTIFIER
+  Amount DECIMAL(18,2) [not null]
+  Method NVARCHAR(20) [not null]
+  Status NVARCHAR(20) [not null, default: 'pending']
+  note: '''
+    **Related Functions (PaymentsService):**
+    - createPayment(dto)
+    - handleStripeWebhook(payload)
+    - handleMomoWebhook(payload)
+  '''
+}
+
+// RELATIONSHIPS
+Ref: Addresses.UserId > Users.Id
+Ref: Categories.ParentId > Categories.Id
+Ref: Products.BrandId > Brands.Id
+Ref: ProductInventory.ProductId > Products.Id
+Ref: Carts.UserId > Users.Id
+Ref: CartItems.CartId > Carts.Id
+Ref: CartItems.ProductId > Products.Id
+Ref: Orders.UserId > Users.Id
+Ref: OrderItems.OrderId > Orders.Id
+Ref: OrderItems.ProductId > Products.Id
+Ref: Reviews.UserId > Users.Id
+Ref: Reviews.ProductId > Products.Id
