@@ -83,6 +83,9 @@ adminAxios.interceptors.response.use(
           Cookies.set('adminToken', newToken, { expires: 0.042 }); // 60 phút
 
           // Cập nhật token trong request gốc và thử lại
+          if (!originalRequest.headers) {
+            originalRequest.headers = {};
+          }
           originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
           return adminAxios(originalRequest);
         }

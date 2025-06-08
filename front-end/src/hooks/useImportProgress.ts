@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
@@ -31,7 +30,6 @@ export const useImportProgress = () => {
   const [task, setTask] = useState<ImportTask | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { accessToken } = useAdminAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sử dụng axios global đã có interceptor từ AdminAuthContext
