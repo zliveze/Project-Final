@@ -4,9 +4,10 @@ import { useGSAP, gsapUtils } from '../../hooks/useGSAP';
 interface PageLoaderProps {
   onComplete?: () => void;
   duration?: number;
+  pageName?: string;
 }
 
-export default function PageLoader({ onComplete }: PageLoaderProps) {
+export default function PageLoader({ onComplete, pageName = 'trang mới' }: PageLoaderProps) {
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useGSAP(({ gsap }) => {
@@ -137,7 +138,7 @@ export default function PageLoader({ onComplete }: PageLoaderProps) {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Yumin Beauty
           </h1>
-          <p className="text-gray-600 text-sm">Đang tải trang chủ...</p>
+          <p className="text-gray-600 text-sm">Đang tải {pageName}...</p>
         </div>
 
         {/* Loading Dots */}
@@ -183,4 +184,4 @@ export default function PageLoader({ onComplete }: PageLoaderProps) {
       `}</style>
     </div>
   );
-} 
+}

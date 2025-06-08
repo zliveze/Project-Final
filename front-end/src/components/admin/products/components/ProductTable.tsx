@@ -82,11 +82,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
   return (
     <div className="bg-white shadow rounded-xl overflow-hidden border border-gray-100">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-100">
+      <div className="w-full">
+        <table className="w-full table-fixed divide-y divide-gray-100">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="pl-4 py-3.5 text-left">
+              <th scope="col" className="w-12 pl-4 py-3.5 text-left">
                 <div className="flex items-center">
                   <input
                     id="select-all"
@@ -98,28 +98,28 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   />
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/3 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Sản phẩm
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-40 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Danh mục
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-40 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thương hiệu
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-32 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Giá
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-24 px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Tồn kho
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-32 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Trạng thái
               </th>
-              <th scope="col" className="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-32 px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Nhãn
               </th>
-              <th scope="col" className="px-6 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-48 px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
@@ -184,7 +184,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
               products.map((product) => (
                 <React.Fragment key={product.id}>
                   <tr className={`hover:bg-gray-50 transition-colors duration-150 ${selectedProducts.includes(product.id) ? 'bg-pink-50' : ''}`}>
-                    <td className="pl-4 py-4 whitespace-nowrap">
+                    <td className="pl-4 py-4">
                       <div className="flex items-center">
                         <input
                           id={`select-product-${product.id}`}
@@ -196,7 +196,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                           {product.image ? (
@@ -213,19 +213,19 @@ const ProductTable: React.FC<ProductTableProps> = ({
                             </div>
                           )}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</div>
+                        <div className="ml-4 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 break-words">{product.name}</div>
                           <div className="text-xs text-gray-500 mt-0.5">{product.sku}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-md">{product.category}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <span className="text-sm text-gray-600">{product.brand}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-pink-600 font-medium">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.currentPrice)}
@@ -237,13 +237,13 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 text-center">
                       <span className="text-sm font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700">{product.stock || 0}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <ProductStatusBadge status={product.status as 'active' | 'out_of_stock' | 'discontinued'} />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-1">
                         {product.flags?.isBestSeller && <ProductFlagBadge type="bestSeller" small />}
                         {product.flags?.isNew && <ProductFlagBadge type="new" small />}
@@ -251,8 +251,8 @@ const ProductTable: React.FC<ProductTableProps> = ({
                         {product.flags?.hasGifts && <ProductFlagBadge type="gift" small />}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center space-x-1.5">
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-1">
                         <button
                           onClick={(e) => handleAction('view', product.id, e)}
                           className="p-1.5 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors duration-200"

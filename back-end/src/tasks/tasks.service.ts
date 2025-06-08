@@ -61,6 +61,10 @@ export class TasksService {
     return this.tasks.get(taskId) || null;
   }
 
+  getLogger(): Logger {
+    return this.logger;
+  }
+
   private cleanupOldTasks() {
     const now = new Date();
     const tasksToDelete: string[] = [];

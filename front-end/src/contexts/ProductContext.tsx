@@ -3,8 +3,7 @@ import { useProductAdmin } from '@/hooks/useProductAdmin';
 import { useApiStats } from '@/hooks/useApiStats';
 import { AdminProduct } from '@/hooks/useProductAdmin';
 import Cookies from 'js-cookie';
-import { ApiStatusAlert } from '@/components/common';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 // Tạo interface cho sản phẩm từ Admin API
 export interface Product {
@@ -1477,7 +1476,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!response.ok) {
         // Kiểm tra nếu sản phẩm đã có trong wishlist
         if (response.status === 409) {
-          toast.info('Sản phẩm đã có trong danh sách yêu thích của bạn');
+          toast('Sản phẩm đã có trong danh sách yêu thích của bạn');
           return true;
         }
 
@@ -1679,13 +1678,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <ProductContext.Provider value={value}>
       {children}
-      {apiHealthStatus === 'offline' && (
-        <ApiStatusAlert
-          status="offline"
-          onRetry={handleCheckApiHealth}
-          hasLoadedData={products && products.length > 0}
-        />
-      )}
     </ProductContext.Provider>
   );
 };

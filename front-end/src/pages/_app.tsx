@@ -9,8 +9,8 @@ import { AdminUserProvider } from '@/contexts/AdminUserContext'
 import { AdminUserReviewProvider } from '@/contexts/AdminUserReviewContext'
 import { useRouter } from 'next/router'
 import { NextPage } from 'next';
-import { ReactElement, ReactNode, useEffect } from 'react';
-import LoadingOverlay from '@/components/common/LoadingOverlay';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import PageLoader from '@/components/ui/PageLoader';
 
 // Định nghĩa các type mới để hỗ trợ getLayout
 export type NextPageWithLayout<P = object, IP = P> = NextPage<P, IP> & {
@@ -45,17 +45,41 @@ const AdminWrapper = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const getPageNameFromUrl = (url: string): string => {
+  const segment = url.split('/')[1] || 'trang chủ';
+  switch (segment) {
+    case 'shop':
+      return 'cửa hàng';
+    case 'product':
+      return 'sản phẩm';
+    case 'cart':
+      return 'giỏ hàng';
+    case 'checkout':
+      return 'thanh toán';
+    case 'profile':
+      return 'hồ sơ';
+    case 'auth':
+      return 'xác thực';
+    default:
+      return segment.replace(/-/g, ' ');
+  }
+};
+
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [pageName, setPageName] = useState('');
 
   // Xử lý loading state khi chuyển trang
   useEffect(() => {
-    const handleStart = () => {
-      document.body.classList.add('page-loading');
+    const handleStart = (url: string) => {
+      if (url !== router.asPath) {
+        setPageName(getPageNameFromUrl(url));
+        setLoading(true);
+      }
     };
-
     const handleComplete = () => {
-      document.body.classList.remove('page-loading');
+      // Không setLoading(false) ở đây vì PageLoader sẽ tự xử lý
     };
 
     router.events.on('routeChangeStart', handleStart);
@@ -82,8 +106,8 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
       <AdminAuthProvider>
         <AppProviders>
           <AdminWrapper>
+            {loading && <PageLoader pageName={pageName} onComplete={() => setLoading(false)} />}
             {getLayout(<Component {...pageProps} />)}
-            <LoadingOverlay />
           </AdminWrapper>
         </AppProviders>
         <Toaster position="top-right" />

@@ -104,6 +104,7 @@ function AdminProducts({
 
   // State để theo dõi sản phẩm đang mở rộng chi tiết
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [isApiOffline, setIsApiOffline] = useState(false);
 
   // Hàm toggle chi tiết sản phẩm
   const toggleProductDetails = (id: string) => {
@@ -131,21 +132,6 @@ function AdminProducts({
 
   // Cờ điều khiển việc hiển thị debug logs - đặt ở cấp độ component để dùng chung
   const DEBUG_MODE = false;
-
-  // Define proper types to replace 'any'
-  interface Product {
-    id: string;
-    name: string;
-    price: number;
-    originalPrice?: number; // Added optional property
-    brand?: { id: string; name: string } | string; // Added optional property
-    // image property already exists and is compatible
-    image?: string | { url: string; alt?: string; [key: string]: unknown };
-    stock?: number; // Added optional property
-    status: ProductStatus;
-    sku?: string;
-    [key: string]: unknown;
-  }
 
   // Hàm debug có điều kiện - wrapped in useCallback to prevent useEffect dependency changes
   const debugLog = useCallback((message: string, data?: unknown) => {
@@ -178,7 +164,7 @@ function AdminProducts({
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [showProductDetailModal, setShowProductDetailModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<AdminProduct | null>(null);
 
   // Lấy dữ liệu danh mục từ mock data (tạm thời)
   const categories = getCategories();
@@ -205,31 +191,49 @@ function AdminProducts({
   useEffect(() => {
     const adminToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
     let intervalId: NodeJS.Timeout | null = null;
+    const toastId = 'api-status-toast';
 
     if (adminToken) {
-      // Initial check on mount (optional, SSR handles initial load)
-      // checkApiHealth();
+      const performCheck = () => {
+        const currentToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
+        if (!currentToken) {
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+
+        checkApiHealth().then(isOnline => {
+          if (!isOnline) {
+            if (!isApiOffline) { // Only show toast if status changes from online to offline
+              toast.error('Mất kết nối đến server API. Một số chức năng có thể không hoạt động.', {
+                id: toastId,
+                duration: Infinity, // Keep toast until connection is back
+              });
+              setIsApiOffline(true);
+            }
+          } else {
+            if (isApiOffline) { // Only show toast if status changes from offline to online
+              toast.success('Kết nối API đã được khôi phục.', {
+                id: toastId, // This will dismiss the error toast and show a success one
+                duration: 4000,
+              });
+              setIsApiOffline(false);
+            }
+          }
+        });
+      };
+
+      // Initial check on mount
+      performCheck();
 
       // Periodic health check
-      intervalId = setInterval(() => {
-        const currentToken = localStorage.getItem('adminToken') || Cookies.get('adminToken');
-        if (currentToken) {
-          checkApiHealth().then(isOnline => {
-            const toastId = 'api-offline-toast'; // Define the toast ID
-            if (!isOnline) { // Remove the !toast.isActive check
-               toast.error('Mất kết nối đến server API.', { id: toastId, duration: 5000 });
-            }
-          });
-        } else {
-          if (intervalId) clearInterval(intervalId);
-        }
-      }, 300000); // Check every 5 minutes
+      intervalId = setInterval(performCheck, 300000); // Check every 5 minutes
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+      toast.dismiss(toastId); // Clean up toast on component unmount
     };
-  }, [checkApiHealth]); // Dependency on checkApiHealth
+  }, [checkApiHealth, isApiOffline]); // Dependency on checkApiHealth and isApiOffline
 
   // Display SSR error if present
   useEffect(() => {
@@ -240,161 +244,39 @@ function AdminProducts({
 
 
   const handleEdit = async (id: string): Promise<boolean> => {
-    try {
-      debugLog('Đang mở modal sửa sản phẩm với ID:', id);
+    debugLog('Opening edit modal for product ID:', id);
+    const product = products.find(p => p.id === id);
 
-      // Hiển thị toast loading trước
-      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
-
-      try {
-        // Thay vì lấy từ danh sách, gọi API để lấy thông tin chi tiết sản phẩm
-        // Sửa đường dẫn API - loại bỏ /api phía trước vì đó là routing của Next.js
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch product details: ${response.status}`);
-        }
-
-        const rawProductDetails: AdminProduct = await response.json();
-
-        // Ngừng hiển thị toast loading
-        toast.dismiss(loadingToast);
-        debugLog('Đã tải thông tin chi tiết sản phẩm:', rawProductDetails);
-
-        // Cập nhật dữ liệu và hiển thị modal
-        const productForState: Product = {
-          ...rawProductDetails,
-          price: typeof rawProductDetails.price === 'string' ? parseFloat(rawProductDetails.price) : Number(rawProductDetails.price),
-          status: rawProductDetails.status as ProductStatus, // Explicitly cast status
-        };
-        setSelectedProduct(productForState);
-        setShowEditProductModal(true);
-
-        toast.success(`Đang sửa sản phẩm: ${productForState.name}`, {
-          duration: 2000,
-          icon: <FiEdit className="text-blue-500" />
-        });
-
-        return true;
-      } catch (fetchError) {
-        console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
-
-        // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
-        const productInList = products.find(p => p.id === id);
-
-        if (!productInList) {
-          toast.dismiss(loadingToast);
-          toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-          return false;
-        }
-
-        // Ngừng hiển thị toast loading
-        toast.dismiss(loadingToast);
-        debugLog('Không thể tải chi tiết, sử dụng sản phẩm từ danh sách:', productInList);
-
-        // Cập nhật dữ liệu và hiển thị modal
-        const productToSetFromListEdit: Product = {
-          ...productInList,
-          price: typeof productInList.price === 'string' ? parseFloat(productInList.price) : Number(productInList.price),
-          status: productInList.status as ProductStatus, // Explicitly cast status
-        };
-        setSelectedProduct(productToSetFromListEdit);
-        setShowEditProductModal(true);
-
-        toast.success(`Đang sửa sản phẩm: ${productToSetFromListEdit.name}`, {
-          duration: 2000,
-          icon: <FiEdit className="text-blue-500" />
-        });
-
-        return true;
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Không tìm thấy thông tin sản phẩm: ${errorMessage}`, {
-        duration: 3000
+    if (product) {
+      setSelectedProduct(product);
+      setShowEditProductModal(true);
+      toast.success(`Đang sửa sản phẩm: ${product.name}`, {
+        duration: 2000,
+        icon: <FiEdit className="text-blue-500" />,
       });
-      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return true;
+    } else {
+      toast.error('Không tìm thấy thông tin sản phẩm trong danh sách hiện tại!', { duration: 3000 });
+      console.error('Could not find product with ID:', id);
       return false;
     }
   };
 
   const handleView = async (id: string): Promise<boolean> => {
-    try {
-      // Lấy thông tin sản phẩm
-      debugLog('Đang mở modal xem sản phẩm với ID:', id);
+    debugLog('Opening view modal for product ID:', id);
+    const product = products.find(p => p.id === id);
 
-      const loadingToast = toast.loading('Đang tải thông tin sản phẩm...');
-
-      try {
-        // Thử lấy dữ liệu chi tiết từ API trước
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`API responded with status: ${response.status}`);
-        }
-
-        const productDetails: AdminProduct = await response.json();
-
-        toast.dismiss(loadingToast);
-        debugLog('Đã tải thông tin chi tiết sản phẩm:', productDetails);
-
-        const productForStateView: Product = {
-          ...productDetails,
-          price: typeof productDetails.price === 'string' ? parseFloat(productDetails.price) : Number(productDetails.price),
-          status: productDetails.status as ProductStatus, // Explicitly cast status
-        };
-        setSelectedProduct(productForStateView);
-        setShowProductDetailModal(true);
-        toast.success(`Đang xem sản phẩm: ${productForStateView.name}`, {
-          duration: 2000,
-          icon: <FiEye className="text-gray-500" />
-        });
-
-        return true;
-      } catch (fetchError) {
-        console.error('Lỗi khi tải thông tin chi tiết sản phẩm:', fetchError);
-
-        // Nếu không lấy được từ API, thử tìm từ danh sách hiện tại
-        const productInList = products.find(p => p.id === id);
-
-        if (!productInList) {
-          toast.dismiss(loadingToast);
-          toast.error('Không tìm thấy thông tin sản phẩm!', { duration: 3000 });
-          return false;
-        }
-
-        toast.dismiss(loadingToast);
-        debugLog('Sử dụng sản phẩm từ danh sách:', productInList);
-
-        const productToSetFromListView: Product = {
-          ...productInList,
-          price: typeof productInList.price === 'string' ? parseFloat(productInList.price) : Number(productInList.price),
-          status: productInList.status as ProductStatus, // Explicitly cast status
-        };
-        setSelectedProduct(productToSetFromListView);
-        setShowProductDetailModal(true);
-        toast.success(`Đang xem sản phẩm: ${productToSetFromListView.name}`, {
-          duration: 2000,
-          icon: <FiEye className="text-gray-500" />
-        });
-      }
-
-      return true;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Không tìm thấy thông tin sản phẩm: ${errorMessage}`, {
-        duration: 3000
+    if (product) {
+      setSelectedProduct(product);
+      setShowProductDetailModal(true);
+      toast.success(`Đang xem sản phẩm: ${product.name}`, {
+        duration: 2000,
+        icon: <FiEye className="text-gray-500" />,
       });
-      console.error('Không tìm thấy sản phẩm với ID:', id, error);
+      return true;
+    } else {
+      toast.error('Không tìm thấy thông tin sản phẩm trong danh sách hiện tại!', { duration: 3000 });
+      console.error('Could not find product with ID:', id);
       return false;
     }
   };
@@ -404,12 +286,7 @@ function AdminProducts({
     const product = products.find(p => p.id === id);
 
     if (product) {
-      const productToSetDelete: Product = {
-        ...product,
-        price: typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price),
-        status: product.status as ProductStatus, // Explicitly cast status
-      };
-      setSelectedProduct(productToSetDelete);
+      setSelectedProduct(product);
       setProductToDelete(id); // Thiết lập ID sản phẩm cần xóa
       setShowDeleteModal(true);
     } else {
@@ -885,25 +762,14 @@ function AdminProducts({
         try {
           debugLog(`Fetching final product data for ID: ${createdProduct.id} after image uploads.`);
           // Assuming fetchProductById exists in the scope or context
-          const finalProduct = await fetchProductById(createdProduct.id);
-          debugLog('Fetched final product data:', finalProduct);
+          await fetchProductById(createdProduct.id);
+          debugLog('Fetched final product data.');
         } catch (fetchError: unknown) {
           const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
           console.error(`Failed to fetch final product data after upload: ${errorMessage}`);
           // Proceed with the product data we have, but log the error
         }
       }
-
-
-      // Thông báo thành công chung
-      toast.dismiss(loadingToast);
-      toast.success('Thêm sản phẩm mới thành công!', {
-        duration: 3000,
-        icon: <FiCheck className="text-green-500" />
-      });
-
-      // Đóng modal
-      setShowAddProductModal(false);
 
       // Refresh the product list
       fetchProducts();
@@ -1257,18 +1123,18 @@ function AdminProducts({
         <Toaster position="top-right" />
 
         {/* Phần thanh công cụ và nút thêm sản phẩm */}
-        <div className="flex justify-between items-center">
-            <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <button
               onClick={handleOpenExportModal}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <FiDownload className="mr-2" />
               Xuất Excel
             </button>
             <button
               onClick={handleImportClick}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <FiUpload className="mr-2" />
               Nhập Excel
@@ -1276,7 +1142,7 @@ function AdminProducts({
           </div>
           <button
             onClick={handleAddProduct}
-            className="flex items-center px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="flex items-center justify-center px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500"
           >
             <FiPlus className="mr-2" />
             Thêm sản phẩm
@@ -1352,7 +1218,7 @@ function AdminProducts({
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             {/* Updated Delete Confirmation Modal */}
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
               {/* Header */}
               <div className="flex justify-between items-center px-6 py-4 bg-white border-b border-gray-200">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -1387,29 +1253,22 @@ function AdminProducts({
                 {selectedProduct && (
                   <div className="mt-5 p-4 border border-gray-200 rounded-md bg-gray-50">
                     <div className="flex items-start space-x-4">
-                      {(() => {
-                        const image = selectedProduct.image;
-                        const imageUrl = typeof image === 'string' ? image : image?.url;
-                        if (imageUrl) {
-                          return (
-                            <Image
-                              src={imageUrl}
-                              alt={selectedProduct.name || 'Product image'}
-                              width={64}
-                              height={64}
-                              className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
-                            />
-                          );
-                        }
-                        return null;
-                      })()}
+                      {selectedProduct.image && (
+                        <Image
+                          src={selectedProduct.image}
+                          alt={selectedProduct.name || 'Product image'}
+                          width={64}
+                          height={64}
+                          className="h-16 w-16 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">{selectedProduct.name}</p>
                         <p className="text-xs text-gray-500 mt-1">SKU: {selectedProduct.sku || 'N/A'}</p>
                         {/* Add other relevant details if needed and available */}
                         {/* <p className="text-xs text-gray-500 mt-1">Tạo lúc: {selectedProduct.createdAt ? new Date(selectedProduct.createdAt).toLocaleString('vi-VN') : 'N/A'}</p> */}
                         <div className="mt-2">
-                          <ProductStatusBadge status={selectedProduct.status} />
+                          <ProductStatusBadge status={selectedProduct.status as ProductStatus} />
                         </div>
                       </div>
                     </div>
@@ -1466,7 +1325,7 @@ function AdminProducts({
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
@@ -1586,7 +1445,7 @@ function AdminProducts({
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -1603,7 +1462,7 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
+                    initialData={undefined}
                     onSubmit={handleSaveNewProduct}
                     onCancel={() => setShowAddProductModal(false)}
                   />
@@ -1624,7 +1483,7 @@ function AdminProducts({
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -1641,7 +1500,11 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
+                    initialData={selectedProduct ? {
+                      ...selectedProduct,
+                      price: Number(selectedProduct.price || selectedProduct.originalPrice || 0),
+                      images: selectedProduct.image ? [{ url: selectedProduct.image, isPrimary: true }] : [],
+                    } as Partial<ProductFormData> : undefined}
                     onSubmit={handleUpdateProduct}
                     onCancel={() => setShowEditProductModal(false)}
                   />
@@ -1662,7 +1525,7 @@ function AdminProducts({
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-7xl w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -1679,7 +1542,11 @@ function AdminProducts({
 
                 <div className="mt-2 max-h-[80vh] overflow-y-auto">
                   <ProductForm
-                    initialData={selectedProduct ? (selectedProduct as Partial<ProductFormData>) : undefined}
+                    initialData={selectedProduct ? {
+                      ...selectedProduct,
+                      price: Number(selectedProduct.price || selectedProduct.originalPrice || 0),
+                      images: selectedProduct.image ? [{ url: selectedProduct.image, isPrimary: true }] : [],
+                    } as Partial<ProductFormData> : undefined}
                     onSubmit={async () => {}} // Use dummy async function for view mode
                     onCancel={() => setShowProductDetailModal(false)}
                     isViewMode={true}
@@ -1738,7 +1605,7 @@ function AdminProducts({
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                   Chọn chi nhánh để xuất Excel

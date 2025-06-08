@@ -28,6 +28,7 @@ import { ChatbotModule } from './chatbot/chatbot.module'; // Import ChatbotModul
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UserActivityInterceptor } from './recommendations/interceptors/user-activity.interceptor';
 import { TasksModule } from './tasks/tasks.module';
+import { QueueModule } from './queues/queue.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { TasksModule } from './tasks/tasks.module';
     RecommendationsModule, // Add RecommendationsModule here
     ChatbotModule, // Add ChatbotModule here
     TasksModule, // Add TasksModule for background task management
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [

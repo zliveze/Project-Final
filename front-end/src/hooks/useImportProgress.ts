@@ -47,8 +47,11 @@ export const useImportProgress = () => {
       throw new Error('Không tìm thấy token admin');
     }
 
+    // Đảm bảo URL không bị lặp lại dấu gạch chéo
+    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+
     // Sử dụng axios global với interceptor đã được cấu hình trong AdminAuthContext
-    return await axios.get<ImportTask>(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
+    return await axios.get<ImportTask>(apiUrl, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${adminToken}`,
@@ -98,6 +101,7 @@ export const useImportProgress = () => {
       const poll = async () => {
         try {
           debugLog(`Polling... taskId: ${taskId}`);
+          // URL tương đối, không bao gồm /api vì nó đã có trong NEXT_PUBLIC_API_URL
           const response = await makeAdminRequest(`/tasks/import/${taskId}`);
           const updatedTask = response.data;
 

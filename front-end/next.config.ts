@@ -12,9 +12,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'media.hcdn.vn',
+        hostname: 'res.cloudinary.com',
         port: '',
-        pathname: '/catalog/product/**',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
       },
       {
         protocol: 'https',
