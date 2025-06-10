@@ -65,6 +65,9 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
       loadChatHistory();
     }
   }, [state.isOpen, state.currentSession, loadChatHistory]);
+  
+  // Hiển thị lỗi ngay cả khi không có session
+  const chatError = state.currentSession?.error || null;
 
   // Handle animation when opening/closing
   useEffect(() => {
@@ -75,11 +78,20 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     }
   }, [state.isOpen]);
 
+  // Đảm bảo có session khi mở chatbot
+  useEffect(() => {
+    if (state.isOpen && state.isInitialized && !state.currentSession) {
+      // Kiểm tra xem user đã đăng nhập chưa
+      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (userString) {
+        createNewSession();
+      }
+    }
+  }, [state.isOpen, state.isInitialized, state.currentSession, createNewSession]);
+
   const handleSendMessage = async (message: string) => {
     await sendMessage(message);
   };
-
-
 
   const handleMinimize = () => {
     setIsMinimized(!isMinimized);
@@ -177,13 +189,13 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
 
   const renderError = () => (
     <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg m-3 animate-shake">
-      <div className="flex items-center">
-        <AlertCircle className="w-4 h-4 text-red-500 mr-2 animate-pulse" />
-        <span className="text-sm text-red-700">{state.currentSession?.error}</span>
+      <div className="flex items-center flex-1">
+        <AlertCircle className="w-4 h-4 text-red-500 mr-2 animate-pulse flex-shrink-0" />
+        <span className="text-sm text-red-700 break-words">{state.currentSession?.error || chatError}</span>
       </div>
       <button
         onClick={clearError}
-        className="text-red-500 hover:text-red-700 transition-colors hover:scale-110"
+        className="text-red-500 hover:text-red-700 transition-colors hover:scale-110 ml-2 flex-shrink-0"
       >
         <X className="w-4 h-4" />
       </button>
@@ -288,7 +300,19 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
               className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50"
               style={{ height: 'calc(100% - 140px)' }}
             >
-              {state.currentSession?.error && renderError()}
+              {(state.currentSession?.error || chatError) && renderError()}
+
+              {/* Hiển thị thông báo đăng nhập nếu chưa đăng nhập */}
+              {!localStorage.getItem('user') && !sessionStorage.getItem('user') && (
+                <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg m-3">
+                  <div className="flex items-center flex-1">
+                    <AlertCircle className="w-4 h-4 text-yellow-500 mr-2 flex-shrink-0" />
+                    <span className="text-sm text-yellow-700 break-words">
+                      Bạn cần đăng nhập để sử dụng chatbot
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Chat Status Indicator */}
               {state.currentSession && state.currentSession.messages.length > 0 && (
@@ -330,7 +354,16 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
             </div>
 
             {/* Input Container */}
-            <div className="border-t border-gray-200 p-3 bg-white rounded-b-2xl">
+            <div 
+              className="border-t border-gray-200 p-3 bg-white rounded-b-2xl"
+              onClick={() => {
+                // Focus vào input khi click vào container
+                const inputElement = document.querySelector('.chatbot-textarea');
+                if (inputElement instanceof HTMLTextAreaElement) {
+                  inputElement.focus();
+                }
+              }}
+            >
               <ChatInput
                 onSendMessage={handleSendMessage}
                 disabled={state.currentSession?.isLoading || state.currentSession?.isTyping}

@@ -54,7 +54,7 @@ const EventSkeleton = () => {
         </div>
       </div>
       <div className="p-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
           {[...Array(5)].map((_, index) => (
             <div key={index} className="bg-gray-200 aspect-square rounded-xl animate-pulse"></div>
           ))}
@@ -69,7 +69,7 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
   const eventRef = useRef<HTMLDivElement>(null);
 
   const remainingTime = calculateRemainingTime(event.endDate);
-  const eventProducts = event.products.slice(0, 10); // Giới hạn 10 sản phẩm
+  const eventProducts = event.products.slice(0, 12); // Giới hạn 12 sản phẩm
 
   // Event color themes for variety
   const getEventTheme = (index: number) => {
@@ -230,7 +230,7 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
       {/* Products Container - Sử dụng ProductCardEvent */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow duration-300">
         <div className="p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
             {eventProducts.map((product) => {
               // Tính discount percentage is handled in EventProductCard
 
@@ -246,11 +246,11 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
           </div>
 
           {/* View More Products */}
-          {event.products.length > 10 && (
+          {event.products.length > 12 && (
             <div className="flex justify-center mt-6">
               <Link href={`/shop?eventId=${event._id}`}>
                 <button className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-rose-300 hover:text-rose-600 transition-all">
-                  Xem thêm {event.products.length - 10} sản phẩm
+                  Xem thêm {event.products.length - 12} sản phẩm
                   <FiArrowRight className="w-4 h-4" />
                 </button>
               </Link>
@@ -553,7 +553,7 @@ export default function EventsSection() {
   if (isLoading) {
     return (
       <section className="py-10">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
           <div className="space-y-8">
             {[...Array(2)].map((_, index) => (
               <EventSkeleton key={index} />
@@ -576,7 +576,7 @@ export default function EventsSection() {
 
   return (
     <section className="py-10 events-section" ref={sectionRef}>
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         
         {/* Events List - Each event with its own header */}
         <div className="space-y-8">

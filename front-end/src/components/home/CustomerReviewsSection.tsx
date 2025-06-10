@@ -78,7 +78,7 @@ const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-lg p-6 hover:shadow-sm transition-shadow">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="relative w-8 h-8 flex-shrink-0">
@@ -104,7 +104,7 @@ const ReviewCard: React.FC<{ review: CustomerReview }> = ({ review }) => {
       </div>
 
       {/* Content */}
-      <p className="text-gray-700 text-sm leading-relaxed mb-3 line-clamp-3">
+      <p className="text-gray-700 text-base leading-relaxed mb-4 line-clamp-3">
         &ldquo;{review.content}&rdquo;
       </p>
 
@@ -218,7 +218,7 @@ const CustomerReviewsSection: React.FC = () => {
 
   return (
     <section className="py-12 bg-gray-50">
-      <div className="container mx-auto px-4">
+      <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         {/* Minimal header */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">

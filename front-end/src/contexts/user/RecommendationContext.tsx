@@ -83,7 +83,7 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
   const [loadingRecommended, setLoadingRecommended] = useState<boolean>(false);
 
   // Memoize fetch functions để tránh re-render
-  const fetchPersonalizedProducts = useCallback(async (limit = 20) => {
+  const fetchPersonalizedProducts = useCallback(async (limit = 18) => {
     if (!isAuthenticated) {
       return;
     }
@@ -102,7 +102,7 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
     }
   }, [isAuthenticated]);
 
-  const fetchSimilarProducts = useCallback(async (productId: string, limit = 20) => {
+  const fetchSimilarProducts = useCallback(async (productId: string, limit = 18) => {
     setLoadingSimilar(true);
     try {
       // Validate productId before making request
@@ -134,7 +134,7 @@ export const RecommendationProvider = ({ children }: RecommendationProviderProps
     }
   }, []);
 
-  const fetchRecommendedProducts = useCallback(async (limit = 20) => {
+  const fetchRecommendedProducts = useCallback(async (limit = 18) => {
     setLoadingRecommended(true);
     try {
       const response = await axios.get<RecommendationResponse>(

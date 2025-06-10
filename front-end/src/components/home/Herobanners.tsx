@@ -95,7 +95,7 @@ export default function Herobanners() {
 
   return (
     <div className="banner-wrapper relative overflow-hidden py-4 md:py-8">
-      <div className="container mx-auto px-4 md:px-6 relative">
+      <div className="mx-auto px-4 md:px-8 lg:px-12 relative" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         <style jsx global>{`
           .hero-swiper {
             border-radius: 0;

@@ -159,7 +159,7 @@ export default function CategorySection() {
   useEffect(() => {
     // Transform categories từ context để phù hợp với component
     if (featuredCategories && featuredCategories.length > 0) {
-      const transformedCategories = featuredCategories.slice(0, 8).map(category => ({
+      const transformedCategories = featuredCategories.slice(0, 10).map(category => ({
         _id: category.id,
         name: category.name,
         description: category.description,
@@ -198,7 +198,7 @@ export default function CategorySection() {
     <section className="py-2 relative overflow-hidden category-section" ref={sectionRef}>
       {/* Clean background */}
 
-      <div className="max-w-[1200px] mx-auto px-4 relative z-10">
+      <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         <div className="category-header text-center mb-12">
           {/* Enhanced title với gradient và typography */}
           <div className="enhanced-title mb-6">
@@ -228,9 +228,9 @@ export default function CategorySection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-8">
           {loading && (
-            Array.from({ length: 8 }).map((_, index) => (
+            Array.from({ length: 10 }).map((_, index) => (
               <CategorySkeleton key={`skeleton-${index}`} />
             ))
           )}
@@ -272,7 +272,7 @@ export default function CategorySection() {
                 href={`/shop?categoryId=${category._id}`}
                 className="block h-full"
               >
-                <div className={`bg-white rounded-2xl p-6 flex flex-col items-center text-center h-48 relative group transition-all duration-300 shadow-sm border ${category.featured ? 'border-rose-200 shadow-md' : 'border-stone-100'} hover:border-rose-200`}>
+                <div className={`bg-white rounded-2xl p-8 flex flex-col items-center text-center h-56 relative group transition-all duration-300 shadow-sm border ${category.featured ? 'border-rose-200 shadow-md' : 'border-stone-100'} hover:border-rose-200`}>
 
                   {/* Subtle glow effect cho featured categories */}
                   {category.featured && (
@@ -280,12 +280,12 @@ export default function CategorySection() {
                   )}
 
                   {category.image && category.image.url && !isImageError(category._id) ? (
-                    <div className="w-16 h-16 flex items-center justify-center mb-4 relative transform-gpu">
+                    <div className="w-20 h-20 flex items-center justify-center mb-6 relative transform-gpu">
                        <Image
                         src={category.image.url}
                         alt={category.image.alt || category.name}
-                        width={64}
-                        height={64}
+                        width={80}
+                        height={80}
                         className="object-contain rounded-full"
                         onError={() => handleImageError(category._id)}
                         placeholder="blur"
@@ -293,23 +293,23 @@ export default function CategorySection() {
                       />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 flex items-center justify-center mb-4 text-2xl relative transform-gpu bg-stone-100 rounded-full">
+                    <div className="w-20 h-20 flex items-center justify-center mb-6 text-3xl relative transform-gpu bg-stone-100 rounded-full">
                       <span className="relative z-10 filter grayscale">{getFallbackIcon(category.name)}</span>
                     </div>
                   )}
 
                   <div className="category-content flex-grow flex flex-col justify-center relative z-10">
-                    <h3 className={`font-medium text-base mb-2 transition-colors duration-300 ${category.featured ? 'text-stone-900 group-hover:text-rose-600' : 'text-stone-800 group-hover:text-rose-600'}`}>
+                    <h3 className={`font-medium text-lg mb-3 transition-colors duration-300 ${category.featured ? 'text-stone-900 group-hover:text-rose-600' : 'text-stone-800 group-hover:text-rose-600'}`}>
                       {category.name}
                     </h3>
-                    <p className="text-sm text-stone-500 line-clamp-2 mb-3 leading-relaxed">
+                    <p className="text-base text-stone-500 line-clamp-2 mb-4 leading-relaxed">
                       {category.description}
                     </p>
                   </div>
 
-                  <div className="category-arrow text-sm font-medium text-rose-400 flex items-center group-hover:text-rose-600 transition-colors duration-300 transform-gpu relative z-10">
+                  <div className="category-arrow text-base font-medium text-rose-400 flex items-center group-hover:text-rose-600 transition-colors duration-300 transform-gpu relative z-10">
                     Xem sản phẩm
-                    <FiArrowRight className="h-4 w-4 ml-1 transition-transform" />
+                    <FiArrowRight className="h-5 w-5 ml-2 transition-transform" />
                   </div>
                 </div>
               </Link>

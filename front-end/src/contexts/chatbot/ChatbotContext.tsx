@@ -165,11 +165,27 @@ function chatbotReducer(state: ChatbotState, action: ChatbotAction): ChatbotStat
       };
     
     case 'SET_ERROR':
+      // Nếu không có session hiện tại, tạo một session tạm thời để hiển thị lỗi
+      if (!state.currentSession) {
+        const errorSession: ChatSession = {
+          sessionId: `temp_session_${Date.now()}`,
+          messages: [],
+          isLoading: false,
+          isTyping: false,
+          error: action.payload,
+        };
+        return {
+          ...state,
+          currentSession: errorSession,
+        };
+      }
+      
       return {
         ...state,
-        currentSession: state.currentSession
-          ? { ...state.currentSession, error: action.payload }
-          : null,
+        currentSession: {
+          ...state.currentSession,
+          error: action.payload
+        },
       };
     
     case 'ADD_MESSAGE':
@@ -300,11 +316,31 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
 
   // Helper functions
   const toggleChat = () => dispatch({ type: 'TOGGLE_CHAT' });
-  const openChat = () => dispatch({ type: 'OPEN_CHAT' });
+  const openChat = () => {
+    dispatch({ type: 'OPEN_CHAT' });
+    // Nếu chưa có session và đã đăng nhập, tạo session mới
+    if (!state.currentSession) {
+      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (userString) {
+        createNewSession();
+      }
+    }
+  };
   const closeChat = () => dispatch({ type: 'CLOSE_CHAT' });
-  const clearError = () => dispatch({ type: 'CLEAR_ERROR' });
+  const clearError = () => {
+    if (state.currentSession?.error) {
+      dispatch({ type: 'CLEAR_ERROR' });
+    }
+  };
 
   const createNewSession = () => {
+    // Kiểm tra xem user đã đăng nhập chưa
+    const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (!userString) {
+      dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để sử dụng chatbot' });
+      return;
+    }
+    
     const sessionId = ChatbotService.generateSessionId();
     dispatch({ type: 'CREATE_SESSION', payload: sessionId });
   };
@@ -366,35 +402,45 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
   // Initialize chatbot when first opened - Fixed to prevent multiple session creation
   useEffect(() => {
     if (state.isOpen && state.isInitialized && !state.currentSession) {
-      createNewSession();
+      // Kiểm tra xem user đã đăng nhập chưa
+      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (userString) {
+        createNewSession();
+      } else {
+        // Nếu chưa đăng nhập, hiển thị lỗi
+        dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để sử dụng chatbot' });
+      }
     }
   }, [state.isOpen, state.isInitialized, state.currentSession]); // Added state.currentSession dependency
 
   // Send message implementation
   const sendMessage = async (message: string): Promise<void> => {
+    // Kiểm tra xem user đã đăng nhập chưa (kiểm tra trước khi làm bất kỳ thao tác nào)
+    const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (!userString) {
+      const errorMessage = 'Bạn cần đăng nhập để sử dụng chatbot';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      return;
+    }
+
+    // Validate message
+    if (!ChatbotService.validateMessage(message)) {
+      dispatch({ type: 'SET_ERROR', payload: 'Tin nhắn không hợp lệ. Vui lòng nhập từ 1-1000 ký tự.' });
+      return;
+    }
+
+    // Nếu chưa có session, tạo session mới
     if (!state.currentSession) {
       createNewSession();
       // Wait for next tick to ensure session is created
       await new Promise(resolve => setTimeout(resolve, 0));
       if (!state.currentSession) {
-        throw new Error('Không thể tạo phiên chat. Vui lòng thử lại.');
+        dispatch({ type: 'SET_ERROR', payload: 'Không thể tạo phiên chat. Vui lòng thử lại.' });
+        return;
       }
     }
 
     try {
-      // Validate message
-      if (!ChatbotService.validateMessage(message)) {
-        throw new Error('Tin nhắn không hợp lệ. Vui lòng nhập từ 1-1000 ký tự.');
-      }
-
-      // Kiểm tra xem user đã đăng nhập chưa
-      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-      if (!userString) {
-        const errorMessage = 'Bạn cần đăng nhập để sử dụng chatbot';
-        dispatch({ type: 'SET_ERROR', payload: errorMessage });
-        return;
-      }
-
       // Clear any existing errors
       dispatch({ type: 'CLEAR_ERROR' });
 
@@ -433,6 +479,13 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
 
     // Prevent multiple simultaneous calls
     if (state.currentSession.isLoading) return;
+
+    // Kiểm tra xem user đã đăng nhập chưa
+    const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (!userString) {
+      dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để xem lịch sử chat' });
+      return;
+    }
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });

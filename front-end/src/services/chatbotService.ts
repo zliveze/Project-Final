@@ -81,7 +81,7 @@ interface SearchProductResult {
 }
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // API Endpoints - Fixed to match backend (baseURL chưa có /api)
 const ENDPOINTS = {
@@ -234,6 +234,10 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug log
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || config.params);
+    
     return config;
   },
   (error) => {
@@ -243,8 +247,15 @@ apiClient.interceptors.request.use(
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Debug log
+    console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+    return response;
+  },
   (error) => {
+    // Debug log
+    console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.data || error.message);
+    
     if (error.response?.status === 401) {
       // Handle unauthorized - sử dụng cùng key với AuthContext
       localStorage.removeItem('accessToken');
@@ -558,7 +569,22 @@ export class ChatbotService {
    * Validate user input
    */
   static validateMessage(message: string): boolean {
-    return message.trim().length > 0 && message.trim().length <= 1000;
+    const trimmedMessage = message.trim();
+    if (trimmedMessage.length === 0) {
+      return false; // Message is empty
+    }
+    
+    if (trimmedMessage.length > 1000) {
+      return false; // Message is too long
+    }
+    
+    // Kiểm tra xem có ký tự hợp lệ không (không chỉ toàn khoảng trắng hoặc ký tự đặc biệt)
+    const hasValidChars = /[a-zA-Z0-9\u00C0-\u1EF9]+/.test(trimmedMessage);
+    if (!hasValidChars) {
+      return false;
+    }
+    
+    return true;
   }
 
   /**

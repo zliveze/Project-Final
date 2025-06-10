@@ -158,14 +158,14 @@ const BestSellerCard = ({ product }: { product: BestSeller }) => {
             </button>
           </div>
 
-          {/* Hình ảnh sản phẩm - Minimal styling */}
-          <div className="relative aspect-square p-4 flex items-center justify-center bg-gray-50">
+          {/* Hình ảnh sản phẩm - Larger styling */}
+          <div className="relative aspect-square p-6 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full">
               <Image
                 src={imageError ? '/404.png' : product.imageUrl}
                 alt={product.name}
-                width={200}
-                height={200}
+                width={250}
+                height={250}
                 className="product-image object-contain w-full h-full"
                 onError={handleImageError}
                 placeholder="blur"
@@ -173,35 +173,35 @@ const BestSellerCard = ({ product }: { product: BestSeller }) => {
               />
             </div>
 
-            {/* Compact add to cart button */}
-            <div className="absolute bottom-3 left-3 right-3">
-              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
-                <FiShoppingCart className="mr-1.5 w-3 h-3" />
+            {/* Larger add to cart button */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+                <FiShoppingCart className="mr-2 w-4 h-4" />
                 Thêm vào giỏ
               </button>
             </div>
           </div>
 
-          {/* Thông tin sản phẩm - Compact */}
-          <div className="p-4">
-            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[36px] leading-snug">
+          {/* Thông tin sản phẩm - Larger */}
+          <div className="p-6">
+            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[44px] leading-snug">
               {product.name}
             </h3>
 
-            {/* Giá và đánh giá - Compact */}
-            <div className="mt-3 space-y-2">
+            {/* Giá và đánh giá - Larger */}
+            <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 {product.currentPrice < product.price ? (
                   <>
-                    <span className="text-base font-semibold text-rose-600">{formatPrice(product.currentPrice)}</span>
-                    <span className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</span>
+                    <span className="text-lg font-semibold text-rose-600">{formatPrice(product.currentPrice)}</span>
+                    <span className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</span>
                   </>
                 ) : (
-                  <span className="text-base font-semibold text-gray-800">{formatPrice(product.price)}</span>
+                  <span className="text-lg font-semibold text-gray-800">{formatPrice(product.price)}</span>
                 )}
               </div>
               {product.reviews && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
                   <RatingStars rating={product.reviews.averageRating} />
                   <span className="font-medium text-gray-700">{product.reviews.averageRating}</span>
                   <span>({product.reviews.reviewCount})</span>
@@ -318,13 +318,13 @@ export default function BestSellerSection() {
   if (loading) {
     return (
       <section className="py-10 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 relative z-10">
+        <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
           <div className="text-center mb-8">
             <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-3 animate-pulse"></div>
             <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-6">
             {[...Array(10)].map((_, index) => (
               <BestSellerSkeleton key={index} />
             ))}
@@ -347,7 +347,7 @@ export default function BestSellerSection() {
     <section className="py-10 relative overflow-hidden bestseller-section" ref={sectionRef}>
       {/* No additional background - inherits from main layout */}
 
-      <div className="max-w-6xl mx-auto px-4 relative z-10">
+      <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         <div className="bestseller-header text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
           <p className="text-gray-600 max-w-xl mx-auto leading-relaxed">
@@ -360,7 +360,7 @@ export default function BestSellerSection() {
 
         {/* Grid hiển thị 10 sản phẩm đầu (2 hàng x 5 cột) */}
         {firstTenProducts.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
             {firstTenProducts.map((product) => (
               <BestSellerCard key={product.id} product={product} />
             ))}
@@ -372,7 +372,7 @@ export default function BestSellerSection() {
           <div className="relative">
             <Swiper
               modules={[Navigation, Pagination, Autoplay]}
-              spaceBetween={16}
+              spaceBetween={24}
               slidesPerView={2}
               navigation={{
                 nextEl: '.swiper-button-next-custom',
@@ -394,7 +394,7 @@ export default function BestSellerSection() {
                   slidesPerView: 4,
                 },
                 1024: {
-                  slidesPerView: 5,
+                  slidesPerView: 6,
                 },
               }}
               className="bestseller-swiper"

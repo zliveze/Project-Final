@@ -26,11 +26,32 @@ export default function ChatInput({
     }
   }, [message]);
 
+  // Focus input when component mounts
+  useEffect(() => {
+    if (textareaRef.current && !disabled) {
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 300);
+    }
+  }, [disabled]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      onSendMessage(message.trim());
-      setMessage('');
+      try {
+        onSendMessage(message.trim());
+        setMessage('');
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+        // Re-focus the input after sending
+        setTimeout(() => {
+          textareaRef.current?.focus();
+        }, 100);
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
   };
 
@@ -55,11 +76,23 @@ export default function ChatInput({
     }
   };
 
+  const handleSuggestionClick = (suggestionText: string) => {
+    setMessage(suggestionText);
+    // Focus and adjust height after setting text
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      }
+    }, 10);
+  };
+
   const remainingChars = maxLength - message.length;
   const isNearLimit = remainingChars <= 50;
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col space-y-2">
+    <form onSubmit={handleSubmit} className="flex flex-col space-y-2 chatbot-input">
       {/* Character count indicator */}
       {isNearLimit && (
         <div className="text-xs text-gray-500 text-right">
@@ -75,15 +108,16 @@ export default function ChatInput({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
+            onClick={() => textareaRef.current?.focus()}
             placeholder={placeholder}
             disabled={disabled}
             maxLength={maxLength}
             rows={1}
-            className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="chatbot-textarea w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             style={{ minHeight: '44px', maxHeight: '120px' }}
           />
 
-          {/* Voice recording button - Đơn giản hóa */}
+          {/* Voice recording button */}
           <button
             type="button"
             onClick={handleVoiceRecord}
@@ -110,26 +144,26 @@ export default function ChatInput({
         </button>
       </div>
 
-      {/* Quick suggestions - Đơn giản */}
+      {/* Quick suggestions */}
       {message === '' && !disabled && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           <button
             type="button"
-            onClick={() => setMessage('Tôi muốn tìm sản phẩm chăm sóc da')}
+            onClick={() => handleSuggestionClick('Tôi muốn tìm sản phẩm chăm sóc da')}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             🧴 Chăm sóc da
           </button>
           <button
             type="button"
-            onClick={() => setMessage('Gợi ý son môi phù hợp')}
+            onClick={() => handleSuggestionClick('Gợi ý son môi phù hợp')}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             💄 Son môi
           </button>
           <button
             type="button"
-            onClick={() => setMessage('Sản phẩm nào đang khuyến mãi?')}
+            onClick={() => handleSuggestionClick('Sản phẩm nào đang khuyến mãi?')}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition-colors border border-gray-300"
           >
             🎉 Khuyến mãi

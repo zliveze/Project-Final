@@ -26,6 +26,7 @@ async function bootstrap() {
     'https://project-final-livid.vercel.app',
     'https://project-final-livid.vercel.app',
     'http://localhost:3000',
+    'http://localhost',
     process.env.FRONTEND_URL
   ].filter(Boolean); // Loại bỏ các giá trị undefined
 
@@ -34,10 +35,15 @@ async function bootstrap() {
       // Cho phép requests không có origin (mobile apps, postman, etc.)
       if (!origin) return callback(null, true);
 
+      // Luôn cho phép localhost để phát triển local
+      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+        return callback(null, true);
+      }
+
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       } else {
-        return callback(new Error('Not allowed by CORS'));
+        return callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true,

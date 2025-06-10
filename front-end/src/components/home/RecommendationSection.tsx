@@ -161,14 +161,14 @@ const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct;
             </button>
           </div>
 
-          {/* Hình ảnh sản phẩm - Copy chính xác */}
-          <div className="relative aspect-square p-4 flex items-center justify-center bg-gray-50">
+          {/* Hình ảnh sản phẩm - Larger */}
+          <div className="relative aspect-square p-6 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full">
               <Image
                 src={imageError ? '/404.png' : product.image}
                 alt={product.name}
-                width={200}
-                height={200}
+                width={250}
+                height={250}
                 className="product-image object-contain w-full h-full"
                 onError={handleImageError}
                 placeholder="blur"
@@ -176,34 +176,34 @@ const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct;
               />
             </div>
 
-            {/* Compact add to cart button */}
-            <div className="absolute bottom-3 left-3 right-3">
-              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
-                <FiShoppingCart className="mr-1.5 w-3 h-3" />
+            {/* Larger add to cart button */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+                <FiShoppingCart className="mr-2 w-4 h-4" />
                 Thêm vào giỏ
               </button>
             </div>
           </div>
 
-          {/* Thông tin sản phẩm - Copy chính xác */}
-          <div className="p-4">
-            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[36px] leading-snug">
+          {/* Thông tin sản phẩm - Larger */}
+          <div className="p-6">
+            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[44px] leading-snug">
               {product.name}
             </h3>
 
-            {/* Giá và đánh giá - Copy chính xác */}
-            <div className="mt-3 space-y-2">
+            {/* Giá và đánh giá - Larger */}
+            <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 {product.discountedPrice ? (
                   <>
-                    <span className="text-base font-semibold text-rose-600">{formatPrice(product.discountedPrice)}</span>
-                    <span className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</span>
+                    <span className="text-lg font-semibold text-rose-600">{formatPrice(product.discountedPrice)}</span>
+                    <span className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</span>
                   </>
                 ) : (
-                  <span className="text-base font-semibold text-gray-800">{formatPrice(product.price)}</span>
+                  <span className="text-lg font-semibold text-gray-800">{formatPrice(product.price)}</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-sm text-gray-500">
                 <RatingStars rating={product.rating} />
                 <span className="font-medium text-gray-700">{product.rating}</span>
                 <span>({product.ratingCount})</span>
@@ -338,12 +338,12 @@ const RecommendationSection = () => {
     if (isAuthenticated) {
       // Chỉ fetch nếu chưa có personalized products và không đang loading
       if (personalizedProducts.length === 0 && !loadingPersonalized) {
-        fetchPersonalizedProducts(20);
+        fetchPersonalizedProducts(18);
       }
     } else {
       // Chỉ fetch nếu chưa có recommended products và không đang loading
       if (recommendedProducts.length === 0 && !loadingRecommended) {
-        fetchRecommendedProducts(20);
+        fetchRecommendedProducts(18);
       }
     }
   }, [isAuthenticated, personalizedProducts.length, recommendedProducts.length, loadingPersonalized, loadingRecommended, fetchPersonalizedProducts, fetchRecommendedProducts]);
@@ -352,14 +352,14 @@ const RecommendationSection = () => {
   if (loading) {
     return (
       <section className="py-10 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 relative z-10">
+        <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
           <div className="text-center mb-8">
             <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-3 animate-pulse"></div>
             <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {[...Array(20)].map((_, index) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {[...Array(18)].map((_, index) => (
               <RecommendedProductSkeleton key={index} />
             ))}
           </div>
@@ -375,7 +375,7 @@ const RecommendationSection = () => {
 
   return (
     <section className="py-10 relative overflow-hidden recommendation-section" ref={sectionRef}>
-      <div className="max-w-6xl mx-auto px-4 relative z-10">
+      <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         {/* Enhanced Header - Style giống CategorySection */}
         <div className="recommendation-header text-center mb-12">
           {/* Enhanced title với gradient và typography */}
@@ -421,7 +421,7 @@ const RecommendationSection = () => {
         </div>
 
         {/* Products Grid - 5 columns */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
           {convertedProducts.map((product, index) => (
             <RecommendedProductCard key={product.id} product={product} index={index} />
           ))}
