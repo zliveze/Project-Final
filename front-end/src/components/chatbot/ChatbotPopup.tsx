@@ -78,14 +78,11 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     }
   }, [state.isOpen]);
 
-  // Đảm bảo có session khi mở chatbot
+  // Đảm bảo có session khi mở chatbot - Cho phép sử dụng mà không cần đăng nhập
   useEffect(() => {
     if (state.isOpen && state.isInitialized && !state.currentSession) {
-      // Kiểm tra xem user đã đăng nhập chưa
-      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-      if (userString) {
-        createNewSession();
-      }
+      // Tạo session cho tất cả người dùng, không cần kiểm tra đăng nhập
+      createNewSession();
     }
   }, [state.isOpen, state.isInitialized, state.currentSession, createNewSession]);
 
@@ -302,13 +299,13 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
             >
               {(state.currentSession?.error || chatError) && renderError()}
 
-              {/* Hiển thị thông báo đăng nhập nếu chưa đăng nhập */}
+              {/* Hiển thị thông báo khuyến khích đăng nhập để có trải nghiệm tốt hơn */}
               {!localStorage.getItem('user') && !sessionStorage.getItem('user') && (
-                <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg m-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg m-3">
                   <div className="flex items-center flex-1">
-                    <AlertCircle className="w-4 h-4 text-yellow-500 mr-2 flex-shrink-0" />
-                    <span className="text-sm text-yellow-700 break-words">
-                      Bạn cần đăng nhập để sử dụng chatbot
+                    <AlertCircle className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
+                    <span className="text-sm text-blue-700 break-words">
+                      💡 Đăng nhập để có trải nghiệm cá nhân hóa tốt hơn và lưu lịch sử chat
                     </span>
                   </div>
                 </div>

@@ -318,12 +318,9 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
   const toggleChat = () => dispatch({ type: 'TOGGLE_CHAT' });
   const openChat = () => {
     dispatch({ type: 'OPEN_CHAT' });
-    // Nếu chưa có session và đã đăng nhập, tạo session mới
+    // Tạo session cho tất cả người dùng, không cần kiểm tra đăng nhập
     if (!state.currentSession) {
-      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-      if (userString) {
-        createNewSession();
-      }
+      createNewSession();
     }
   };
   const closeChat = () => dispatch({ type: 'CLOSE_CHAT' });
@@ -334,13 +331,7 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
   };
 
   const createNewSession = () => {
-    // Kiểm tra xem user đã đăng nhập chưa
-    const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if (!userString) {
-      dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để sử dụng chatbot' });
-      return;
-    }
-    
+    // Tạo session cho tất cả người dùng, không cần kiểm tra đăng nhập
     const sessionId = ChatbotService.generateSessionId();
     dispatch({ type: 'CREATE_SESSION', payload: sessionId });
   };
@@ -402,27 +393,13 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
   // Initialize chatbot when first opened - Fixed to prevent multiple session creation
   useEffect(() => {
     if (state.isOpen && state.isInitialized && !state.currentSession) {
-      // Kiểm tra xem user đã đăng nhập chưa
-      const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-      if (userString) {
-        createNewSession();
-      } else {
-        // Nếu chưa đăng nhập, hiển thị lỗi
-        dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để sử dụng chatbot' });
-      }
+      // Tạo session cho tất cả người dùng, không cần kiểm tra đăng nhập
+      createNewSession();
     }
   }, [state.isOpen, state.isInitialized, state.currentSession]); // Added state.currentSession dependency
 
   // Send message implementation
   const sendMessage = async (message: string): Promise<void> => {
-    // Kiểm tra xem user đã đăng nhập chưa (kiểm tra trước khi làm bất kỳ thao tác nào)
-    const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if (!userString) {
-      const errorMessage = 'Bạn cần đăng nhập để sử dụng chatbot';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-      return;
-    }
-
     // Validate message
     if (!ChatbotService.validateMessage(message)) {
       dispatch({ type: 'SET_ERROR', payload: 'Tin nhắn không hợp lệ. Vui lòng nhập từ 1-1000 ký tự.' });
@@ -480,10 +457,11 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
     // Prevent multiple simultaneous calls
     if (state.currentSession.isLoading) return;
 
-    // Kiểm tra xem user đã đăng nhập chưa
+    // Kiểm tra xem user đã đăng nhập chưa - chỉ load history nếu đã đăng nhập
     const userString = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (!userString) {
-      dispatch({ type: 'SET_ERROR', payload: 'Bạn cần đăng nhập để xem lịch sử chat' });
+      // Nếu chưa đăng nhập, chỉ tạo session trống mà không hiển thị lỗi
+      dispatch({ type: 'SET_MESSAGES', payload: [] });
       return;
     }
 

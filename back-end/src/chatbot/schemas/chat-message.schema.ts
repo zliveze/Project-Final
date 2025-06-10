@@ -129,8 +129,8 @@ export class MessageMetadata {
 
 @Schema({ timestamps: true })
 export class ChatMessage {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  userId: Types.ObjectId;
+  @Prop({ type: String, required: true })
+  userId: string; // Có thể là ObjectId hoặc 'anonymous'
 
   @Prop({ required: true })
   sessionId: string; // ID phiên chat

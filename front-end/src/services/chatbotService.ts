@@ -257,12 +257,16 @@ apiClient.interceptors.response.use(
     console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, error.response?.data || error.message);
     
     if (error.response?.status === 401) {
-      // Handle unauthorized - sử dụng cùng key với AuthContext
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('accessToken');
-      window.location.href = '/auth/login';
+      // Chỉ redirect về login nếu không phải là chatbot API
+      const isChatbotAPI = error.config?.url?.includes('/chatbot/');
+      if (!isChatbotAPI) {
+        // Handle unauthorized - sử dụng cùng key với AuthContext
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('accessToken');
+        window.location.href = '/auth/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -292,15 +296,10 @@ export class ChatbotService {
         }
       }
       
-      // Nếu không có userId, không thể gửi tin nhắn
-      if (!userId) {
-        throw new Error('Bạn cần đăng nhập để sử dụng chatbot');
-      }
-
       const requestData: SendMessageRequest = {
         message,
         sessionId,
-        userId,
+        userId: userId || 'anonymous', // Sử dụng 'anonymous' nếu không có userId
         ...userPreferences,
       };
 
@@ -344,9 +343,9 @@ export class ChatbotService {
       }
     }
     
-    // Nếu không có userId, không thể lấy lịch sử chat
+    // Nếu không có userId, sử dụng anonymous
     if (!userId) {
-      throw new Error('Bạn cần đăng nhập để xem lịch sử chat');
+      userId = 'anonymous';
     }
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -446,16 +445,11 @@ export class ChatbotService {
         }
       }
       
-      // Nếu không có userId, không thể gửi phản hồi
-      if (!userId) {
-        throw new Error('Bạn cần đăng nhập để gửi phản hồi');
-      }
-
       // messageId is now URL parameter, not in request body
       const requestData: FeedbackRequest = {
         isHelpful,
         feedback,
-        userId,
+        userId: userId || 'anonymous', // Sử dụng 'anonymous' nếu không có userId
       };
 
       const response: AxiosResponse<{ message: string }> = await apiClient.post(

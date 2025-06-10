@@ -35,9 +35,10 @@ export class ChatbotController {
 
   constructor(private readonly chatbotService: ChatbotService) {}
 
+  @Public()
   @Post('send-message')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Gửi tin nhắn cho AI chatbot',
     description: 'Gửi tin nhắn và nhận phản hồi từ AI chatbot với gợi ý sản phẩm và thông tin liên quan'
   })
@@ -50,23 +51,15 @@ export class ChatbotController {
     status: 400,
     description: 'Dữ liệu đầu vào không hợp lệ',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Không có quyền truy cập',
-  })
   async sendMessage(
     @Request() req: any,
     @Body() sendMessageDto: SendMessageDto,
   ): Promise<ChatResponseDto> {
     try {
-      // Ưu tiên userId từ token, nếu không có thì lấy từ request body
-      const userId = req.user?.id || sendMessageDto.userId;
-      
+      // Ưu tiên userId từ token, nếu không có thì lấy từ request body, cuối cùng là 'anonymous'
+      const userId = req.user?.id || sendMessageDto.userId || 'anonymous';
+
       this.logger.log(`User ${userId} sending message to chatbot`);
-      
-      if (!userId) {
-        throw new BadRequestException('Không tìm thấy thông tin người dùng');
-      }
       
       if (!sendMessageDto.message?.trim()) {
         throw new BadRequestException('Tin nhắn không được để trống');
@@ -95,8 +88,9 @@ export class ChatbotController {
     }
   }
 
+  @Public()
   @Get('history')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Lấy lịch sử chat',
     description: 'Lấy lịch sử chat của người dùng với phân trang'
   })
@@ -105,23 +99,15 @@ export class ChatbotController {
     description: 'Lịch sử chat được trả về thành công',
     type: ChatHistoryResponseDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Không có quyền truy cập',
-  })
   async getChatHistory(
     @Request() req: any,
     @Query() getChatHistoryDto: GetChatHistoryDto,
   ): Promise<ChatHistoryResponseDto> {
     try {
-      // Ưu tiên userId từ token, nếu không có thì lấy từ request query
-      const userId = req.user?.id || getChatHistoryDto.userId;
-      
+      // Ưu tiên userId từ token, nếu không có thì lấy từ request query, cuối cùng là 'anonymous'
+      const userId = req.user?.id || getChatHistoryDto.userId || 'anonymous';
+
       this.logger.log(`User ${userId} requesting chat history`);
-      
-      if (!userId) {
-        throw new BadRequestException('Không tìm thấy thông tin người dùng');
-      }
       
       return await this.chatbotService.getChatHistory(
         userId,
@@ -170,9 +156,10 @@ export class ChatbotController {
     }
   }
 
+  @Public()
   @Post('feedback/:messageId')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Đánh giá tin nhắn chatbot',
     description: 'Đánh giá tin nhắn từ chatbot có hữu ích hay không'
   })
@@ -185,10 +172,6 @@ export class ChatbotController {
     description: 'Dữ liệu phản hồi không hợp lệ',
   })
   @ApiResponse({
-    status: 401,
-    description: 'Không có quyền truy cập',
-  })
-  @ApiResponse({
     status: 404,
     description: 'Không tìm thấy tin nhắn',
   })
@@ -198,14 +181,10 @@ export class ChatbotController {
     @Body() feedbackDto: FeedbackDto,
   ): Promise<{ message: string }> {
     try {
-      // Ưu tiên userId từ token, nếu không có thì lấy từ request body
-      const userId = req.user?.id || feedbackDto.userId;
-      
+      // Ưu tiên userId từ token, nếu không có thì lấy từ request body, cuối cùng là 'anonymous'
+      const userId = req.user?.id || feedbackDto.userId || 'anonymous';
+
       this.logger.log(`User ${userId} providing feedback for message ${messageId}`);
-      
-      if (!userId) {
-        throw new BadRequestException('Không tìm thấy thông tin người dùng');
-      }
       
       if (!messageId?.trim()) {
         throw new BadRequestException('ID tin nhắn không hợp lệ');
