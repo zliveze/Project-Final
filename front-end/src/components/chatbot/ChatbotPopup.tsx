@@ -24,7 +24,7 @@ interface ChatbotPopupProps {
 }
 
 export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
-  const { state, toggleChat, closeChat, sendMessage, loadChatHistory, clearError, clearAllData, updateUserPreferences, createNewSession } = useChatbot();
+  const { state, toggleChat, closeChat, sendMessage, clearError, clearAllData, updateUserPreferences, createNewSession } = useChatbot();
   const [isMinimized, setIsMinimized] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -59,15 +59,12 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     }
   }, [state.currentSession?.messages]);
 
-  // Load chat history when chat opens
+  // Tạo session ngay khi mở chatbot - Đơn giản
   useEffect(() => {
-    if (state.isOpen && state.currentSession && state.currentSession.messages.length === 0) {
-      loadChatHistory();
+    if (state.isOpen && !state.currentSession) {
+      createNewSession();
     }
-  }, [state.isOpen, state.currentSession, loadChatHistory]);
-  
-  // Hiển thị lỗi ngay cả khi không có session
-  const chatError = state.currentSession?.error || null;
+  }, [state.isOpen, state.currentSession, createNewSession]);
 
   // Handle animation when opening/closing
   useEffect(() => {
@@ -78,13 +75,7 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     }
   }, [state.isOpen]);
 
-  // Đảm bảo có session khi mở chatbot - Cho phép sử dụng mà không cần đăng nhập
-  useEffect(() => {
-    if (state.isOpen && state.isInitialized && !state.currentSession) {
-      // Tạo session cho tất cả người dùng, không cần kiểm tra đăng nhập
-      createNewSession();
-    }
-  }, [state.isOpen, state.isInitialized, state.currentSession, createNewSession]);
+
 
   const handleSendMessage = async (message: string) => {
     await sendMessage(message);
@@ -188,7 +179,7 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
     <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg m-3 animate-shake">
       <div className="flex items-center flex-1">
         <AlertCircle className="w-4 h-4 text-red-500 mr-2 animate-pulse flex-shrink-0" />
-        <span className="text-sm text-red-700 break-words">{state.currentSession?.error || chatError}</span>
+        <span className="text-sm text-red-700 break-words">{state.currentSession?.error}</span>
       </div>
       <button
         onClick={clearError}
@@ -297,19 +288,7 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
               className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50"
               style={{ height: 'calc(100% - 140px)' }}
             >
-              {(state.currentSession?.error || chatError) && renderError()}
-
-              {/* Hiển thị thông báo khuyến khích đăng nhập để có trải nghiệm tốt hơn */}
-              {!localStorage.getItem('user') && !sessionStorage.getItem('user') && (
-                <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg m-3">
-                  <div className="flex items-center flex-1">
-                    <AlertCircle className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
-                    <span className="text-sm text-blue-700 break-words">
-                      💡 Đăng nhập để có trải nghiệm cá nhân hóa tốt hơn và lưu lịch sử chat
-                    </span>
-                  </div>
-                </div>
-              )}
+              {state.currentSession?.error && renderError()}
 
               {/* Chat Status Indicator */}
               {state.currentSession && state.currentSession.messages.length > 0 && (
@@ -321,7 +300,7 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
                 />
               )}
 
-              {state.currentSession?.messages.length === 0 && !state.currentSession?.isLoading ? (
+              {(!state.currentSession?.messages || state.currentSession.messages.length === 0) ? (
                 renderWelcomeMessage()
               ) : (
                 <>
@@ -363,7 +342,7 @@ export default function ChatbotPopup({ className = '' }: ChatbotPopupProps) {
             >
               <ChatInput
                 onSendMessage={handleSendMessage}
-                disabled={state.currentSession?.isLoading || state.currentSession?.isTyping}
+                disabled={false}
                 placeholder="Nhập câu hỏi về mỹ phẩm..."
               />
             </div>

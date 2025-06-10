@@ -398,55 +398,52 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
     }
   }, [state.isOpen, state.isInitialized, state.currentSession]); // Added state.currentSession dependency
 
-  // Send message implementation
+  // Send message implementation - Đơn giản hóa hoàn toàn
   const sendMessage = async (message: string): Promise<void> => {
-    // Validate message
-    if (!ChatbotService.validateMessage(message)) {
-      dispatch({ type: 'SET_ERROR', payload: 'Tin nhắn không hợp lệ. Vui lòng nhập từ 1-1000 ký tự.' });
-      return;
-    }
+    // Tạo session nếu chưa có, không cần kiểm tra gì
+    let currentSession = state.currentSession;
+    if (!currentSession) {
+      const sessionId = ChatbotService.generateSessionId();
+      dispatch({ type: 'CREATE_SESSION', payload: sessionId });
 
-    // Nếu chưa có session, tạo session mới
-    if (!state.currentSession) {
-      createNewSession();
-      // Wait for next tick to ensure session is created
-      await new Promise(resolve => setTimeout(resolve, 0));
-      if (!state.currentSession) {
-        dispatch({ type: 'SET_ERROR', payload: 'Không thể tạo phiên chat. Vui lòng thử lại.' });
-        return;
-      }
+      currentSession = {
+        sessionId,
+        messages: [],
+        isLoading: false,
+        isTyping: false,
+        error: null,
+      };
     }
 
     try {
-      // Clear any existing errors
-      dispatch({ type: 'CLEAR_ERROR' });
-
-      // Add user message to chat
+      // Add user message to chat ngay lập tức
       const userMessage = ChatbotService.createUserMessage(message);
       dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
 
-      // Set loading and typing states
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'SET_TYPING', payload: true });
+      // Thử gửi tin nhắn đến API, nếu lỗi thì thôi
+      try {
+        const response = await ChatbotService.sendMessage(
+          message,
+          currentSession.sessionId,
+          state.userPreferences
+        );
 
-      // Send message to API
-      const response = await ChatbotService.sendMessage(
-        message,
-        state.currentSession.sessionId,
-        state.userPreferences
-      );
-
-      // Convert response to ChatMessage and add to chat
-      const botMessage = ChatbotService.convertToChatMessage(response);
-      dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+        const botMessage = ChatbotService.convertToChatMessage(response);
+        dispatch({ type: 'ADD_MESSAGE', payload: botMessage });
+      } catch {
+        // Nếu API lỗi, chỉ hiển thị tin nhắn mặc định
+        const fallbackMessage = {
+          messageId: `msg_${Date.now()}`,
+          role: 'assistant' as const,
+          content: 'Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau.',
+          type: 'TEXT' as const,
+          createdAt: new Date(),
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: fallbackMessage });
+      }
 
     } catch (error: unknown) {
-      console.error('Error sending message:', error);
-      const errorMessage = ChatbotService.formatErrorMessage(error as ApiError);
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-      dispatch({ type: 'SET_TYPING', payload: false });
+      console.error('Error in sendMessage:', error);
     }
   };
 
@@ -462,6 +459,8 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
     if (!userString) {
       // Nếu chưa đăng nhập, chỉ tạo session trống mà không hiển thị lỗi
       dispatch({ type: 'SET_MESSAGES', payload: [] });
+      // Đảm bảo reset loading state
+      dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
 
@@ -475,6 +474,8 @@ export function ChatbotProvider({ children }: ChatbotProviderProps) {
         console.log('Backend API không khả dụng, sử dụng phiên chat offline');
         // Không cần throw error, chỉ tạo phiên chat mới và tiếp tục
         dispatch({ type: 'SET_MESSAGES', payload: [] });
+        // Đảm bảo reset loading state trước khi return
+        dispatch({ type: 'SET_LOADING', payload: false });
         return;
       }
 
@@ -624,4 +625,4 @@ export function useChatbot() {
     throw new Error('useChatbot must be used within a ChatbotProvider');
   }
   return context;
-} 
+}
