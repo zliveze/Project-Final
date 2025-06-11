@@ -3,7 +3,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { FiArrowRight, FiShoppingCart, FiHeart, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa'
-import { useGSAP, gsapUtils } from '../../hooks/useGSAP'
 import { useShopProduct } from '../../contexts/user/shop/ShopProductContext'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination, Autoplay } from 'swiper/modules'
@@ -47,7 +46,6 @@ const RatingStars = ({ rating }: { rating: number }) => {
 // Component sản phẩm bán chạy - Clean & Minimal design
 const BestSellerCard = ({ product }: { product: BestSeller }) => {
   const [imageError, setImageError] = useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
 
   // Tính phần trăm giảm giá
   const discountPercentage = product.currentPrice < product.price
@@ -69,75 +67,10 @@ const BestSellerCard = ({ product }: { product: BestSeller }) => {
     setImageError(true);
   };
 
-  // GSAP hover animations - Subtle và minimal
-  useGSAP(() => {
-    if (!cardRef.current) return;
-
-    const card = cardRef.current;
-    const image = card.querySelector('.product-image');
-    const addToCartBtn = card.querySelector('.add-to-cart-btn');
-    const heartBtn = card.querySelector('.heart-btn');
-
-    const handleMouseEnter = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: -4,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1.05,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 1,
-        y: 0,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.1");
-    };
-
-    const handleMouseLeave = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: 0,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 0,
-        y: 8,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.2");
-    };
-
-    card.addEventListener('mouseenter', handleMouseEnter);
-    card.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      card.removeEventListener('mouseenter', handleMouseEnter);
-      card.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
-
   return (
-    <div
-      ref={cardRef}
-      className="product-card transform-gpu"
-    >
+    <div className="product-card">
       <Link href={`/product/${product.slug}`} className="group block">
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors duration-300 hover:border-rose-300">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors hover:border-rose-300 hover:shadow-md">
 
           {/* Compact badges */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
@@ -153,12 +86,12 @@ const BestSellerCard = ({ product }: { product: BestSeller }) => {
 
           {/* Compact heart button */}
           <div className="absolute top-2 right-2 z-20">
-            <button className="heart-btn w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 translate-y-1 transition-all hover:bg-rose-50 hover:border-rose-300">
+            <button className="w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-50 hover:border-rose-300">
               <FiHeart className="w-3.5 h-3.5 text-gray-600 hover:text-rose-500" />
             </button>
           </div>
 
-          {/* Hình ảnh sản phẩm - Larger styling */}
+          {/* Hình ảnh sản phẩm */}
           <div className="relative aspect-square p-6 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full">
               <Image
@@ -166,29 +99,29 @@ const BestSellerCard = ({ product }: { product: BestSeller }) => {
                 alt={product.name}
                 width={250}
                 height={250}
-                className="product-image object-contain w-full h-full"
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
                 onError={handleImageError}
                 placeholder="blur"
                 blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
               />
             </div>
 
-            {/* Larger add to cart button */}
+            {/* Add to cart button */}
             <div className="absolute bottom-4 left-4 right-4">
-              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+              <button className="w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
                 <FiShoppingCart className="mr-2 w-4 h-4" />
                 Thêm vào giỏ
               </button>
             </div>
           </div>
 
-          {/* Thông tin sản phẩm - Larger */}
+          {/* Thông tin sản phẩm */}
           <div className="p-6">
-            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[44px] leading-snug">
+            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors min-h-[44px] leading-snug">
               {product.name}
             </h3>
 
-            {/* Giá và đánh giá - Larger */}
+            {/* Giá và đánh giá */}
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 {product.currentPrice < product.price ? (
@@ -233,51 +166,10 @@ const BestSellerSkeleton = () => {
 };
 
 export default function BestSellerSection() {
-  const sectionRef = React.useRef<HTMLDivElement>(null);
   const [bestSellers, setBestSellers] = useState<BestSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { fetchTopProducts } = useShopProduct();
-
-  // GSAP animations - Subtle và minimal
-  useGSAP(({ gsap }) => {
-    if (!sectionRef.current || loading) return;
-
-    const tl = gsapUtils.timeline();
-
-    // Set initial states
-    gsap.set('.bestseller-section', { opacity: 0 });
-    gsap.set('.bestseller-header', { y: 20, opacity: 0 });
-    gsap.set('.product-card', { y: 30, opacity: 0 });
-    gsap.set('.view-all-button', { y: 15, opacity: 0 });
-
-    // Animate entrance - Subtle
-    tl.to('.bestseller-section', {
-      opacity: 1,
-      duration: 0.5,
-      ease: "power2.out"
-    })
-    .to('.bestseller-header', {
-      y: 0,
-      opacity: 1,
-      duration: 0.5,
-      ease: "power2.out"
-    }, "-=0.2")
-    .to('.product-card', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: "power2.out"
-    }, "-=0.1")
-    .to('.view-all-button', {
-      y: 0,
-      opacity: 1,
-      duration: 0.4,
-      ease: "power2.out"
-    }, "-=0.1");
-
-  }, [loading, bestSellers]);
 
   // Fetch best seller products
   useEffect(() => {
@@ -344,11 +236,9 @@ export default function BestSellerSection() {
   const remainingProducts = bestSellers.slice(10);
 
   return (
-    <section className="py-10 relative overflow-hidden bestseller-section" ref={sectionRef}>
-      {/* No additional background - inherits from main layout */}
-
+    <section className="py-10 relative">
       <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-        <div className="bestseller-header text-center mb-8">
+        <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
           <p className="text-gray-600 max-w-xl mx-auto leading-relaxed">
             Top 20 sản phẩm được yêu thích nhất tại Yumin
@@ -421,15 +311,13 @@ export default function BestSellerSection() {
 
         {/* Compact CTA */}
         <div className="flex justify-center mt-8">
-          <div className="view-all-button">
-            <Link
-              href="/shop?sortBy=soldCount&sortOrder=desc"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-rose-300 hover:text-rose-600 transition-all"
-            >
-              Xem tất cả sản phẩm bán chạy
-              <FiArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+          <Link
+            href="/shop?sortBy=soldCount&sortOrder=desc"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-rose-300 hover:text-rose-600 transition-all"
+          >
+            Xem tất cả sản phẩm bán chạy
+            <FiArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
 

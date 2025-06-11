@@ -16,8 +16,6 @@ export enum OrderStatus {
 
 export enum PaymentMethod {
   COD = 'cod',
-  BANK_TRANSFER = 'bank_transfer',
-  CREDIT_CARD = 'credit_card',
   STRIPE = 'stripe',
   MOMO = 'momo',
 }

@@ -7,8 +7,16 @@ import axiosInstance from '@/lib/axiosInstance';
 
 // Định nghĩa các kiểu dữ liệu
 export interface CategoryItem {
+  _id: string;
   name: string;
   slug: string;
+  level: number;
+  parentId?: string;
+  childrenCount?: number;
+  image?: {
+    url: string;
+    alt?: string;
+  };
 }
 
 export interface Category extends CategoryItem {
@@ -43,6 +51,7 @@ export type HeaderContextType = {
   isMobileMenuOpen: boolean;
   setMobileMenuOpen: (isOpen: boolean) => void;
   categories: Category[];
+  allCategories: CategoryItem[]; // Thêm để lưu tất cả categories (flat)
   featuredBrands: Brand[];
   cartItemCount: number;
   wishlistItemCount: number;
@@ -69,6 +78,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryItem[]>([]); // Thêm state cho tất cả categories
   const [featuredBrands, setFeaturedBrands] = useState<Brand[]>([]);
   // Đã loại bỏ state notifications vì đã được xử lý trong NotificationSection.tsx
   const [cartItemCount, setCartItemCount] = useState(0);
@@ -94,24 +104,62 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSearchTerm('');
   }, [router.pathname]);
 
-  // Danh sách các từ khóa phổ biến
-  const [popularSearchTerms] = useState<string[]>([
-    'Sữa rửa mặt',
-    'Kem chống nắng',
-    'Serum vitamin C',
-    'Cetaphil',
-    'Mặt nạ dưỡng da',
-    'Nước tẩy trang',
-    'Innisfree',
-    'Tẩy tế bào chết',
-    'Son môi',
-    'Dưỡng ẩm',
-    'La Roche-Posay',
-    'Lotion dưỡng ẩm',
-    'Kem dưỡng ban đêm',
-    'Phấn phủ kiềm dầu',
-    'Mascara chống trôi'
-  ]);
+  // Danh sách các từ khóa phổ biến - Sẽ được lấy từ API trong tương lai
+  const [popularSearchTerms] = useState<string[]>([]);
+
+  // Hàm xây dựng cây phân cấp từ dữ liệu phẳng
+  const buildCategoryTree = useCallback((flatCategories: CategoryItem[]): Category[] => {
+    const categoryMap = new Map<string, Category>();
+    const rootCategories: Category[] = [];
+
+    // Tạo map của tất cả categories
+    flatCategories.forEach(cat => {
+      const category: Category = {
+        _id: cat._id,
+        name: cat.name,
+        slug: cat.slug,
+        level: cat.level || 1,
+        parentId: cat.parentId,
+        childrenCount: cat.childrenCount || 0,
+        image: cat.image,
+        children: []
+      };
+      categoryMap.set(cat._id, category);
+    });
+
+    // Xây dựng cây phân cấp
+    flatCategories.forEach(cat => {
+      const category = categoryMap.get(cat._id);
+      if (!category) return;
+
+      if (cat.parentId && categoryMap.has(cat.parentId)) {
+        // Có parent, thêm vào children của parent
+        const parent = categoryMap.get(cat.parentId);
+        if (parent && parent.children) {
+          parent.children.push(category);
+        }
+      } else {
+        // Không có parent, đây là root category
+        rootCategories.push(category);
+      }
+    });
+
+    // Sắp xếp theo order và name
+    const sortCategories = (categories: Category[]): Category[] => {
+      return categories.sort((a, b) => {
+        // Sắp xếp theo level trước, sau đó theo name
+        if (a.level !== b.level) {
+          return a.level - b.level;
+        }
+        return a.name.localeCompare(b.name);
+      }).map(cat => ({
+        ...cat,
+        children: cat.children ? sortCategories(cat.children) : []
+      }));
+    };
+
+    return sortCategories(rootCategories);
+  }, []);
 
   // Hàm cập nhật trạng thái đăng nhập và thông tin người dùng
   const updateAuthState = (newIsLoggedIn: boolean, newUserProfile: UserProfile | null) => {
@@ -190,46 +238,7 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Lỗi khi tìm kiếm sản phẩm:', error);
       setSearchResults([]);
-
-      // Fallback to mock data in case of API error
-      const mockProducts: SearchProduct[] = [
-        {
-          _id: 'mock1',
-          name: 'Son Kem Lì Black Rouge Air Fit Velvet Tint Ver.9',
-          slug: 'son-kem-li-black-rouge-air-fit-velvet-tint-ver-9',
-          price: 180000,
-          currentPrice: 159000,
-          imageUrl: '/images/products/son-black-rouge-ver9.jpg',
-          brandName: 'Black Rouge',
-        },
-        {
-          _id: 'mock2',
-          name: 'Nước Tẩy Trang L\'Oreal Revitalift Hyaluronic Acid',
-          slug: 'nuoc-tay-trang-loreal-revitalift-hyaluronic-acid',
-          price: 250000,
-          imageUrl: '/images/products/tay-trang-loreal-ha.jpg',
-          brandName: 'L\'Oréal',
-        },
-        {
-          _id: 'mock3',
-          name: 'Kem Chống Nắng La Roche-Posay Anthelios UVMune 400',
-          slug: 'kem-chong-nang-la-roche-posay-anthelios-uvmune-400',
-          price: 550000,
-          currentPrice: 495000,
-          imageUrl: '/images/products/kcn-laroche-posay-uvmune400.jpg',
-          brandName: 'La Roche-Posay',
-        }
-      ];
-
-      // Lọc dữ liệu giả theo từ khóa tìm kiếm
-      const lowerCaseTerm = term.toLowerCase();
-      const results = mockProducts.filter(product =>
-        product.name.toLowerCase().includes(lowerCaseTerm) ||
-        (product.brandName && product.brandName.toLowerCase().includes(lowerCaseTerm))
-      );
-
-      console.log('Fallback to mock data:', results.length);
-      setSearchResults(results);
+      // Không sử dụng dữ liệu giả nữa
     } finally {
       setIsSearching(false);
     }
@@ -289,66 +298,32 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Tải dữ liệu từ API khi component được mount
   useEffect(() => {
-    // Mock data cho categories
-    const mockCategories: Category[] = [
-      {
-        name: 'Chăm Sóc Da Mặt',
-        slug: 'cham-soc-da-mat',
-        children: [
-          { name: 'Kem Chống Nắng', slug: 'kem-chong-nang' },
-          { name: 'Sữa Rửa Mặt', slug: 'sua-rua-mat' },
-          { name: 'Nước Tẩy Trang', slug: 'nuoc-tay-trang' },
-          { name: 'Mặt Nạ', slug: 'mat-na' },
-        ]
-      },
-      {
-        name: 'Trang Điểm',
-        slug: 'trang-diem',
-        children: [
-          { name: 'Son Môi', slug: 'son-moi' },
-          { name: 'Kem Nền - Cushion', slug: 'kem-nen-cushion' },
-          { name: 'Mascara', slug: 'mascara' },
-          { name: 'Phấn Phủ', slug: 'phan-phu' },
-        ]
-      },
-      {
-        name: 'Chăm Sóc Cơ Thể',
-        slug: 'cham-soc-co-the',
-        children: [
-          { name: 'Sữa Tắm', slug: 'sua-tam' },
-          { name: 'Dưỡng Thể', slug: 'duong-the' },
-          { name: 'Kem Chống Nắng Body', slug: 'kem-chong-nang-body' },
-          { name: 'Tẩy Tế Bào Chết', slug: 'tay-te-bao-chet' },
-        ]
-      },
-      {
-        name: 'Chăm Sóc Tóc',
-        slug: 'cham-soc-toc',
-        children: [
-          { name: 'Dầu Gội', slug: 'dau-goi' },
-          { name: 'Dầu Xả', slug: 'dau-xa' },
-          { name: 'Kem Ủ Tóc', slug: 'kem-u-toc' },
-          { name: 'Dưỡng Tóc', slug: 'duong-toc' },
-        ]
-      },
-    ];
+    const fetchHeaderData = async () => {
+      try {
+        // Lấy dữ liệu categories - lấy tất cả với limit lớn
+        const categoriesResponse = await axiosInstance.get('/categories?limit=1000');
+        if (categoriesResponse.data && categoriesResponse.data.items && categoriesResponse.data.items.length > 0) {
+          // Lưu tất cả categories (flat) để sử dụng trong CategoryMegaMenu
+          setAllCategories(categoriesResponse.data.items);
+          // Xây dựng cây phân cấp từ dữ liệu phẳng
+          const hierarchicalCategories = buildCategoryTree(categoriesResponse.data.items);
+          setCategories(hierarchicalCategories);
+        }
 
-    // Mock data cho brands
-    const mockBrands: Brand[] = [
-      { name: 'Innisfree', slug: 'innisfree', featured: true },
-      { name: 'The Face Shop', slug: 'the-face-shop', featured: true },
-      { name: 'Laneige', slug: 'laneige', featured: true },
-      { name: 'Maybelline', slug: 'maybelline', featured: true },
-    ];
+        // Lấy dữ liệu brands nổi bật
+        const brandsResponse = await axiosInstance.get('/brands/featured');
+        if (brandsResponse.data && Array.isArray(brandsResponse.data)) {
+            setFeaturedBrands(brandsResponse.data);
+        }
 
-    // Đã loại bỏ mock data cho notifications vì đã được xử lý trong NotificationSection.tsx
+      } catch (error) {
+        console.error('Lỗi khi tải dữ liệu cho header:', error);
+      }
+    };
 
-    // Cập nhật state
-    setCategories(mockCategories);
-    setFeaturedBrands(mockBrands.filter(brand => brand.featured));
+    fetchHeaderData();
 
-    // TODO: Lấy dữ liệu từ local storage hoặc API
-    // Kiểm tra xem người dùng đã đăng nhập chưa
+    // Kiểm tra trạng thái đăng nhập từ local storage
     const userDataFromStorage = localStorage.getItem('user');
     if (userDataFromStorage) {
       try {
@@ -359,15 +334,13 @@ export const HeaderProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.error('Failed to parse user data', error);
       }
     }
-
-    // Không cần thiết lập giá trị mặc định cho cartItemCount và wishlistItemCount
-    // vì chúng sẽ được cập nhật từ CartContext và WishlistContext
-  }, []);
+  }, [buildCategoryTree]);
 
   const value = {
     isMobileMenuOpen,
     setMobileMenuOpen,
     categories,
+    allCategories, // Thêm allCategories vào value
     featuredBrands,
     cartItemCount,
     wishlistItemCount,

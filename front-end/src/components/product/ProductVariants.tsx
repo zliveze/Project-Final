@@ -351,105 +351,108 @@ const ProductVariants: React.FC<ProductVariantsProps> = ({
   }
 
   return (
-    <div className="space-y-5">
-      {/* Màu sắc */}
-      {availableColors.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Màu sắc:</h3>
-          <div className="flex flex-wrap gap-2">
-            {availableColors.map((color) => {
-              const { name, code } = parseColorString(color);
-              return (
+    <div className="space-y-3">
+      {/* Layout responsive: 1 cột mobile, grid desktop */}
+      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+        {/* Màu sắc */}
+        {availableColors.length > 0 && (
+          <div>
+            <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Màu sắc:</h3>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {availableColors.map((color) => {
+                const { name, code } = parseColorString(color);
+                return (
+                  <button
+                    key={color}
+                    onClick={() => color && handleColorSelect(color)}
+                    className={`
+                      h-8 sm:h-9 rounded-md flex items-center px-2 sm:px-3 transition-all duration-200 text-xs sm:text-sm
+                      ${selectedOptions.color === color
+                        ? 'bg-gradient-to-r from-pink-50 to-white border border-pink-200 shadow-sm'
+                        : 'border border-gray-200 hover:border-pink-200 hover:bg-pink-50/30'
+                      }
+                    `}
+                    title={color}
+                  >
+                    {code ? (
+                      <span
+                        className={`h-4 w-4 sm:h-5 sm:w-5 rounded-full mr-1.5 sm:mr-2 ${selectedOptions.color === color ? 'ring-2 ring-pink-300' : ''}`}
+                        style={{ backgroundColor: code }}
+                      />
+                    ) : (
+                      <span
+                        className="h-4 w-4 sm:h-5 sm:w-5 rounded-full mr-1.5 sm:mr-2 bg-gray-200 flex items-center justify-center text-xs"
+                        title="Mã màu không hợp lệ"
+                      >
+                        ?
+                      </span>
+                    )}
+                    <span className={`text-xs sm:text-sm ${selectedOptions.color === color ? 'font-medium text-pink-700' : 'text-gray-700'}`}>{name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Dung tích */}
+        {availableSizes.length > 0 && (
+          <div>
+            <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Dung tích:</h3>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {availableSizes.map((size) => (
                 <button
-                  key={color}
-                  onClick={() => color && handleColorSelect(color)}
+                  key={size}
+                  onClick={() => handleSizeSelect(size)}
+                  disabled={!isSizeValid(size)}
                   className={`
-                    h-10 rounded-md flex items-center px-3 transition-all duration-200
-                    ${selectedOptions.color === color
-                      ? 'bg-gradient-to-r from-pink-50 to-white border border-pink-200 shadow-sm'
-                      : 'border border-gray-200 hover:border-pink-200 hover:bg-pink-50/30'
+                    px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm transition-all duration-200
+                    ${selectedOptions.size === size
+                      ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
+                      : isSizeValid(size)
+                        ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
+                        : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
                     }
                   `}
-                  title={color}
                 >
-                  {code ? (
-                    <span
-                      className={`h-6 w-6 rounded-full mr-2 ${selectedOptions.color === color ? 'ring-2 ring-pink-300' : ''}`}
-                      style={{ backgroundColor: code }}
-                    />
-                  ) : (
-                    <span
-                      className="h-6 w-6 rounded-full mr-2 bg-gray-200 flex items-center justify-center text-xs"
-                      title="Mã màu không hợp lệ"
-                    >
-                      ?
-                    </span>
-                  )}
-                  <span className={`text-sm ${selectedOptions.color === color ? 'font-medium text-pink-700' : 'text-gray-700'}`}>{name}</span>
+                  {size}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Kích thước */}
-      {availableSizes.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Dung tích:</h3>
-          <div className="flex flex-wrap gap-2">
-            {availableSizes.map((size) => (
-              <button
-                key={size}
-                onClick={() => handleSizeSelect(size)}
-                disabled={!isSizeValid(size)}
-                className={`
-                  px-4 py-2 rounded-md text-sm transition-all duration-200
-                  ${selectedOptions.size === size
-                    ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
-                    : isSizeValid(size)
-                      ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
-                      : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
-                  }
-                `}
-              >
-                {size}
-              </button>
-            ))}
+        {/* Tone màu */}
+        {availableShades.length > 0 && (
+          <div>
+            <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Tone màu:</h3>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {availableShades.map((shade) => (
+                <button
+                  key={shade}
+                  onClick={() => handleShadeSelect(shade)}
+                  disabled={!isShadeValid(shade)}
+                  className={`
+                    px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm transition-all duration-200
+                    ${selectedOptions.shade === shade
+                      ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
+                      : isShadeValid(shade)
+                        ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
+                        : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  {shade}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Tone màu */}
-      {availableShades.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Tone màu:</h3>
-          <div className="flex flex-wrap gap-2">
-            {availableShades.map((shade) => (
-              <button
-                key={shade}
-                onClick={() => handleShadeSelect(shade)}
-                disabled={!isShadeValid(shade)}
-                className={`
-                  px-4 py-2 rounded-md text-sm transition-all duration-200
-                  ${selectedOptions.shade === shade
-                    ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-sm'
-                    : isShadeValid(shade)
-                      ? 'border border-gray-200 text-gray-700 hover:border-pink-200 hover:bg-pink-50/30'
-                      : 'border border-gray-100 text-gray-400 bg-gray-50 cursor-not-allowed'
-                  }
-                `}
-              >
-                {shade}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Hiển thị thông tin tổ hợp đã chọn */}
       {selectedVariant && selectedCombinationId && selectedVariant.combinations && (
-        <div className="mt-4 p-3 bg-pink-50/50 rounded-lg border border-pink-100">
+        <div className="mt-3 p-3 bg-pink-50/50 rounded-lg border border-pink-100">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-sm font-medium text-gray-700">Tổ hợp đã chọn:</h3>

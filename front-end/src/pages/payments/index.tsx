@@ -554,7 +554,7 @@ const PaymentsPage: NextPage = () => {
           await clearCart();
           router.push('/payments/success');
         } else throw new Error('Không thể tạo đơn hàng');
-      } else if (paymentMethod === 'credit_card' || paymentMethod === 'stripe') {
+      } else if (paymentMethod === 'stripe') {
         result = await createOrderWithStripe(orderData);
         if (result && result.checkoutUrl) {
           // orderNumber is set by backend

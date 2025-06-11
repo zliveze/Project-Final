@@ -61,7 +61,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
 
-  if (currentPath.startsWith('/shop') || currentPath.startsWith('/product') || currentPath === '/') {
+  if (currentPath.startsWith('/shop') || currentPath.startsWith('/product') || currentPath === '/' || currentPath.startsWith('/wishlist') || currentPath.startsWith('/cart')) {
     pageSpecificProviders = (
       <EventsProvider>
         <RecommendationProvider>

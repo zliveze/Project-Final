@@ -1,13 +1,24 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
 import ProfileInfo from './ProfileInfo';
-import WishlistItems from './WishlistItems'; // Khôi phục Wishlist
-import OrdersTab from './OrdersTab';
-import Notifications from './Notifications';
-import MyReviews from './MyReviews';
-// import AddressManager from './AddressManager'; // Remove import
-import AddressList from './AddressList'; // Import AddressList
+import AddressList from './AddressList';
 import OrderDetailModal from './OrderDetailModal';
-import { TabType, Order, Notification, Review, WishlistItem, Address, User } from './types'; // Khôi phục WishlistItem
+import { TabType, Order, Notification, Review, WishlistItem, Address, User } from '../../types/profile.d';
+import LoadingSpinner from '../common/LoadingSpinner'; // Import spinner
+
+// Dynamic imports for tab components
+const WishlistItems = dynamic(() => import('./WishlistItems'), {
+  loading: () => <LoadingSpinner />,
+});
+const OrdersTab = dynamic(() => import('./OrdersTab'), {
+  loading: () => <LoadingSpinner />,
+});
+const Notifications = dynamic(() => import('./Notifications'), {
+  loading: () => <LoadingSpinner />,
+});
+const MyReviews = dynamic(() => import('./MyReviews'), {
+  loading: () => <LoadingSpinner />,
+});
 
 interface ProfileContentProps {
   activeTab: TabType;

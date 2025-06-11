@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
-import { Autoplay, Pagination, Navigation, EffectFade } from 'swiper/modules'
+import { Autoplay, Pagination, Navigation } from 'swiper/modules'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useBanner } from '../../contexts'
@@ -11,7 +11,6 @@ import { FiArrowRight } from 'react-icons/fi'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import 'swiper/css/navigation'
-import 'swiper/css/effect-fade'
 
 export default function Herobanners() {
   const router = useRouter()
@@ -200,9 +199,7 @@ export default function Herobanners() {
             clickable: true,
           }}
           navigation={true}
-          effect="fade"
-          fadeEffect={{ crossFade: true }}
-          modules={[Autoplay, Pagination, Navigation, EffectFade]}
+          modules={[Autoplay, Pagination, Navigation]}
           className="hero-swiper"
         >
           {banners.map((banner: Banner, index: number) => (

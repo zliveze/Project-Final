@@ -11,35 +11,12 @@ import EmptyWishlist from '@/components/wishlist/EmptyWishlist';
 import WishlistSummary from '@/components/wishlist/WishlistSummary';
 import WishlistStats from '@/components/wishlist/WishlistStats';
 import WishlistCategories from '@/components/wishlist/WishlistCategories';
-import RecommendedProducts from '@/components/common/RecommendedProducts';
+import dynamic from 'next/dynamic';
 import DefaultLayout from '@/layout/DefaultLayout';
 import { useWishlist, WishlistItem as ContextWishlistItem } from '@/contexts/user/wishlist/WishlistContext'; // Import context hook and type
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to check authentication
 
-// Định nghĩa kiểu dữ liệu cho sản phẩm gợi ý (Keep this if needed for recommended products)
-interface RecommendedProduct {
-  _id: string;
-  name: string;
-  slug: string;
-  price: number;
-  currentPrice: number;
-  image: {
-    url: string;
-    alt: string;
-  };
-  brand: {
-    name: string;
-    slug: string;
-  };
-  sku: string; // Added sku
-  status: string; // Added status
-  inStock: boolean;
-  isNew?: boolean;
-  rating?: number;
-  reviewCount?: number;
-}
-
-// Định nghĩa kiểu dữ liệu cho danh mục (Keep this if needed for categories section)
+// Define Category type to match WishlistCategories component requirements
 interface Category {
   id: string;
   name: string;
@@ -48,45 +25,19 @@ interface Category {
   productCount: number;
 }
 
+// Define API response type for categories
+interface CategoryApiResponse {
+  _id?: string;
+  id?: string;
+  name: string;
+  slug: string;
+  image?: {
+    url: string;
+  };
+  productCount?: number;
+}
 
-// Dữ liệu mẫu cho sản phẩm gợi ý (Keep for now, replace with API call later if needed)
-const sampleRecommendedProducts: RecommendedProduct[] = [
-  {
-    _id: '4',
-    name: 'Kem Dưỡng Ẩm CeraVe Moisturizing Cream',
-    slug: 'kem-duong-am-cerave-moisturizing-cream',
-    price: 350000,
-    currentPrice: 315000,
-    image: {
-      url: 'https://product.hstatic.net/1000006063/product/1_9b2a8d9c4e8c4e7a9a3e270d8d0c4c0d_1024x1024.jpg',
-      alt: 'Kem Dưỡng Ẩm CeraVe'
-    },
-    brand: {
-      name: 'CeraVe',
-      slug: 'cerave'
-    },
-    sku: 'CERAVE-MOIST-CREAM-250ML', // Added sample sku
-    status: 'active', // Added sample status
-    inStock: true,
-    isNew: true,
-    rating: 4.8,
-    reviewCount: 124
-  },
-  // ... (other sample recommended products)
-];
-
-// Dữ liệu mẫu cho danh mục (Keep for now, replace with API call later if needed)
-const sampleCategories: Category[] = [
-  {
-    id: '1', // Use string IDs if they come from backend as strings
-    name: 'Chăm sóc da',
-    slug: 'skincare',
-    image: 'https://images.unsplash.com/photo-1612817288484-6f916006741a',
-    productCount: 120
-  },
-   // ... (other sample categories)
-];
-
+const RecommendedProducts = dynamic(() => import('@/components/common/RecommendedProducts'), { ssr: false });
 const WishlistPage: NextPage = () => {
   const {
     wishlistItems,
@@ -99,8 +50,32 @@ const WishlistPage: NextPage = () => {
   const router = useRouter();
 
   // State for recommended products and categories (keep using sample data for now)
-  const [recommendedProducts] = useState<RecommendedProduct[]>(sampleRecommendedProducts);
-  const [categories] = useState<Category[]>(sampleCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    // Fetch categories from API
+    const fetchCategories = async () => {
+        try {
+            // Assuming an API endpoint to get popular categories for the wishlist page
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/popular?limit=5`);
+            if (response.ok) {
+                const data = await response.json();
+                // Map API response to match WishlistCategories interface
+                const mappedCategories = (data.data || []).map((cat: CategoryApiResponse) => ({
+                  id: cat._id || cat.id || '',
+                  name: cat.name,
+                  slug: cat.slug,
+                  image: cat.image?.url || '/placeholder-category.jpg',
+                  productCount: cat.productCount || 0
+                }));
+                setCategories(mappedCategories);
+            }
+        } catch (error) {
+            console.error("Failed to fetch categories:", error);
+        }
+    };
+    fetchCategories();
+  }, []);
 
   // Redirect if not authenticated after loading
   useEffect(() => {
@@ -316,8 +291,10 @@ const WishlistPage: NextPage = () => {
 
               {/* Sản phẩm gợi ý */}
               <RecommendedProducts
-                products={recommendedProducts}
-                // onAddToWishlist prop removed as it doesn't exist on the component
+                type="personalized"
+                limit={8}
+                hideIfEmpty={true}
+                title="Gợi ý cho riêng bạn"
               />
             </div>
           ) : (
@@ -327,8 +304,10 @@ const WishlistPage: NextPage = () => {
               {/* Hiển thị sản phẩm gợi ý ngay cả khi wishlist trống */}
               <div className="max-w-6xl mx-auto">
                 <RecommendedProducts
-                  products={recommendedProducts}
-                 // onAddToWishlist prop removed as it doesn't exist on the component
+                  type="recommended"
+                  limit={8}
+                  hideIfEmpty={true}
+                  title="Có thể bạn cũng thích"
                 />
               </div>
             </>

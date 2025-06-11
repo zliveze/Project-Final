@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useMemo, memo } from 'react';
+import dynamic from 'next/dynamic';
 import DefaultLayout from '../../layout/DefaultLayout';
 import ProductCardShop from '../../components/common/ProductCardShop';
-import ShopFilters from '../../components/shop/ShopFilters';
 import ShopBanner from '../../components/shop/ShopBanner';
 import ShopPagination from '../../components/shop/ShopPagination';
 import { BreadcrumItem } from '@/components/common/Breadcrum';
@@ -76,6 +76,11 @@ const ActiveFilter = memo<{
 ));
 
 ActiveFilter.displayName = 'ActiveFilter';
+
+const ShopFilters = dynamic(() => import('../../components/shop/ShopFilters'), {
+  loading: () => <div className="md:w-64 shrink-0"><div className="bg-white rounded-sm shadow-sm skeleton-loader p-4"><div className="h-8 bg-gray-300 rounded w-full mb-4"></div><div className="h-6 bg-gray-300 rounded w-3/4 mb-2"></div><div className="h-6 bg-gray-300 rounded w-1/2 mb-4"></div><div className="h-6 bg-gray-300 rounded w-3/4 mb-2"></div><div className="h-6 bg-gray-300 rounded w-1/2"></div></div></div>,
+  ssr: false
+});
 
 export default function Shop() {
   const {

@@ -144,12 +144,12 @@ export default function SearchResults({
 
   return (
     <div className="w-full mt-2 rounded-md shadow-xl border border-gray-200 bg-white overflow-hidden">
-      <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="p-2 lg:p-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center text-gray-600">
-          <FiSearch className="mr-2 text-pink-500" />
-          <span className="text-sm">
+          <FiSearch className="mr-1 lg:mr-2 text-pink-500 w-3 h-3 lg:w-4 lg:h-4" />
+          <span className="text-xs lg:text-sm">
             {isLoadingMock || loading ? 'Đang tìm kiếm...' : searchTerm ? (
-              <>Kết quả tìm kiếm cho <span className="font-medium text-pink-600">&quot;{searchTerm}&quot;</span></>
+              <>Kết quả cho <span className="font-medium text-pink-600">&quot;{searchTerm}&quot;</span></>
             ) : (
               <>Tìm kiếm phổ biến</>
             )}
@@ -160,22 +160,22 @@ export default function SearchResults({
           className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
           aria-label="Đóng kết quả tìm kiếm"
         >
-          <FiX />
+          <FiX className="w-3 h-3 lg:w-4 lg:h-4" />
         </button>
       </div>
 
       {/* Hiển thị từ khóa phổ biến nếu chưa nhập từ khóa hoặc từ khóa quá ngắn */}
       {(!searchTerm || searchTerm.length < 2) && (
-        <div className="p-3 bg-gray-50 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-2">
-            <FiTrendingUp className="text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Tìm kiếm phổ biến</span>
+        <div className="p-2 lg:p-3 bg-gray-50 border-b border-gray-100">
+          <div className="flex items-center gap-1 lg:gap-2 mb-2">
+            <FiTrendingUp className="text-gray-400 w-3 h-3 lg:w-4 lg:h-4" />
+            <span className="text-xs lg:text-sm font-medium text-gray-700">Tìm kiếm phổ biến</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1 lg:gap-2">
             {popularSearchTerms.map((term, index) => (
               <button
                 key={`popular-term-${index}`}
-                className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                className="px-2 lg:px-3 py-1 lg:py-1.5 bg-white rounded-full border border-gray-200 text-xs lg:text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
                 onClick={() => handleSuggestionClick(term)}
               >
                 {term}
@@ -187,16 +187,16 @@ export default function SearchResults({
 
       {/* Phần gợi ý từ khóa tìm kiếm */}
       {searchTerm && searchTerm.length >= 2 && searchSuggestions.length > 0 && (
-        <div className="p-3 bg-gray-50 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-2">
-            <FiClock className="text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Gợi ý tìm kiếm</span>
+        <div className="p-2 lg:p-3 bg-gray-50 border-b border-gray-100">
+          <div className="flex items-center gap-1 lg:gap-2 mb-2">
+            <FiClock className="text-gray-400 w-3 h-3 lg:w-4 lg:h-4" />
+            <span className="text-xs lg:text-sm font-medium text-gray-700">Gợi ý tìm kiếm</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {searchSuggestions.map((suggestion, index) => (
+          <div className="flex flex-wrap gap-1 lg:gap-2">
+            {searchSuggestions.slice(0, 6).map((suggestion, index) => (
               <button
                 key={`suggestion-${index}`}
-                className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                className="px-2 lg:px-3 py-1 lg:py-1.5 bg-white rounded-full border border-gray-200 text-xs lg:text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
                 onClick={() => handleSuggestionClick(suggestion)}
               >
                 {suggestion}
@@ -206,10 +206,10 @@ export default function SearchResults({
         </div>
       )}
 
-      <div className="overflow-y-auto max-h-[70vh]">
+      <div className="overflow-y-auto max-h-[60vh] lg:max-h-[70vh]">
         {isLoadingMock || loading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+          <div className="flex justify-center items-center py-6 lg:py-8">
+            <div className="animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-b-2 border-pink-500"></div>
           </div>
         ) : searchTerm.length >= 2 && products.length > 0 ? (
           <div>
@@ -219,26 +219,26 @@ export default function SearchResults({
                 <Link
                   key={product._id}
                   href={`/product/${product.slug}`}
-                  className="flex items-center p-3 hover:bg-gray-50 transition-colors"
+                  className="flex items-center p-2 lg:p-3 hover:bg-gray-50 transition-colors"
                   onClick={onClose}
                 >
-                  <div className="relative w-12 h-12 flex-shrink-0 bg-gray-50 rounded-md overflow-hidden">
+                  <div className="relative w-10 h-10 lg:w-12 lg:h-12 flex-shrink-0 bg-gray-50 rounded-md overflow-hidden">
                     <Image
                       src={product.imageUrl || '/placeholder.png'}
                       alt={product.name}
                       fill
-                      sizes="48px"
+                      sizes="(max-width: 768px) 40px, 48px"
                       className="object-cover"
                     />
                   </div>
-                  <div className="ml-3 flex-grow min-w-0">
-                    <h4 className="text-sm font-medium text-gray-800 truncate">{product.name}</h4>
+                  <div className="ml-2 lg:ml-3 flex-grow min-w-0">
+                    <h4 className="text-xs lg:text-sm font-medium text-gray-800 truncate">{product.name}</h4>
                     {product.brandName && (
-                      <p className="text-xs text-gray-500 truncate">{product.brandName}</p>
+                      <p className="text-[10px] lg:text-xs text-gray-500 truncate">{product.brandName}</p>
                     )}
                   </div>
                   <div className="ml-2 flex-shrink-0">
-                    <span className="text-sm font-medium text-pink-600">
+                    <span className="text-xs lg:text-sm font-medium text-pink-600">
                       {formatCurrency(product.currentPrice || product.price)}
                     </span>
                   </div>
@@ -246,32 +246,32 @@ export default function SearchResults({
               ))}
             </div>
 
-            <div className="p-3 border-t border-gray-100 text-center">
+            <div className="p-2 lg:p-3 border-t border-gray-100 text-center">
               <button
                 onClick={onViewAll}
-                className="text-sm bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md transition-colors"
+                className="text-xs lg:text-sm bg-pink-600 hover:bg-pink-700 text-white py-1.5 lg:py-2 px-3 lg:px-4 rounded-md transition-colors"
               >
                 Xem tất cả {products.length} kết quả
               </button>
             </div>
           </div>
         ) : searchTerm.length >= 2 ? (
-          <div className="py-8 px-4 text-center">
+          <div className="py-6 lg:py-8 px-3 lg:px-4 text-center">
             <div className="text-gray-400 mb-2">
-              <FiSearch className="h-8 w-8 mx-auto mb-2" />
+              <FiSearch className="h-6 w-6 lg:h-8 lg:w-8 mx-auto mb-2" />
             </div>
-            <p className="text-gray-600 mb-1">Không tìm thấy sản phẩm nào phù hợp</p>
-            <p className="text-sm text-gray-500">Vui lòng thử lại với từ khóa khác</p>
+            <p className="text-sm lg:text-base text-gray-600 mb-1">Không tìm thấy sản phẩm nào phù hợp</p>
+            <p className="text-xs lg:text-sm text-gray-500">Vui lòng thử lại với từ khóa khác</p>
 
             {/* Hiển thị các gợi ý từ khóa khi không tìm thấy kết quả */}
             {searchSuggestions.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-2">Bạn có thể thử tìm với:</p>
-                <div className="flex flex-wrap justify-center gap-2 mt-2">
-                  {searchSuggestions.map((suggestion, index) => (
+              <div className="mt-3 lg:mt-4">
+                <p className="text-xs lg:text-sm text-gray-600 mb-2">Bạn có thể thử tìm với:</p>
+                <div className="flex flex-wrap justify-center gap-1 lg:gap-2 mt-2">
+                  {searchSuggestions.slice(0, 4).map((suggestion, index) => (
                     <button
                       key={`no-result-suggestion-${index}`}
-                      className="px-3 py-1.5 bg-white rounded-full border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                      className="px-2 lg:px-3 py-1 lg:py-1.5 bg-white rounded-full border border-gray-200 text-xs lg:text-sm text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-colors"
                       onClick={() => handleSuggestionClick(suggestion)}
                     >
                       {suggestion}

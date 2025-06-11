@@ -125,7 +125,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       console.log('Đang lấy danh sách danh mục cho người dùng');
       
-      const response = await fetch(CATEGORY_API.ALL);
+      const response = await fetch(`${CATEGORY_API.ALL}?limit=1000`);
       const data = await handleApiResponse(response, 'Không thể tải danh sách danh mục');
       
       console.log(`Đã lấy ${data.items ? data.items.length : 0} danh mục thành công`);
@@ -184,7 +184,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       console.log('Đang lấy cấu trúc phân cấp danh mục cho người dùng');
       
-      const response = await fetch(CATEGORY_API.HIERARCHICAL);
+      const response = await fetch(`${CATEGORY_API.HIERARCHICAL}?limit=1000`);
       const data = await handleApiResponse(response, 'Không thể tải cấu trúc phân cấp danh mục');
       
       console.log(`Đã lấy cấu trúc phân cấp danh mục thành công`);

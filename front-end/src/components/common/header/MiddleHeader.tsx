@@ -225,14 +225,14 @@ function MiddleHeader({
             <FiMenu className="w-5 h-5" />
           </motion.button>
 
-          {/* Logo */}
-          <Link href="/" className="flex items-center mr-4 lg:mr-0">
+          {/* Logo - Chỉ hiển thị trên desktop */}
+          <Link href="/" className="hidden lg:flex items-center mr-4 lg:mr-0">
             <div className="relative h-8 w-24">
               <span className="text-pink-600 text-xl font-bold tracking-wide">YUMIN</span>
             </div>
           </Link>
 
-          {/* Search bar */}
+          {/* Search bar - Desktop */}
           <div className="hidden lg:flex flex-1 max-w-2xl mx-8 bg-gray-50 rounded-md overflow-visible border border-gray-200 transition-all hover:border-pink-300 focus-within:border-pink-400 focus-within:ring-1 focus-within:ring-pink-300 relative">
             <form
               ref={searchFormRef}
@@ -283,8 +283,54 @@ function MiddleHeader({
             </form>
           </div>
 
+          {/* Search bar - Mobile */}
+          <div className="lg:hidden flex-1 mx-2 bg-gray-50 rounded-md overflow-visible border border-gray-200 transition-all hover:border-pink-300 focus-within:border-pink-400 focus-within:ring-1 focus-within:ring-pink-300 relative">
+            <form
+              onSubmit={handleSearch}
+              className="w-full relative"
+            >
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                className="w-full pl-3 pr-10 py-2 rounded-md focus:outline-none text-sm bg-gray-50"
+                value={searchTerm}
+                onChange={handleSearchInputChange}
+                onFocus={handleSearchFocus}
+                aria-label="Tìm kiếm"
+              />
+              <button
+                type="submit"
+                className="absolute right-0 top-0 h-full px-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                aria-label="Tìm kiếm"
+              >
+                <FiSearch className="w-4 h-4 text-pink-600" />
+              </button>
+
+              {/* Mobile Search Results */}
+              {showSearchResults && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full left-0 right-0 z-[9999] mt-1 shadow-lg lg:hidden"
+                >
+                  <SearchResults
+                    isVisible={showSearchResults}
+                    searchTerm={searchTerm}
+                    products={searchResults}
+                    loading={isSearching}
+                    onClose={handleCloseSearchResults}
+                    onViewAll={handleViewAllResults}
+                    inputRef={searchInputRef}
+                  />
+                </motion.div>
+              )}
+            </form>
+          </div>
+
           {/* Right side actions */}
-          <div className="flex items-center space-x-5">
+          <div className="flex items-center space-x-2 lg:space-x-5">
             {/* User account - desktop */}
             <div className="hidden lg:block relative" ref={dropdownRef}>
               <motion.div
@@ -388,10 +434,10 @@ function MiddleHeader({
 
             {/* Wishlist */}
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-              <Link href="/wishlist" className="relative w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Danh sách yêu thích">
-                <FiHeart className="w-4 h-4" />
+              <Link href="/wishlist" className="relative w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Danh sách yêu thích">
+                <FiHeart className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                 {wishlistItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-3.5 h-3.5 lg:w-4 lg:h-4 flex items-center justify-center text-[9px] lg:text-[10px] font-bold">
                     {wishlistItemCount}
                   </span>
                 )}
@@ -400,10 +446,10 @@ function MiddleHeader({
 
             {/* Cart */}
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
-              <Link href="/cart" className="relative w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Giỏ hàng">
-                <FiShoppingCart className="w-4 h-4" />
+              <Link href="/cart" className="relative w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600" aria-label="Giỏ hàng">
+                <FiShoppingCart className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-3.5 h-3.5 lg:w-4 lg:h-4 flex items-center justify-center text-[9px] lg:text-[10px] font-bold">
                     {cartItemCount}
                   </span>
                 )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { FiX, FiUser, FiShoppingCart, FiHeart, FiMapPin, FiPhone, FiChevronDown, FiHome, FiTag, FiStar } from 'react-icons/fi';
+import { FiX, FiUser, FiShoppingCart, FiHeart, FiMapPin, FiPhone, FiChevronDown, FiHome, FiTag, FiStar, FiPlus } from 'react-icons/fi';
 import { Category, UserProfile } from '@/contexts/HeaderContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHeader } from '@/contexts/HeaderContext';
@@ -24,9 +24,17 @@ export default function MobileSideMenu({
   userProfile,
 }: MobileSideMenuProps) {
   const [openCategory, setOpenCategory] = useState<number | null>(null);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const { logout } = useAuth();
   const { updateAuthState } = useHeader();
   const router = useRouter();
+
+  // Giới hạn hiển thị danh mục
+  const CATEGORY_DISPLAY_LIMIT = 10;
+  const displayedCategories = showAllCategories
+    ? categories
+    : categories.slice(0, CATEGORY_DISPLAY_LIMIT);
+  const hasMoreCategories = categories.length > CATEGORY_DISPLAY_LIMIT;
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -155,8 +163,8 @@ export default function MobileSideMenu({
               {/* Danh mục */}
               <div className="px-4 py-2 border-b">
                 <div className="text-xs uppercase text-gray-500 mb-2">Danh mục sản phẩm</div>
-                {categories.map((category, index) => (
-                  <div key={index} className="mb-1">
+                {displayedCategories.map((category, index) => (
+                  <div key={category._id || index} className="mb-1">
                     <motion.button
                       className="w-full flex items-center justify-between py-2 text-sm hover:text-pink-600"
                       onClick={() => setOpenCategory(openCategory === index ? null : index)}
@@ -198,6 +206,22 @@ export default function MobileSideMenu({
                     </AnimatePresence>
                   </div>
                 ))}
+
+                {/* Nút xem thêm/ít hơn danh mục */}
+                {hasMoreCategories && (
+                  <motion.button
+                    className="w-full flex items-center justify-center py-2 text-sm text-pink-600 hover:text-pink-700 border-t border-gray-100 mt-2 pt-3"
+                    onClick={() => {
+                      setShowAllCategories(!showAllCategories);
+                      // Reset opened category khi toggle
+                      setOpenCategory(null);
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <FiPlus className={`w-4 h-4 mr-2 transition-transform ${showAllCategories ? 'rotate-45' : ''}`} />
+                    <span>{showAllCategories ? 'Thu gọn' : `Xem thêm ${categories.length - CATEGORY_DISPLAY_LIMIT} danh mục`}</span>
+                  </motion.button>
+                )}
               </div>
 
               {/* Links */}

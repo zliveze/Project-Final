@@ -22,7 +22,6 @@ import { useBranches } from '@/hooks/useBranches';
 import { useUserVoucher } from '@/hooks/useUserVoucher';
 
 import { CartProduct } from '@/contexts/user/cart/CartContext';
-import { RecommendedProduct } from '@/contexts/user/RecommendationContext';
 
 // Mở rộng CartProduct để bao gồm branchName
 interface ExtendedCartProduct extends CartProduct {
@@ -92,27 +91,6 @@ const CartPage: NextPage = () => {
       fetchApplicableVouchers(relevantSubtotal, productIds);
     }
   }, [cartItems, subtotal, selectedSubtotal, selectedItems, selectedItemCount, isLoading, fetchApplicableVouchers]);
-
-  // State for recommended products
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-
-  // Fetch recommended products
-  useEffect(() => {
-    const fetchRecommended = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/recommended?limit=4`);
-        if (response.ok) {
-          const data = await response.json();
-          setRecommendedProducts(data.data || []);
-        }
-      } catch (error) {
-        console.error('Lỗi khi tải sản phẩm gợi ý:', error);
-      }
-    };
-    fetchRecommended();
-  }, []);
-
-
 
   // Xử lý cập nhật số lượng sản phẩm
   const handleUpdateQuantity = (itemId: string, quantity: number, showToast: boolean = false, selectedBranchId?: string) => {
@@ -451,10 +429,13 @@ const CartPage: NextPage = () => {
 
           {/* Recommended Products Section */}
 
-          {!isLoading && recommendedProducts.length > 0 && (
+          {!isLoading && (
             <div className="mt-16">
               <RecommendedProducts
-                products={recommendedProducts}
+                type="recommended"
+                limit={4}
+                title="Có thể bạn cũng thích"
+                hideIfEmpty={true}
               />
             </div>
           )}

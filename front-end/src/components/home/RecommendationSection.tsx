@@ -5,7 +5,6 @@ import { FiArrowRight, FiShoppingCart, FiHeart } from 'react-icons/fi';
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecommendation } from '@/contexts/user/RecommendationContext';
-import { useGSAP, gsapUtils } from '@/hooks/useGSAP';
 
 interface LocalRecommendedProduct {
   id: string;
@@ -43,7 +42,6 @@ const RatingStars = ({ rating }: { rating: number }) => {
 // Component sản phẩm gợi ý - Copy chính xác từ BestSellerSection
 const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct; index: number }) => {
   const [imageError, setImageError] = useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
 
   // Tính phần trăm giảm giá
   const discountPercentage = product.discountedPrice
@@ -65,75 +63,12 @@ const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct;
     setImageError(true);
   };
 
-  // GSAP hover animations - Copy chính xác từ BestSellerSection
-  useGSAP(() => {
-    if (!cardRef.current) return;
 
-    const card = cardRef.current;
-    const image = card.querySelector('.product-image');
-    const addToCartBtn = card.querySelector('.add-to-cart-btn');
-    const heartBtn = card.querySelector('.heart-btn');
-
-    const handleMouseEnter = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: -4,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1.05,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 1,
-        y: 0,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.1");
-    };
-
-    const handleMouseLeave = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: 0,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 0,
-        y: 8,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.2");
-    };
-
-    card.addEventListener('mouseenter', handleMouseEnter);
-    card.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      card.removeEventListener('mouseenter', handleMouseEnter);
-      card.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
 
   return (
-    <div
-      ref={cardRef}
-      className="product-card transform-gpu"
-    >
+    <div className="product-card">
       <Link href={`/product/${product.slug}`} className="group block">
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors duration-300 hover:border-rose-300">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors hover:border-rose-300 hover:shadow-md">
 
           {/* Compact badges */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
@@ -156,12 +91,12 @@ const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct;
 
           {/* Compact heart button */}
           <div className="absolute top-2 right-2 z-20">
-            <button className="heart-btn w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 translate-y-1 transition-all hover:bg-rose-50 hover:border-rose-300">
+            <button className="w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-50 hover:border-rose-300">
               <FiHeart className="w-3.5 h-3.5 text-gray-600 hover:text-rose-500" />
             </button>
           </div>
 
-          {/* Hình ảnh sản phẩm - Larger */}
+          {/* Hình ảnh sản phẩm */}
           <div className="relative aspect-square p-6 flex items-center justify-center bg-gray-50">
             <div className="relative w-full h-full">
               <Image
@@ -169,25 +104,25 @@ const RecommendedProductCard = ({ product }: { product: LocalRecommendedProduct;
                 alt={product.name}
                 width={250}
                 height={250}
-                className="product-image object-contain w-full h-full"
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
                 onError={handleImageError}
                 placeholder="blur"
                 blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
               />
             </div>
 
-            {/* Larger add to cart button */}
+            {/* Add to cart button */}
             <div className="absolute bottom-4 left-4 right-4">
-              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+              <button className="w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-sm font-medium py-3 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
                 <FiShoppingCart className="mr-2 w-4 h-4" />
                 Thêm vào giỏ
               </button>
             </div>
           </div>
 
-          {/* Thông tin sản phẩm - Larger */}
+          {/* Thông tin sản phẩm */}
           <div className="p-6">
-            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[44px] leading-snug">
+            <h3 className="text-base font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors min-h-[44px] leading-snug">
               {product.name}
             </h3>
 
@@ -271,67 +206,7 @@ const RecommendationSection = () => {
     }));
   }, [products]);
 
-  // GSAP animations - chỉ chạy khi có data và không loading
-  useGSAP(({ gsap }) => {
-    if (!sectionRef.current || loading || convertedProducts.length === 0) return;
 
-    const tl = gsapUtils.timeline();
-
-    // Set initial states - Enhanced với các elements mới
-    gsap.set('.recommendation-section', { opacity: 0 });
-    gsap.set('.recommendation-header', { y: 20, opacity: 0 });
-    gsap.set('.enhanced-title', { y: 20, opacity: 0 });
-    gsap.set('.enhanced-description', { y: 15, opacity: 0 });
-    gsap.set('.enhanced-decorative', { y: 10, opacity: 0, scale: 0.8 });
-    gsap.set('.product-card', { y: 30, opacity: 0 });
-    gsap.set('.view-all-button', { y: 15, opacity: 0 });
-
-    // Animate entrance - Enhanced sequence
-    tl.to('.recommendation-section', {
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    })
-    .to('.recommendation-header', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    }, "-=0.3")
-    .to('.enhanced-title', {
-      y: 0,
-      opacity: 1,
-      duration: 0.7,
-      ease: "power3.out"
-    }, "-=0.4")
-    .to('.enhanced-description', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    }, "-=0.3")
-    .to('.enhanced-decorative', {
-      y: 0,
-      opacity: 1,
-      scale: 1,
-      duration: 0.5,
-      ease: "back.out(1.7)"
-    }, "-=0.2")
-    .to('.product-card', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: "power2.out"
-    }, "-=0.1")
-    .to('.view-all-button', {
-      y: 0,
-      opacity: 1,
-      duration: 0.4,
-      ease: "power2.out"
-    }, "-=0.1");
-
-  }, [loading, convertedProducts.length]); // Chỉ depend vào length thay vì toàn bộ array
 
   // Fetch products chỉ khi cần thiết và chưa có dữ liệu
   useEffect(() => {

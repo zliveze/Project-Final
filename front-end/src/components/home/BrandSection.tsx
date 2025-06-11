@@ -68,41 +68,33 @@ export default function BrandSection() {
           <>
             <div className="text-center mb-12">
               <div className="inline-block mb-4">
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg">
+                <span className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-full">
                   ⭐ Thương Hiệu Nổi Bật
                 </span>
               </div>
-              
+
               <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">
-                Khám Phá Những Thương Hiệu 
-                <span className="text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text"> Hàng Đầu</span>
+                Khám Phá Những Thương Hiệu
+                <span className="text-blue-600"> Hàng Đầu</span>
               </h2>
               <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
                 Trải nghiệm các thương hiệu mỹ phẩm đẳng cấp thế giới với sản phẩm chất lượng cao
               </p>
-              
-              {/* Decorative line */}
-              <div className="flex items-center justify-center mt-6">
-                <div className="h-0.5 w-16 bg-gradient-to-r from-transparent to-blue-300"></div>
-                <div className="mx-3 w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="h-0.5 w-16 bg-gradient-to-l from-transparent to-purple-300"></div>
-              </div>
+
+              <div className="w-12 h-px bg-blue-300 mt-6 mx-auto"></div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-16 pt-3">
               {featuredBrands.map((brand: Brand) => (
-                <div key={brand.id} className="relative group">
+                <div key={brand.id} className="relative">
                   <a href={`/brands/${brand.slug}`} className="block">
-                    <div className="relative bg-white rounded-xl p-4 h-32 flex flex-col items-center justify-center shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 group overflow-visible">
+                    <div className="relative bg-white rounded-xl p-4 h-32 flex flex-col items-center justify-center shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-colors">
                       {/* Featured badge */}
                       <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
-                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-md">
+                        <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
                           🏆 Nổi bật
                         </div>
                       </div>
-
-                      {/* Subtle gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-purple-50/0 group-hover:from-blue-50/30 group-hover:to-purple-50/30 rounded-xl transition-all duration-300"></div>
 
                       {/* Logo container */}
                       <div className="flex-1 flex items-center justify-center mb-2 relative z-10">
@@ -112,11 +104,11 @@ export default function BrandSection() {
                             alt={brand.logo.alt || brand.name}
                             width={80}
                             height={40}
-                            className="object-contain max-h-full max-w-full filter grayscale group-hover:grayscale-0 transition-all duration-300"
+                            className="object-contain max-h-full max-w-full"
                             onError={() => handleImageError(`featured-${brand.id}`)}
                           />
                         ) : (
-                          <div className="w-full h-12 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 rounded-lg text-sm font-medium">
+                          <div className="w-full h-12 bg-gray-100 flex items-center justify-center text-gray-600 rounded-lg text-sm font-medium">
                             {brand.name}
                           </div>
                         )}
@@ -124,13 +116,10 @@ export default function BrandSection() {
 
                       {/* Brand name */}
                       <div className="text-center relative z-10">
-                        <h4 className="text-xs font-semibold text-gray-700 group-hover:text-blue-600 transition-colors duration-300 line-clamp-2">
+                        <h4 className="text-xs font-semibold text-gray-700 line-clamp-2">
                           {brand.name}
                         </h4>
                       </div>
-
-                      {/* Subtle border glow */}
-                      <div className="absolute inset-0 rounded-xl border border-transparent group-hover:border-blue-200/50 transition-all duration-300"></div>
                     </div>
                   </a>
                 </div>
@@ -148,10 +137,10 @@ export default function BrandSection() {
               </div>
               <a
                 href="/brands"
-                className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center"
               >
                 Xem tất cả
-                <svg className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </a>
@@ -159,18 +148,15 @@ export default function BrandSection() {
 
             <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
               {activeBrands.slice(0, 16).map((brand: Brand) => (
-                <div key={brand.id} className="relative group">
+                <div key={brand.id} className="relative">
                   <a href={`/brands/${brand.slug}`} className="block">
-                    <div className="relative bg-white rounded-lg p-3 h-16 flex items-center justify-center shadow-md border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all duration-300 group">
+                    <div className="relative bg-white rounded-lg p-3 h-16 flex items-center justify-center shadow-md border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-colors">
                       {/* Special indicator for featured brands */}
                       {brand.featured && (
                         <div className="absolute top-1 right-1 z-10">
-                          <div className="w-2 h-2 bg-gradient-to-br from-red-400 to-pink-500 rounded-full shadow-sm"></div>
+                          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
                         </div>
                       )}
-
-                      {/* Subtle gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-purple-50/0 group-hover:from-blue-50/20 group-hover:to-purple-50/20 rounded-lg transition-all duration-300"></div>
 
                       {brand.logo?.url && !isImageError(`active-${brand.id}`) ? (
                         <Image
@@ -178,11 +164,11 @@ export default function BrandSection() {
                           alt={brand.logo.alt || brand.name}
                           width={60}
                           height={30}
-                          className="object-contain max-h-full max-w-full filter grayscale group-hover:grayscale-0 transition-all duration-300 relative z-10"
+                          className="object-contain max-h-full max-w-full relative z-10"
                           onError={() => handleImageError(`active-${brand.id}`)}
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-500 rounded text-xs relative z-10">
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500 rounded text-xs relative z-10">
                           <span className="truncate px-1 font-medium">{brand.name}</span>
                         </div>
                       )}

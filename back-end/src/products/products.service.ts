@@ -2250,6 +2250,17 @@ export class ProductsService {
         ...inv,
         branchId: inv.branchId ? inv.branchId.toString() : undefined
       })) : [],
+      variantInventory: product.variantInventory ? product.variantInventory.map(inv => ({
+        ...inv,
+        branchId: inv.branchId ? inv.branchId.toString() : undefined,
+        variantId: inv.variantId ? inv.variantId.toString() : undefined
+      })) : [],
+      combinationInventory: product.combinationInventory ? product.combinationInventory.map(inv => ({
+        ...inv,
+        branchId: inv.branchId ? inv.branchId.toString() : undefined,
+        variantId: inv.variantId ? inv.variantId.toString() : undefined,
+        combinationId: inv.combinationId ? inv.combinationId.toString() : undefined
+      })) : [],
       relatedProducts: product.relatedProducts ? product.relatedProducts.map(id => id.toString()) : [],
       relatedEvents: product.relatedEvents ? product.relatedEvents.map(id => id.toString()) : [],
       relatedCampaigns: product.relatedCampaigns ? product.relatedCampaigns.map(id => id.toString()) : [],

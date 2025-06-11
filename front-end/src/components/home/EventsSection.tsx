@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { RiFireFill } from 'react-icons/ri'
@@ -6,7 +6,6 @@ import { HiClock } from 'react-icons/hi'
 import { FiZap, FiArrowRight, FiShoppingCart, FiHeart } from 'react-icons/fi'
 import { FaStar, FaStarHalfAlt } from 'react-icons/fa'
 import { getActiveEvents } from '@/services/eventService'
-import { useGSAP, gsapUtils } from '../../hooks/useGSAP'
 
 // Cấu trúc dữ liệu sản phẩm trong sự kiện (đã được populate từ backend)
 export interface PopulatedEventProduct {
@@ -66,7 +65,6 @@ const EventSkeleton = () => {
 
 // Component Event Item - Clean & Minimal design
 const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, index }) => {
-  const eventRef = useRef<HTMLDivElement>(null);
 
   const remainingTime = calculateRemainingTime(event.endDate);
   const eventProducts = event.products.slice(0, 12); // Giới hạn 12 sản phẩm
@@ -122,79 +120,39 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
 
   const theme = getEventTheme(index);
 
-  // GSAP animations - Subtle
-  useGSAP(({ gsap }) => {
-    if (!eventRef.current) return;
 
-    const tl = gsapUtils.timeline();
-
-    // Set initial states
-    gsap.set(eventRef.current, { opacity: 0, y: 30 });
-    gsap.set('.event-header', { y: 20, opacity: 0 });
-    gsap.set('.event-product-card', { y: 20, opacity: 0 });
-
-    // Animate entrance
-    tl.to(eventRef.current, {
-      opacity: 1,
-      y: 0,
-      duration: 0.6,
-      ease: "power2.out",
-      delay: index * 0.1
-    })
-    .to('.event-header', {
-      y: 0,
-      opacity: 1,
-      duration: 0.5,
-      ease: "power2.out"
-    }, "-=0.3")
-    .to('.event-product-card', {
-      y: 0,
-      opacity: 1,
-      duration: 0.5,
-      stagger: 0.05,
-      ease: "power2.out"
-    }, "-=0.2");
-
-  }, [index]);
 
   if (eventProducts.length === 0) return null;
 
   return (
-    <div ref={eventRef} className="mb-4">
-      
+    <div className="mb-4">
+
       {/* Event Header - Separate from product container */}
-      <div className="event-header pt-12 mb-8">
+      <div className="pt-12 mb-8">
         <div className="text-center mb-6">
-          {/* Event Title - Main focus with enhanced effects */}
+          {/* Event Title - Main focus */}
           <div className="relative mb-4">
-            {/* Background glow effect */}
-            <div className={`absolute inset-0 bg-gradient-to-r ${theme.primary} opacity-10 blur-2xl rounded-2xl transform scale-110`}></div>
-            
             {/* Main title with gradient text */}
-            <h2 className={`event-title float-animation relative text-2xl lg:text-3xl font-bold bg-gradient-to-r ${theme.primary} bg-clip-text text-transparent mb-2 leading-tight tracking-tight hover:scale-105 transition-transform duration-300 cursor-default`}>
+            <h2 className={`relative text-2xl lg:text-3xl font-bold bg-gradient-to-r ${theme.primary} bg-clip-text text-transparent mb-2 leading-tight tracking-tight`}>
               {event.title}
             </h2>
-            
-            {/* Animated underline */}
-            <div className={`relative mx-auto w-24 h-0.5 bg-gradient-to-r ${theme.primary} rounded-full`}>
-              <div className={`glow-animation absolute inset-0 bg-gradient-to-r ${theme.primary} rounded-full opacity-75`}></div>
-            </div>
+
+            {/* Simple underline */}
+            <div className={`mx-auto w-24 h-0.5 bg-gradient-to-r ${theme.primary} rounded-full`}></div>
           </div>
           
           {/* Event Description */}
           {event.description && (
             <div className="relative">
-              <p className="text-gray-600 text-base max-w-3xl mx-auto leading-relaxed hover:text-gray-700 transition-colors duration-200">
+              <p className="text-gray-600 text-base max-w-3xl mx-auto leading-relaxed">
                 {event.description}
               </p>
             </div>
           )}
-          
-          {/* Enhanced divider with glow */}
+
+          {/* Simple divider */}
           <div className="mt-6 flex justify-center">
-            <div className={`relative w-12 h-px ${theme.divider} mx-auto`}>
-              <div className={`absolute inset-0 w-12 h-px bg-gradient-to-r ${theme.primary} opacity-50 blur-sm`}></div>
-            </div>
+            <div className={`w-12 h-px ${theme.divider} mx-auto`}></div>
           </div>
         </div>
 
@@ -219,7 +177,7 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
           
           {/* CTA Button */}
           <Link href={`/shop?eventId=${event._id}`}>
-            <button className={`inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r ${theme.primary} text-white rounded-lg font-medium ${theme.hover} transition-all duration-200 shadow-md hover:shadow-lg min-h-[44px]`}>
+            <button className={`inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r ${theme.primary} text-white rounded-lg font-medium ${theme.hover} transition-colors min-h-[44px]`}>
               <FiZap className="w-4 h-4" />
               <span className="text-sm">MUA NGAY</span>
             </button>
@@ -228,14 +186,12 @@ const EventItem: React.FC<{ event: EventFromAPI; index: number }> = ({ event, in
       </div>
 
       {/* Products Container - Sử dụng ProductCardEvent */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow duration-300">
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-colors">
         <div className="p-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
             {eventProducts.map((product) => {
-              // Tính discount percentage is handled in EventProductCard
-
               return (
-                <div key={product.productId} className="event-product-card">
+                <div key={product.productId}>
                   <EventProductCard
                     product={product}
                     remainingTime={remainingTime}
@@ -308,10 +264,9 @@ interface EventProductCardProps {
 // Component sản phẩm event - Style giống RecommendationSection
 const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => {
   const [imageError, setImageError] = useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
 
   // Tính phần trăm giảm giá
-  const discountPercentage = product.originalPrice > 0 && product.adjustedPrice < product.originalPrice 
+  const discountPercentage = product.originalPrice > 0 && product.adjustedPrice < product.originalPrice
     ? Math.round(((product.originalPrice - product.adjustedPrice) / product.originalPrice) * 100)
     : 0;
 
@@ -319,7 +274,7 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
   const formatSoldCount = (soldCount: number | string): string => {
     // Nếu là string, parse thành number
     const count = typeof soldCount === 'string' ? parseInt(soldCount.toString()) : soldCount;
-    
+
     if (count >= 1000) {
       return `${(count / 1000).toFixed(1)}k đã bán`;
     }
@@ -341,75 +296,10 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
     setImageError(true);
   };
 
-  // GSAP hover animations - Copy từ RecommendationSection
-  useGSAP(() => {
-    if (!cardRef.current) return;
-
-    const card = cardRef.current;
-    const image = card.querySelector('.product-image');
-    const addToCartBtn = card.querySelector('.add-to-cart-btn');
-    const heartBtn = card.querySelector('.heart-btn');
-
-    const handleMouseEnter = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: -4,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1.05,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 1,
-        y: 0,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.1");
-    };
-
-    const handleMouseLeave = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: 0,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        duration: 0.3,
-        ease: "power2.out"
-      })
-      .to(image, {
-        scale: 1,
-        duration: 0.3,
-        ease: "power2.out"
-      }, "-=0.3")
-      .to([addToCartBtn, heartBtn], {
-        opacity: 0,
-        y: 8,
-        duration: 0.2,
-        ease: "power2.out"
-      }, "-=0.2");
-    };
-
-    card.addEventListener('mouseenter', handleMouseEnter);
-    card.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      card.removeEventListener('mouseenter', handleMouseEnter);
-      card.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
-
   return (
-    <div
-      ref={cardRef}
-      className="event-product-card transform-gpu"
-    >
+    <div>
       <Link href={`/product/${product.slug || product.productId}`} className="group block">
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors duration-300 hover:border-rose-300">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 transition-colors hover:border-rose-300 hover:shadow-md">
 
           {/* Event badges */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
@@ -436,7 +326,7 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
 
           {/* Heart button */}
           <div className="absolute top-2 right-2 z-20">
-            <button className="heart-btn w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 translate-y-1 transition-all hover:bg-rose-50 hover:border-rose-300">
+            <button className="w-7 h-7 bg-white/90 border border-gray-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-50 hover:border-rose-300">
               <FiHeart className="w-3.5 h-3.5 text-gray-600 hover:text-rose-500" />
             </button>
           </div>
@@ -449,7 +339,7 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
                 alt={product.name}
                 width={200}
                 height={200}
-                className="product-image object-contain w-full h-full"
+                className="object-contain w-full h-full group-hover:scale-105 transition-transform"
                 onError={handleImageError}
                 placeholder="blur"
                 blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
@@ -458,7 +348,7 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
 
             {/* Add to cart button */}
             <div className="absolute bottom-3 left-3 right-3">
-              <button className="add-to-cart-btn w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all opacity-0 translate-y-1">
+              <button className="w-full bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-medium py-2 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
                 <FiShoppingCart className="mr-1.5 w-3 h-3" />
                 Thêm vào giỏ
               </button>
@@ -467,7 +357,7 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
 
           {/* Thông tin sản phẩm */}
           <div className="p-4">
-            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors duration-300 min-h-[36px] leading-snug">
+            <h3 className="text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-rose-600 transition-colors min-h-[36px] leading-snug">
               {product.name}
             </h3>
 
@@ -498,28 +388,11 @@ const EventProductCard = ({ product, remainingTime }: EventProductCardProps) => 
 };
 
 export default function EventsSection() {
-  const sectionRef = useRef<HTMLDivElement>(null);
   const [activeEvents, setActiveEvents] = useState<EventFromAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // GSAP animations - Subtle
-  useGSAP(({ gsap }) => {
-    if (!sectionRef.current || isLoading) return;
 
-    const tl = gsapUtils.timeline();
-
-    // Set initial states
-    gsap.set('.events-section', { opacity: 0 });
-
-    // Animate entrance
-    tl.to('.events-section', {
-      opacity: 1,
-      duration: 0.5,
-      ease: "power2.out"
-    });
-
-  }, [isLoading, activeEvents]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -575,16 +448,16 @@ export default function EventsSection() {
   }
 
   return (
-    <section className="py-10 events-section" ref={sectionRef}>
+    <section className="py-10">
       <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-        
+
         {/* Events List - Each event with its own header */}
         <div className="space-y-8">
           {activeEvents.map((event, index) => (
             <EventItem key={event._id} event={event} index={index} />
           ))}
         </div>
-        
+
       </div>
       
       <style jsx>{`

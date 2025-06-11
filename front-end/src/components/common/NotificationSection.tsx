@@ -41,68 +41,37 @@ export default function NotificationSection() {
   useEffect(() => {
     // Hàm lấy dữ liệu thông báo
     const fetchNotifications = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-
-        // Sử dụng biến môi trường từ .env
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app/api';
-        console.log('Đang tải thông báo từ API:', `${apiUrl}/notifications`);
+        const response = await fetch(`${apiUrl}/notifications`);
 
-        const response = await fetch(`${apiUrl}/notifications`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        console.log('Kết quả response:', response.status, response.statusText);
-
-        // Xử lý lỗi HTTP
         if (!response.ok) {
-          console.error('Lỗi response:', response.status, response.statusText);
+          // Nếu API chưa sẵn sàng (404) hoặc có lỗi khác, coi như không có thông báo
           if (response.status === 404) {
-            console.log('API endpoint chưa được triển khai, sử dụng mảng rỗng tạm thời');
+            console.log('API thông báo chưa sẵn sàng, sẽ không hiển thị thông báo.');
             setNotifications([]);
-            setLoading(false);
-            return;
+          } else {
+            throw new Error(`Lỗi mạng: ${response.status}`);
           }
-          throw new Error(`Không thể tải thông báo: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('Dữ liệu thông báo nhận được:', data);
-
-        // Kiểm tra nếu dữ liệu là mảng rỗng
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          console.log('Không có thông báo nào');
-          setNotifications([]);
-          return;
-        }
-
-        // Chuyển đổi chuỗi ngày thành đối tượng Date
-        const formattedNotifications = data.map((notification: RawNotification) => ({
-          ...notification,
-          startDate: new Date(notification.startDate),
-          endDate: notification.endDate ? new Date(notification.endDate) : null
-        }));
-
-        // Sắp xếp theo độ ưu tiên
-        const sortedNotifications = formattedNotifications.sort((a: Notification, b: Notification) =>
-          a.priority - b.priority
-        );
-
-        console.log('Số lượng thông báo sau khi xử lý:', sortedNotifications.length);
-        setNotifications(sortedNotifications);
-        setError(null);
-      } catch (error) {
-        console.error('Lỗi khi tải thông báo:', error);
-        // Để tránh lỗi hiển thị, đặt mảng rỗng khi có lỗi
-        setNotifications([]);
-        if (error instanceof Error) {
-          setError(error.message);
         } else {
-          setError('Không thể tải thông báo');
+          const data: RawNotification[] = await response.json();
+          if (data && data.length > 0) {
+            const formattedNotifications = data.map(notification => ({
+              ...notification,
+              startDate: new Date(notification.startDate),
+              endDate: notification.endDate ? new Date(notification.endDate) : null,
+            })).sort((a, b) => a.priority - b.priority);
+            setNotifications(formattedNotifications);
+          } else {
+            setNotifications([]);
+          }
         }
+      } catch (error) {
+        console.error('Không thể tải thông báo:', error);
+        setNotifications([]); // Đặt mảng rỗng khi có lỗi
+        setError('Không thể tải thông báo. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
       }

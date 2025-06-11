@@ -21,7 +21,7 @@ export class Payment {
   @Prop({ required: true, min: 0 })
   amount: number;
 
-  @Prop({ required: true, enum: ['cod', 'bank_transfer', 'credit_card', 'stripe', 'momo'] })
+  @Prop({ required: true, enum: ['cod', 'stripe', 'momo'] })
   method: string;
 
   @Prop({ required: true, enum: Object.values(PaymentStatus), default: PaymentStatus.PENDING })

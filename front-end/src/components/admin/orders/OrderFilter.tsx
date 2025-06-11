@@ -275,10 +275,8 @@ export default function OrderFilter({ isOpen, onClose, onApply, currentFilters }
                     >
                       <option value="all">Tất cả phương thức</option>
                       <option value="COD">COD (Tiền mặt)</option>
-                      <option value="Banking">Chuyển khoản</option>
                       <option value="Momo">Ví Momo</option>
-                      <option value="VNPay">VNPay</option>
-                      <option value="ZaloPay">ZaloPay</option>
+                      <option value="Stripe">Stripe</option>
                     </select>
                   </div>
                   

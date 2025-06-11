@@ -277,3 +277,48 @@ a:focus-visible {
   outline: 2px solid rgb(236 72 153);
   outline-offset: 2px;
 }
+
+/* Category Mega Menu Styles - Simplified */
+.category-mega-menu {
+  max-height: 400px;
+}
+
+.category-item-active {
+  background-color: rgb(252, 231, 243);
+  border-left: 2px solid rgb(236, 72, 153);
+}
+
+/* Simple hover effects */
+.category-hover {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.category-hover:hover {
+  background-color: rgb(249, 250, 251);
+  color: rgb(236, 72, 153);
+}
+
+/* Custom scrollbar for category menu */
+.category-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.category-scroll::-webkit-scrollbar-track {
+  background: rgb(243, 244, 246);
+  border-radius: 2px;
+}
+
+.category-scroll::-webkit-scrollbar-thumb {
+  background: rgb(209, 213, 219);
+  border-radius: 2px;
+}
+
+.category-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(156, 163, 175);
+}
+
+/* Firefox scrollbar */
+.category-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(209, 213, 219) rgb(243, 244, 246);
+}

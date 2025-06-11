@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FiSearch, FiArrowRight, FiTrendingUp } from 'react-icons/fi'
-import { useGSAP, gsapUtils } from '../../hooks/useGSAP'
 
 interface TopSearch {
   id: string;
@@ -22,75 +21,17 @@ const TopSearchSkeleton = () => {
 
 // Search keyword card component - Minimalist design
 const SearchKeywordCard = ({ search }: { search: TopSearch }) => {
-  const cardRef = React.useRef<HTMLDivElement>(null);
-
-  // GSAP hover animations
-  useGSAP(() => {
-    if (!cardRef.current) return;
-
-    const card = cardRef.current;
-    const trendingBadge = card.querySelector('.trending-badge');
-
-    const handleMouseEnter = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: -4,
-        boxShadow: "0 12px 24px rgba(0,0,0,0.08)",
-        duration: 0.3,
-        ease: "power2.out"
-      });
-
-      if (trendingBadge) {
-        tl.to(trendingBadge, {
-          scale: 1.1,
-          duration: 0.2,
-          ease: "power2.out"
-        }, "-=0.2");
-      }
-    };
-
-    const handleMouseLeave = () => {
-      const tl = gsapUtils.timeline();
-
-      tl.to(card, {
-        y: 0,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        duration: 0.4,
-        ease: "power2.out"
-      });
-
-      if (trendingBadge) {
-        tl.to(trendingBadge, {
-          scale: 1,
-          duration: 0.3,
-          ease: "power2.out"
-        }, "-=0.3");
-      }
-    };
-
-    card.addEventListener('mouseenter', handleMouseEnter);
-    card.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      card.removeEventListener('mouseenter', handleMouseEnter);
-      card.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
 
   return (
-    <div
-      ref={cardRef}
-      className="search-keyword-card transform-gpu"
-    >
+    <div>
       <Link
         href={`/shop?search=${encodeURIComponent(search.keyword)}`}
         className="block group"
       >
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-stone-100 transition-colors duration-300 group-hover:border-rose-200 relative">
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-stone-100 transition-colors group-hover:border-rose-200 hover:shadow-md relative">
           {/* Trending badge */}
           {search.trending && (
-            <div className="trending-badge absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center shadow-sm">
+            <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center shadow-sm">
               <FiTrendingUp className="w-3 h-3 mr-1" />
               Hot
             </div>
@@ -98,14 +39,14 @@ const SearchKeywordCard = ({ search }: { search: TopSearch }) => {
 
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-stone-800 group-hover:text-rose-600 transition-colors duration-300 mb-1">
+              <h3 className="text-sm font-medium text-stone-800 group-hover:text-rose-600 transition-colors mb-1">
                 {search.keyword}
               </h3>
               <p className="text-xs text-stone-500">
                 {search.searchCount.toLocaleString()} lượt tìm kiếm
               </p>
             </div>
-            <div className="ml-3 text-stone-400 group-hover:text-rose-500 transition-colors duration-300">
+            <div className="ml-3 text-stone-400 group-hover:text-rose-500 transition-colors">
               <FiSearch className="w-4 h-4" />
             </div>
           </div>
@@ -123,45 +64,7 @@ export default function TopSearchSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // GSAP animations for section entrance
-  useGSAP(({ gsap }) => {
-    if (!sectionRef.current || loading) return;
 
-    const tl = gsapUtils.timeline();
-
-    // Set initial states
-    gsap.set('.search-section', { opacity: 0 });
-    gsap.set('.search-header', { y: 30, opacity: 0 });
-    gsap.set('.search-keyword-card', { y: 40, opacity: 0 });
-    gsap.set('.search-box-section', { y: 20, opacity: 0 });
-
-    // Animate entrance
-    tl.to('.search-section', {
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    })
-    .to('.search-header', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    }, "-=0.3")
-    .to('.search-keyword-card', {
-      y: 0,
-      opacity: 1,
-      duration: 0.8,
-      stagger: 0.1,
-      ease: "power2.out"
-    }, "-=0.2")
-    .to('.search-box-section', {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      ease: "power2.out"
-    }, "-=0.1");
-
-  }, [loading, topSearches]);
 
   // Fetch top searches and popular tags
   useEffect(() => {

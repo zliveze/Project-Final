@@ -258,7 +258,7 @@ export async function fetchRecommendedProducts(product: RecommendedProduct): Pro
  */
 export async function fetchAllCategories(): Promise<Category[]> {
   try {
-    const allCategoriesRes = await fetch(`${API_URL}/categories`);
+    const allCategoriesRes = await fetch(`${API_URL}/categories?limit=1000`);
     return allCategoriesRes.ok ? await allCategoriesRes.json() : [];
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {

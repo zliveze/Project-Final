@@ -319,10 +319,6 @@ export default function OrderDetailModal({
     switch (method.toLowerCase()) {
       case 'cod':
         return 'Thanh toán khi nhận hàng (COD)';
-      case 'bank_transfer':
-        return 'Chuyển khoản ngân hàng';
-      case 'credit_card':
-        return 'Thẻ tín dụng';
       case 'stripe':
         return 'Stripe';
       case 'momo':

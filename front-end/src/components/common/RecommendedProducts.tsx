@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiHeart, FiShoppingCart, FiStar, FiArrowRight } from 'react-icons/fi';
@@ -10,7 +10,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // Định nghĩa kiểu dữ liệu cho component props
 interface RecommendedProductsProps {
-  products?: RecommendedProduct[];
   title?: string;
   seeMoreLink?: string;
   seeMoreText?: string;
@@ -21,7 +20,6 @@ interface RecommendedProductsProps {
 }
 
 const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
-  products: propProducts,
   title = 'Có thể bạn cũng thích',
   seeMoreLink = '/shop',
   seeMoreText = 'Xem thêm',
@@ -57,36 +55,30 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
     return imageErrors.has(productId);
   };
 
-  // Xác định danh sách sản phẩm hiển thị
-  let displayProducts: RecommendedProduct[] = propProducts || [];
-  let isLoading = false;
-
-  // Nếu không có sản phẩm được truyền vào, lấy từ context dựa trên type
-  if (!propProducts) {
-    if (type === 'recommended') {
-      displayProducts = recommendedProducts;
-      isLoading = loadingRecommended;
-    } else if (type === 'personalized') {
-      displayProducts = personalizedProducts;
-      isLoading = loadingPersonalized;
-    } else if (type === 'similar' && productId) {
-      displayProducts = similarProducts;
-      isLoading = loadingSimilar;
+  // Xác định danh sách sản phẩm hiển thị và trạng thái tải
+  const { displayProducts, isLoading } = useMemo(() => {
+    switch (type) {
+      case 'recommended':
+        return { displayProducts: recommendedProducts, isLoading: loadingRecommended };
+      case 'personalized':
+        return { displayProducts: personalizedProducts, isLoading: loadingPersonalized };
+      case 'similar':
+        return { displayProducts: similarProducts, isLoading: loadingSimilar };
+      default:
+        return { displayProducts: [], isLoading: false };
     }
-  }
+  }, [type, recommendedProducts, personalizedProducts, similarProducts, loadingRecommended, loadingPersonalized, loadingSimilar]);
 
-  // Tải dữ liệu khi component được mount
+  // Tải dữ liệu khi component được mount hoặc các props liên quan thay đổi
   useEffect(() => {
-    if (!propProducts) {
-      if (type === 'recommended') {
-        fetchRecommendedProducts(limit);
-      } else if (type === 'personalized') {
-        fetchPersonalizedProducts(limit);
-      } else if (type === 'similar' && productId) {
-        fetchSimilarProducts(productId, limit);
-      }
+    if (type === 'recommended') {
+      fetchRecommendedProducts(limit);
+    } else if (type === 'personalized') {
+      fetchPersonalizedProducts(limit);
+    } else if (type === 'similar' && productId) {
+      fetchSimilarProducts(productId, limit);
     }
-  }, [type, productId, limit, propProducts, fetchRecommendedProducts, fetchPersonalizedProducts, fetchSimilarProducts]);
+  }, [type, productId, limit, fetchRecommendedProducts, fetchPersonalizedProducts, fetchSimilarProducts]);
 
   // Hàm placeholder khi context thiếu phương thức
   const placeholderAction = (action: string) => {
@@ -208,11 +200,14 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
 
   const renderProductGrid = () => (
     displayProducts.length === 0 ? (
-      <div className="text-center py-8">
-        <p className="text-gray-500">Không có sản phẩm gợi ý</p>
+      <div className="text-center py-4">
+        <p className="text-gray-500 text-xs">Không có sản phẩm gợi ý</p>
       </div>
     ) : (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      <div className={isSimilarSection ?
+        "grid grid-cols-1 gap-3" :
+        "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
+      }>
         {displayProducts.map((product) => {
           const inStock = product.status === 'active';
           const imageData = getProductImage(product);
@@ -223,142 +218,227 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
           return (
             <div
               key={product._id}
-              className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300"
+              className={`bg-white rounded-lg overflow-hidden group transition-all duration-200 ${
+                isSimilarSection ? 'hover:shadow-sm border border-gray-100 p-2' : 'shadow-sm hover:shadow-md'
+              }`}
             >
-              {/* Ảnh sản phẩm */}
-              <div className="relative h-52 overflow-hidden">
-                <Link 
-                  href={`/product/${product.slug}`}
-                  onClick={() => handleProductClick(product._id)}
-                >
-                  <Image
-                    src={imageData.url === '/404.png' ? '/404.png' : formatImageUrl(imageData.url)}
-                    alt={imageData.alt}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={() => handleImageError(product._id)}
-                    placeholder="blur"
-                    blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
-                  />
-                </Link>
+              {/* Layout cho sidebar - vertical compact */}
+              {isSimilarSection ? (
+                <div className="group cursor-pointer">
+                  {/* Ảnh sản phẩm */}
+                  <div className="relative w-full aspect-square overflow-hidden rounded-lg bg-gray-100">
+                    <Link
+                      href={`/product/${product.slug}`}
+                      onClick={() => handleProductClick(product._id)}
+                    >
+                      <Image
+                        src={imageData.url === '/404.png' ? '/404.png' : formatImageUrl(imageData.url)}
+                        alt={imageData.alt}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={() => handleImageError(product._id)}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
+                      />
+                    </Link>
 
-                {/* Badge cho sản phẩm mới */}
-                {isNew && (
-                  <div className="absolute top-3 left-3 bg-purple-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                    Mới
-                  </div>
-                )}
+                    {/* Badge cho sản phẩm mới */}
+                    {isNew && (
+                      <div className="absolute top-1 left-1 bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                        Mới
+                      </div>
+                    )}
 
-                {/* Badge cho sản phẩm hết hàng */}
-                {!inStock && (
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <span className="bg-white text-gray-800 text-xs font-medium px-3 py-1 rounded-full">
-                      Hết hàng
-                    </span>
-                  </div>
-                )}
-
-                {/* Các nút tương tác */}
-                <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button
-                    onClick={() => addToWishlist(product._id)}
-                    className="p-2 rounded-full bg-white text-gray-600 hover:text-pink-600 shadow-md transition-colors hover:scale-110 duration-200"
-                    title="Thêm vào danh sách yêu thích"
-                  >
-                    <FiHeart className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => addToCart(product._id, 1)}
-                    disabled={!inStock}
-                    className={`p-2 rounded-full shadow-md transition-all duration-200 hover:scale-110 ${
-                      inStock
-                        ? 'bg-white text-gray-600 hover:text-pink-600'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                    title="Thêm vào giỏ hàng"
-                  >
-                    <FiShoppingCart className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Thông tin sản phẩm */}
-              <div className="p-4">
-                {/* Thương hiệu */}
-                {product.brand && (
-                  <Link
-                    href={`/brands/${product.brand.slug}`}
-                    className="text-xs text-pink-600 font-medium hover:underline"
-                    onClick={() => product.brand?.slug && handleProductClick(product._id)}
-                  >
-                    {product.brand.name}
-                  </Link>
-                )}
-
-                {/* Tên sản phẩm */}
-                <Link 
-                  href={`/product/${product.slug}`}
-                  onClick={() => handleProductClick(product._id)}
-                >
-                  <h3 className="mt-1 text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors duration-200">
-                    {product.name}
-                  </h3>
-                </Link>
-
-                {/* Đánh giá */}
-                {rating > 0 && (
-                  <div className="flex items-center mt-1">
-                    <div className="flex items-center text-pink-400">
-                      {[...Array(5)].map((_, i) => (
-                        <FiStar
-                          key={i}
-                          className={`w-3 h-3 ${i < Math.floor(rating) ? 'fill-current' : ''}`}
-                        />
-                      ))}
-                    </div>
-                    <span className="ml-1 text-xs text-gray-500">
-                      ({reviewCount})
-                    </span>
-                  </div>
-                )}
-
-                {/* Giá */}
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-end gap-1">
-                    <span className="text-sm font-bold text-pink-600">
-                      {product.currentPrice?.toLocaleString('vi-VN') || product.price?.toLocaleString('vi-VN')}đ
-                    </span>
-
-                    {product.price > (product.currentPrice || 0) && product.currentPrice && (
-                      <span className="text-xs text-gray-400 line-through">
-                        {product.price.toLocaleString('vi-VN')}đ
-                      </span>
+                    {/* Badge cho sản phẩm hết hàng */}
+                    {!inStock && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                        <span className="bg-white text-gray-800 text-xs font-medium px-2 py-1 rounded-full">
+                          Hết hàng
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {product.price > (product.currentPrice || 0) && product.currentPrice && (
-                    <span className="text-xs font-medium text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-full">
-                      -{Math.round(((product.price - product.currentPrice) / product.price) * 100)}%
-                    </span>
-                  )}
-                </div>
+                  {/* Thông tin sản phẩm - compact */}
+                  <div className="pt-2">
+                    {/* Tên sản phẩm */}
+                    <Link
+                      href={`/product/${product.slug}`}
+                      onClick={() => handleProductClick(product._id)}
+                    >
+                      <h3 className="text-xs font-medium text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors duration-200 leading-tight">
+                        {product.name}
+                      </h3>
+                    </Link>
 
-                {/* Nút mua hàng (hiển thị khi hover) */}
-                <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button
-                    onClick={() => addToCart(product._id, 1)}
-                    disabled={!inStock}
-                    className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 ${
-                      inStock
-                        ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:opacity-90'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {inStock ? 'Thêm vào giỏ hàng' : 'Hết hàng'}
-                  </button>
+                    {/* Giá */}
+                    <div className="mt-1">
+                      <span className="text-sm font-bold text-pink-600">
+                        {product.currentPrice?.toLocaleString('vi-VN') || product.price?.toLocaleString('vi-VN')}đ
+                      </span>
+                      {product.price > (product.currentPrice || 0) && product.currentPrice && (
+                        <div className="text-xs text-gray-400 line-through">
+                          {product.price.toLocaleString('vi-VN')}đ
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Nút mua hàng - compact */}
+                    <div className="mt-2">
+                      <button
+                        onClick={() => addToCart(product._id, 1)}
+                        disabled={!inStock}
+                        className={`w-full py-1.5 rounded text-xs font-medium transition-colors duration-200 ${
+                          inStock
+                            ? 'bg-pink-500 text-white hover:bg-pink-600'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {inStock ? 'Thêm' : 'Hết hàng'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Ảnh sản phẩm - layout thường */}
+                  <div className="relative h-52 overflow-hidden">
+                    <Link
+                      href={`/product/${product.slug}`}
+                      onClick={() => handleProductClick(product._id)}
+                    >
+                      <Image
+                        src={imageData.url === '/404.png' ? '/404.png' : formatImageUrl(imageData.url)}
+                        alt={imageData.alt}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={() => handleImageError(product._id)}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+h2R1X9Dp"
+                      />
+                    </Link>
+
+                    {/* Badge cho sản phẩm mới */}
+                    {isNew && (
+                      <div className="absolute top-3 left-3 bg-purple-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                        Mới
+                      </div>
+                    )}
+
+                    {/* Badge cho sản phẩm hết hàng */}
+                    {!inStock && (
+                      <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                        <span className="bg-white text-gray-800 text-xs font-medium px-3 py-1 rounded-full">
+                          Hết hàng
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Các nút tương tác */}
+                    <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        onClick={() => addToWishlist(product._id)}
+                        className="p-2 rounded-full bg-white text-gray-600 hover:text-pink-600 shadow-md transition-colors hover:scale-110 duration-200"
+                        title="Thêm vào danh sách yêu thích"
+                      >
+                        <FiHeart className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => addToCart(product._id, 1)}
+                        disabled={!inStock}
+                        className={`p-2 rounded-full shadow-md transition-all duration-200 hover:scale-110 ${
+                          inStock
+                            ? 'bg-white text-gray-600 hover:text-pink-600'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title="Thêm vào giỏ hàng"
+                      >
+                        <FiShoppingCart className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Thông tin sản phẩm */}
+                  <div className="p-4">
+                    {/* Thương hiệu */}
+                    {product.brand && (
+                      <Link
+                        href={`/brands/${(product.brand as { slug: string; name: string }).slug}`}
+                        className="text-xs text-pink-600 font-medium hover:underline"
+                        onClick={() => (product.brand as { slug: string; name: string }).slug && handleProductClick(product._id)}
+                      >
+                        {product.brand.name}
+                      </Link>
+                    )}
+
+                    {/* Tên sản phẩm */}
+                    <Link
+                      href={`/product/${product.slug}`}
+                      onClick={() => handleProductClick(product._id)}
+                    >
+                      <h3 className={`text-sm font-medium text-gray-800 line-clamp-2 group-hover:text-pink-600 transition-colors duration-200 ${
+                        product.brand ? 'mt-1' : ''
+                      }`}>
+                        {product.name}
+                      </h3>
+                    </Link>
+
+                    {/* Đánh giá */}
+                    {rating > 0 && (
+                      <div className="flex items-center mt-1">
+                        <div className="flex items-center text-pink-400">
+                          {[...Array(5)].map((_, i) => (
+                            <FiStar
+                              key={i}
+                              className={`w-3 h-3 ${i < Math.floor(rating) ? 'fill-current' : ''}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="ml-1 text-xs text-gray-500">
+                          ({reviewCount})
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Giá */}
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex items-end gap-1">
+                        <span className="text-sm font-bold text-pink-600">
+                          {product.currentPrice?.toLocaleString('vi-VN') || product.price?.toLocaleString('vi-VN')}đ
+                        </span>
+
+                        {product.price > (product.currentPrice || 0) && product.currentPrice && (
+                          <span className="text-xs text-gray-400 line-through">
+                            {product.price.toLocaleString('vi-VN')}đ
+                          </span>
+                        )}
+                      </div>
+
+                      {product.price > (product.currentPrice || 0) && product.currentPrice && (
+                        <span className="text-xs font-medium text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-full">
+                          -{Math.round(((product.price - product.currentPrice) / product.price) * 100)}%
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Nút mua hàng */}
+                    <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        onClick={() => addToCart(product._id, 1)}
+                        disabled={!inStock}
+                        className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors duration-200 ${
+                          inStock
+                            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:opacity-90'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {inStock ? 'Thêm vào giỏ hàng' : 'Hết hàng'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
@@ -367,21 +447,22 @@ const RecommendedProducts: React.FC<RecommendedProductsProps> = ({
   );
 
   return (
-    <div className={isSimilarSection ? "mb-10" : "py-8"}>
+    <div className={isSimilarSection ? "" : "py-8"}>
       {isSimilarSection ? (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="border-b border-gray-100 px-6 py-4">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center">
-              <svg className="w-5 h-5 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              {title}
-            </h2>
-          </div>
-          <div className="p-6">
-            {renderProductGrid()}
-          </div>
-        </div>
+        <>
+          {renderProductGrid()}
+          {displayProducts.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-gray-200">
+              <Link
+                href={seeMoreLink}
+                className="flex items-center justify-center text-pink-600 hover:text-pink-700 text-xs font-medium group transition-all duration-200 py-1.5 px-3 rounded hover:bg-pink-50"
+              >
+                <span>{seeMoreText}</span>
+                <FiArrowRight className="ml-1 w-3 h-3 group-hover:translate-x-1 transition-transform duration-200" />
+              </Link>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <div className="flex items-center justify-between mb-6">

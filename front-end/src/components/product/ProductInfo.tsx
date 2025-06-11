@@ -121,6 +121,7 @@ interface BranchSelectionModalProps {
   currentQuantity: number;
   initialBranchId?: string | null;
   onSelectBranch: (branchId: string) => void;
+  getBranchNameFallback?: (branchId: string) => string;
 }
 
 const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
@@ -129,7 +130,8 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
   branches,
   currentQuantity,
   initialBranchId,
-  onSelectBranch
+  onSelectBranch,
+  getBranchNameFallback
 }) => {
   // Hooks moved to the top
   const { getBranchName } = useBranches();
@@ -189,7 +191,7 @@ const BranchSelectionModal: React.FC<BranchSelectionModalProps> = ({
                 <div className="flex justify-between items-center">
                   <div>
                     <h4 className={`font-medium ${branch.branchId === selectedBranchId ? 'text-pink-700' : 'text-gray-800'}`}>
-                      {branch.branchName || getBranchName(branch.branchId)}
+                      {branch.branchName || (getBranchNameFallback ? getBranchNameFallback(branch.branchId) : getBranchName(branch.branchId))}
                     </h4>
                     <p className="text-sm text-gray-500 mt-1">
                       Còn <span className="font-medium">{branch.quantity}</span> sản phẩm
@@ -260,6 +262,20 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     isLoading: isWishlistLoading // Get wishlist loading state
   } = useWishlist(); // Use Wishlist context
   const { getBranchName, preloadBranches } = useBranches();
+
+  // Helper function to get branch name from props first, then fallback to hook
+  const getBranchNameFromProps = (branchId: string): string => {
+    if (!branchId) return 'Chi nhánh không xác định';
+
+    // First try to find in the branches prop
+    const branch = branches.find(b => b._id === branchId);
+    if (branch) {
+      return branch.name;
+    }
+
+    // Fallback to hook
+    return getBranchName(branchId);
+  };
   const [quantity, setQuantity] = useState(1);
   const [showGifts, setShowGifts] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
@@ -528,7 +544,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         // Only adjust quantity if current selection exceeds available quantity
         if (quantity > availableBranchQuantity) {
           setQuantity(availableBranchQuantity);
-          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchName(branchId)}`);
+          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchNameFromProps(branchId)}`);
         }
         // Otherwise, keep the user's selected quantity
       }
@@ -550,7 +566,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         // Only adjust quantity if current selection exceeds available quantity
         if (quantity > availableBranchQuantity) {
           setQuantity(availableBranchQuantity);
-          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchName(branchId)}`);
+          showInfoToast(`Số lượng đã được điều chỉnh theo tồn kho của chi nhánh ${getBranchNameFromProps(branchId)}`);
         }
         // Otherwise, keep the user's selected quantity
       }
@@ -568,7 +584,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // Check if selected variant is out of stock or if trying to add more than available
     if (selectedVariant && maxQuantity === 0) {
       const selectedBranchName = selectedBranchId ?
-        (selectedVariant.inventory?.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)) :
+        (selectedVariant.inventory?.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchNameFromProps(selectedBranchId)) :
         'chi nhánh này';
 
       if (cartQuantity > 0) {
@@ -582,7 +598,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
     // Check if trying to add more than available quantity
     if (selectedVariant && quantity > maxQuantity) {
       const selectedBranchName = selectedBranchId ?
-        (selectedVariant.inventory?.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)) :
+        (selectedVariant.inventory?.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchNameFromProps(selectedBranchId)) :
         'chi nhánh này';
 
       showErrorToast(`Chỉ còn có thể thêm ${maxQuantity} sản phẩm nữa vào giỏ hàng từ ${selectedBranchName}.`);
@@ -859,24 +875,9 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         )}
       </div>
 
-      {/* Biến thể sản phẩm */}
-      {variants.length > 0 && (
-        <div className="pt-4">
-          <ProductVariants
-            variants={variants}
-            selectedVariant={selectedVariant}
-            selectedCombination={selectedCombination}
-            onSelectVariant={(variant, combination) => {
-              onSelectVariant(variant, combination);
-              setSelectedCombination(combination || null);
-            }}
-          />
-        </div>
-      )}
-
       {/* Quà tặng */}
       {flags.hasGifts && gifts.length > 0 && (
-        <div className="border border-pink-100 rounded-lg overflow-hidden bg-gradient-to-r from-pink-50 to-white">
+        <div className="border border-pink-100 rounded-lg overflow-hidden bg-gradient-to-r from-pink-50 to-white mt-3">
           <div
             className="flex justify-between items-center cursor-pointer px-4 py-3 hover:bg-pink-50/50 transition-colors"
             onClick={() => setShowGifts(!showGifts)}
@@ -912,32 +913,32 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
         </div>
       )}
 
-      {/* Số lượng và nút mua hàng */}
-      <div className="mt-6 border-t border-gray-100 pt-6">
-        {/* Use flexbox for layout, stack vertically on small screens, row on medium+ */}
-        <div className="flex flex-col md:flex-row md:items-start gap-4">
+      {/* Layout 2 cột: Số lượng & Chi nhánh | Variants */}
+      <div className="mt-4 border-t border-gray-100 pt-4">
+        {/* Layout 2 cột trên mobile, flex trên desktop */}
+        <div className="grid grid-cols-2 md:flex md:items-start gap-4">
 
           {/* Column 1: Số lượng & Chi nhánh */}
-          <div className="w-full md:w-1/3 space-y-4">
+          <div className="space-y-3 md:w-64 md:flex-shrink-0">
             {/* Số lượng */}
             <div>
-
+              <div className="text-xs font-medium text-gray-700 mb-1">Số lượng:</div>
               <div className="flex">
-                <div className={`flex h-11 border rounded-md overflow-hidden w-full max-w-[150px] ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
+                <div className={`flex h-9 border rounded-md overflow-hidden w-full max-w-[120px] ${!isAvailable ? 'border-gray-200 bg-gray-100' : 'border-gray-300'}`}>
                   <button
                     onClick={() => handleQuantityChange(quantity - 1)}
                     disabled={quantity <= 1 || !isAvailable}
-                    className="w-10 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-7 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <FiMinus size={16} />
+                    <FiMinus size={12} />
                   </button>
-                  <div className={`flex-1 h-full flex items-center justify-center text-sm ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
+                  <div className={`flex-1 h-full flex items-center justify-center text-xs ${!isAvailable ? 'text-gray-400' : 'text-gray-800 font-medium'}`}>{quantity}</div>
                   <button
                     onClick={() => handleQuantityChange(quantity + 1)}
                     disabled={!isAvailable || (maxQuantity > 0 && quantity >= maxQuantity)}
-                    className="w-10 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-7 h-full flex items-center justify-center text-gray-600 hover:text-[#d53f8c] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <FiPlus size={16} />
+                    <FiPlus size={12} />
                   </button>
                 </div>
               </div>
@@ -963,7 +964,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             {/* Conditionally render branch section only if needed */}
             {( (hasVariants && selectedVariant && ( (hasCombinations && selectedCombination && selectedVariant.combinationInventory && selectedVariant.combinationInventory.filter(inv => inv.combinationId === selectedCombination.combinationId).length > 0) || (selectedVariant.inventory && selectedVariant.inventory.length > 0) ) ) || (!hasVariants && productInventory.length > 0) ) && (
               <div>
-                <div className="mb-1 text-sm font-medium text-gray-700">Chi nhánh:</div>
+                <div className="mb-1 text-xs font-medium text-gray-700">Chi nhánh:</div>
                   {/* Branch selection logic remains the same, just styled within this column */}
                   {/* Branch selection for products with variants */}
                   {hasVariants && selectedVariant && (
@@ -974,26 +975,26 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                         <div className="relative">
                           {selectedBranchId ? (
                              <div className="flex flex-col items-start">
-                                <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
-                                  <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
+                                <div className="flex items-center bg-pink-50 px-2 py-1 rounded-md border border-pink-100 text-xs w-full max-w-[200px]">
+                                  <FiMapPin className="text-pink-500 mr-1 flex-shrink-0" size={12} />
                                   <span className="font-medium text-pink-700 truncate">
                                     {selectedVariant.combinationInventory
-                                      .find(inv => inv.branchId === selectedBranchId && inv.combinationId === selectedCombination.combinationId)?.branchName || getBranchName(selectedBranchId)}
+                                      .find(inv => inv.branchId === selectedBranchId && inv.combinationId === selectedCombination.combinationId)?.branchName || getBranchNameFromProps(selectedBranchId)}
                                   </span>
                                 </div>
                                 <button
                                   onClick={() => setShowBranchModal(true)}
-                                  className="text-blue-600 hover:text-blue-800 text-xs mt-1 pl-1"
+                                  className="text-blue-600 hover:text-blue-800 text-xs mt-0.5 pl-1"
                                 >
-                                  Đổi chi nhánh
+                                  Đổi
                                 </button>
                               </div>
                           ) : (
                             <button
                               onClick={() => setShowBranchModal(true)}
-                              className="flex items-center justify-center px-3 py-1.5 h-11 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50/50 transition-colors w-full max-w-[200px] text-sm"
+                              className="flex items-center justify-center px-2 py-1 h-9 border border-gray-300 rounded-md hover:border-pink-300 hover:bg-pink-50/50 transition-colors w-full max-w-[200px] text-xs"
                             >
-                              <FiMapPin className="mr-1.5 text-gray-500" size={16} />
+                              <FiMapPin className="mr-1 text-gray-500" size={12} />
                               <span className="text-gray-700">Chọn chi nhánh</span>
                             </button>
                           )}
@@ -1007,7 +1008,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                                   <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
                                     <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
                                     <span className="font-medium text-pink-700 truncate">
-                                      {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                                      {selectedVariant.inventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchNameFromProps(selectedBranchId)}
                                     </span>
                                   </div>
                                   <button
@@ -1040,7 +1041,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                             <div className="flex items-center bg-pink-50 px-3 py-1.5 rounded-md border border-pink-100 text-sm w-full max-w-[200px]">
                               <FiMapPin className="text-pink-500 mr-1.5 flex-shrink-0" size={14} />
                               <span className="font-medium text-pink-700 truncate">
-                                {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchName(selectedBranchId)}
+                                {productInventory.find(inv => inv.branchId === selectedBranchId)?.branchName || getBranchNameFromProps(selectedBranchId)}
                               </span>
                             </div>
                             <button
@@ -1065,54 +1066,66 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             )}
           </div>
 
-          {/* Column 2: Các nút hành động */}
-          {/* Take remaining width on medium screens */}
-          <div className="w-full md:w-2/3">
-            {/* Add label for clarity on small screens if needed, or just group buttons */}
-            {/* <div className="mb-1 text-sm font-medium text-gray-700 md:hidden">Hành động:</div> */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              {/* Button thêm vào giỏ hàng - Make it the primary action */}
-              <button
-                onClick={handleAddToCart}
-                disabled={!isAvailable}
-                className={`h-11 rounded-md font-medium text-white flex-1 ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center gap-2 px-4 text-sm`}
-              >
-                <FiShoppingCart className="w-4 h-4" />
-                <span>
-                  {!inStock ? 'Hết hàng' :
-                   (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
-                   'Thêm vào giỏ hàng'}
-                </span>
-              </button>
+          {/* Column 2: Biến thể sản phẩm */}
+          <div className="md:flex-1">
+            {variants.length > 0 && (
+              <ProductVariants
+                variants={variants}
+                selectedVariant={selectedVariant}
+                selectedCombination={selectedCombination}
+                onSelectVariant={(variant, combination) => {
+                  onSelectVariant(variant, combination);
+                  setSelectedCombination(combination || null);
+                }}
+              />
+            )}
+          </div>
+        </div>
 
-              {/* Secondary action buttons - Wishlist and Share */}
-              <div className="flex items-center gap-2">
-                {/* Button yêu thích */}
-                <button
-                  onClick={handleToggleWishlist}
-                  disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)}
-                  className={`h-11 w-11 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center flex-shrink-0
-                    ${isCurrentVariantInWishlist
-                      ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
-                      : 'border-gray-300 text-gray-600 hover:text-pink-600 hover:border-pink-300'}
-                    ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
-                    ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
-                  `}
-                  title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
-                >
-                  <FiHeart className={`w-5 h-5 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
-                </button>
+        {/* Nút mua hàng ở dưới 2 cột */}
+        <div className="mt-4 flex flex-col gap-2">
+          {/* Button thêm vào giỏ hàng */}
+          <button
+            onClick={handleAddToCart}
+            disabled={!isAvailable}
+            className={`h-11 rounded-md font-medium text-white ${isAvailable ? 'bg-gradient-to-r from-[#d53f8c] to-[#805ad5] hover:from-[#b83280] hover:to-[#6b46c1]' : 'bg-gray-300 cursor-not-allowed'} transition-colors duration-300 flex items-center justify-center gap-2 px-4 text-sm`}
+          >
+            <FiShoppingCart className="w-4 h-4" />
+            <span>
+              {!inStock ? 'Hết hàng' :
+               (selectedVariant && maxQuantity === 0) ? 'Hết hàng' :
+               'Thêm vào giỏ hàng'}
+            </span>
+          </button>
 
-                {/* Nút chia sẻ */}
-                <button
-                  onClick={handleShare}
-                  className="h-11 w-11 border border-gray-300 rounded-md text-gray-600 hover:text-[#d53f8c] hover:border-pink-300 transition-colors duration-300 flex items-center justify-center flex-shrink-0"
-                  title="Chia sẻ sản phẩm"
-                >
-                  <FiShare2 className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+          {/* Secondary action buttons - Wishlist and Share */}
+          <div className="flex items-center gap-2">
+            {/* Button yêu thích */}
+            <button
+              onClick={handleToggleWishlist}
+              disabled={isWishlistLoading || (variants.length > 0 && !selectedVariant)}
+              className={`h-11 flex-1 border rounded-md font-medium transition-colors duration-300 flex items-center justify-center gap-2 text-sm
+                ${isCurrentVariantInWishlist
+                  ? 'border-pink-500 bg-pink-50 text-pink-600 hover:bg-pink-100'
+                  : 'border-gray-300 text-gray-600 hover:text-pink-600 hover:border-pink-300'}
+                ${(variants.length > 0 && !selectedVariant) ? 'opacity-50 cursor-not-allowed' : ''}
+                ${isWishlistLoading ? 'opacity-50 cursor-wait' : ''}
+              `}
+              title={isCurrentVariantInWishlist ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+            >
+              <FiHeart className={`w-4 h-4 ${isCurrentVariantInWishlist ? 'fill-current' : ''}`} />
+              <span>Yêu thích</span>
+            </button>
+
+            {/* Nút chia sẻ */}
+            <button
+              onClick={handleShare}
+              className="h-11 flex-1 border border-gray-300 rounded-md text-gray-600 hover:text-[#d53f8c] hover:border-pink-300 transition-colors duration-300 flex items-center justify-center gap-2 text-sm"
+              title="Chia sẻ sản phẩm"
+            >
+              <FiShare2 className="w-4 h-4" />
+              <span>Chia sẻ</span>
+            </button>
           </div>
         </div>
 
@@ -1129,20 +1142,21 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
                   .filter(inv => inv.combinationId === selectedCombination.combinationId)
                   .map(inv => ({
                     branchId: inv.branchId,
-                    branchName: inv.branchName || getBranchName(inv.branchId),
+                    branchName: inv.branchName || getBranchNameFromProps(inv.branchId),
                     quantity: inv.quantity
                   })) :
                 // Otherwise, show variant inventory
                 selectedVariant.inventory ?
                   selectedVariant.inventory.map(inv => ({
                     branchId: inv.branchId,
-                    branchName: inv.branchName || getBranchName(inv.branchId),
+                    branchName: inv.branchName || getBranchNameFromProps(inv.branchId),
                     quantity: inv.quantity
                   })) : []
             }
             currentQuantity={quantity}
             initialBranchId={selectedBranchId}
             onSelectBranch={handleSelectBranch}
+            getBranchNameFallback={getBranchNameFromProps}
           />
         )}
 
@@ -1153,12 +1167,13 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
             onClose={() => setShowBranchModal(false)}
             branches={productInventory.map(inv => ({
               branchId: inv.branchId,
-              branchName: inv.branchName || getBranchName(inv.branchId),
+              branchName: inv.branchName || getBranchNameFromProps(inv.branchId),
               quantity: inv.quantity
             }))}
             currentQuantity={quantity}
             initialBranchId={selectedBranchId}
             onSelectBranch={handleSelectBranch}
+            getBranchNameFallback={getBranchNameFromProps}
           />
         )}
       </div>

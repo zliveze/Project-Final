@@ -1,19 +1,47 @@
-import React, { useState, useRef, memo } from 'react';
+import React, { useState, useRef, memo, useEffect } from 'react';
 import Link from 'next/link';
 import { FiMenu, FiChevronDown } from 'react-icons/fi';
 import CategoryMegaMenu from './CategoryMegaMenu';
-import { Category } from '@/contexts/HeaderContext';
+import { Category, CategoryItem } from '@/contexts/HeaderContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BottomHeaderProps {
   categories: Category[];
+  allCategories: CategoryItem[];
   // featuredBrands: Brand[]; // Removed as it's unused
 }
 
-function BottomHeader({ categories }: BottomHeaderProps) {
+function BottomHeader({ categories, allCategories }: BottomHeaderProps) {
   // const router = useRouter(); // Removed as it's unused
   const [showCategories, setShowCategories] = useState(false);
+  const [hideTimer, setHideTimer] = useState<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Hàm hiển thị menu
+  const showMenu = () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      setHideTimer(null);
+    }
+    setShowCategories(true);
+  };
+
+  // Hàm ẩn menu với delay
+  const hideMenu = () => {
+    const timer = setTimeout(() => {
+      setShowCategories(false);
+    }, 150); // Delay 150ms để tránh flicker
+    setHideTimer(timer);
+  };
+
+  // Cleanup timer khi component unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+      }
+    };
+  }, [hideTimer]);
 
   return (
     <div className="w-full border-b border-gray-100 bg-white">
@@ -24,8 +52,8 @@ function BottomHeader({ categories }: BottomHeaderProps) {
             <div
               ref={menuRef}
               className="relative"
-              onMouseEnter={() => setShowCategories(true)}
-              onMouseLeave={() => setShowCategories(false)}
+              onMouseEnter={showMenu}
+              onMouseLeave={hideMenu}
             >
               <motion.button
                 className="flex items-center text-sm font-medium hover:text-pink-600 h-12 px-3 rounded-md hover:bg-gray-50 transition-colors"
@@ -40,15 +68,25 @@ function BottomHeader({ categories }: BottomHeaderProps) {
 
               <AnimatePresence>
                 {showCategories && (
-                  <motion.div
-                    className="absolute top-12 left-0 min-w-[800px] z-50"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <CategoryMegaMenu categories={categories} />
-                  </motion.div>
+                  <>
+                    {/* Invisible bridge để tránh flicker */}
+                    <div
+                      className="absolute top-12 left-0 w-[600px] h-2 z-40"
+                      onMouseEnter={showMenu}
+                      onMouseLeave={hideMenu}
+                    />
+                    <motion.div
+                      className="absolute top-10 left-0 w-[600px] z-50"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      onMouseEnter={showMenu}
+                      onMouseLeave={hideMenu}
+                    >
+                      <CategoryMegaMenu categories={categories} allCategories={allCategories} />
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>
@@ -56,10 +94,6 @@ function BottomHeader({ categories }: BottomHeaderProps) {
               href="/shop"
               className="h-12 flex items-center text-sm hover:text-pink-600 px-3 rounded-md hover:bg-gray-50 transition-colors"
               prefetch={true}
-              onClick={() => { // Removed 'e' as it's unused
-                // Hiển thị trạng thái loading ngay lập tức
-                document.body.classList.add('page-loading');
-              }}
             >
               CỬA HÀNG
             </Link>

@@ -138,9 +138,7 @@ interface ProductReviewsProps {
   productId: string;
 }
 
-const ProductReviews: React.FC<ProductReviewsProps> = ({
-  productId,
-}) => {
+const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
   const { isAuthenticated, user: currentUser } = useAuth();
   const {
     reviews: contextProductReviews,

@@ -1,20 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import NotificationSection from '../NotificationSection';
 import MiddleHeader from './MiddleHeader';
 import BottomHeader from './BottomHeader';
 import MobileSideMenu from './MobileSideMenu';
-import MobileSearch from './MobileSearch';
 import { useHeader } from '@/contexts/HeaderContext';
-import { FiSearch } from 'react-icons/fi';
 
 export default function MainHeader() {
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   // Lấy thông tin từ HeaderContext bao gồm cả cartItemCount và wishlistItemCount
   const {
     isMobileMenuOpen,
     setMobileMenuOpen,
     categories,
+    allCategories,
     isLoggedIn,
     userProfile,
     cartItemCount,
@@ -43,6 +41,7 @@ export default function MainHeader() {
       <div className="relative">
         <BottomHeader
           categories={categories}
+          allCategories={allCategories}
           // featuredBrands={featuredBrands} // Removed as it's no longer a prop of BottomHeader
         />
       </div>
@@ -58,20 +57,19 @@ export default function MainHeader() {
         />
       </div>
 
-      {/* Mobile search */}
-      <MobileSearch
+      {/* Mobile search - Ẩn vì đã có thanh search trong header */}
+      {/* <MobileSearch
         isOpen={isMobileSearchOpen}
         onClose={() => setIsMobileSearchOpen(false)}
       />
 
-      {/* Mobile search button */}
       <button
         className="lg:hidden fixed bottom-6 right-6 w-12 h-12 rounded-full bg-pink-600 text-white shadow-lg flex items-center justify-center"
         onClick={() => setIsMobileSearchOpen(true)}
         aria-label="Tìm kiếm"
       >
         <FiSearch className="w-5 h-5" />
-      </button>
+      </button> */}
     </header>
   );
 }
