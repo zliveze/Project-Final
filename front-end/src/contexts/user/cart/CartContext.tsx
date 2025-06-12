@@ -198,13 +198,27 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartProduct[]>([]);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>(() => {
+    // Initialize from localStorage on client-side
+    if (typeof window !== 'undefined') {
+      const savedSelection = localStorage.getItem('cart_selected_items');
+      return savedSelection ? JSON.parse(savedSelection) : [];
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voucherCode, setVoucherCode] = useState<string>('');
   const [voucherId, setVoucherId] = useState<string>('');
   const [shipping, setShipping] = useState<number>(0);
   const { isAuthenticated } = useAuth(); // Chỉ cần isAuthenticated từ context
+
+  // Effect to save selectedItems to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cart_selected_items', JSON.stringify(selectedItems));
+    }
+  }, [selectedItems]);
   const {
     applyVoucher: applyVoucherApi,
     appliedVoucher,
@@ -1060,10 +1074,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [selectedItems, cartItems]);
 
-  // Chạy validation khi cartItems thay đổi
+  // Chạy validation khi cartItems thay đổi và không còn loading
   useEffect(() => {
-    validateAndCleanSelection();
-  }, [cartItems, validateAndCleanSelection]);
+    if (!isLoading && cartItems.length > 0) {
+      validateAndCleanSelection();
+    }
+  }, [cartItems, isLoading, validateAndCleanSelection]);
 
   // Không cập nhật phí vận chuyển ở đây nữa, phí vận chuyển sẽ được tính ở trang thanh toán
 

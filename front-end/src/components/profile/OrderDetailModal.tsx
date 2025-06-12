@@ -298,11 +298,13 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               buttonText="Tải hóa đơn"
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors flex items-center justify-center"
             />
-            {order.status === 'pending' && onCancelOrder && (
+            {(order.status === 'pending' || order.status === 'confirmed') && onCancelOrder && (
               <button
                 onClick={() => {
+                  if (onCancelOrder) {
+                    onCancelOrder(order._id);
+                  }
                   onClose();
-                  onCancelOrder(order._id);
                 }}
                 className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
               >

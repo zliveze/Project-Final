@@ -1873,7 +1873,13 @@ export class OrdersService {
     try {
       this.logger.debug(`Creating ViettelPost shipment for order ${order._id}`);
 
-
+      // KIỂM TRA QUAN TRỌNG: Kiểm tra lại trạng thái đơn hàng trước khi tạo vận đơn
+      // để tránh race condition khi người dùng hủy đơn hàng gần như ngay lập tức
+      const currentOrder = await this.orderModel.findById(order._id).select('status').lean();
+      if (!currentOrder || currentOrder.status === OrderStatus.CANCELLED) {
+        this.logger.warn(`[VTP_SHIPMENT] Skipping shipment creation for order ${order._id} because it is already cancelled.`);
+        return; // Dừng thực thi nếu đơn hàng đã bị hủy
+      }
 
       // Kiểm tra xem đơn hàng đã có mã vận đơn chưa
       if (order.trackingCode) {

@@ -268,7 +268,7 @@ const PaymentSuccessPage: NextPage = () => {
                   Về trang chủ
                 </button>
               </Link>
-              <Link href="/account/orders" className="flex-1">
+              <Link href="/profile?tab=orders" className="flex-1">
                 <button className="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md font-medium hover:opacity-90 transition-opacity flex items-center justify-center">
                   <FiFileText className="mr-2" />
                   Xem đơn hàng

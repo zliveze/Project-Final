@@ -99,7 +99,8 @@ const PaymentsPage: NextPage = () => {
     isLoading: cartLoading,
     itemCount,
     clearCart,
-    updateShipping
+    updateShipping,
+    getSelectedBranchId: getSelectedBranchIdFromCart // Rename to avoid conflict
   } = useCart();
 
   const [total, setTotal] = useState<number>(selectedTotal + shipping);
@@ -162,12 +163,11 @@ const PaymentsPage: NextPage = () => {
 
       let senderProvinceCode: number | null = null;
       let senderDistrictCode: number | null = null;
-      const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
-      const itemWithBranchId = selectedCartItems.find(item => item.selectedBranchId);
+      const selectedBranchId = getSelectedBranchIdFromCart();
 
-      if (itemWithBranchId && itemWithBranchId.selectedBranchId) {
+      if (selectedBranchId) {
         try {
-          const response = await fetch(`/api/branches/${itemWithBranchId.selectedBranchId}`);
+          const response = await fetch(`/api/branches/${selectedBranchId}`);
           if (response.ok) {
             const branchData = await response.json();
             if (branchData && branchData.provinceCode && branchData.districtCode) {
@@ -207,18 +207,34 @@ const PaymentsPage: NextPage = () => {
 
       const result = await calculateShippingFeeAll(shippingFeeData);
       if (result.success) {
-        const shippingFee = typeof result.fee === 'number' ? result.fee : 32000; // Default if fee is not a number
-        if (result.selectedServiceCode) setSelectedServiceCode(result.selectedServiceCode);
-        
-        // Ensure availableServices is an array before setting
-        if (Array.isArray(result.availableServices) && result.availableServices.length > 0) {
-          setAvailableServices(result.availableServices);
-        } else {
-          setAvailableServices([]); // Default to empty array if not valid
-        }
+        const newAvailableServices = Array.isArray(result.availableServices) && result.availableServices.length > 0
+          ? result.availableServices
+          : [];
+        setAvailableServices(newAvailableServices);
 
-        setCalculatedShipping(shippingFee);
-        updateShipping(shippingFee);
+        // Chỉ cập nhật dịch vụ và phí khi người dùng chưa chọn hoặc dịch vụ đã chọn không còn hợp lệ
+        const currentServiceIsValid = newAvailableServices.some(s => s.serviceCode === selectedServiceCode);
+
+        if (!currentServiceIsValid && newAvailableServices.length > 0) {
+          const defaultService = newAvailableServices.find(s => s.serviceCode === result.selectedServiceCode) || newAvailableServices[0];
+          setSelectedServiceCode(defaultService.serviceCode);
+          const shippingFee = typeof defaultService.fee === 'number' ? defaultService.fee : 32000;
+          setCalculatedShipping(shippingFee);
+          updateShipping(shippingFee);
+        } else if (currentServiceIsValid) {
+          // Nếu dịch vụ hiện tại vẫn hợp lệ, chỉ cần cập nhật lại phí của nó
+          const currentService = newAvailableServices.find(s => s.serviceCode === selectedServiceCode);
+          if (currentService) {
+            const shippingFee = typeof currentService.fee === 'number' ? currentService.fee : 32000;
+            setCalculatedShipping(shippingFee);
+            updateShipping(shippingFee);
+          }
+        } else {
+          // Trường hợp không có dịch vụ nào khả dụng
+          setCalculatedShipping(32000);
+          updateShipping(32000);
+        }
+        
         setShippingError(null);
       } else {
         setShippingError(result.error || 'Không thể tính phí vận chuyển');
@@ -326,9 +342,14 @@ const PaymentsPage: NextPage = () => {
   }, [user]);
 
   const getSelectedBranchId = (): string => {
+    const branchId = getSelectedBranchIdFromCart();
+    if (branchId) return branchId;
+    
+    // Fallback logic if context function fails for some reason
     const selectedCartItems = cartItems.filter(item => selectedItems.includes(item._id));
     const itemWithBranch = selectedCartItems.find(item => item.selectedBranchId);
     if (itemWithBranch && itemWithBranch.selectedBranchId) return itemWithBranch.selectedBranchId;
+    
     return '67f4e29303d581f233241b76'; // Default branchId
   };
   
@@ -455,10 +476,12 @@ const PaymentsPage: NextPage = () => {
   };
 
   useEffect(() => {
-    if (shippingInfo && shippingInfo.provinceCode && shippingInfo.districtCode && shippingInfo.wardCode) {
+    const branchId = getSelectedBranchIdFromCart();
+    // Chỉ tính phí vận chuyển khi có đủ thông tin: địa chỉ, ID chi nhánh, và giỏ hàng không còn loading.
+    if (shippingInfo && shippingInfo.provinceCode && shippingInfo.districtCode && shippingInfo.wardCode && !cartLoading && branchId) {
       calculateShippingFeeForAddress(shippingInfo);
     }
-  }, [shippingInfo, calculateShippingFeeForAddress]);
+  }, [shippingInfo, cartLoading, calculateShippingFeeForAddress, getSelectedBranchIdFromCart]);
 
   const handleSelectShippingService = (serviceCode: string, fee: number) => {
     setSelectedServiceCode(serviceCode);
