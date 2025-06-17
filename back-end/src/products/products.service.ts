@@ -3150,10 +3150,36 @@ export class ProductsService {
         const row = productRows[globalIndex];
 
         try {
-          // Progress update ít hơn để tăng tốc
-          if (globalIndex % 500 === 0 || globalIndex === totalProducts - 1) {
+          // 🚀 SIÊU TỐI ƯU: Gửi thông báo tiến độ thông minh dựa trên kích thước file
+          let shouldUpdateProgress = false;
+
+          if (totalProducts <= 100) {
+            // File nhỏ: gửi thông báo mỗi 20% (20, 40, 60, 80, 100%)
+            const smallFileMilestones = [
+              Math.floor(totalProducts * 0.2),
+              Math.floor(totalProducts * 0.4),
+              Math.floor(totalProducts * 0.6),
+              Math.floor(totalProducts * 0.8),
+              totalProducts - 1
+            ];
+            shouldUpdateProgress = smallFileMilestones.includes(globalIndex);
+          } else if (totalProducts <= 1000) {
+            // File trung bình: gửi thông báo mỗi 25% (25, 50, 75, 100%)
+            const mediumFileMilestones = [
+              Math.floor(totalProducts * 0.25),
+              Math.floor(totalProducts * 0.5),
+              Math.floor(totalProducts * 0.75),
+              totalProducts - 1
+            ];
+            shouldUpdateProgress = mediumFileMilestones.includes(globalIndex);
+          } else {
+            // File lớn: gửi thông báo mỗi 500 sản phẩm hoặc ở cuối
+            shouldUpdateProgress = (globalIndex % 500 === 0) || (globalIndex === totalProducts - 1);
+          }
+
+          if (shouldUpdateProgress) {
             const currentProgress = Math.floor(startProgress + ((globalIndex + 1) / totalProducts) * progressRange);
-            this.emitImportProgress(taskId, userId, currentProgress, 'processing', `Phân tích ${globalIndex + 1}/${totalProducts} sản phẩm...`);
+            this.emitImportProgress(taskId, userId, currentProgress, 'processing', `Đang phân tích dữ liệu... ${Math.floor(((globalIndex + 1) / totalProducts) * 100)}%`);
           }
 
           // Kiểm tra dữ liệu tối thiểu cần có: Mã hàng (Cột C - index 2) và Tên hàng (Cột E - index 4)
@@ -3337,9 +3363,27 @@ export class ProductsService {
           }
         }
 
-        // 🔥 SIÊU NHANH: Log tiến trình mỗi 1000 sản phẩm
-        if (globalIndex % 1000 === 0 && globalIndex > 0) {
-          this.logger.log(`[Task:${taskId}] Đã xử lý ${globalIndex}/${totalProducts}: ${result.created} tạo mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
+        // 🔥 SIÊU NHANH: Log tiến trình thông minh dựa trên kích thước file
+        let shouldLog = false;
+
+        if (totalProducts <= 100) {
+          // File nhỏ: log mỗi 50%
+          shouldLog = [Math.floor(totalProducts * 0.5), totalProducts - 1].includes(globalIndex);
+        } else if (totalProducts <= 1000) {
+          // File trung bình: log mỗi 25%
+          const logMilestones = [
+            Math.floor(totalProducts * 0.25),
+            Math.floor(totalProducts * 0.5),
+            Math.floor(totalProducts * 0.75)
+          ];
+          shouldLog = logMilestones.includes(globalIndex);
+        } else {
+          // File lớn: log mỗi 1000 sản phẩm
+          shouldLog = (globalIndex % 1000 === 0 && globalIndex > 0);
+        }
+
+        if (shouldLog) {
+          this.logger.log(`[Task:${taskId}] Đã phân tích ${globalIndex + 1}/${totalProducts} (${Math.floor(((globalIndex + 1) / totalProducts) * 100)}%): ${result.created} tạo mới, ${result.updated} cập nhật, ${result.errors.length} lỗi`);
         }
       }
 
