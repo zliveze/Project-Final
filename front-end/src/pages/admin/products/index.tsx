@@ -11,6 +11,7 @@ import { useImportProgress } from '@/hooks/useImportProgress';
 import ImportProgressModal from '@/components/admin/ui/ImportProgressModal';
 import ImportSummaryModal from '@/components/admin/ui/ImportSummaryModal';
 
+
 // Import các components mới
 import ProductTable from '@/components/admin/products/components/ProductTable';
 import ProductTableSummary from '@/components/admin/products/components/ProductTableSummary';
@@ -377,10 +378,10 @@ function AdminProducts({
       return;
     }
 
-    // Kiểm tra kích thước file (giới hạn 10MB)
+    // Kiểm tra kích thước file (giới hạn 50MB)
     const fileSizeInMB = selectedFile.size / (1024 * 1024);
-    if (fileSizeInMB > 10) {
-      toast.error('Kích thước file vượt quá 10MB', {
+    if (fileSizeInMB > 50) {
+      toast.error('Kích thước file vượt quá 50MB', {
         duration: 3000
       });
       return;
@@ -1332,6 +1333,7 @@ function AdminProducts({
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                       Import dữ liệu sản phẩm từ Excel
                     </h3>
+
                     <div className="mb-4">
                       <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-2">
                         Chọn chi nhánh

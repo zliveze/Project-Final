@@ -74,6 +74,8 @@ const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ isOpen, onClo
     return null;
   };
 
+
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>

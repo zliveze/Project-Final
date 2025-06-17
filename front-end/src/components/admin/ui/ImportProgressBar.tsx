@@ -15,6 +15,8 @@ const statusColors = {
   error: 'bg-red-500'
 };
 
+
+
 const ImportProgressBar: React.FC<ImportProgressBarProps> = ({ progress, status, message }) => {
   // Xác định màu dựa trên trạng thái
   const barColor = statusColors[status as keyof typeof statusColors] || 'bg-pink-500';

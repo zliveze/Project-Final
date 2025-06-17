@@ -47,8 +47,10 @@ export const useImportProgress = () => {
       throw new Error('Không tìm thấy token admin');
     }
 
-    // Đảm bảo URL không bị lặp lại dấu gạch chéo
-    const apiUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+    // Xử lý URL khác nhau cho Next.js API routes vs backend trực tiếp
+    const apiUrl = url.startsWith('/api/admin')
+      ? url // Sử dụng relative URL cho Next.js API routes
+      : `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')}/${url.replace(/^\//, '')}`; // Absolute URL cho backend trực tiếp
 
     // Sử dụng axios global với interceptor đã được cấu hình trong AdminAuthContext
     return await axios.get<ImportTask>(apiUrl, {
@@ -101,8 +103,8 @@ export const useImportProgress = () => {
       const poll = async () => {
         try {
           debugLog(`Polling... taskId: ${taskId}`);
-          // URL tương đối, không bao gồm /api vì nó đã có trong NEXT_PUBLIC_API_URL
-          const response = await makeAdminRequest(`/tasks/import/${taskId}`);
+          // Sử dụng API route trung gian của Next.js
+          const response = await makeAdminRequest(`/api/admin/tasks/import/${taskId}`);
           const updatedTask = response.data;
 
           debugLog('Nhận được dữ liệu tác vụ:', updatedTask);
