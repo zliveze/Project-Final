@@ -21,8 +21,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const token = authHeader.split(' ')[1];
 
-    // Gọi trực tiếp đến backend NestJS (backend có global prefix 'api')
-    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://backendyumin.vercel.app'}/api/tasks/import/${taskId}`;
+    // Debug: Kiểm tra giá trị environment variable
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    console.log(`[API Route] NEXT_PUBLIC_API_URL: ${apiUrl}`);
+
+    // Xử lý URL an toàn - loại bỏ /api thừa nếu có
+    let baseUrl = apiUrl || 'https://backendyumin.vercel.app/api';
+    // Nếu baseUrl đã kết thúc bằng /api, không thêm nữa
+    if (baseUrl.endsWith('/api')) {
+      baseUrl = baseUrl.slice(0, -4); // Loại bỏ '/api' cuối
+    }
+    const backendUrl = `${baseUrl}/api/tasks/import/${taskId}`;
 
     console.log(`[API Route] Calling backend: ${backendUrl}`);
     console.log(`[API Route] TaskId: ${taskId}`);
