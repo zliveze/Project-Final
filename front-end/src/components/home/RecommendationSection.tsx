@@ -226,9 +226,9 @@ const RecommendationSection = () => {
   // Loading state - Copy từ BestSellerSection
   if (loading) {
     return (
-      <section className="py-10 relative overflow-hidden">
+      <section className="py-4 relative overflow-hidden">
         <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-          <div className="text-center mb-8">
+          <div className="text-center mb-4">
             <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-3 animate-pulse"></div>
             <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
           </div>
@@ -249,7 +249,7 @@ const RecommendationSection = () => {
   }
 
   return (
-    <section className="py-10 relative overflow-hidden recommendation-section" ref={sectionRef}>
+    <section className="py-4 relative overflow-hidden recommendation-section" ref={sectionRef}>
       <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         {/* Enhanced Header - Style giống CategorySection */}
         <div className="recommendation-header text-center mb-12">

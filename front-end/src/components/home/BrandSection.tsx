@@ -62,53 +62,53 @@ export default function BrandSection() {
   }
 
   return (
-    <section className="py-16 bg-gray-50">
+    <section className="py-4 bg-gray-50">
       <div className="max-w-6xl mx-auto px-4">
         {featuredBrands && featuredBrands.length > 0 && (
           <>
-            <div className="text-center mb-12">
-              <div className="inline-block mb-4">
-                <span className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-full">
+            <div className="text-center mb-4">
+              <div className="inline-block mb-2">
+                <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
                   ⭐ Thương Hiệu Nổi Bật
                 </span>
               </div>
 
-              <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">
                 Khám Phá Những Thương Hiệu
                 <span className="text-blue-600"> Hàng Đầu</span>
               </h2>
-              <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-sm text-gray-600 max-w-xl mx-auto leading-relaxed">
                 Trải nghiệm các thương hiệu mỹ phẩm đẳng cấp thế giới với sản phẩm chất lượng cao
               </p>
 
-              <div className="w-12 h-px bg-blue-300 mt-6 mx-auto"></div>
+              <div className="w-12 h-px bg-blue-300 mt-3 mx-auto"></div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-16 pt-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4 pt-2">
               {featuredBrands.map((brand: Brand) => (
                 <div key={brand.id} className="relative">
                   <a href={`/brands/${brand.slug}`} className="block">
-                    <div className="relative bg-white rounded-xl p-4 h-32 flex flex-col items-center justify-center shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-colors">
+                    <div className="relative bg-white rounded-lg p-3 h-24 flex flex-col items-center justify-center shadow-md border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-colors">
                       {/* Featured badge */}
                       <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
-                        <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                          🏆 Nổi bật
+                        <div className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-semibold">
+                          🏆
                         </div>
                       </div>
 
                       {/* Logo container */}
-                      <div className="flex-1 flex items-center justify-center mb-2 relative z-10">
+                      <div className="flex-1 flex items-center justify-center mb-1 relative z-10">
                         {brand.logo?.url && !isImageError(`featured-${brand.id}`) ? (
                           <Image
                             src={brand.logo.url}
                             alt={brand.logo.alt || brand.name}
-                            width={80}
-                            height={40}
+                            width={60}
+                            height={30}
                             className="object-contain max-h-full max-w-full"
                             onError={() => handleImageError(`featured-${brand.id}`)}
                           />
                         ) : (
-                          <div className="w-full h-12 bg-gray-100 flex items-center justify-center text-gray-600 rounded-lg text-sm font-medium">
+                          <div className="w-full h-8 bg-gray-100 flex items-center justify-center text-gray-600 rounded text-xs font-medium">
                             {brand.name}
                           </div>
                         )}
@@ -116,7 +116,7 @@ export default function BrandSection() {
 
                       {/* Brand name */}
                       <div className="text-center relative z-10">
-                        <h4 className="text-xs font-semibold text-gray-700 line-clamp-2">
+                        <h4 className="text-xs font-medium text-gray-700 line-clamp-1">
                           {brand.name}
                         </h4>
                       </div>
@@ -130,27 +130,27 @@ export default function BrandSection() {
 
         {activeBrands && activeBrands.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">Tất Cả Thương Hiệu</h3>
-                <p className="text-gray-600 text-sm">Khám phá bộ sưu tập đầy đủ của chúng tôi</p>
+                <h3 className="text-lg font-bold text-gray-900 mb-0.5">Tất Cả Thương Hiệu</h3>
+                <p className="text-gray-600 text-xs">Khám phá bộ sưu tập đầy đủ của chúng tôi</p>
               </div>
               <a
                 href="/brands"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center"
               >
                 Xem tất cả
-                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </a>
             </div>
 
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
               {activeBrands.slice(0, 16).map((brand: Brand) => (
                 <div key={brand.id} className="relative">
                   <a href={`/brands/${brand.slug}`} className="block">
-                    <div className="relative bg-white rounded-lg p-3 h-16 flex items-center justify-center shadow-md border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-colors">
+                    <div className="relative bg-white rounded-lg p-2 h-12 flex items-center justify-center shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-colors">
                       {/* Special indicator for featured brands */}
                       {brand.featured && (
                         <div className="absolute top-1 right-1 z-10">
@@ -162,8 +162,8 @@ export default function BrandSection() {
                         <Image
                           src={brand.logo.url}
                           alt={brand.logo.alt || brand.name}
-                          width={60}
-                          height={30}
+                          width={40}
+                          height={20}
                           className="object-contain max-h-full max-w-full relative z-10"
                           onError={() => handleImageError(`active-${brand.id}`)}
                         />

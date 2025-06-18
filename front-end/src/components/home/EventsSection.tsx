@@ -425,7 +425,7 @@ export default function EventsSection() {
   // Loading state
   if (isLoading) {
     return (
-      <section className="py-10">
+      <section className="py-4">
         <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
           <div className="space-y-8">
             {[...Array(2)].map((_, index) => (
@@ -448,7 +448,7 @@ export default function EventsSection() {
   }
 
   return (
-    <section className="py-10">
+    <section className="py-4">
       <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
 
         {/* Events List - Each event with its own header */}

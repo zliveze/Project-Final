@@ -75,23 +75,23 @@ export default function CategorySection() {
   );
 
   return (
-    <section className="py-2 relative">
+    <section className="py-4 relative">
       <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-stone-800 mb-4 tracking-tight leading-tight">
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold text-stone-800 mb-2 tracking-tight leading-tight">
             Danh Mục Sản Phẩm
-            <span className="block text-2xl font-medium text-stone-600 mt-2">Mỹ Phẩm Cao Cấp</span>
+            <span className="block text-xl font-medium text-stone-600 mt-1">Mỹ Phẩm Cao Cấp</span>
           </h2>
 
-          <p className="text-lg text-stone-700 max-w-3xl mx-auto leading-relaxed font-medium">
+          <p className="text-base text-stone-700 max-w-2xl mx-auto leading-relaxed">
             Khám phá các danh mục sản phẩm mỹ phẩm
             <span className="text-rose-600 font-semibold"> đa dạng và chất lượng cao</span> của chúng tôi
           </p>
 
-          <div className="w-12 h-px bg-rose-300 mt-6 mx-auto"></div>
+          <div className="w-12 h-px bg-rose-300 mt-3 mx-auto"></div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {loading && (
             Array.from({ length: 10 }).map((_, index) => (
               <CategorySkeleton key={`skeleton-${index}`} />
@@ -129,15 +129,15 @@ export default function CategorySection() {
               )}
 
               <Link href={`/shop?categoryId=${category._id}`} className="block h-full">
-                <div className={`bg-white rounded-2xl p-8 flex flex-col items-center text-center h-56 relative group shadow-sm border ${category.featured ? 'border-rose-200 shadow-md' : 'border-stone-100'} hover:border-rose-200 transition-colors`}>
+                <div className={`bg-white rounded-xl p-4 flex flex-col items-center text-center h-44 relative group shadow-sm border ${category.featured ? 'border-rose-200 shadow-md' : 'border-stone-100'} hover:border-rose-200 transition-colors`}>
 
                   {category.image && category.image.url && !isImageError(category._id) ? (
-                    <div className="w-20 h-20 flex items-center justify-center mb-6 relative">
+                    <div className="w-16 h-16 flex items-center justify-center mb-3 relative">
                        <Image
                         src={category.image.url}
                         alt={category.image.alt || category.name}
-                        width={80}
-                        height={80}
+                        width={64}
+                        height={64}
                         className="object-contain rounded-full"
                         onError={() => handleImageError(category._id)}
                         placeholder="blur"
@@ -145,23 +145,23 @@ export default function CategorySection() {
                       />
                     </div>
                   ) : (
-                    <div className="w-20 h-20 flex items-center justify-center mb-6 text-3xl relative bg-stone-100 rounded-full">
+                    <div className="w-16 h-16 flex items-center justify-center mb-3 text-2xl relative bg-stone-100 rounded-full">
                       <span className="relative z-10 filter grayscale">{getFallbackIcon(category.name)}</span>
                     </div>
                   )}
 
                   <div className="flex-grow flex flex-col justify-center relative z-10">
-                    <h3 className={`font-medium text-lg mb-3 transition-colors ${category.featured ? 'text-stone-900 group-hover:text-rose-600' : 'text-stone-800 group-hover:text-rose-600'}`}>
+                    <h3 className={`font-medium text-base mb-2 transition-colors ${category.featured ? 'text-stone-900 group-hover:text-rose-600' : 'text-stone-800 group-hover:text-rose-600'}`}>
                       {category.name}
                     </h3>
-                    <p className="text-base text-stone-500 line-clamp-2 mb-4 leading-relaxed">
+                    <p className="text-sm text-stone-500 line-clamp-2 mb-2 leading-relaxed">
                       {category.description}
                     </p>
                   </div>
 
-                  <div className="text-base font-medium text-rose-400 flex items-center group-hover:text-rose-600 transition-colors relative z-10">
+                  <div className="text-sm font-medium text-rose-400 flex items-center group-hover:text-rose-600 transition-colors relative z-10">
                     Xem sản phẩm
-                    <FiArrowRight className="h-5 w-5 ml-2" />
+                    <FiArrowRight className="h-4 w-4 ml-1" />
                   </div>
                 </div>
               </Link>
@@ -170,10 +170,10 @@ export default function CategorySection() {
         </div>
 
         {!loading && !error && displayCategories.length > 0 && (
-          <div className="flex justify-center mt-12">
+          <div className="flex justify-center mt-4">
             <Link
               href="/categories"
-              className="px-8 py-3 bg-white text-stone-700 border border-stone-200 rounded-full font-medium hover:bg-stone-50 hover:shadow-sm transition-all shadow-sm hover:border-rose-200 hover:text-rose-600"
+              className="px-6 py-2 bg-white text-stone-700 border border-stone-200 rounded-full font-medium hover:bg-stone-50 hover:shadow-sm transition-all shadow-sm hover:border-rose-200 hover:text-rose-600 text-sm"
             >
               Xem tất cả danh mục
             </Link>

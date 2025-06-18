@@ -217,7 +217,7 @@ const CustomerReviewsSection: React.FC = () => {
   }
 
   return (
-    <section className="py-12 bg-gray-50">
+    <section className="py-4 bg-gray-50">
       <div className="mx-auto px-4 md:px-8 lg:px-12" style={{ maxWidth: 'calc(100vw - 50px)' }}>
         {/* Minimal header */}
         <div className="text-center mb-8">

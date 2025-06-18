@@ -24,52 +24,52 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-rose-50/20 via-pink-50/15 to-purple-50/10"></div>
         </div>
 
-        {/* Content Sections - Clean spacing */}
+        {/* Content Sections - High contrast alternating backgrounds */}
         <div className="relative z-10">
-          {/* Hero Section */}
-          <div className="py-2">
+          {/* Hero Section - White */}
+          <div className="bg-white border-b border-gray-200">
             <Herobanners />
           </div>
 
-          {/* Coupon Section */}
-          <div className="py-2">
+          {/* Coupon Section - Gray */}
+          <div className="py-1 bg-gray-50 border-b border-gray-200">
             <CouponSection />
           </div>
 
-          {/* Conditional Events Section */}
+          {/* Conditional Events Section - White */}
           {hasActiveEvents && (
-            <div className="py-2">
+            <div className="py-1 bg-white border-b border-gray-200">
               <EventsSection />
             </div>
           )}
 
-          {/* Category Section */}
-          <div className="py-2">
+          {/* Category Section - Gray */}
+          <div className="py-1 bg-gray-50 border-b border-gray-200">
             <CategorySection />
           </div>
 
-          {/* Brand Section */}
-          <div className="py-2">
+          {/* Brand Section - White */}
+          <div className="py-1 bg-white border-b border-gray-200">
             <BrandSection />
           </div>
 
-          {/* Best Seller Section */}
-          <div className="py-2">
+          {/* Best Seller Section - Gray */}
+          <div className="py-1 bg-gray-50 border-b border-gray-200">
             <BestSellerSection />
           </div>
 
-          {/* Top Search Section */}
-          <div className="py-2">
+          {/* Top Search Section - White */}
+          <div className="py-1 bg-white border-b border-gray-200">
             <TopSearchSection />
           </div>
 
-          {/* Recommendation Section */}
-          <div className="py-2">
+          {/* Recommendation Section - Gray */}
+          <div className="py-1 bg-gray-50 border-b border-gray-200">
             <RecommendationSection />
           </div>
 
-          {/* Customer Reviews Section */}
-          <div className="py-2">
+          {/* Customer Reviews Section - White */}
+          <div className="py-1 bg-white">
             <CustomerReviewsSection />
           </div>
         </div>

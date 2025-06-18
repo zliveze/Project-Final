@@ -209,14 +209,14 @@ export default function BestSellerSection() {
   // Loading state
   if (loading) {
     return (
-      <section className="py-10 relative overflow-hidden">
+      <section className="py-4 relative overflow-hidden">
         <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-          <div className="text-center mb-8">
+          <div className="text-center mb-4">
             <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-3 animate-pulse"></div>
             <div className="h-4 bg-gray-200 rounded w-80 mx-auto animate-pulse"></div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
             {[...Array(10)].map((_, index) => (
               <BestSellerSkeleton key={index} />
             ))}
@@ -236,21 +236,21 @@ export default function BestSellerSection() {
   const remainingProducts = bestSellers.slice(10);
 
   return (
-    <section className="py-10 relative">
+    <section className="py-4 relative">
       <div className="mx-auto px-4 md:px-8 lg:px-12 relative z-10" style={{ maxWidth: 'calc(100vw - 50px)' }}>
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-3">Sản Phẩm Bán Chạy</h2>
-          <p className="text-gray-600 max-w-xl mx-auto leading-relaxed">
+        <div className="text-center mb-3">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Sản Phẩm Bán Chạy</h2>
+          <p className="text-sm text-gray-600 max-w-lg mx-auto leading-relaxed">
             Top 20 sản phẩm được yêu thích nhất tại Yumin
           </p>
 
           {/* Simple divider */}
-          <div className="w-12 h-px bg-rose-300 mt-6 mx-auto"></div>
+          <div className="w-12 h-px bg-rose-300 mt-3 mx-auto"></div>
         </div>
 
         {/* Grid hiển thị 10 sản phẩm đầu (2 hàng x 5 cột) */}
         {firstTenProducts.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
             {firstTenProducts.map((product) => (
               <BestSellerCard key={product.id} product={product} />
             ))}
