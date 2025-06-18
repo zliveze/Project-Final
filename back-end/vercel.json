@@ -1,12 +1,15 @@
 {
-  "crons": [
+  "version": 2,
+  "builds": [
     {
-      "path": "/api/tasks/process-import-queue",
-      "schedule": "* * * * *",
-      "method": "POST",
-      "body": {
-        "secret": "${CRON_SECRET}"
-      }
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.ts"
     }
   ]
 }

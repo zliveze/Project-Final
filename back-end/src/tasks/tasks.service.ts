@@ -23,7 +23,8 @@ export class TasksService {
 
   constructor() {
     // Tự động dọn dẹp các tác vụ cũ sau mỗi 5 phút
-    setInterval(() => this.cleanupOldTasks(), 5 * 60 * 1000);
+    // Tạm thời tắt để tránh vấn đề với Vercel deployment
+    // setInterval(() => this.cleanupOldTasks(), 5 * 60 * 1000);
   }
 
   createImportTask(userId: string): ImportTask {
