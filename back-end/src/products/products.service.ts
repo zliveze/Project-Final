@@ -24,6 +24,14 @@ import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campa
 import * as XLSX from 'xlsx';
 import { ProductPromotionCheckDto } from './dto/product-promotion-check.dto';
 
+// Interface cho import job data
+interface ImportJobData {
+  taskId: string;
+  fileBufferBase64: string;
+  branchId: string;
+  userId?: string;
+}
+
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
@@ -2935,7 +2943,7 @@ export class ProductsService {
       const file = { buffer: fileBuffer, originalname: `import-${taskId}.xlsx` } as Express.Multer.File;
       
       // Gọi lại hàm xử lý file cũ, nhưng bây giờ nó được kích hoạt từ một job
-      await this.processImportFile(file, branchId, taskId, userId);
+      await this.processImportFile(file, branchId, taskId, userId || 'system');
     } catch (error) {
       this.logger.error(`[Task:${taskId}] Failed to process job: ${error.message}`, error.stack);
       this.tasksService.updateImportTask(taskId, {
@@ -3134,7 +3142,7 @@ export class ProductsService {
       const brandsToCreate = new Map<string, any>();
       const categoriesToCreate = new Map<string, any>();
       const productsToCreate: any[] = [];
-      const productsToUpdate: any[] = [];
+      const productsToUpdate: Array<{filter: any, update: any}> = [];
 
       this.logger.log(`[Task:${taskId}] 🚀 Bắt đầu phân tích ${totalProducts} sản phẩm (KHÔNG GHI DB)`);
 
@@ -3405,8 +3413,7 @@ export class ProductsService {
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${brandsArray.length} brands`);
         bulkPromises.push(
           this.brandModel.insertMany(brandsArray, {
-            ordered: false,
-            writeConcern: { w: 1, j: false } // Tối ưu write concern
+            ordered: false
           }).catch(error => {
             this.logger.warn(`[Task:${taskId}] Some brands may already exist: ${error.message}`);
             return null;
@@ -3420,8 +3427,7 @@ export class ProductsService {
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${categoriesArray.length} categories`);
         bulkPromises.push(
           this.categoryModel.insertMany(categoriesArray, {
-            ordered: false,
-            writeConcern: { w: 1, j: false }
+            ordered: false
           }).catch(error => {
             this.logger.warn(`[Task:${taskId}] Some categories may already exist: ${error.message}`);
             return null;
@@ -3435,7 +3441,7 @@ export class ProductsService {
 
         // 🔥 VERCEL OPTIMIZED CHUNKING: Chunk size nhỏ để đảm bảo tốc độ
         const CHUNK_SIZE = 200; // Chunk size nhỏ cho Vercel free tier
-        const productChunks = [];
+        const productChunks: any[][] = [];
         for (let i = 0; i < productsToCreate.length; i += CHUNK_SIZE) {
           productChunks.push(productsToCreate.slice(i, i + CHUNK_SIZE));
         }
@@ -3443,8 +3449,7 @@ export class ProductsService {
         for (const chunk of productChunks) {
           bulkPromises.push(
             this.productModel.insertMany(chunk, {
-              ordered: false,
-              writeConcern: { w: 1, j: false }
+              ordered: false
             }).catch(error => {
               this.logger.error(`[Task:${taskId}] Bulk create chunk error: ${error.message}`);
               // Fallback: thử từng item một
@@ -3467,7 +3472,7 @@ export class ProductsService {
 
         // 🔥 VERCEL OPTIMIZED BULK WRITE: Chunk size nhỏ để tối ưu
         const CHUNK_SIZE = 200;
-        const updateChunks = [];
+        const updateChunks: Array<{filter: any, update: any}>[] = [];
         for (let i = 0; i < productsToUpdate.length; i += CHUNK_SIZE) {
           updateChunks.push(productsToUpdate.slice(i, i + CHUNK_SIZE));
         }
@@ -3482,8 +3487,7 @@ export class ProductsService {
 
           bulkPromises.push(
             this.productModel.bulkWrite(bulkOps, {
-              ordered: false,
-              writeConcern: { w: 1, j: false }
+              ordered: false
             }).catch(error => {
               this.logger.error(`[Task:${taskId}] Bulk update chunk error: ${error.message}`);
               // Fallback: thử từng item một
