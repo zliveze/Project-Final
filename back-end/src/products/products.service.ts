@@ -19,7 +19,6 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { EventsService } from '../events/events.service'; // Import EventsService
 import { CampaignsService } from '../campaigns/campaigns.service'; // Import CampaignsService
 import { TasksService } from '../tasks/tasks.service'; // Import TasksService
-import { QueueService, ImportJobData } from '../queues/queue.service'; // Import QueueService
 import { Event } from '../events/entities/event.entity'; // Import Event entity
 import { Campaign } from '../campaigns/schemas/campaign.schema'; // Import Campaign entity
 import * as XLSX from 'xlsx';
@@ -40,7 +39,6 @@ export class ProductsService {
     private readonly eventsService: EventsService,
     private readonly campaignsService: CampaignsService,
     private readonly tasksService: TasksService,
-    private readonly queueService: QueueService,
   ) {
     // Kiểm tra xem collection có text index hay không
     this.checkTextIndex();
@@ -2952,9 +2950,7 @@ export class ProductsService {
     this.logger.log(`[Task:${task.id}] Created import task for user ${userId}`);
 
     try {
-      // Thay vì xử lý ngay, chúng ta sẽ đẩy job vào hàng đợi
-      // Lưu ý: file.path sẽ không tồn tại lâu trên Vercel, cần xử lý ngay
-      // Đọc file và lấy số dòng
+      // Xử lý trực tiếp thay vì qua hàng đợi KV
       const workbook = XLSX.read(file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
@@ -2965,34 +2961,22 @@ export class ProductsService {
         throw new BadRequestException('File Excel không có dữ liệu sản phẩm.');
       }
 
-      // Hiện tại, chúng ta vẫn truyền buffer qua job.
-      // Một giải pháp tốt hơn là lưu file vào một storage tạm thời (như Vercel Blob)
-      // và chỉ lưu đường dẫn vào job. Tạm thời giữ nguyên để đơn giản hóa.
-      // Chuyển buffer thành base64 để lưu vào JSON trong hàng đợi
-      const fileBufferBase64 = file.buffer.toString('base64');
-
-      const jobData: any = {
-        taskId: task.id,
-        fileBufferBase64, // Truyền buffer dưới dạng base64
-        branchId,
-        userId,
-        totalRows,
-        processedRows: 0,
-      };
-
-      await this.queueService.addImportJob(jobData);
-
-      this.logger.log(`[Task:${task.id}] Job added to queue. Total rows: ${totalRows}`);
+      this.logger.log(`[Task:${task.id}] Starting direct processing. Total rows: ${totalRows}`);
       this.tasksService.updateImportTask(task.id, {
         status: 'processing',
-        progress: 5,
-        message: `Đã đưa vào hàng đợi xử lý. Tổng cộng ${totalRows} sản phẩm.`,
+        progress: 10,
+        message: `Bắt đầu xử lý ${totalRows} sản phẩm...`,
+      });
+
+      // Xử lý trực tiếp trong background để không block response
+      setImmediate(() => {
+        this.processImportFile(file, branchId, task.id, userId);
       });
 
       return { taskId: task.id };
 
     } catch (error) {
-      this.logger.error(`[Task:${task.id}] Error while adding import job to queue: ${error.message}`, error.stack);
+      this.logger.error(`[Task:${task.id}] Error while preparing import: ${error.message}`, error.stack);
       this.tasksService.updateImportTask(task.id, {
         status: 'failed',
         message: `Lỗi khi chuẩn bị import: ${error.message}`,
@@ -3002,9 +2986,10 @@ export class ProductsService {
   }
 
   private async processImportFile(file: Express.Multer.File, branchId: string, taskId: string, userId: string): Promise<void> {
-    // 🔥 TIMEOUT PROTECTION: Đặt timeout cho toàn bộ quá trình import
+    // 🔥 VERCEL FREE TIER PROTECTION: Giới hạn thời gian 8 giây để an toàn
     const importStartTime = Date.now();
-    const MAX_IMPORT_TIME = 15 * 60 * 1000; // 15 phút cho file lớn
+    const MAX_IMPORT_TIME = 8 * 1000; // 8 giây cho Vercel free tier
+    const MAX_PRODUCTS_PER_BATCH = 1000; // Giới hạn số sản phẩm để đảm bảo performance
 
     try {
       this.logger.log(`[Task:${taskId}] Bắt đầu import sản phẩm từ file Excel cho người dùng ${userId}: ${file.originalname}`);
@@ -3093,9 +3078,16 @@ export class ProductsService {
       // Log thông tin để debug
       this.logger.log(`File Excel có ${rawData.length} dòng dữ liệu`);
       // Bỏ qua dòng tiêu đề, chỉ lấy dữ liệu từ dòng thứ 2 trở đi
-      const productRows = rawData.slice(1).filter(row => row.length > 0);
+      let productRows = rawData.slice(1).filter(row => row.length > 0);
 
-      this.logger.log(`Đọc được ${productRows.length} sản phẩm từ file Excel`);
+      // 🔥 VERCEL FREE TIER: Giới hạn số lượng sản phẩm để đảm bảo hoàn thành trong 8 giây
+      if (productRows.length > MAX_PRODUCTS_PER_BATCH) {
+        this.logger.warn(`[Task:${taskId}] File có ${productRows.length} sản phẩm, giới hạn xuống ${MAX_PRODUCTS_PER_BATCH} để đảm bảo performance`);
+        productRows = productRows.slice(0, MAX_PRODUCTS_PER_BATCH);
+        this.emitImportProgress(taskId, userId, 5, 'parsing', `Giới hạn xử lý ${MAX_PRODUCTS_PER_BATCH} sản phẩm đầu tiên để đảm bảo tốc độ`);
+      }
+
+      this.logger.log(`Sẽ xử lý ${productRows.length} sản phẩm từ file Excel`);
 
       this.emitImportProgress(taskId, userId, 15, 'parsing', 'Đang chuẩn bị dữ liệu và tối ưu hóa...');
 
@@ -3130,8 +3122,8 @@ export class ProductsService {
       const endProgress = 85; // Giảm để có thời gian bulk operations
       const progressRange = endProgress - startProgress;
 
-      // 🔥 SMART BATCHING: Batch size tối ưu dựa trên kích thước file
-      const BATCH_SIZE = totalProducts > 5000 ? 200 : totalProducts > 1000 ? 100 : 50;
+      // 🔥 VERCEL OPTIMIZED BATCHING: Batch size tối ưu cho Vercel free tier
+      const BATCH_SIZE = totalProducts > 500 ? 100 : totalProducts > 200 ? 50 : 25;
 
       this.logger.log(`[Task:${taskId}] ⚡ Xử lý ${totalProducts} sản phẩm với batch size ${BATCH_SIZE}`);
 
@@ -3148,6 +3140,14 @@ export class ProductsService {
 
       for (let globalIndex = 0; globalIndex < totalProducts; globalIndex++) {
         const row = productRows[globalIndex];
+
+        // 🔥 TIMEOUT CHECK: Kiểm tra thời gian để tránh vượt quá giới hạn Vercel
+        const currentTime = Date.now();
+        if (currentTime - importStartTime > MAX_IMPORT_TIME) {
+          this.logger.warn(`[Task:${taskId}] Timeout protection: Dừng xử lý tại sản phẩm ${globalIndex + 1}/${totalProducts} sau ${currentTime - importStartTime}ms`);
+          result.errors.push(`Timeout: Chỉ xử lý được ${globalIndex} sản phẩm đầu tiên do giới hạn thời gian`);
+          break;
+        }
 
         try {
           // 🚀 SIÊU TỐI ƯU: Gửi thông báo tiến độ thông minh dựa trên kích thước file
@@ -3390,78 +3390,119 @@ export class ProductsService {
       const processEndTime = Date.now();
       this.logger.log(`[Task:${taskId}] ⚡ Hoàn thành xử lý ${totalProducts} sản phẩm trong ${processEndTime - processStartTime}ms`);
 
-      // 🚀 TRUE BULK OPERATIONS: Ghi tất cả vào DB trong một lần duy nhất
-      this.emitImportProgress(taskId, userId, 85, 'finalizing', 'Đang thực hiện bulk operations...');
+      // 🚀 ULTRA FAST BULK OPERATIONS: Tối ưu cho Vercel Free Tier (10s timeout)
+      this.emitImportProgress(taskId, userId, 85, 'finalizing', 'Đang thực hiện siêu tốc bulk operations...');
 
       const bulkStartTime = Date.now();
-      this.logger.log(`[Task:${taskId}] 🚀 Bắt đầu TRUE BULK OPERATIONS: ${brandsToCreate.size} brands, ${categoriesToCreate.size} categories, ${productsToCreate.length} new products, ${productsToUpdate.length} updates`);
+      this.logger.log(`[Task:${taskId}] 🚀 ULTRA FAST BULK: ${brandsToCreate.size} brands, ${categoriesToCreate.size} categories, ${productsToCreate.length} new products, ${productsToUpdate.length} updates`);
 
-      // 1. Bulk create brands trước (nếu có)
+      // 🔥 PARALLEL BULK OPERATIONS: Thực hiện song song để tối ưu thời gian
+      const bulkPromises: Promise<any>[] = [];
+
+      // 1. Bulk create brands (parallel)
       if (brandsToCreate.size > 0) {
         const brandsArray = Array.from(brandsToCreate.values());
-        this.logger.log(`[Task:${taskId}] ⚡ Bulk creating ${brandsArray.length} brands`);
-        try {
-          await this.brandModel.insertMany(brandsArray, { ordered: false });
-        } catch (error) {
-          this.logger.warn(`[Task:${taskId}] Some brands may already exist: ${error.message}`);
-        }
+        this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${brandsArray.length} brands`);
+        bulkPromises.push(
+          this.brandModel.insertMany(brandsArray, {
+            ordered: false,
+            writeConcern: { w: 1, j: false } // Tối ưu write concern
+          }).catch(error => {
+            this.logger.warn(`[Task:${taskId}] Some brands may already exist: ${error.message}`);
+            return null;
+          })
+        );
       }
 
-      // 2. Bulk create categories (nếu có)
+      // 2. Bulk create categories (parallel)
       if (categoriesToCreate.size > 0) {
         const categoriesArray = Array.from(categoriesToCreate.values());
-        this.logger.log(`[Task:${taskId}] ⚡ Bulk creating ${categoriesArray.length} categories`);
-        try {
-          await this.categoryModel.insertMany(categoriesArray, { ordered: false });
-        } catch (error) {
-          this.logger.warn(`[Task:${taskId}] Some categories may already exist: ${error.message}`);
-        }
+        this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${categoriesArray.length} categories`);
+        bulkPromises.push(
+          this.categoryModel.insertMany(categoriesArray, {
+            ordered: false,
+            writeConcern: { w: 1, j: false }
+          }).catch(error => {
+            this.logger.warn(`[Task:${taskId}] Some categories may already exist: ${error.message}`);
+            return null;
+          })
+        );
       }
 
-      // 3. Bulk create products
+      // 3. Bulk create products (parallel)
       if (productsToCreate.length > 0) {
-        this.logger.log(`[Task:${taskId}] ⚡ Bulk creating ${productsToCreate.length} products`);
-        try {
-          await this.productModel.insertMany(productsToCreate, { ordered: false });
-          this.logger.log(`[Task:${taskId}] ✅ Successfully bulk created ${productsToCreate.length} products`);
-        } catch (error) {
-          this.logger.error(`[Task:${taskId}] Bulk create error: ${error.message}`);
-          // Fallback nhanh
-          for (const productDto of productsToCreate) {
-            try {
-              const newProductInstance = new this.productModel(productDto);
-              await newProductInstance.save();
-            } catch (saveError) {
-              result.errors.push(`Lỗi tạo sản phẩm SKU ${productDto.sku}: ${saveError.message}`);
-            }
-          }
+        this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${productsToCreate.length} products`);
+
+        // 🔥 VERCEL OPTIMIZED CHUNKING: Chunk size nhỏ để đảm bảo tốc độ
+        const CHUNK_SIZE = 200; // Chunk size nhỏ cho Vercel free tier
+        const productChunks = [];
+        for (let i = 0; i < productsToCreate.length; i += CHUNK_SIZE) {
+          productChunks.push(productsToCreate.slice(i, i + CHUNK_SIZE));
+        }
+
+        for (const chunk of productChunks) {
+          bulkPromises.push(
+            this.productModel.insertMany(chunk, {
+              ordered: false,
+              writeConcern: { w: 1, j: false }
+            }).catch(error => {
+              this.logger.error(`[Task:${taskId}] Bulk create chunk error: ${error.message}`);
+              // Fallback: thử từng item một
+              return Promise.allSettled(
+                chunk.map(productDto =>
+                  new this.productModel(productDto).save().catch(saveError => {
+                    result.errors.push(`Lỗi tạo sản phẩm SKU ${productDto.sku}: ${saveError.message}`);
+                    return null;
+                  })
+                )
+              );
+            })
+          );
         }
       }
 
-      // 4. Bulk update products
+      // 4. Bulk update products (parallel)
       if (productsToUpdate.length > 0) {
-        this.logger.log(`[Task:${taskId}] ⚡ Bulk updating ${productsToUpdate.length} products`);
-        try {
-          const bulkOps = productsToUpdate.map(item => ({
+        this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk updating ${productsToUpdate.length} products`);
+
+        // 🔥 VERCEL OPTIMIZED BULK WRITE: Chunk size nhỏ để tối ưu
+        const CHUNK_SIZE = 200;
+        const updateChunks = [];
+        for (let i = 0; i < productsToUpdate.length; i += CHUNK_SIZE) {
+          updateChunks.push(productsToUpdate.slice(i, i + CHUNK_SIZE));
+        }
+
+        for (const chunk of updateChunks) {
+          const bulkOps = chunk.map(item => ({
             updateOne: {
               filter: item.filter,
               update: item.update
             }
           }));
-          await this.productModel.bulkWrite(bulkOps, { ordered: false });
-          this.logger.log(`[Task:${taskId}] ✅ Successfully bulk updated ${productsToUpdate.length} products`);
-        } catch (error) {
-          this.logger.error(`[Task:${taskId}] Bulk update error: ${error.message}`);
-          // Fallback nhanh
-          for (const item of productsToUpdate) {
-            try {
-              await this.productModel.updateOne(item.filter, item.update);
-            } catch (updateError) {
-              result.errors.push(`Lỗi cập nhật sản phẩm: ${updateError.message}`);
-            }
-          }
+
+          bulkPromises.push(
+            this.productModel.bulkWrite(bulkOps, {
+              ordered: false,
+              writeConcern: { w: 1, j: false }
+            }).catch(error => {
+              this.logger.error(`[Task:${taskId}] Bulk update chunk error: ${error.message}`);
+              // Fallback: thử từng item một
+              return Promise.allSettled(
+                chunk.map(item =>
+                  this.productModel.updateOne(item.filter, item.update).catch(updateError => {
+                    result.errors.push(`Lỗi cập nhật sản phẩm: ${updateError.message}`);
+                    return null;
+                  })
+                )
+              );
+            })
+          );
         }
       }
+
+      // 🚀 EXECUTE ALL PARALLEL: Chờ tất cả operations hoàn thành
+      this.logger.log(`[Task:${taskId}] ⚡ Executing ${bulkPromises.length} parallel bulk operations...`);
+      await Promise.allSettled(bulkPromises);
 
       const bulkEndTime = Date.now();
       this.logger.log(`[Task:${taskId}] ✅ Hoàn thành TRUE BULK OPERATIONS trong ${bulkEndTime - bulkStartTime}ms`);
@@ -3892,20 +3933,29 @@ export class ProductsService {
 
       this.logger.log(`[Task:${taskId}] Cần tải: ${uniqueBrandNames.size} brands, ${skusToCheck.size} SKUs, ${categoryPaths.size} categories`);
 
-      // 🔥 PARALLEL LOADING: Tải tất cả dữ liệu song song
+      // 🔥 ULTRA FAST PARALLEL LOADING: Tải dữ liệu với projection tối thiểu
       const [existingBrands, existingProducts, allCategories] = await Promise.all([
-        // Load brands
+        // Load brands - chỉ lấy fields cần thiết
         uniqueBrandNames.size > 0 ?
-          this.brandModel.find({ name: { $in: Array.from(uniqueBrandNames) } }).lean().exec() :
+          this.brandModel.find({ name: { $in: Array.from(uniqueBrandNames) } })
+            .select('_id name slug')
+            .lean()
+            .exec() :
           Promise.resolve([]),
 
-        // Load existing products
+        // Load existing products - chỉ lấy fields cần thiết cho update
         skusToCheck.size > 0 ?
-          this.productModel.find({ sku: { $in: Array.from(skusToCheck) } }).lean().exec() :
+          this.productModel.find({ sku: { $in: Array.from(skusToCheck) } })
+            .select('_id sku name slug inventory status')
+            .lean()
+            .exec() :
           Promise.resolve([]),
 
-        // Load all categories for hierarchy processing
-        this.categoryModel.find().lean().exec()
+        // Load categories - chỉ lấy fields cần thiết cho hierarchy
+        this.categoryModel.find()
+          .select('_id name slug level parentId')
+          .lean()
+          .exec()
       ]);
 
       // 🔥 FAST CACHE BUILDING: Xây dựng cache nhanh

@@ -17,7 +17,6 @@ import { EventsModule } from '../events/events.module'; // Import EventsModule
 import { CampaignsModule } from '../campaigns/campaigns.module'; // Import CampaignsModule
 import { RecommendationsModule } from '../recommendations/recommendations.module'; // Import RecommendationsModule
 import { TasksModule } from '../tasks/tasks.module'; // Import TasksModule
-import { QueueModule } from '../queues/queue.module'; // Import QueueModule
 
 @Module({
   imports: [
@@ -34,7 +33,6 @@ import { QueueModule } from '../queues/queue.module'; // Import QueueModule
     CampaignsModule, // Add CampaignsModule here
     forwardRef(() => RecommendationsModule), // Add RecommendationsModule with circular dependency protection
     TasksModule, // Add TasksModule here
-    QueueModule, // Add QueueModule to provide QueueService
     MulterModule.register({
       storage: memoryStorage(),
       limits: {
