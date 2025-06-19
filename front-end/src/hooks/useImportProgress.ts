@@ -12,6 +12,8 @@ export interface ImportTask {
   summary?: {
     created?: number;
     updated?: number;
+    brandsCreated?: number;
+    categoriesCreated?: number;
     errors?: string[];
     totalProducts?: number;
     statusChanges?: {

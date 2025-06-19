@@ -10,6 +10,8 @@ interface ImportSummaryModalProps {
     success: boolean;
     created: number;
     updated: number;
+    brandsCreated?: number;
+    categoriesCreated?: number;
     errors: string[];
     totalProducts: number;
     statusChanges?: {
@@ -22,10 +24,13 @@ interface ImportSummaryModalProps {
 const ImportSummaryModal: React.FC<ImportSummaryModalProps> = ({ isOpen, onClose, summary }) => {
   if (!summary) return null;
 
+  // Debug logging
+  console.log('🔍 ImportSummaryModal - Summary data:', summary);
+
   const hasErrors = summary.errors.length > 0;
   const successCount = summary.created + summary.updated;
-  const successRate = summary.totalProducts > 0 
-    ? Math.round((successCount / summary.totalProducts) * 100) 
+  const successRate = summary.totalProducts > 0
+    ? Math.round((successCount / summary.totalProducts) * 100)
     : 0;
 
   return (
@@ -100,6 +105,14 @@ const ImportSummaryModal: React.FC<ImportSummaryModalProps> = ({ isOpen, onClose
                       <div className="bg-white p-3 rounded border border-gray-200">
                         <p className="text-sm text-gray-500">Sản phẩm cập nhật</p>
                         <p className="text-xl font-semibold text-blue-600">{summary.updated}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-sm text-gray-500">Thương hiệu mới</p>
+                        <p className="text-xl font-semibold text-purple-600">{summary.brandsCreated || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-gray-200">
+                        <p className="text-sm text-gray-500">Danh mục mới</p>
+                        <p className="text-xl font-semibold text-indigo-600">{summary.categoriesCreated || 0}</p>
                       </div>
                     </div>
                   </div>

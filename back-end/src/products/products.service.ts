@@ -548,6 +548,15 @@ export class ProductsService {
         throw new NotFoundException(`Không tìm thấy sản phẩm với ID: ${id}`);
       }
 
+      // 🔍 DEBUG: Log inventory data
+      this.logger.log(`[DEBUG] Product ${id} inventory data:`, {
+        hasInventory: !!product.inventory,
+        inventoryLength: product.inventory?.length || 0,
+        inventoryData: product.inventory || [],
+        hasVariantInventory: !!product.variantInventory,
+        variantInventoryLength: product.variantInventory?.length || 0
+      });
+
       return this.mapProductToResponseDto(product);
     } catch (error) {
       this.logger.error(`Error finding product by ID: ${error.message}`, error.stack);
@@ -2994,10 +3003,10 @@ export class ProductsService {
   }
 
   private async processImportFile(file: Express.Multer.File, branchId: string, taskId: string, userId: string): Promise<void> {
-    // 🔥 VERCEL FREE TIER PROTECTION: Giới hạn thời gian 8 giây để an toàn
+    // 🔥 VERCEL FREE TIER PROTECTION: Giới hạn thời gian để an toàn
     const importStartTime = Date.now();
-    const MAX_IMPORT_TIME = 8 * 1000; // 8 giây cho Vercel free tier
-    const MAX_PRODUCTS_PER_BATCH = 1000; // Giới hạn số sản phẩm để đảm bảo performance
+    const MAX_IMPORT_TIME = 25 * 1000; // 25 giây cho Vercel free tier (tăng lên)
+    const MAX_PRODUCTS_PER_BATCH = 5000; // Tăng giới hạn lên 5000 sản phẩm
 
     try {
       this.logger.log(`[Task:${taskId}] Bắt đầu import sản phẩm từ file Excel cho người dùng ${userId}: ${file.originalname}`);
@@ -3084,15 +3093,19 @@ export class ProductsService {
       this.emitImportProgress(taskId, userId, 10, 'parsing', 'Đang phân tích dữ liệu Excel...');
 
       // Log thông tin để debug
-      this.logger.log(`File Excel có ${rawData.length} dòng dữ liệu`);
+      this.logger.log(`[Task:${taskId}] 📊 File Excel có ${rawData.length} dòng tổng cộng (bao gồm header)`);
       // Bỏ qua dòng tiêu đề, chỉ lấy dữ liệu từ dòng thứ 2 trở đi
       let productRows = rawData.slice(1).filter(row => row.length > 0);
+      this.logger.log(`[Task:${taskId}] 📊 Sau khi loại bỏ header và dòng trống: ${productRows.length} dòng dữ liệu sản phẩm`);
 
-      // 🔥 VERCEL FREE TIER: Giới hạn số lượng sản phẩm để đảm bảo hoàn thành trong 8 giây
+      // 🔥 VERCEL FREE TIER: Giới hạn số lượng sản phẩm để đảm bảo hoàn thành trong thời gian cho phép
       if (productRows.length > MAX_PRODUCTS_PER_BATCH) {
-        this.logger.warn(`[Task:${taskId}] File có ${productRows.length} sản phẩm, giới hạn xuống ${MAX_PRODUCTS_PER_BATCH} để đảm bảo performance`);
+        this.logger.warn(`[Task:${taskId}] ⚠️ File có ${productRows.length} sản phẩm, giới hạn xuống ${MAX_PRODUCTS_PER_BATCH} để đảm bảo performance`);
+        const originalCount = productRows.length;
         productRows = productRows.slice(0, MAX_PRODUCTS_PER_BATCH);
-        this.emitImportProgress(taskId, userId, 5, 'parsing', `Giới hạn xử lý ${MAX_PRODUCTS_PER_BATCH} sản phẩm đầu tiên để đảm bảo tốc độ`);
+        this.emitImportProgress(taskId, userId, 5, 'parsing', `⚠️ File có ${originalCount} sản phẩm, chỉ xử lý ${MAX_PRODUCTS_PER_BATCH} sản phẩm đầu tiên để đảm bảo tốc độ. Vui lòng chia nhỏ file để import đầy đủ.`);
+      } else {
+        this.logger.log(`[Task:${taskId}] ✅ File có ${productRows.length} sản phẩm, trong giới hạn cho phép`);
       }
 
       this.logger.log(`Sẽ xử lý ${productRows.length} sản phẩm từ file Excel`);
@@ -3121,7 +3134,8 @@ export class ProductsService {
           toOutOfStock: 0,
           toActive: 0
         },
-        categoriesCreated: 0 // Thêm đếm số categories được tạo
+        categoriesCreated: 0, // Thêm đếm số categories được tạo
+        brandsCreated: 0 // Thêm đếm số brands được tạo
       };
 
       // 🔥 SIÊU TỐI ƯU: Xử lý hàng loạt thông minh
@@ -3147,6 +3161,10 @@ export class ProductsService {
       this.logger.log(`[Task:${taskId}] 🚀 Bắt đầu phân tích ${totalProducts} sản phẩm (KHÔNG GHI DB)`);
 
       for (let globalIndex = 0; globalIndex < totalProducts; globalIndex++) {
+        // Debug log mỗi 100 sản phẩm
+        if (globalIndex % 100 === 0) {
+          this.logger.log(`[Task:${taskId}] Đang xử lý sản phẩm ${globalIndex + 1}/${totalProducts}`);
+        }
         const row = productRows[globalIndex];
 
         // 🔥 TIMEOUT CHECK: Kiểm tra thời gian để tránh vượt quá giới hạn Vercel
@@ -3154,6 +3172,13 @@ export class ProductsService {
         if (currentTime - importStartTime > MAX_IMPORT_TIME) {
           this.logger.warn(`[Task:${taskId}] Timeout protection: Dừng xử lý tại sản phẩm ${globalIndex + 1}/${totalProducts} sau ${currentTime - importStartTime}ms`);
           result.errors.push(`Timeout: Chỉ xử lý được ${globalIndex} sản phẩm đầu tiên do giới hạn thời gian`);
+          break;
+        }
+
+        // 🔥 ERROR LIMIT CHECK: Dừng nếu quá nhiều lỗi
+        if (result.errors.length > 50) {
+          this.logger.warn(`[Task:${taskId}] Too many errors (${result.errors.length}): Dừng xử lý tại sản phẩm ${globalIndex + 1}/${totalProducts}`);
+          result.errors.push(`Dừng xử lý do quá nhiều lỗi (${result.errors.length} lỗi)`);
           break;
         }
 
@@ -3257,6 +3282,8 @@ export class ProductsService {
               };
               brandsToCreate.set(brandName, brandDocument);
               brandCache.set(brandName, brandDocument);
+              result.brandsCreated++; // Đếm brand mới tạo
+              this.logger.log(`[Task:${taskId}] 🏷️ Chuẩn bị tạo brand mới: "${brandName}" (Total: ${result.brandsCreated})`);
             }
             if (brandDocument && brandDocument._id) {
               productDto.brandId = brandDocument._id;
@@ -3266,12 +3293,19 @@ export class ProductsService {
           // 🚀 TRUE BULK: Chuẩn bị category, KHÔNG ghi DB
           if (categoryName) {
             try {
-              const categoryResult = await this.prepareFastCategory(categoryName, categoryCache, allCategories, categoriesToCreate);
+              // Timeout protection cho category processing
+              const categoryPromise = this.prepareFastCategory(categoryName, categoryCache, allCategories, categoriesToCreate);
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Category processing timeout')), 5000)
+              );
+
+              const categoryResult = await Promise.race([categoryPromise, timeoutPromise]) as any;
               if (categoryResult.finalCategoryId) {
                 productDto.categoryIds = [categoryResult.finalCategoryId];
                 result.categoriesCreated += categoryResult.newCategoriesCount;
               }
             } catch (error) {
+              this.logger.warn(`[Task:${taskId}] Category timeout/error for "${categoryName}": ${error.message}`);
               result.errors.push(`Dòng ${globalIndex + 2}: Lỗi xử lý danh mục "${categoryName}": ${error.message}`);
             }
           }
@@ -3296,9 +3330,26 @@ export class ProductsService {
 
           if (existingProduct) {
             this.logger.log(`Cập nhật sản phẩm có SKU: ${sku}`);
+
+            // 🔧 FIX SLUG DUPLICATE: Chỉ cập nhật slug nếu tên sản phẩm thay đổi
+            let finalSlug = existingProduct.slug; // Giữ nguyên slug cũ
+            if (existingProduct.name !== productDto.name) {
+              // Tên thay đổi -> tạo slug mới và đảm bảo unique
+              let newSlug = slug;
+              let counter = 1;
+              while (existingSlugs.has(newSlug) && newSlug !== existingProduct.slug) {
+                newSlug = `${slug}-${counter}`;
+                counter++;
+              }
+              finalSlug = newSlug;
+              // Cập nhật cache: xóa slug cũ, thêm slug mới
+              existingSlugs.delete(existingProduct.slug);
+              existingSlugs.add(finalSlug);
+            }
+
             const updateFields: any = {
               name: productDto.name,
-              slug: productDto.slug,
+              slug: finalSlug, // Sử dụng slug đã được xử lý
               price: productDto.price,
               costPrice: productDto.costPrice,
               currentPrice: productDto.currentPrice,
@@ -3399,7 +3450,7 @@ export class ProductsService {
       this.logger.log(`[Task:${taskId}] ⚡ Hoàn thành xử lý ${totalProducts} sản phẩm trong ${processEndTime - processStartTime}ms`);
 
       // 🚀 ULTRA FAST BULK OPERATIONS: Tối ưu cho Vercel Free Tier (10s timeout)
-      this.emitImportProgress(taskId, userId, 85, 'finalizing', 'Đang thực hiện siêu tốc bulk operations...');
+      this.emitImportProgress(taskId, userId, 85, 'finalizing', `Đang lưu ${result.created + result.updated} sản phẩm vào cơ sở dữ liệu...`);
 
       const bulkStartTime = Date.now();
       this.logger.log(`[Task:${taskId}] 🚀 ULTRA FAST BULK: ${brandsToCreate.size} brands, ${categoriesToCreate.size} categories, ${productsToCreate.length} new products, ${productsToUpdate.length} updates`);
@@ -3411,6 +3462,7 @@ export class ProductsService {
       if (brandsToCreate.size > 0) {
         const brandsArray = Array.from(brandsToCreate.values());
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${brandsArray.length} brands`);
+        this.emitImportProgress(taskId, userId, 87, 'finalizing', `Đang tạo ${brandsArray.length} thương hiệu mới...`);
         bulkPromises.push(
           this.brandModel.insertMany(brandsArray, {
             ordered: false
@@ -3425,6 +3477,7 @@ export class ProductsService {
       if (categoriesToCreate.size > 0) {
         const categoriesArray = Array.from(categoriesToCreate.values());
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${categoriesArray.length} categories`);
+        this.emitImportProgress(taskId, userId, 89, 'finalizing', `Đang tạo ${categoriesArray.length} danh mục mới...`);
         bulkPromises.push(
           this.categoryModel.insertMany(categoriesArray, {
             ordered: false
@@ -3438,6 +3491,7 @@ export class ProductsService {
       // 3. Bulk create products (parallel)
       if (productsToCreate.length > 0) {
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk creating ${productsToCreate.length} products`);
+        this.emitImportProgress(taskId, userId, 91, 'finalizing', `Đang tạo ${productsToCreate.length} sản phẩm mới...`);
 
         // 🔥 VERCEL OPTIMIZED CHUNKING: Chunk size nhỏ để đảm bảo tốc độ
         const CHUNK_SIZE = 200; // Chunk size nhỏ cho Vercel free tier
@@ -3469,6 +3523,7 @@ export class ProductsService {
       // 4. Bulk update products (parallel)
       if (productsToUpdate.length > 0) {
         this.logger.log(`[Task:${taskId}] ⚡ Parallel bulk updating ${productsToUpdate.length} products`);
+        this.emitImportProgress(taskId, userId, 93, 'finalizing', `Đang cập nhật ${productsToUpdate.length} sản phẩm...`);
 
         // 🔥 VERCEL OPTIMIZED BULK WRITE: Chunk size nhỏ để tối ưu
         const CHUNK_SIZE = 200;
@@ -3512,17 +3567,18 @@ export class ProductsService {
       this.logger.log(`[Task:${taskId}] ✅ Hoàn thành TRUE BULK OPERATIONS trong ${bulkEndTime - bulkStartTime}ms`);
 
       // Tạo thông báo tổng kết chi tiết hơn
-      const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
+      const summaryMessage = `Hoàn thành: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.brandsCreated} thương hiệu mới, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi từ tổng số ${totalProducts} sản phẩm. Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`;
 
-      this.emitImportProgress(taskId, userId, 95, 'finalizing', `Đang hoàn tất: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
+      this.emitImportProgress(taskId, userId, 95, 'finalizing', `Đã xử lý xong: ${result.created} sản phẩm mới, ${result.updated} cập nhật, ${result.brandsCreated} thương hiệu mới, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
 
-      this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
+      this.logger.log(`Hoàn thành import sản phẩm: ${result.created} mới, ${result.updated} cập nhật, ${result.brandsCreated} thương hiệu mới, ${result.categoriesCreated} danh mục mới, ${result.errors.length} lỗi`);
       this.logger.log(`Thay đổi trạng thái: ${result.statusChanges.toOutOfStock} sản phẩm hết hàng, ${result.statusChanges.toActive} sản phẩm còn hàng`);
 
       // Gửi thông báo tổng kết chi tiết với dữ liệu summary
       const summaryData = {
         created: result.created,
         updated: result.updated,
+        brandsCreated: result.brandsCreated,
         categoriesCreated: result.categoriesCreated,
         errors: result.errors,
         totalProducts: totalProducts,
@@ -3597,8 +3653,9 @@ export class ProductsService {
         return { finalCategoryId: category._id as Types.ObjectId, newCategoriesCount: 0 };
       }
 
-      // Xử lý hierarchy phức tạp - fallback về method cũ (vẫn ghi DB ngay)
-      return await this.processHierarchicalCategory(categoryPath, 0);
+      // Xử lý hierarchy phức tạp - tạm thời bỏ qua để tránh treo
+      this.logger.warn(`[prepareFastCategory] Bỏ qua category phức tạp: ${categoryPath}`);
+      return { finalCategoryId: null, newCategoriesCount: 0 };
     } catch (error) {
       return { finalCategoryId: null, newCategoriesCount: 0 };
     }
@@ -3972,9 +4029,12 @@ export class ProductsService {
       const categoryCache = new Map<string, any>();
       allCategories.forEach(cat => categoryCache.set(cat.name, cat));
 
-      // 🔥 SMART SLUG CACHE: Chỉ cache slugs hiện có
+      // 🔥 SMART SLUG CACHE: Cache tất cả slugs hiện có trong database
       const existingSlugs = new Set<string>();
-      existingProducts.forEach(product => {
+
+      // Lấy tất cả slugs hiện có để tránh duplicate
+      const allExistingSlugs = await this.productModel.find({}, { slug: 1 }).lean().exec();
+      allExistingSlugs.forEach(product => {
         if (product.slug) existingSlugs.add(product.slug);
       });
 

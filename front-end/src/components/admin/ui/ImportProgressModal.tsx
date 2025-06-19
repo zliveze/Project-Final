@@ -23,24 +23,24 @@ interface ImportProgressModalProps {
 }
 
 const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ isOpen, onClose, task, selectedBranchName }) => {
-  // Tự động đóng modal khi hoàn thành sau 3 giây
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+  // KHÔNG tự động đóng modal - để người dùng tự đóng
+  // useEffect(() => {
+  //   let timeoutId: NodeJS.Timeout;
 
-    if (task?.status === 'completed') {
-      debugLog('Nhận trạng thái hoàn thành, sẽ đóng sau 3 giây');
-      timeoutId = setTimeout(() => {
-        debugLog('Đóng modal sau khi hoàn thành');
-        onClose();
-      }, 3000);
-    }
+  //   if (task?.status === 'completed') {
+  //     debugLog('Nhận trạng thái hoàn thành, sẽ đóng sau 3 giây');
+  //     timeoutId = setTimeout(() => {
+  //       debugLog('Đóng modal sau khi hoàn thành');
+  //       onClose();
+  //     }, 3000);
+  //   }
 
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [task, onClose]);
+  //   return () => {
+  //     if (timeoutId) {
+  //       clearTimeout(timeoutId);
+  //     }
+  //   };
+  // }, [task, onClose]);
 
   useEffect(() => {
     debugLog(`Modal ${isOpen ? 'mở' : 'đóng'}`, { task });

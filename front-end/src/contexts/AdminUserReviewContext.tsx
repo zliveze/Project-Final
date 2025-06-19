@@ -81,37 +81,35 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
   // Lấy thống kê đánh giá
   const getReviewStats = useCallback(async (): Promise<Record<string, number>> => {
     try {
+      // Kiểm tra xem có accessToken không
+      if (!accessToken) {
+        console.warn('Không có access token, bỏ qua việc lấy thống kê đánh giá');
+        return { total: 0, pending: 0, approved: 0, rejected: 0 };
+      }
+
       // Thử endpoint chính
       try {
         const response = await api().get('/admin/reviews/stats');
         if (response.data) {
           return response.data;
         }
-      } catch (err) {
-        console.warn('Không thể lấy thống kê từ endpoint chính, thử endpoint thay thế:', err);
-      }
-
-      // Thử endpoint thay thế nếu endpoint chính không hoạt động
-      try {
-        const altResponse = await api().get('/admin/reviews?status=pending&limit=1');
-        if (altResponse.data && typeof altResponse.data.totalItems === 'number') {
-          return {
-            total: altResponse.data.totalItems || 0,
-            pending: altResponse.data.totalItems || 0,
-            approved: 0,
-            rejected: 0
-          };
+      } catch (err: any) {
+        // Chỉ log warning cho network errors
+        if (err.code === 'NETWORK_ERROR' || err.message?.includes('Network Error')) {
+          console.warn('Network error khi lấy thống kê đánh giá, có thể backend chưa sẵn sàng');
+        } else {
+          console.warn('Không thể lấy thống kê từ endpoint chính:', err.message);
         }
-      } catch (err) {
-        console.error('Không thể lấy thống kê từ endpoint thay thế:', err);
       }
 
+      // Trả về giá trị mặc định thay vì thử endpoint thay thế
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
-    } catch (error) {
-      console.error('Lỗi khi lấy thống kê đánh giá:', error);
+    } catch (error: any) {
+      // Chỉ log warning thay vì error
+      console.warn('Lỗi khi lấy thống kê đánh giá:', error.message);
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
     }
-  }, [api]);
+  }, [api, accessToken]);
 
   // Lấy danh sách đánh giá
   const fetchReviews = useCallback(async (
@@ -205,17 +203,26 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
             setNewReviewsCount(stats.pending);
           }
         } catch (error) {
-          console.error('Lỗi khi cập nhật số lượng đánh giá đang chờ duyệt:', error);
+          // Chỉ log warning thay vì error để tránh crash app
+          console.warn('Không thể cập nhật số lượng đánh giá đang chờ duyệt:', error);
+          // Đặt giá trị mặc định
+          setNewReviewsCount(0);
         }
       };
 
-      fetchPendingCount(); // Lấy lần đầu
+      // Delay 2 giây trước khi gọi API để đảm bảo backend đã sẵn sàng
+      const timeoutId = setTimeout(() => {
+        fetchPendingCount(); // Lấy lần đầu
+      }, 2000);
 
-      // Thiết lập polling để cập nhật 30 giây một lần
-      const intervalId = setInterval(fetchPendingCount, 30000); // 30 giây
+      // Thiết lập polling để cập nhật 60 giây một lần (giảm tần suất)
+      const intervalId = setInterval(fetchPendingCount, 60000); // 60 giây
 
       // Cleanup khi component unmount
-      return () => clearInterval(intervalId);
+      return () => {
+        clearTimeout(timeoutId);
+        clearInterval(intervalId);
+      };
     }
   }, [accessToken, getReviewStats]);
 

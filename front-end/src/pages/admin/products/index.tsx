@@ -246,38 +246,64 @@ function AdminProducts({
 
   const handleEdit = async (id: string): Promise<boolean> => {
     debugLog('Opening edit modal for product ID:', id);
-    const product = products.find(p => p.id === id);
 
-    if (product) {
-      setSelectedProduct(product);
-      setShowEditProductModal(true);
-      toast.success(`Đang sửa sản phẩm: ${product.name}`, {
-        duration: 2000,
+    try {
+      // 🔧 FIX: Gọi API để lấy chi tiết đầy đủ sản phẩm (bao gồm inventory)
+      const loadingToast = toast.loading('Đang tải chi tiết sản phẩm...', {
         icon: <FiEdit className="text-blue-500" />,
       });
-      return true;
-    } else {
-      toast.error('Không tìm thấy thông tin sản phẩm trong danh sách hiện tại!', { duration: 3000 });
-      console.error('Could not find product with ID:', id);
+
+      const detailedProduct = await fetchProductById(id);
+      toast.dismiss(loadingToast);
+
+      if (detailedProduct) {
+        setSelectedProduct(detailedProduct);
+        setShowEditProductModal(true);
+        toast.success(`Đang sửa sản phẩm: ${detailedProduct.name}`, {
+          duration: 2000,
+          icon: <FiEdit className="text-blue-500" />,
+        });
+        return true;
+      } else {
+        toast.error('Không thể tải chi tiết sản phẩm!', { duration: 3000 });
+        return false;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Lỗi khi tải chi tiết sản phẩm: ${errorMessage}`, { duration: 3000 });
+      console.error('Error fetching product details:', error);
       return false;
     }
   };
 
   const handleView = async (id: string): Promise<boolean> => {
     debugLog('Opening view modal for product ID:', id);
-    const product = products.find(p => p.id === id);
 
-    if (product) {
-      setSelectedProduct(product);
-      setShowProductDetailModal(true);
-      toast.success(`Đang xem sản phẩm: ${product.name}`, {
-        duration: 2000,
-        icon: <FiEye className="text-gray-500" />,
+    try {
+      // 🔧 FIX: Gọi API để lấy chi tiết đầy đủ sản phẩm (bao gồm inventory)
+      const loadingToast = toast.loading('Đang tải chi tiết sản phẩm...', {
+        icon: <FiEye className="text-green-500" />,
       });
-      return true;
-    } else {
-      toast.error('Không tìm thấy thông tin sản phẩm trong danh sách hiện tại!', { duration: 3000 });
-      console.error('Could not find product with ID:', id);
+
+      const detailedProduct = await fetchProductById(id);
+      toast.dismiss(loadingToast);
+
+      if (detailedProduct) {
+        setSelectedProduct(detailedProduct);
+        setShowProductDetailModal(true);
+        toast.success(`Đang xem sản phẩm: ${detailedProduct.name}`, {
+          duration: 2000,
+          icon: <FiEye className="text-gray-500" />,
+        });
+        return true;
+      } else {
+        toast.error('Không thể tải chi tiết sản phẩm!', { duration: 3000 });
+        return false;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Lỗi khi tải chi tiết sản phẩm: ${errorMessage}`, { duration: 3000 });
+      console.error('Error fetching product details:', error);
       return false;
     }
   };
@@ -1591,6 +1617,8 @@ function AdminProducts({
           success: true,
           created: task.summary.created || 0,
           updated: task.summary.updated || 0,
+          brandsCreated: task.summary.brandsCreated || 0,
+          categoriesCreated: task.summary.categoriesCreated || 0,
           errors: task.summary.errors || [],
           totalProducts: task.summary.totalProducts || 0,
           statusChanges: task.summary.statusChanges ? {

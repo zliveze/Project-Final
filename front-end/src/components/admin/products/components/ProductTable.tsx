@@ -238,7 +238,15 @@ const ProductTable: React.FC<ProductTableProps> = ({
                       </div>
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <span className="text-sm font-medium px-2 py-1 rounded-md bg-gray-100 text-gray-700">{product.stock || 0}</span>
+                      <span className={`text-sm font-medium px-2 py-1 rounded-md ${
+                        product.stock > 0
+                          ? 'bg-green-100 text-green-700'
+                          : product.stock === 0
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {product.stock !== undefined ? product.stock : 'N/A'}
+                      </span>
                     </td>
                     <td className="px-4 py-4">
                       <ProductStatusBadge status={product.status as 'active' | 'out_of_stock' | 'discontinued'} />
