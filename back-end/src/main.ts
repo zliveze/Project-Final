@@ -25,11 +25,15 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost',
+    'https://project-final-livid.vercel.app',
     process.env.FRONTEND_URL
   ].filter(Boolean); // Loại bỏ các giá trị undefined
 
   app.enableCors({
     origin: (origin: string, callback: (error: Error | null, allow?: boolean) => void) => {
+      logger.log(`CORS Origin check: ${origin}`);
+      logger.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+
       // Cho phép requests không có origin (mobile apps, postman, etc.)
       if (!origin) return callback(null, true);
 
@@ -41,6 +45,7 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       } else {
+        logger.error(`CORS blocked origin: ${origin}`);
         return callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },

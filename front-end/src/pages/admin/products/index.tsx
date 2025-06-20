@@ -257,7 +257,7 @@ function AdminProducts({
       toast.dismiss(loadingToast);
 
       if (detailedProduct) {
-        setSelectedProduct(detailedProduct);
+        setSelectedProduct(detailedProduct as unknown as AdminProduct);
         setShowEditProductModal(true);
         toast.success(`Đang sửa sản phẩm: ${detailedProduct.name}`, {
           duration: 2000,
@@ -289,7 +289,7 @@ function AdminProducts({
       toast.dismiss(loadingToast);
 
       if (detailedProduct) {
-        setSelectedProduct(detailedProduct);
+        setSelectedProduct(detailedProduct as unknown as AdminProduct);
         setShowProductDetailModal(true);
         toast.success(`Đang xem sản phẩm: ${detailedProduct.name}`, {
           duration: 2000,

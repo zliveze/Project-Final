@@ -36,19 +36,29 @@ server.use(((req: Request, res: Response, next: NextFunction) => {
 // Cấu hình CORS
 const allowedOrigins = [
   'http://localhost:3000',
+  'https://project-final-livid.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
 // Cấu hình CORS
 server.use(cors({
   origin: (origin, callback) => {
+    console.log('CORS Origin check:', origin);
+    console.log('Allowed origins:', allowedOrigins);
+
     // Cho phép requests không có origin (mobile apps, postman, etc.)
     if (!origin) return callback(null, true);
+
+    // Luôn cho phép localhost để phát triển local
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
-      return callback(new Error('Not allowed by CORS'));
+      console.error(`CORS blocked origin: ${origin}`);
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   credentials: true,

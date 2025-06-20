@@ -93,20 +93,22 @@ export const AdminUserReviewProvider: React.FC<{ children: ReactNode }> = ({ chi
         if (response.data) {
           return response.data;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Chỉ log warning cho network errors
-        if (err.code === 'NETWORK_ERROR' || err.message?.includes('Network Error')) {
+        const error = err as Error & { code?: string };
+        if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
           console.warn('Network error khi lấy thống kê đánh giá, có thể backend chưa sẵn sàng');
         } else {
-          console.warn('Không thể lấy thống kê từ endpoint chính:', err.message);
+          console.warn('Không thể lấy thống kê từ endpoint chính:', error.message);
         }
       }
 
       // Trả về giá trị mặc định thay vì thử endpoint thay thế
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Chỉ log warning thay vì error
-      console.warn('Lỗi khi lấy thống kê đánh giá:', error.message);
+      const err = error as Error;
+      console.warn('Lỗi khi lấy thống kê đánh giá:', err.message);
       return { total: 0, pending: 0, approved: 0, rejected: 0 };
     }
   }, [api, accessToken]);

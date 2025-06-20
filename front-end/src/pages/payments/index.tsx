@@ -249,7 +249,7 @@ const PaymentsPage: NextPage = () => {
       updateShipping(32000);
       setAvailableServices([]);
     }
-  }, [cartItems, selectedItems, selectedSubtotal, discount, calculateShippingFeeAll, updateShipping, calculateTotalWeight]);
+  }, [selectedSubtotal, discount, calculateShippingFeeAll, updateShipping, calculateTotalWeight, getSelectedBranchIdFromCart, selectedServiceCode]);
 
   useEffect(() => {
     if (!cartLoading) {
